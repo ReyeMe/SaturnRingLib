@@ -1,28 +1,5 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
 0.bin
-/src/**/*.o
+/[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
-/[Mm]ednafen/b/*
 /[Mm]ednafen/**
-/[Mm]ednafen/sav/*
-/[Mm]ednafen/firmware/*
-/[Mm]ednafen/*.cfg
-/[Mm]ednafen/*.lck
-/[Mm]ednafen/ru/**
-/[Mm]ednafen/de/**
-/[Mm]ednafen/[Dd]ocumentation/**
-/[Mm]ednafen/stdout.txt
-/[Mm]ednafen/stderr.txt
