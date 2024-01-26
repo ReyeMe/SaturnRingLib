@@ -1,0 +1,5933 @@
+#!/usr/bin/wish 
+#
+# xorriso-tcltk
+# Copyright (C) 2012 - 2021
+# Thomas Schmitt <scdbackup@gmx.net>, libburnia project.
+# Provided under BSD license: Use, modify, and distribute as you like.
+#
+# This is mainly a proof of concept for xorriso serving under a frontend.
+# It exercises several fundamental gestures of communication:
+# - connecting via two named pipes
+# - sending commands
+# - receiving replies
+# - inquiring the xorriso message sieve
+# - using the xorriso parsing service
+#
+# It also may serve as educational frontend to xorriso which tells by
+# its message window how to operate xorriso by commands and what it will
+# reply.
+
+# Note that any other language than Tcl/Tk could be used, if it only can
+# do i/o via standard input and standard output or via named pipes.
+# Further it has to perform integer arithmetics and string manipulations.
+# And, well, a graphical widget set would be nice.
+
+
+set own_version "1.5.4"
+
+# Minimum version of xorriso to be used as backend process.
+# Older versions of xorriso do not offer commands -msg_op and -launch_frontend
+set min_xorriso_version "1.2.6"
+
+
+proc print_usage {argv0} {
+  puts stderr "Usage:"
+  puts stderr "  $argv0 \[options\]"
+  puts stderr "Options:"
+  puts stderr " All options must be given with two dashes (\"--option\") in"
+  puts stderr " order to distinguish them from any options of the Tcl shell."
+  puts stderr " --help"
+  puts stderr "     Print this text and exit."
+  puts stderr " --stdio"
+  puts stderr "     Establish connection to xorriso via stdin and stdout."
+  puts stderr "     E.g. when letting xorriso start this frontend program:"
+  puts stderr "       xorriso -launch_frontend \$(which xorriso-tcltk) --stdio --"
+  puts stderr " --named_pipes cmd_fifo reply_fifo"
+  puts stderr "     Establish connection to a xorriso process started by:"
+  puts stderr "       xorriso -dialog on <cmd_fifo >reply_fifo"
+  puts stderr "     which is then ready for a run of:"
+  puts stderr "       xorriso-tcltk --named_pipes cmd_fifo reply_fifo"
+  puts stderr "     It is important that the parent of xorriso and of this"
+  puts stderr "     tcl/tk frontend opens the named pipe for commands before"
+  puts stderr "     it opens the named pipe for replies. This avoids deadlock."
+  puts stderr " --silent_start"
+  puts stderr "     Do not issue the start message xorriso-tcltk-version."
+  puts stderr "     This works only if --silent_start is the first argument."
+  puts stderr " --no_extract"
+  puts stderr "     Do not allow extraction of files from ISO filesystem to"
+  puts stderr "     hard disk. This is not revokable during the program run."
+  puts stderr " --no_bwidget"
+  puts stderr "     Do not try to load the Tcl/Tk package BWidget which is"
+  puts stderr "     a prerequisite for the \"/\" file browser buttons."
+  puts stderr " --geometry {+|-}X{+|-}Y"
+  puts stderr "     Sets the position of the main window."
+  puts stderr " --click_to_focus"
+  puts stderr "     Chooses that input fields and list boxes get the keyboard"
+  puts stderr "     focus only when being clicked by the mouse. (Default)"
+  puts stderr " --auto_focus"
+  puts stderr "     Chooses that the keyboard focus is where the mouse"
+  puts stderr "     pointer is."
+  puts stderr " --pipe_log_file path"
+  puts stderr "     Set a file address for logging of xorriso commands and"
+  puts stderr "     reply messages and enable this logging."
+  puts stderr "     The log lines will be appended. Path \"-\" means stderr."
+  puts stderr " --script_log_file path"
+  puts stderr "     Set a file address for logging of essential xorriso"
+  puts stderr "     commands and enable this logging."
+  puts stderr "     The log lines will be appended. Path \"-\" means stderr."
+  puts stderr " --script_log_all_commands"
+  puts stderr "     With logging of commands log non-essential commands too."
+  puts stderr " --use_command_move"
+  puts stderr "     Use xorriso command -move for the \"Move to:\" button"
+  puts stderr "     if xorriso version is >= 1.2.8"
+  puts stderr " --use_command_mv"
+  puts stderr "     Use xorriso command -mv for the \"Move to:\" button."
+  puts stderr ""
+  puts stderr "If neither --stdio nor --named_pipes is given, then this script"
+  puts stderr "will try to locate itself in the filesystem and start a xorriso"
+  puts stderr "run that launches it again."
+  puts stderr ""
+  puts stderr "In the running GUI, click with the rightmost mouse button on"
+  puts stderr "any GUI element to get its particular help text."
+  puts stderr ""
+}
+
+
+# ------------------------------- the frontend ----------------------------
+#
+# Connects to a xorriso process, sends commands, receives replies,
+# prepares replies for GUI
+
+# Connection to xorriso
+set cmd_conn ""
+set reply_conn ""
+
+# The addresses of the named pipes, if such are used (see option -named_pipe)
+set cmd_pipe_adr ""
+set reply_pipe_adr ""
+
+# The command to send (or the command most recently sent)
+set cmdline ""
+# Whether to clear the cmdline after sending
+set cmdline_clear true
+# Command counter
+set cmd_sent 0
+# Current -mark synchronization text
+set mark_count 0
+
+# Results of most recent await_all_replies 
+set info_list ""
+set info_count 0
+set emerging_info ""
+set result_list ""
+set result_count 0
+set emerging_result ""
+
+# Highest severities encountered in total and with most recent command
+set highest_total_sev ALL
+set highest_total_sev_msg ""
+set highest_cmd_sev ALL
+set highest_cmd_sev_msg ""
+# This one registers like highest_cmd_sev with threshold ALL
+set highest_seen_cmd_sev ALL
+
+# State of last read_sieve command
+set sieve_ret 0
+
+# How many texts to pass with one parse_bulk command
+set bulk_parse_max_chunk 200
+# Parse parameters
+set bulk_parse_prefix ""
+set bulk_parse_separators ""
+set bulk_parse_max_words ""
+set bulk_parse_flag ""
+# The announced number of texts to parse
+set bulk_parse_num_texts ""
+
+# Whether to complain on stderr about broken pipes.
+# This may be expected when xorriso is being shut down by this frontend.
+set expect_broken_pipes "0"
+
+# Whether to use command -move rather than -mv. Possible since xorriso-1.2.8.
+set use_command_move 1
+
+# Whether to enable -hardlinks mode "on". Too slow before xorriso-1.3.0.
+set use_command_hardlinks_on 1
+
+
+# Local copies of xorriso state
+
+# Addresses of drives (or image files) as shown by their text fields in the GUI
+set outdev_adr ""
+set indev_adr ""
+
+# Addresses of drives (or image files) as set in xorriso (after inquire_dev)
+set eff_outdev_adr ""
+set eff_indev_adr ""
+
+# Whether the medium is blank, appendable, closed, missing
+set indev_medium_status "missing"
+set outdev_medium_status "missing"
+
+# What kind of medium is presented by the drive
+set indev_profile ""
+set outdev_profile ""
+
+# List of known drive addresses
+set devlist ""
+
+# Intermediate storage for messages until the GUI is up with .msglist box
+set pre_msglist ""
+
+# Whether overwriting of files in the ISO model is allowed
+set overwrite_iso_files 1
+
+# If overwrite_iso_files is 1: Whether overwriting of ISO directories is allowed
+set overwrite_iso_dirs 0
+
+# Whether overwriting of files on disk is allowed
+set overwrite_disk_files 0
+
+# The file where to log commands and replies for debugging purposes
+set debug_log_file ""
+set debug_log_conn stderr
+
+# Whether to log all commands and replies to the debug_log_file 
+set debug_logging 0
+
+# The result of the most recent isofs_ls run
+set isofs_ls_result ""
+
+# The result of the most recent localfs_ls run
+set localfs_ls_result ""
+
+# The communication channel where to log files (if it is not the empty text)
+set cmd_log_conn ""
+
+# The address under which cmd_log_conn was opened
+set cmd_log_target ""
+
+# Whether to log essential commands: 0=off , 1=no extract , 2=with extract
+set cmd_logging_mode 0
+
+# Whether to log all commands if cmd_logging_mode is 1: 0=off , 1=on
+set cmd_logging_all 0
+
+# The last logged -cd path. Used to prevent redundant logging of -cd.
+set recent_cd_path ""
+
+# The file address and the channel for xorriso command script execution
+set execute_script_adr ""
+set execute_script_conn ""
+
+# Whether extraction to disk shall be allowed in scripts
+set script_with_osirrox 0
+
+# Whether extraction to disk is allowed
+set osirrox_allowed 1
+
+
+# xorriso specific constants
+
+# List of severities (gets later overridden by -msg_op list_sev -)
+set xorriso_severity_list {
+  ALL DEBUG UPDATE NOTE HINT WARNING SORRY MISHAP FAILURE FATAL ABORT NEVER
+}
+set scan_event_threshold HINT
+
+
+# --------- Communication between frontend and xorriso ----------
+
+
+# Open the connection to a pair of named pipes. Program option -named_pipes
+#
+proc init_frontend_named_pipes {cmd_pipe reply_pipe} {
+  global cmd_conn
+  global reply_conn
+
+  set cmd_conn [open $cmd_pipe w]
+  set reply_conn [open $reply_pipe r]
+
+  # Note: dissuaded flags would be necessary for opening idle fifo
+  # set reply_conn [open $reply_pipe {RDONLY NONBLOCK}]
+
+}
+
+
+# Send a command line to the xorriso process. Do not wait for reply.
+#
+proc send_async_cmd {cmd} {
+  global cmd_sent cmd_conn debug_logging debug_log_conn
+
+  display_busy 1
+  log_command $cmd 0
+
+  debug_log_puts \
+         "     =============================================================="
+  debug_log_puts "       $cmd"
+  display_msg "======>  $cmd" 
+  incr cmd_sent
+  puts $cmd_conn $cmd
+  flush $cmd_conn
+}
+
+
+# Send a command line and a -mark command to xorriso. Wait until the
+# mark message confirms that all command output has been received.
+#
+proc send_marked_cmd {cmd} {
+  global cmd_conn mark_count
+
+  send_async_cmd $cmd
+  incr mark_count
+  set mark_cmd "-mark $mark_count"
+  debug_log_puts "       $mark_cmd"
+  puts $cmd_conn $mark_cmd
+  flush $cmd_conn
+  await_all_replies
+}
+
+
+# Send a command and make it a candidate for the log script
+#
+proc send_loggable_cmd {cmd} {
+  log_command $cmd 1
+  send_marked_cmd $cmd
+}
+
+
+# Send a command that shall not be displayed in the message log
+#
+proc send_silent_cmd {cmd} {
+  set disp_en_mem [set_display_msg 0]
+  send_marked_cmd $cmd
+  set_display_msg $disp_en_mem
+}
+
+
+# Wait for the currently pending mark message to arrive.
+# Buffer all received result lines and info messages.
+#
+proc await_all_replies {} {
+  global reply_conn mark_count result_count result_list
+  global info_count info_list expect_broken_pipes
+  global .busy_text 
+
+  clear_reply_lists
+
+  while {1} {
+    set ret [gets $reply_conn line]
+    if {$ret < 0} {
+      if {$expect_broken_pipes != 1} {
+        puts stderr "EOF at reply pipe"
+      }
+  break
+    }
+    debug_log_puts $line
+    if {[string range $line 0 0] == "M"} {
+       if {[string range $line 5 end] == $mark_count} {
+  break
+       } else {
+         # outdated mark message
+  continue
+       }
+    }
+
+    de_pkt_line $line
+  }
+
+  display_busy 0
+}
+
+
+# Decode -pkt_output format to complete lines and buffer them.
+#
+proc de_pkt_line {line} {
+  global info_list
+  global info_count
+  global emerging_info
+  global result_list
+  global result_count
+  global emerging_result
+
+  # Distinguish R and I
+  set ch [string range $line 0 0]
+
+  set payload [string range $line 5 end]
+  if {$ch == "R"} {
+    set emerging_result "$emerging_result$payload"
+  } else { if {$ch == "I"} {
+    set emerging_info "$emerging_info$payload"
+  } else {
+    return ""
+  }}
+
+  # if line end : add to list
+  if {[string range $line 2 2] == "1"} {
+    if {$ch == "R"} {
+      lappend result_list $emerging_result
+      incr result_count
+      display_msg $emerging_result
+      set emerging_result ""
+    } else {
+      lappend info_list $emerging_info
+      incr info_count
+      display_msg $emerging_info
+      scan_info_for_event $emerging_info
+      set emerging_info ""
+    }
+  }
+}
+
+
+# Search in the decoded info messages for the most severe event reports.
+#
+proc scan_info_for_event {line} {
+  global highest_total_sev highest_total_sev_msg
+  global highest_cmd_sev highest_cmd_sev_msg highest_seen_cmd_sev
+  global scan_event_threshold
+  global display_msg_enabled
+
+  # check for word : CAPS : text ...
+  set ret [regexp {[a-z][a-z]*[ ]*: [A-Z][A-Z]* :} $line]
+      
+  if {$ret != 1} {return ""}
+
+  # retrieve severity
+  set pos [string first ":" $line]
+  set sev [string range $line [expr $pos+2] end]
+  set pos [string first ":" $sev]
+  set sev [string range $sev 0 [expr $pos-2]];
+
+  if {[compare_sev $sev $highest_seen_cmd_sev] > 0} {
+    set highest_seen_cmd_sev $sev
+  }
+
+  if {[compare_sev $sev $scan_event_threshold] < 0} {return ""}
+
+  if {$display_msg_enabled == 0} {
+    set display_msg_enabled 1
+    display_msg $line
+    set display_msg_enabled 0
+  }
+  if {[compare_sev $sev $highest_total_sev] >= 0} {
+    set highest_total_sev $sev
+    set highest_total_sev_msg [escape_newline $line 0]
+  }
+  if {[compare_sev $sev $highest_cmd_sev] >= 0} {
+    set highest_cmd_sev $sev
+    set highest_cmd_sev_msg [escape_newline $line 0]
+  }
+}
+
+
+# Unpack the output format of -msg_op read_sieve into a result_list
+# of strings which each hold one parsed word.
+#
+proc de_sieve {} {
+  global result_list
+  global sieve_ret
+  
+  set sieve_ret [lindex $result_list 0]
+  set sieve_result_count [lindex $result_list 1]
+
+  set payload ""
+  set sieve_result_count 0
+  for {set i 2} {$i < [llength $result_list]} {incr i} {
+    set line ""
+    set num_lines [lindex $result_list $i]
+    for {set j 0} {$j < $num_lines} {incr j} {
+      incr i
+      set line "$line[lindex $result_list $i]"
+      if {$j < $num_lines - 1} {
+        set line "$line\n"
+      } else {
+        lappend payload $line
+        incr sieve_result_count  
+      }  
+    }
+  }
+  set result_list $payload
+  set result_count $sieve_result_count
+}
+
+
+# Alternative to proc await_all_replies. It waits for a line at one of the
+# three channels and displays all lines which it receives before that line.
+# Used before this frontend had the opportunity to set up xorriso by commands
+# like -pkt_output "on".
+#
+proc wait_for_msg {prefix channel} {
+  global reply_conn
+
+  if {$channel == "M"} {
+    set channel_prefix "M:0: "
+  } else {
+    set channel_prefix "$channel:1: "
+  }
+
+  set prefix_l [string length $prefix]
+  while {1} {
+
+    # >>> Have a timeout
+
+    set ret [gets $reply_conn line]
+    if {$ret < 0} {
+  break
+    }
+    debug_log_puts $line
+    if {[string length $line] < $prefix_l} {
+      display_msg $line
+  continue
+    }
+    if {[string range $line 0 [expr $prefix_l-1]] == $prefix} {
+      return [string range $line $prefix_l end]
+    }
+    if {[string length $line] >= [expr $prefix_l+5]} {
+      if {[string range $line 0 4] == $channel_prefix} {
+        if {[string range $line 5 [expr $prefix_l+4]] == $prefix} {
+          return [string range $line [expr $prefix_l+5] end] 
+        }
+      }
+    }
+    display_msg $line
+  }
+}
+
+
+# Reset the buffer for result lines and info messages.
+#
+proc clear_reply_lists {} {
+  global info_list
+  global info_count
+  global emerging_info
+  global result_list
+  global result_count
+  global emerging_result
+
+  set info_list ""
+  set info_count 0
+  set emerging_info ""
+  set result_list ""
+  set result_count 0
+  set emerging_result ""
+}
+
+
+# Reset the register of the most severe event for command sequences.
+# Typically this is done before executing the commands of a procedure
+# that is triggered by the user interface.
+#
+proc reset_highest_cmd_sev {} {
+  global highest_cmd_sev highest_cmd_sev_msg highest_seen_cmd_sev
+
+  set highest_cmd_sev ALL
+  set highest_cmd_sev_msg ""
+  set highest_seen_cmd_sev ALL
+}
+
+
+# Clear the recordings of the xorriso message sieve.
+#
+proc clear_sieve {} {
+  send_silent_cmd "-msg_op clear_sieve -"
+}
+
+
+# Obtain a recorded item from the xorriso message sieve.
+#
+proc read_sieve {name} {
+  send_silent_cmd "-msg_op read_sieve '$name'"
+  de_sieve
+}
+
+
+# ------- Inquiring xorriso status -------
+
+
+# Get more information about drive that was inquired by recent -toc_of.
+#
+proc obtain_drive_info {dev} {
+  global result_list
+  global sieve_ret
+  global indev_medium_status outdev_medium_status
+  global indev_profile outdev_profile
+
+  set line ""
+
+  if {$dev == "in"} {
+    set indev_medium_status "missing"
+    set indev_profile ""
+  } else {
+    set outdev_medium_status "missing"
+    set outdev_profile ""
+  }
+  read_sieve "Media status :"
+  if {$sieve_ret > 0} {
+    set reply [lindex $result_list 0]
+    foreach i {blank appendable closed} {
+      if {[string first $i $reply] != -1} {
+        set line "$i "
+        if {$dev == "in"} {
+          set indev_medium_status $i
+        } else {
+          set outdev_medium_status $i
+        }
+    break
+      }
+    }
+  }
+  read_sieve "Media current:"
+  if {$sieve_ret > 0} {
+    set profile [lindex $result_list 0]
+    if {$profile == "is not recognizable"} {
+      set profile "no recognizable medium"
+      set line "$line$profile"
+      return $line
+    } else {
+      set line "$line$profile, "
+      if {$dev == "in"} {
+        set indev_profile $profile
+      } else {
+        set outdev_profile $profile
+      }
+    }
+  }
+  read_sieve "Media summary:"
+  if {$sieve_ret > 0} {
+    set line "$line[lindex $result_list 0] sessions, "
+    if {$dev == "in"} {
+      set line "$line[lindex $result_list 2] used"
+    } else {
+      set line "$line[lindex $result_list 3] free"
+    }
+  }
+  return $line
+}
+
+
+# Inquire whether changes of the ISO image are pending.
+# This is a precondition for writing the session. Vice versa pending changes
+# block a change of the input drive or the program end.
+#
+proc changes_are_pending {} {
+  global result_count result_list
+
+  send_silent_cmd "-changes_pending show_status"
+  if {$result_count >= 1} {
+    if {[lindex $result_list 0] == "-changes_pending no"} {
+      return "0"
+    }
+    return "1"
+  }
+  return ""
+}
+
+
+# Inquire whether an ISO image model has been created inside xorriso.
+# This is a precondition for inserting files into the ISO tree model.
+#
+proc assert_iso_image {with_msg} {
+  global highest_seen_cmd_sev scan_event_threshold
+
+  set highest_seen_cmd_sev ""
+  set set_mem $scan_event_threshold
+  set scan_event_threshold "FATAL"
+  send_silent_cmd "-lsd / --"
+  set scan_event_threshold $set_mem
+  if {[compare_sev $highest_seen_cmd_sev "FAILURE"] >= 0} {
+    if {$with_msg == 1} {
+      xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : First you need to create or load an ISO image by selecting a drive or an image file"
+    }
+    return "0"
+  }
+  return "1"
+}
+
+
+# Obtain the list of possible event severity names, sorted in ascending order
+#
+proc inquire_severity_list {} {
+  global xorriso_severity_list
+  global result_list
+
+  set disp_en_mem [set_display_msg 0]
+  send_marked_cmd "-msg_op list_sev -"
+  set_display_msg $disp_en_mem
+  if {[lindex $result_list 0] != ""} {
+    set xorriso_severity_list [split [lindex $result_list 0] " "]
+  }
+}
+
+
+# Parse-by-xorriso handler function for proc inquire_dev
+#
+proc set_inquired_dev {} {
+  global result_list eff_indev_adr eff_outdev_adr
+
+  if {[llength $result_list] < 2} {return ""} 
+  set what [lindex $result_list 0]
+  if {$what == "-dev" || $what == "-indev"} {
+    set eff_indev_adr [lindex $result_list 1]
+  }
+  if {$what == "-dev" || $what == "-outdev"} {
+    set eff_outdev_adr [lindex $result_list 1]
+  }
+}
+
+
+# Inquire -indev and -outdev from xorriso and install in eff_indev_adr
+# and eff_outdev_adr.
+# (This could be done by -toc_of like in proc refresh_indev. But here
+#  i demonstrate the use of command -status and parsing its result by
+#  help of xorriso.)
+#
+proc inquire_dev {} {
+  set disp_en_mem [set_display_msg 0]
+  send_marked_cmd "-status -dev"
+  handle_result_list set_inquired_dev "''" "''" 2 0
+  set_display_msg $disp_en_mem
+  update idletasks
+  return ""
+}
+
+
+# Inquire -indev and -outdev from xorriso and install in indev_adr
+# and outdev_adr.
+#
+proc update_dev_var {} {
+  global result_list eff_indev_adr eff_outdev_adr indev_adr outdev_adr
+
+  inquire_dev
+  set indev_adr $eff_indev_adr
+  set outdev_adr $eff_outdev_adr
+}
+
+
+# Parse-by-xorriso handler function for proc isofs_ls
+#
+proc isofs_ls_handler {} {
+  global result_list isofs_ls_result
+
+  if {[lindex $result_list 0] == "total"} {return ""}
+  lappend isofs_ls_result \
+       "[string range [lindex $result_list 0] 0 0] [lindex $result_list 8]"
+}
+
+
+# Produce a list of all files in a directory of the ISO model
+#
+proc isofs_ls {dir} {
+  global isofs_ls_result
+
+  set isofs_ls_result ""
+  set disp_en_mem [set_display_msg 0]
+  send_marked_cmd "-lsl [make_text_shellsafe $dir]"
+  handle_result_list isofs_ls_handler "''" "''" 0 0
+  set_display_msg $disp_en_mem
+  return $isofs_ls_result
+}
+
+
+# Tells the file type of an absolute path in the ISO model.
+# Indicator characters like with ls -l. Empty text means non existing file.
+#
+proc isofs_filetype {path} {
+  global result_list result_count scan_event_threshold
+
+  set scan_event_mem $scan_event_threshold
+  set scan_event_threshold "SORRY"
+  send_silent_cmd "-lsdl [make_text_shellsafe $path]"
+  set scan_event_threshold $scan_event_mem
+  if {$result_count < 1} {return ""} 
+  return [string range [lindex $result_list 0] 0 0]
+}
+
+
+# Inspection of hard disk is done via xorriso.
+# The xorriso commands have the advantage to be always available and to
+# need no unescaping. On the other hand, shell and tcl lstat would be
+# faster with large directories.
+
+# Parse-by-xorriso handler function for proc localfs_ls
+#
+proc localfs_ls_handler {} {
+  global result_list localfs_ls_result
+
+  if {[lindex $result_list 0] == "total"} {return ""}
+  lappend localfs_ls_result \
+       "[string range [lindex $result_list 0] 0 0] [lindex $result_list 8]"
+}
+
+
+# Return the list of files of a hard disk filesystem directory
+#
+proc localfs_ls {dir} {
+  global localfs_ls_result
+
+  set localfs_ls_result ""
+  if {[localfs_filetype $dir] != "d"} {return ""}
+
+  set disp_en_mem [set_display_msg 0]
+  send_marked_cmd "-lslx [make_text_shellsafe $dir]"
+  handle_result_list localfs_ls_handler "''" "''" 0 0
+  set_display_msg $disp_en_mem
+  return $localfs_ls_result
+}
+
+
+# Tells the file type of an absolute path in the ISO model.
+# Indicator characters like with ls -l. Empty text means non existing file.
+#
+proc localfs_filetype {path} {
+  global result_list result_count scan_event_threshold
+
+  set scan_event_mem $scan_event_threshold
+  set scan_event_threshold "SORRY"
+  send_silent_cmd "-lsdlx [make_text_shellsafe $path]"
+  set scan_event_threshold $scan_event_mem
+  if {[llength $result_list] < 1} {return ""} 
+  return [string range [lindex $result_list 0] 0 0]
+}
+
+
+# Verify that the connected process runs a xorriso program that is modern
+# enough. This is done before sending xorriso the setup commands.
+#
+proc check_xorriso_version {} {
+  global sieve_ret result_list pre_msglist xorriso_version min_xorriso_version
+  global use_command_move use_command_hardlinks_on
+  global reply_conn
+
+  set version "0.0.0 (= unknown)"
+
+  set disp_en_mem [set_display_msg 0]
+
+  # In order to see the pre-frontend messages of xorriso
+  # set an individual -mark and use send_async_cmd
+
+  set mark_text "xorriso-tcltk-version-check-[clock seconds]"
+  send_async_cmd "-mark [make_text_shellsafe $mark_text]"
+  set_display_msg $disp_en_mem
+  wait_for_msg $mark_text "M"
+
+  set_display_msg 0
+  send_async_cmd "-version"
+
+  set xorriso_version [wait_for_msg "xorriso version   :  " "R"]
+
+  if {$xorriso_version < $min_xorriso_version} {
+    puts stderr "xorriso-tcltk: xorriso-$xorriso_version is too old."
+    puts stderr "xorriso-tcltk: Need at least version $min_xorriso_version"
+    window_ack \
+    "xorriso-$xorriso_version is too old. Need at least version $min_xorriso_version" \
+              "red" "embedded"
+    central_exit 2
+  }
+  if {$xorriso_version < "1.2.8"} {
+    set use_command_move 0
+  }
+  if {$xorriso_version < "1.3.0"} {
+    set use_command_hardlinks_on 0
+  }
+  set_display_msg $disp_en_mem
+}
+
+
+# Commands which bring the connected xorriso process into the state that
+# is expected by this frontend.
+#
+proc setup_xorriso {} {
+  global osirrox_allowed
+
+  set cmd ""
+
+  # Invalidate possible -mark 1
+  set cmd "$cmd -mark 0" 
+
+  # Make replies digestible for await_all_replies
+  set cmd "$cmd -pkt_output on"
+
+  # Report version early
+  set cmd "$cmd -version"
+
+  # This frontend relies heavily on the message sieve
+  set cmd "$cmd -msg_op start_sieve -"
+
+  # -reassure questions from xorriso would not be properly handled by
+  # this frontend
+  set cmd "$cmd -reassure off"
+
+  set cmd "$cmd -abort_on NEVER"
+  set cmd "$cmd -return_with ABORT 32"
+  set cmd "$cmd -report_about UPDATE"
+  set cmd "$cmd -iso_rr_pattern off"
+  set cmd "$cmd -disk_pattern off"
+
+  if {$osirrox_allowed == 0} {
+    set cmd "$cmd -osirrox banned"
+  }
+
+  set cmd "$cmd [xorriso_loggable_init_cmds]"
+
+  send_marked_cmd $cmd
+  inquire_severity_list
+}
+
+
+# Commands which should also be at the start of a log script
+#
+proc xorriso_loggable_init_cmds {} {
+  global use_command_hardlinks_on
+
+  set cmd "-for_backup"
+
+  # Before xorriso-1.3.0 there is a performance problem with -hardlinks "on"
+  # and image manipulations before xorriso-1.3.0.
+  if {$use_command_hardlinks_on == 0} {
+    set cmd "$cmd -hardlinks off"
+  } else {
+    set cmd "$cmd -hardlinks on"
+  }
+
+  set cmd "$cmd -backslash_codes on"
+  set cmd "$cmd -follow mount:limit=100"
+  return $cmd
+}
+
+
+proc effectuate_permission_policy {} {
+  global permission_policy
+
+  if {$permission_policy == "readable"} {
+    send_loggable_cmd \
+             "-find / -exec chmod a+r -- -find / -type d -exec chmod a+x --"
+  }
+  if {$permission_policy == "readonly"} {
+    send_loggable_cmd \
+             "-find / -exec chmod a=r -- -find / -type d -exec chmod a+x --"
+  }
+  if {$permission_policy == "mkisofs_r"} {
+    send_loggable_cmd \
+             "-find / -exec mkisofs_r"
+  }
+}
+
+
+# ------ Parsing by help of xorriso ------
+
+# Parsing by xorriso takes from the frontend the burden to understand
+# and implement the quoting rules of xorriso input and output.
+# Lines which are supposed to consist of several words get sent to
+# xorriso command -msg_op. The result lines of this command encode
+# the words unambiguously in one or more text lines.
+# This is supposed to be safe for even the weirdest file names.
+# Only NUL characters cannot be part of names.
+
+
+# Start a bulk parser job by which xorriso shall split the output of e.g. -lsl
+# into single words from which this frontend can pick information.
+#
+proc start_bulkparse {prefix separators max_words flag num_lines} {
+  global bulk_parse_prefix bulk_parse_separators
+  global bulk_parse_max_words bulk_parse_flag bulk_parse_num_texts
+
+  if {$num_lines <= 0} {return ""}
+
+  set bulk_parse_prefix $prefix
+  set bulk_parse_separators $separators
+  set bulk_parse_max_words $max_words
+  set bulk_parse_flag $flag
+  set bulk_parse_num_texts $num_lines
+  set cmd "-msg_op parse_bulk \"$prefix $separators $max_words $flag $num_lines\""
+  send_async_cmd $cmd
+  # Do not wait for mark
+}
+
+
+# Submit a new input line to the xorriso bulk parser job.
+#
+proc submit_bulkparse {text} {
+  global cmd_conn reply_conn
+  global result_list result_count
+  global bulk_parse_prefix bulk_parse_separators
+  global bulk_parse_max_words bulk_parse_flag
+
+  set disp_en_mem [set_display_msg 0]
+
+  set num_lines [expr [count_newlines $text] + 1]
+
+  debug_log_puts ">>>>>  $num_lines"
+  puts $cmd_conn $num_lines
+  debug_log_puts ">>>>>  $text"
+  puts $cmd_conn $text
+  flush $cmd_conn
+  set_display_msg $disp_en_mem
+}
+
+
+# Read the expected number of bulk parsing replies into the result buffer
+# and call handler_proc to inspect them.
+# Each input line of the parser yields one reply buffer full of parsed words.
+#
+proc read_bulkparse {handler_proc num_texts} {
+  set disp_en_mem [set_display_msg 0]
+  for {set i 0} {$i < $num_texts} {incr i} {
+    clear_reply_lists
+    read_parse_reply
+    $handler_proc
+  }
+  set_display_msg $disp_en_mem
+}
+
+
+# Read and decode the xorriso parser reply for one input line.
+#
+proc read_parse_reply {} {
+  global reply_conn
+  global result_list result_count
+
+  set sieve_result_count 0
+  set payload ""
+  set num_lines 0
+  set acc ""
+  set loop_limit 2
+  while {$result_count < $loop_limit} {
+    set ret [gets $reply_conn line]
+    if {$ret < 0} { return ""}
+    debug_log_puts $line
+    de_pkt_line $line
+    set line [lindex $result_list [expr $result_count-1]]
+    if {$result_count == 1} {
+      set parse_ret $line
+    } else { if {$result_count == 2} {
+      set num_replies $line
+      # The minimum number of lines
+      set loop_limit [expr "$num_replies * 2 + 2"]
+    } else {
+      if {$num_lines <= 0} {
+        set num_lines $line
+        if {$num_lines > 1} {
+          # Need to read extra lines
+          incr loop_limit [expr $num_lines-1]
+        }
+        set acc ""
+      } else {
+        incr num_lines -1
+        if {$acc != ""} {
+          set acc "$acc\n$line"
+        } else {
+          set acc $line
+        }
+        if {$num_lines <= 0} {
+          lappend payload $acc
+          incr sieve_result_count
+        }
+      }
+    }}
+  }
+  set result_list $payload
+  set result_count $sieve_result_count
+}
+
+
+# Let xorriso parse the lines in the result buffer and call handler_proc
+# with the parse result of each line.
+# This is used to split the result lines of -lsl into words from which
+# handler proc isolist_parse_handler picks the info which it displays
+# in .stbox isolist .
+# Note that all parameters must be xorriso words. E.g. empty prefix or
+# separator have to be submitted as tcl string "''" rather than "".
+#
+proc handle_result_list {handler_proc \
+                         prefix separators max_words flag } {
+  global result_list
+  global bulk_parse_max_chunk
+
+  set raw_list $result_list
+  set raw_line_count [expr [llength $raw_list]]
+  if {$raw_line_count > $bulk_parse_max_chunk} {
+    set chunk_size $bulk_parse_max_chunk
+  } else {
+    set chunk_size $raw_line_count
+  }
+  start_bulkparse $prefix $separators $max_words $flag $chunk_size
+  set submit_count 0
+  set submit_in_chunk_count 0
+  foreach i $raw_list {
+    submit_bulkparse $i
+    incr submit_count
+    incr submit_in_chunk_count
+    if {$submit_in_chunk_count == $chunk_size} {
+      read_bulkparse $handler_proc $chunk_size
+      set todo [expr "$raw_line_count - $submit_count"]
+      if {$todo <= 0} {
+  break
+      }
+      if {$todo > $bulk_parse_max_chunk} {
+        set chunk_size $bulk_parse_max_chunk
+      } else {
+        set chunk_size $todo
+      }
+      start_bulkparse $prefix $separators $max_words $flag \
+                      $chunk_size
+      set submit_in_chunk_count 0
+    }
+  }
+  display_busy 0
+}
+
+
+# ------------------------------- the GUI ----------------------------
+
+# ------ State variables ------
+
+# Whether to display messages in .msglist 
+set display_msg_enabled 1
+
+# Whether a device list is already displayed
+set devices_scanned 0
+
+# Currently displayed ISO directory
+set isodir_adr ""
+set isodir_is_pwd 0
+
+# The plain names and types matching listbox .isolist
+set isolist_names ""
+set isolist_types ""
+
+# The name which to select after isodir_return
+set isodir_return_name ""
+
+# The address where to move selected ISO files
+set isomanip_move_target ""
+
+# Memorized isolist selection
+set memorized_isolist_selection ""
+
+# Image file address for .burn_write_image
+set burn_write_image_adr ""
+
+# Whether to close medium after writing
+set burn_write_close 0 
+
+# Whether to force CD TAO, DVD-R Inremental, DVD+R/BD-R open ended track
+set burn_write_tao 0
+
+# Whether to engage Defect Management on formatted BD media
+set burn_write_defect_mgt 0
+
+# Answer of yes/no window
+set answer_of_yesno ""
+
+# Semi-persistent answers of yes/no window
+set yesno_to_all 0
+
+# The hard disk filesystem address to be mapped into isodir_adr
+set insert_from_adr ""
+
+# Whether to insert with leafname of insert_from_adr underneath isodir_adr
+# (else: -map $insert_from_adr $isodir_adr) 
+set insert_underneath 1
+
+# Whether to insert at or under the selected .isolist item
+# rather than isodir_adr
+set insert_at_selected 0
+
+# The hard disk filesystem address to which to extract from isodir_adr
+set extract_to_adr ""
+
+# Whether to insert with leafname of insert_from_adr underneath isodir_adr
+# (else: -map $insert_from_adr $isodir_adr) 
+set extract_underneath 1
+
+# Whether to insert at or under the selected .isolist item
+set extract_from_selected 1
+
+# Whether to temporarily enforce rwx permissions for target directories on disk
+set extract_auto_chmod 0
+
+# Whether the display label .busy_text is already usable
+set busy_text_exists 0
+
+# Whether to demand a click before focus goes to entry or listbox
+set click_to_focus 1
+
+# Whether .ack_window , .yesno_window , .help_window, .main_help_window
+# are already displayed.
+set ack_window_is_active 0
+set yesno_window_is_active 0
+set help_window_is_active 0
+set main_help_window_is_active 0
+
+# Positions of above windows when they were last closed
+set yesno_window_geometry ""
+set ack_window_geometry ""
+set help_window_geometry ""
+set main_help_window_geometry ""
+
+# Whether the help window already has a scroll bar
+set help_window_has_scroll 0
+
+# Whether there is the BWidget package available: 0=unknown, 1=yes, -1=banned
+#
+set have_bwidget 0
+set bwidget_version ""
+
+# Whether the .browse_disk_window is already displayed
+set browse_disk_window_is_active 0
+set browse_disk_window_var ""
+# Position of window when it was last closed
+set browse_disk_window_geometry ""
+# Whether the window is grabbed
+set browse_disk_window_is_grabbed 0
+
+# Whether the .browse_iso_window is already displayed
+set browse_iso_window_is_active 0
+set browse_iso_window_var ""
+# Position of window when it was last closed
+set browse_iso_window_geometry ""
+# Whether the window is grabbed
+set browse_iso_window_is_grabbed 0
+
+# Whether to modify the ISO file permissions before writing the ISO session
+# Policies: as_is , readable , readonly , mkisofs_r
+set permission_policy "as_is"
+
+
+# ------ GUI callback procedures ----
+
+
+# Called when the Return key is hit in commandline.
+#
+proc cmdline_return {} {
+  global cmdline cmdline_clear
+  global .cmdline .cmdline_text .cmdline_entry
+  global highest_cmd_sev
+  global highest_cmd_sev_msg
+
+  reset_highest_cmd_sev
+  set_display_msg 1
+  send_loggable_cmd $cmdline
+  set cmdline ""
+
+  # To force display of GUI changes now and not some time later
+  update idletasks
+}
+
+
+# Called when the input drive address shall be brought into effect with
+# xorriso.
+#
+proc indev_return {} {
+  global indev_adr
+  global .indev_entry
+  global .outdev_entry
+
+  if {[assert_no_changes] == 0} {
+    update_dev_var
+    return "0"
+  }
+  reset_highest_cmd_sev
+  send_loggable_cmd "-indev [make_text_shellsafe $indev_adr]"
+  set indev_mem_adr $indev_adr
+  .indev_entry icursor 0
+  refresh_indev
+  return "1"
+}
+
+
+# Called when the "Eject" button for the input drive is hit.
+#
+proc eject_indev {} {
+  if {[assert_no_changes] == 0} {return ""}
+  reset_highest_cmd_sev
+  send_loggable_cmd "-eject indev"
+  refresh_outdev
+  refresh_indev
+}
+
+
+# Called when the output drive address shall be brought into effect with
+# xorriso.
+#
+proc outdev_return {} {
+  global outdev_adr indev_adr
+  global .outdev_entry
+
+  reset_highest_cmd_sev
+  send_loggable_cmd "-outdev [make_text_shellsafe $outdev_adr]"
+  set outdev_mem_adr $outdev_adr
+  .outdev_entry icursor 0
+  refresh_outdev
+  return "1"
+}
+
+
+# Called when the "Eject" button for the output drive is hit.
+#
+proc eject_outdev {} {
+  global outdev_adr indev_adr
+
+  if {$outdev_adr == $indev_adr} {
+    if {[assert_no_changes] == 0} {return ""}
+  }
+  reset_highest_cmd_sev
+  send_loggable_cmd "-eject outdev"
+  refresh_outdev
+  refresh_indev
+}
+
+
+# Called when both drive addresses shall be brought into effect with xorriso.
+#
+proc dev_return {} {
+  global outdev_adr indev_adr
+  global .outdev_entry .indev_entry
+
+  if {$outdev_adr != $indev_adr} {
+    if {[indev_return] == 0} {return "0"}
+    outdev_return
+  } else {
+    if {[assert_no_changes] == 0} {
+      update_dev_var
+      return "0"
+    }
+    reset_highest_cmd_sev
+    send_loggable_cmd "-dev [make_text_shellsafe $outdev_adr]"
+    .outdev_entry icursor 0
+    refresh_outdev
+    .indev_entry icursor 0
+    refresh_indev
+  }
+}
+
+
+# Obtain and display the input drive status.
+# Called after the input drive address may have changed.
+#
+proc refresh_indev {} {
+  global result_list
+  global indev_adr
+  global sieve_ret
+  global .indev_summary
+
+  .indev_summary configure -text ""
+  set indev_adr ""
+  update idletasks
+
+  set disp_en_mem [set_display_msg 0]
+  clear_sieve
+  send_marked_cmd "-toc_of in:short"
+  read_sieve "Drive current:"
+  set_display_msg $disp_en_mem
+  if {$sieve_ret > 0} {
+    set cmd [lindex $result_list 0]
+    if {$cmd == "-indev" || $cmd == "-dev"} {
+      set indev_adr [lindex $result_list 1]
+    }
+    set line [obtain_drive_info in]
+    .indev_summary configure -text $line
+  }
+  .avail_label configure -text ""
+  update idletasks
+  isodir_return "refresh_indev"
+}
+
+
+# Obtain and display the output drive status.
+# Called after the output drive address may have changed.
+#
+proc refresh_outdev {} {
+  global result_list
+  global outdev_adr
+  global sieve_ret
+
+  .outdev_summary configure -text ""
+  set outdev_adr ""
+  update idletasks
+
+  set disp_en_mem [set_display_msg 0]
+  clear_sieve
+  send_marked_cmd "-toc_of out:short"
+  read_sieve "Drive current:"
+  set_display_msg $disp_en_mem
+  if {$sieve_ret > 0} {
+    set cmd [lindex $result_list 0]
+    if {$cmd == "-outdev" || $cmd == "-dev"} {
+      set outdev_adr [lindex $result_list 1]
+    }
+    set line [obtain_drive_info out]
+    .outdev_summary configure -text $line
+  }
+  .avail_label configure -text ""
+  update idletasks
+}
+
+
+# Scan the system for optical drives with rw permission
+# Called when the "Scan for drives button" is hit.
+#
+proc scan_for_drives {} {
+  global .drivelist .drive_drop_both .drive_scan
+  global sieve_ret result_list devlist devices_scanned indev_adr outdev_adr
+
+  if {[assert_no_changes] == 0} {return ""}
+  if {$indev_adr != "" || $outdev_adr != ""} {
+    if {[window_yesno \
+            "Really give up acquired drives for scanning a new drive list ?"] \
+      != 1} { return "" }
+  }
+
+  set max_idx [.drivelist index end]
+  .drivelist delete 0 [expr $max_idx-1]
+  set devlist ""
+
+  reset_highest_cmd_sev
+  clear_sieve
+  send_loggable_cmd "-devices"
+  set max_idx 0
+  while {1} {
+    read_sieve "?  -dev"
+    if {$sieve_ret > 0} {
+      .drivelist insert end "[lindex $result_list 0] : [lindex $result_list 2] [lindex $result_list 3]"
+      lappend devlist [lindex $result_list 0]
+    } else {
+  break
+    }
+  }
+  while {1} {
+    read_sieve "??  -dev"
+    if {$sieve_ret > 0} {
+      .drivelist insert end "[lindex $result_list 0] : [lindex $result_list 2] [lindex $result_list 3]"
+      lappend devlist [lindex $result_list 0]
+    } else {
+  break
+    }
+  }
+  set devices_scanned 1
+  reset_to_normal_background .drive_scan
+
+  # Command -devices drops all acquired drives
+  refresh_outdev
+  refresh_indev
+}
+
+
+# Refresh the display after some xorriso may have changed the status
+# Called by the "Refresh disp" button and others.
+#
+proc refresh_state {} {
+  refresh_indev
+  refresh_outdev
+}
+
+
+# Reset the recorded Worst problem message.
+# Called when the "Clear" button is hit.
+#
+proc clear_total_errmsg {} {
+  global highest_total_sev
+  global highest_total_sev_msg
+
+  set highest_total_sev ALL
+  set highest_total_sev_msg ""
+  update idletasks
+}
+
+
+# Called when the "Pick input drive button" is hit.
+#
+proc pick_indev {} {
+  pick_drive indev
+}
+
+
+# Called when the "Pick output drive button" is hit.
+#
+proc pick_outdev {} {
+  pick_drive outdev
+}
+
+
+# Called when the "Pick drive for both roles" button is hit.
+# or when an item in the scanned drive list is double-clicked.
+#
+proc pick_dev {} {
+  pick_drive dev
+}
+
+
+# Perform the actual work of pick_dev, pick_indev, and pick_outdev
+#
+proc pick_drive {role} {
+  global .drivelist
+  global devlist
+  global highest_cmd_sev_msg outdev_adr indev_adr devices_scanned
+
+  set selected [.drivelist curselection]
+  if {[llength $selected] != 1} {
+    set must_scan ""
+    if {$devices_scanned == 0} { set must_scan " scan and"}
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must$must_scan select a single drive"
+    return ""
+  }
+  set drive_idx [lindex $selected 0]
+
+  if {$role == "dev"} {
+    set outdev_adr [lindex $devlist $drive_idx]
+    set indev_adr [lindex $devlist $drive_idx]
+    dev_return
+  }
+  if {$role == "outdev"} {
+    set outdev_adr [lindex $devlist $drive_idx]
+    outdev_return
+  }
+  if {$role == "indev"} {
+    set indev_adr [lindex $devlist $drive_idx]
+    indev_return
+  }
+  .drivelist selection clear 0 end  
+}
+
+
+# Called when the "Give up drives" button is hit.
+#
+proc give_up_dev {} {
+  global outdev_adr indev_adr
+
+  if {[assert_no_changes] == 0} {return ""}
+  set outdev_adr ""
+  outdev_return
+  set indev_adr ""
+  indev_return
+}
+
+
+# Obtain and display the content of the current ISO directory.
+# Called when the Return key is hit in the .isodir_entry text field
+# and by many others which change variable isodir_adr or the
+# content of the directory in xorriso's tree model.
+#
+proc isodir_return {caller} {
+  global isodir_adr result_list isolist_names isolist_types isodir_return_name
+  global isodir_is_pwd highest_cmd_sev highest_cmd_sev_msg
+  global indev_adr outdev_adr eff_indev_adr
+  global .isolist
+  global bulk_parse_max_chunk
+
+  set chunk_size 0
+
+  set max_idx [.isolist index end]
+  .isolist delete 0 [expr "$max_idx-1"]
+  update idletasks
+  set isolist_names ""
+  set isolist_types ""
+
+  inquire_dev
+  if {$eff_indev_adr == "" && [changes_are_pending] == "0"} {return ""}
+
+  normalize_isodir_adr
+  set file_type [isofs_filetype $isodir_adr]
+  if {$file_type != "d" && $file_type != ""} {
+    .isolist insert end "@@@ exists but is not a directory @@@"
+    set isodir_is_pwd 0
+    return ""
+  }
+  set disp_en_mem [set_display_msg 0]
+  set highest_cmd_sev_mem $highest_cmd_sev
+  set highest_cmd_sev_msg_mem $highest_cmd_sev_msg
+  reset_highest_cmd_sev
+  send_loggable_cmd "-cd [make_text_shellsafe $isodir_adr]"
+  if {[compare_sev $highest_cmd_sev "WARNING"] < 0} {
+    send_marked_cmd "-lsl --"
+    set isodir_is_pwd 1
+  } else {
+    send_marked_cmd "-lsl [make_text_shellsafe $isodir_adr] --"
+    set isodir_is_pwd 0
+  }
+  handle_result_list isolist_parse_handler "''" "''" 0 0
+  set_display_msg $disp_en_mem
+  set highest_cmd_sev $highest_cmd_sev_mem
+  set highest_cmd_sev_msg $highest_cmd_sev_msg_mem
+
+  if {$isodir_return_name != ""} {
+    set idx [lsearch -exact $isolist_names $isodir_return_name]
+    if {$idx != -1} {
+      .isolist see $idx
+      .isolist selection set $idx
+    }
+    set isodir_return_name ""
+  }
+  update idletasks
+}
+
+
+# The handler procedure that is submitted to proc handle_result_list
+# and will be called for every parsed line.
+# It records file names and types in separate lists and displays them
+# in the .isolist box.
+#
+proc isolist_parse_handler {} {
+  global result_list isolist_names isolist_types
+  global .isolist
+
+  if {[lindex $result_list 0] == "total"} {return ""}
+  set name [lindex $result_list 8]
+  set ftype [string range [lindex $result_list 0] 0 0]
+  lappend isolist_names $name
+  lappend isolist_types $ftype
+  .isolist insert end "$ftype   $name"
+}
+
+
+# Make current the ISO directory that was selected from the .isolist box.
+# Called when an item in the .isolist box is double-clicked.
+#
+proc pick_isodir {} {
+  global isolist_names isolist_types isodir_adr isodir_return_name
+  global .isolist
+
+  set selected [.isolist curselection]
+  if {[llength $selected] != 1} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must select a single directory"
+    return ""
+  }
+  set idx [lindex $selected 0]
+  if {[lindex $isolist_types $idx] != "d"} { return "" }
+  if {$isodir_adr == "/"} {
+    set isodir_adr ""
+  }
+  set isodir_adr "$isodir_adr/[lindex $isolist_names $idx]"
+  set isodir_return_name ""
+  isodir_return "pick_isodir"
+}
+
+
+# Make current the parent directory of the current ISO directory.
+# Called when the "Up" button is hit.
+#
+proc isodir_up {} {
+  global isodir_adr isodir_return_name
+
+  set isodir_return_name ""
+  set idx [string last "/" $isodir_adr]
+  set l  [string length $isodir_adr]
+  if {$idx == -1} {
+    set isodir_return_name $isodir_adr
+    set isodir_adr "/"
+  } else {
+    if {$idx > 0} {
+      if {$idx < [expr $l - 1]} {
+        set isodir_return_name \
+            [string range $isodir_adr [expr $idx+1] end]
+      }
+      set isodir_adr [string range $isodir_adr 0 [expr $idx - 1]]
+    } else {
+      if {$l > 1} {
+        set isodir_return_name [string range $isodir_adr 1 end]
+      }
+      set isodir_adr "/"
+    }
+  }
+  isodir_return "isodir_up"
+}
+
+
+# Rename or move the files which are selected in the .isolist box.
+# The target is defined by the .isomanip_move_target text field.
+# Called when the "Move to:" button is hit.
+#
+proc isomanip_mv {} {
+  global .isolist
+  global isomanip_move_target isolist_names isodir_is_pwd isodir_adr
+  global isodir_return_name use_command_move
+
+  if {$isomanip_move_target == ""} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must enter a target address"
+    return ""
+  }
+  set selected [.isolist curselection]
+  set num_selected [llength $selected]
+  if {$num_selected < 1} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must select one or more ISO files"
+    return ""
+  }
+
+  set target $isomanip_move_target
+  if {$isodir_is_pwd == 0 && [string range $target 0 0] != "/"} {
+    set target [combine_dir_and_name $isodir_adr $target]
+  }
+  set target_ftype [isofs_filetype $target]
+
+  # If more than one selected : target must be directory
+  if {$num_selected > 1} {
+    if {$target_ftype != "d" && $target_ftype != ""} {
+      xorriso_tcltk_errmsg \
+         "xorriso-tcltk : SORRY : If multiple files are selected then the target must be a directory"
+      return ""
+    }
+    if {$target_ftype == ""} {
+      set isomanip_move_target_mem $isomanip_move_target
+      set isomanip_move_target $target
+      isomanip_mkdir
+      set isomanip_move_target $isomanip_move_target_mem
+    } 
+  }
+
+  enforce_overwrite_settings "isofs"
+  reset_highest_cmd_sev
+  reset_yesno_to_all
+  set multi_source 0
+  if {[llength $selected] != 1} {set multi_source 1}
+  foreach i $selected {
+    set name [lindex $isolist_names $i]
+    if {$isodir_is_pwd == 0} {
+      set name [combine_dir_and_name $isodir_adr $name]
+    }
+    set name_ftype [isofs_filetype $name]
+
+    # Ask for confirmation if overwriting is about to happen
+    if {$target_ftype == "d" && $use_command_move == 0} {
+      set eff_target [combine_dir_and_name $target $name]
+      set eff_target_ftype [isofs_filetype $eff_target]
+    } else {
+      set eff_target $target
+      set eff_target_ftype $target_ftype
+    }
+    if {[handle_overwriting "isofs" $eff_target $eff_target_ftype \
+                            "isofs" $name $name_ftype $multi_source \
+                            "" "" "replace"] == "0"} {
+      if {$multi_source == 0} { return "" }
+  continue
+    }
+    if {$use_command_move == 0} {
+      send_loggable_cmd \
+             "-mv [make_text_shellsafe $name] [make_text_shellsafe $target] --"
+    } else {
+      send_loggable_cmd \
+           "-move [make_text_shellsafe $name] [make_text_shellsafe $target] --"
+    }
+  }
+
+  if {[llength $selected] == 1} {
+    set isodir_return_name [path_touches_isodir $target]
+  }
+  browse_iso_refresh
+  isodir_return "isomanip_mv"
+}
+
+
+# Create an empty ISO directory with address given by variable
+# isomanip_move_target.
+# Called when the "Make dir" button is hit or by other functions.
+#
+proc isomanip_mkdir {} {
+  global isomanip_move_target isodir_adr isodir_return_name
+
+  if {$isomanip_move_target == ""} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must enter a target address"
+    return ""
+  }
+
+  if {[string range $isomanip_move_target 0 0] == "/"} {
+    set abs_adr $isomanip_move_target
+  } else {
+    set abs_adr [combine_dir_and_name $isodir_adr $isomanip_move_target]
+  }
+  reset_highest_cmd_sev
+  send_loggable_cmd "-mkdir [make_text_shellsafe $abs_adr] --"
+
+  # Refresh only if new dir in isodir_adr
+  # or if a parent directory of new dir is created in isodir_adr
+  set touch_name [path_touches_isodir $abs_adr]
+  if {$touch_name != ""} {
+    if {[llength [.isolist curselection]] != 0} {
+      memorize_isolist_selection 
+      set selection_memorized 1
+    } else {
+      set isodir_return_name $touch_name
+      set selection_memorized 0
+    }
+    isodir_return "isomanip_mkdir"
+    if {$selection_memorized != 0} {
+      restore_isolist_selection 
+    }
+  }
+  browse_iso_refresh
+}
+
+
+# Remove a file or directory tree from the ISO image.
+# Called when the "Delete" button is hit.
+#
+proc isomanip_rm_r {} {
+  global .isolist
+  global isomanip_move_target isolist_names isodir_is_pwd isodir_adr
+
+  set selected [.isolist curselection]
+  if {[llength $selected] < 1} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must select one or more ISO files"
+    return ""
+  }
+  if {[window_yesno "Really delete the selected files from ISO image ?"] \
+      != 1} { return "" }
+  reset_highest_cmd_sev
+  foreach i $selected {
+    set name [lindex $isolist_names $i]
+    if {$isodir_is_pwd == 0} {
+      set name [combine_dir_and_name $isodir_adr $name]
+    }
+    send_loggable_cmd "-rm_r [make_text_shellsafe $name] --"
+  }
+  browse_iso_refresh
+  isodir_return "isomanip_rm_r"
+}
+
+
+# Perform a blanking run on the output drive.
+# Called when the "Blank" button is hit.
+#
+proc burn_blank {} {
+  global outdev_profile eff_outdev_adr eff_indev_adr
+
+  refresh_outdev
+  if {[assert_outdev blanking] <= 0} {return ""}
+
+  if {$eff_outdev_adr == $eff_indev_adr} {
+    if {[assert_no_changes] <= 0} {return ""}
+  }
+  set victim "medium in"
+  if {[string first "stdio" $outdev_profile] == 0} {
+    set victim "image file"
+  } 
+  if {[window_yesno \
+          "Really blank the $victim [make_text_shellsafe $eff_outdev_adr] ?"] \
+      != 1} { return "" }
+  reset_highest_cmd_sev
+  send_loggable_cmd "-blank as_needed"
+  refresh_indev
+  refresh_outdev
+}
+
+
+# Perform a formatting run on the output drive.
+# Called when the "Format" button is hit.
+#
+proc burn_format {} {
+  global outdev_profile eff_outdev_adr eff_indev_adr
+
+  refresh_outdev
+  if {[assert_outdev formatting] <= 0} {return ""}
+  if {$eff_outdev_adr == $eff_indev_adr} {
+    if {[assert_no_changes] <= 0} {return ""}
+  }
+
+  if {[string first "stdio" $outdev_profile] == 0} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : Image files cannot be formatted"
+    return ""
+  } 
+  if {[window_yesno "Really format the medium in $eff_outdev_adr ?"] \
+      != 1} { return "" }
+
+  reset_highest_cmd_sev
+  send_loggable_cmd "-format as_needed"
+  refresh_indev
+  refresh_outdev
+}
+
+
+# Write pending changes in the xorriso ISO model as session to the output
+# drive. This will be an add-on session if the drive is output and input drive
+# and if its medium is not blank.
+# Else it will be a new independent ISO image.
+#
+proc burn_commit {} {
+  global outdev_adr result_list result_count outdev_medium_status
+  global burn_write_close burn_write_tao burn_write_defect_mgt
+  global indev_adr outdev_adr permission_policy
+
+  if {[assert_outdev "writing an ISO session"] <= 0} {return ""}
+  if {$outdev_adr == $indev_adr} {
+    if {$outdev_medium_status != "blank" && \
+        $outdev_medium_status != "appendable"} {
+      xorriso_tcltk_errmsg \
+        "xorriso-tcltk : SORRY : Medium in output drive is neither blank nor appendable"
+      return ""
+    }
+  } else {
+    if {$outdev_medium_status != "blank"} {
+      xorriso_tcltk_errmsg \
+        "xorriso-tcltk : SORRY : Medium in output drive is not blank"
+      return ""
+    }
+  }
+  if {[changes_are_pending] == "0"} {
+    window_ack "No changes are pending. Will not write ISO session." \
+               "grey" "toplevel"
+    return ""
+  }
+  if {$outdev_adr == $indev_adr} {
+    if {[window_yesno "Really write ISO changes as session to $outdev_adr ?"] \
+        != 1} { return "" }
+  } else {
+    if {[window_yesno "Really write a new ISO filesystem to $outdev_adr ?"] \
+        != 1} { return "" }
+  }
+
+  reset_highest_cmd_sev
+  effectuate_permission_policy
+  set cmd "-close"
+  if {$burn_write_close == 1} {
+    set cmd "$cmd on"
+  } else {
+    set cmd "$cmd off"
+  }
+  set cmd "$cmd -write_type"
+  if {$burn_write_tao == 1} {
+    set cmd "$cmd tao"
+  } else {
+    set cmd "$cmd auto"
+  }
+  set cmd "$cmd -stream_recording"
+  if {$burn_write_defect_mgt == 1} {
+    set cmd "$cmd off"
+  } else {
+    set cmd "$cmd data"
+  }
+  set cmd "$cmd -commit"
+  send_loggable_cmd $cmd
+  refresh_indev
+  refresh_outdev
+}
+
+
+# Verify the MD5 checksums of the data files in the tree underneath the
+# current ISO directory.
+# Called when the "Verify" in the "ISO directory:" line is hit.
+#
+proc isodir_verify {} {
+  global isodir_adr
+
+  reset_highest_cmd_sev
+  send_loggable_cmd "-check_md5_r sorry [make_text_shellsafe $isodir_adr] --"
+
+  # >>> select mismatching files or directories with mismatching files
+
+}
+
+
+# Verify the MD5 checksums of the data files orch are selected or which
+# sit in the trees underneath the selected items in the isolist box.
+# Called when the "Verify" in the "Selection:" line is hit.
+#
+proc isomanip_verify {} {
+  global .isolist
+  global isomanip_move_target isolist_names isodir_is_pwd isodir_adr
+
+  set selected [.isolist curselection]
+  if {[llength $selected] < 1} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : First you must select one or more ISO files"
+    return ""
+  }
+  reset_highest_cmd_sev
+  foreach i $selected {
+    set name [combine_dir_and_name $isodir_adr \
+                                    [lindex $isolist_names $i]]
+    send_loggable_cmd "-check_md5_r sorry [make_text_shellsafe $name] --"
+  }
+
+  # >>> select mismatching files or directories with mismatching files
+
+}
+
+
+# Slow down the spinning of the acquired optical drives.
+# Called when button "Calm drives" is hit.
+#
+proc calm_drives {} {
+  reset_highest_cmd_sev
+  send_loggable_cmd "-calm_drive all"
+}
+
+
+# Burn a data file from disk as session to the output drive.
+# Called when the "Burn image file:" button is hit.
+#
+proc burn_write_image {} {
+  global burn_write_image_adr burn_write_close outdev_adr outdev_medium_status
+  global outdev_profile burn_write_tao burn_write_defect_mgt indev_adr
+
+  update_dev_var
+  if {$indev_adr != ""} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : You may not have an input drive open when writing an image file"
+    return ""
+  }
+
+  if {[assert_outdev "writing an image file"] <= 0} {return ""}
+  if {$burn_write_image_adr == ""} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : You have to set an image file address in the hard disk filesystem first"
+    return ""
+  }
+
+  if {$outdev_medium_status != "blank"} {
+    xorriso_tcltk_errmsg \
+      "xorriso-tcltk : SORRY : You must have a blank medium in the output drive for burning an image data file"
+    return ""
+  }
+  if {[file readable $burn_write_image_adr] == 0 || \
+      [file isfile $burn_write_image_adr] == 0 ||
+      [file exists $burn_write_image_adr] == 0} {
+    xorriso_tcltk_errmsg \
+               "xorriso-tcltk : SORRY : Image file '$burn_write_image_adr' is not a readable data file"
+    return ""
+  }
+  if {[window_yesno "Really write '$burn_write_image_adr' as image to $outdev_adr ?"] \
+      != 1} { return "" }
+
+  set cmd "-as cdrecord -v"
+  if {[regexp "^CD" $outdev_profile] == 1 && \
+       ( $outdev_medium_status == "appendable" || $burn_write_tao == 1 )} {
+    set cmd "$cmd padsize=150s"
+  }
+  set cmd "$cmd dev=[make_text_shellsafe $outdev_adr]"
+  set cmd "$cmd [make_text_shellsafe $burn_write_image_adr]"
+  if {$burn_write_tao == 1} {
+    set cmd "$cmd -tao"
+  }
+  if {$burn_write_close != 1} {
+    set cmd "$cmd -multi"
+  } 
+  if {$burn_write_defect_mgt == 1} {
+    set cmd "$cmd stream_recording=off"
+  } else {
+    set cmd "$cmd stream_recording=32s"
+  }
+  reset_highest_cmd_sev
+  send_loggable_cmd $cmd
+  refresh_state
+}
+
+
+# Discard all image modifications and reload ISO image model from input drive.
+# Called when the "Rollback" button is hit.
+#
+proc iso_rollback {} {
+  if {[window_yesno \
+         "Really discard all pending changes and reload from input drive  ?"] \
+      != 1} { return "" }
+  reset_highest_cmd_sev
+  send_loggable_cmd "-rollback"
+  .avail_label configure -text ""
+  isodir_return "iso_rollback"
+} 
+
+
+# Inquire an accurate prediction of free space after writing a session with
+# the pending changes of the ISO image.
+# Called when button "Refresh avail:" is hit.
+#
+proc refresh_avail {} {
+  global result_list highest_cmd_sev
+  global sieve_ret
+
+  if {[assert_outdev "refreshing available space prediction"] <= 0} {return ""}
+
+  set line "n.a."
+  reset_highest_cmd_sev
+  clear_sieve
+  send_loggable_cmd "-tell_media_space"
+  if {[compare_sev $highest_cmd_sev "FAILURE"] < 0} {
+    set ac ""
+    read_sieve "After commit :"
+    if {$sieve_ret > 0} {
+      set ac [lindex $result_list 0]
+      set ac [string range $ac 0 [expr [string length $ac] - 2]]
+      set line "[format "%7dm" [expr "$ac / 512"]]"
+    }
+  }
+  .avail_label configure -text $line
+}
+
+
+# Warn and prompt the user for confirmation if there is the risk to overwrite
+# existing files on hard disk or in the ISO image model.
+# Called from several procedures which cause side effects on directory trees.
+#
+proc handle_overwriting {target_fs target target_ftype
+                         source_fs source source_ftype multi_source
+                         selected_adr selected_ftype dir_action} {
+  global overwrite_iso_files overwrite_iso_dirs overwrite_disk_files 
+
+  if {$target_fs == "localfs"} {
+    set to_fs "hard disk"
+    set overwrite_fs "disk"
+    set overwrite_dirs 0
+    set overwrite_files $overwrite_disk_files
+  } else {
+    set to_fs "ISO"
+    set overwrite_fs "ISO"
+    set overwrite_dirs $overwrite_iso_dirs
+    set overwrite_files $overwrite_iso_files
+  }
+  if {$source_fs == "localfs"} {
+    set from_fs "hard disk"
+  } else {
+    set from_fs "ISO"
+  }
+  if {$multi_source == 1} {
+    set what_window window_yesno_ever
+  } else {
+    set what_window window_yesno
+  }
+
+  # >>> Nicer would be:
+    # >>> Check if any file will get overwritten. Not only the direct target.
+    # >>> Then silently allow directories to be merged
+
+  if {$target_ftype != ""} {
+    if {$target_ftype == "d"} {
+      if {$source_ftype == "d"} {
+        if {$dir_action == "replace"} {
+          if {$overwrite_iso_dirs != 1} {
+            xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You would have to enable \"Overwrite $overwrite_fs dirs\" for\n[make_text_shellsafe $target]"
+            return "0"
+          }
+          if {[$what_window \
+              "Really replace existing $to_fs directory\n\n[make_text_shellsafe $target]\n\nby $from_fs directory\n[make_text_shellsafe $source]\n?"] \
+            != 1} { return "0" }
+          return "1"
+        }
+        if {[$what_window \
+              "Really merge existing $to_fs directory\n\n[make_text_shellsafe $target]\n\nwith $from_fs directory\n[make_text_shellsafe $source]\n?"] \
+            != 1} { return "0" }
+      } else {
+        if {$target_fs != "isofs"} {
+          xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : Will not replace directory on hard disk by file of other type\n[make_text_shellsafe $target]"
+          return "0"
+        }
+        if {$overwrite_dirs == 1} {
+          if {[$what_window \
+               "Really overwrite $to_fs directory\n\n[make_text_shellsafe $target]\n\nby $from_fs file\n[make_text_shellsafe $source]\n?"] \
+              != 1} { return "0" }
+        } else {
+          xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You would have to enable \"Overwrite $overwrite_fs dirs\" for\n[make_text_shellsafe $target]"
+          return "0"
+        }
+      }
+    } else {
+      if {$overwrite_files == 1} {
+        if {[$what_window \
+              "Really overwrite $to_fs file\n\n[make_text_shellsafe $target]\n\nby $from_fs file\n[make_text_shellsafe $source]\n?"] != 1} {
+          return "0"
+        }
+      } else {
+        xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You would have to enable \"Overwrite $overwrite_fs files\" for\n[make_text_shellsafe $target]"
+        return "0"
+      }
+    }
+  }
+  if {$selected_adr != $target && $selected_adr != "" && \
+      $selected_ftype != "d" && $selected_ftype != ""} {
+    if {[$what_window \
+          "Really replace existing $to_fs file\n\n[make_text_shellsafe $target]\n\nby $from_fs directory\n[make_text_shellsafe $source]\n?"] != 1} {
+      return "0"
+    }
+  }
+  return "1"
+}
+
+
+# Insert a file or directory tree into the ISO model tree and schedule it
+# for being copied when "Write ISO session" is hit.
+# Called when button "Insert from disk:" is hit.
+#
+proc insert_from {} {
+  global insert_from_adr isodir_adr isolist_names isodir_return_name
+  global insert_at_selected insert_underneath
+
+  if {[assert_iso_image 1] == 0} {return ""}
+  if {$insert_from_adr == ""} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : You have to set a source address in the hard disk filesystem first"
+    return ""
+  }
+  set selected_ftype ""
+  set selected_adr ""
+  if {$insert_at_selected == 1} {
+    set selected [.isolist curselection]
+    if {[llength $selected] != 1} {
+      xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You must select exactly one ISO file as insertion target"
+      return ""
+    }
+    set target "[lindex $isolist_names [lindex $selected 0]]"
+    set selected_ftype [isofs_filetype $target]
+    set selected_adr $target
+  } else {
+    set target $isodir_adr
+  }
+  set source_ftype [localfs_filetype $insert_from_adr]
+  set name [file tail $insert_from_adr]
+  if {$insert_underneath == 1 || $source_ftype == "d"} {
+    set target [combine_dir_and_name $target $name]
+  }
+  set target_ftype [isofs_filetype $target]
+
+  reset_yesno_to_all
+  if {[handle_overwriting "isofs" $target $target_ftype \
+                          "localfs" $insert_from_adr $source_ftype 0 \
+                          $selected_adr $selected_ftype "merge"] == "0"} {
+    return ""
+  }
+
+  set preserve_selection 0
+  if {$insert_underneath + $insert_at_selected == 1} {
+    set isodir_return_name $name
+  } else {
+    set preserve_selection 1
+  }
+  reset_highest_cmd_sev
+  enforce_overwrite_settings "isofs"
+  send_loggable_cmd "-map [make_text_shellsafe $insert_from_adr] [make_text_shellsafe $target]"
+
+  if {$preserve_selection == 1} {
+    memorize_isolist_selection
+  }
+  isodir_return "insert_from"
+  if {$preserve_selection == 1} {
+    restore_isolist_selection
+  }
+  browse_iso_refresh
+}
+
+
+# Copy a file out of the ISO image model to the hard disk filesystem.
+# The meta data stem from the ISO model tree. The content data are usually
+# read from the input drive.
+# Called when button "Extract to disk:" is hit.
+#
+proc extract_to {} {
+  global extract_to_adr extract_from_selected extract_underneath
+  global extract_auto_chmod osirrox_allowed
+  global isodir_adr isolist_names
+
+  if {$osirrox_allowed != 1} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : Extraction from ISO to hard disk is already irrevocably banned."
+    return ""
+  }
+
+  if {[assert_iso_image 1] == 0} {return ""}
+  if {$extract_to_adr == ""} {
+    xorriso_tcltk_errmsg \
+       "xorriso-tcltk : SORRY : You have to set a target address in the hard disk filesystem first"
+    return ""
+  }
+  set sources ""
+  set selected_ftype ""
+  set selected_adr ""
+  if {$extract_from_selected == 1} {
+    set selected [.isolist curselection]
+    if {[llength $selected] < 1} {
+      xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You must select at least one ISO file as extraction source"
+      return ""
+    }
+    foreach i $selected {
+      set path [combine_dir_and_name $isodir_adr \
+                                     [lindex $isolist_names $i]]
+      lappend sources $path
+    }
+  } else {
+    set sources [list $isodir_adr]
+  }
+
+  reset_highest_cmd_sev
+  reset_yesno_to_all
+  enforce_overwrite_settings "localfs"
+  set disp_en_mem [set_display_msg 0]
+  if {$extract_auto_chmod == 1} {
+    send_loggable_cmd "-osirrox on:sort_lba_on:auto_chmod_on"
+  } else {
+    send_loggable_cmd "-osirrox on:sort_lba_off:auto_chmod_off"
+  }
+  set_display_msg $disp_en_mem
+  set multi_source 0
+  if {[llength $sources] != 1} {set multi_source 1}
+  foreach i $sources {
+    if {$extract_underneath == 1} {
+      set name [file tail $i]
+      set target [combine_dir_and_name $extract_to_adr $name]
+    } else {
+      if {[llength $sources] != 1} {
+        xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You must select exactly one ISO file as extraction source"
+        return ""
+      }
+      set target $extract_to_adr
+    }
+    if {$i == ""} {
+      set i "/"
+    }
+    set target_ftype [localfs_filetype $target]
+    set from_is_dir 0
+    set source_ftype [isofs_filetype $i]
+    if {[handle_overwriting "localfs" $target $target_ftype \
+                            "isofs" $i $source_ftype $multi_source \
+                            "" "" "merge"] == 0} {
+  continue
+    }
+    send_loggable_cmd \
+              "-extract [make_text_shellsafe $i] [make_text_shellsafe $target]"
+  }
+  browse_tree_populate "localfs"
+}
+
+
+# Send the currently chosen -overwrite settings of the checkbuttons
+# "Overwrite ISO files", "Overwrite ISO dirs", "Overwrite hard disk files".
+# Called before operations which could overwrite files in ISO model
+# or in the hard disk filesystem.
+# I.e. any -overwrite command sent via the "Command:" text field will not
+# be able to override the checkbuttons.
+#
+proc enforce_overwrite_settings {which_fs} {
+  global overwrite_iso_files overwrite_iso_dirs overwrite_disk_files
+
+  if {$which_fs == "isofs"} {
+    if {$overwrite_iso_files == 0} {
+      set mode "off"
+    } else {
+      if {$overwrite_iso_dirs == 0} {
+        set mode "nondir"
+      } else {
+        set mode "on"
+      }
+    }
+  } else {
+    if {$overwrite_disk_files == 1} {
+      set mode "on"
+    } else {
+      set mode "off"
+    }
+  }
+  set disp_en_mem [set_display_msg 0]
+  send_loggable_cmd "-overwrite $mode"
+  set_display_msg $disp_en_mem
+}
+
+
+# Send xorriso an appropriate end command and wait for the pipes to break.
+# Called when button "End" is hit.
+#
+proc end_xorriso {} {
+  global expect_broken_pipes
+
+  if {[window_yesno "Really end this program and its xorriso backend ?"] \
+      != 1} { return "" }
+  if {[changes_are_pending] == 1} {
+    if {[window_yesno \
+              "Changes of the ISO image are pending.\nReally discard them ?"] \
+        != 1} { return "" }
+    set expect_broken_pipes "1"
+    send_loggable_cmd "-rollback_end"
+  } else {
+    set expect_broken_pipes "1"
+    send_loggable_cmd "-end"
+  }
+  central_exit 0
+}
+
+
+# Check whether an output drive is acquired. Propose refusal if not.
+# Called by procedures which are about to use the output drive.
+#
+proc assert_outdev {purpose} {
+  global eff_outdev_adr 
+
+  inquire_dev
+  if {$eff_outdev_adr == ""} {
+    xorriso_tcltk_errmsg \
+      "xorriso-tcltk : SORRY : You must choose an output drive before $purpose"
+    return "0"
+  }
+  return "1"
+}
+
+
+# Check whether changes to the ISO model are pending. If so, propose refusal.
+# Called by procedures which are about to discard the ISO model.
+#
+proc assert_no_changes {} {
+  if {[changes_are_pending] == 1} {
+     window_ack "ISO image changes are pending. You have to do \"Write ISO session\" or \"Rollback\"." "grey" "toplevel"
+    return "0"
+  }
+  return "1"
+}
+
+
+# Set the text of the "Permissions:" menubutton
+# Called by the radiobuttons in the menu.
+#
+proc show_permission_policy {} {
+  global permission_policy
+
+  set text $permission_policy
+  if {$permission_policy == "as_is"} {
+    set text "as is"
+  }
+  if {$permission_policy == "mkisofs_r"} {
+    set text "mkisofs -r"
+  }
+  .perm_policy configure -text "Permissions: $text"
+}
+
+
+# Set the target address of command logging.
+# Called by the "Script/Log" menu.
+#
+proc set_log_script_address {} {
+  browse_tree cmd_log_target "localfs"
+  set w .browse_disk_window
+  tkwait window $w
+  effectuate_command_logging 0
+}
+
+
+# Bring into effect the settings for command script logging.
+# Called by the "Accept" button or the Return key of the
+# "Set log script address" file browser.
+#
+proc effectuate_command_logging {close_window} {
+  global cmd_log_target cmd_logging_mode browse_disk_window_is_active
+
+  if {$close_window == 1 && $browse_disk_window_is_active == 1} {
+    destroy_browse_disk .browse_disk_window
+  }
+  if {$close_window == 1 || $cmd_logging_mode > 0} {
+    start_command_logging $cmd_log_target $cmd_logging_mode
+  }
+}
+
+
+# Set the target address of communication pipe logging.
+# Called by the "Script/Log" menu.
+#
+proc set_debug_log_address {} {
+  browse_tree debug_log_file "localfs"
+  set w .browse_disk_window
+  tkwait window $w
+  effectuate_debug_logging 0
+}
+
+
+# Bring into effect the settings for communication pipe logging.
+# Called by the "Accept" button or the Return key of the
+# "Set pipe log address" file browser.
+#
+proc effectuate_debug_logging {close_window} {
+  global debug_log_file debug_logging browse_disk_window_is_active
+
+  if {$close_window == 1 && $browse_disk_window_is_active == 1} {
+    destroy_browse_disk .browse_disk_window
+  }
+  if {$close_window == 1 || $debug_logging > 0} {
+    start_debug_logging $debug_log_file $debug_logging
+  }
+}
+
+
+# Trigger execution of a script of xorriso commands.
+# Called by the "Script/Log" menu.
+#
+proc start_script_execution {} {
+  browse_tree execute_script_adr "localfs"
+  # actual script start is done by browse_tree_accept -> execute_script
+}
+
+
+# Permanently ban any extraction from ISO to hard disk
+#
+proc osirrox_banned {} {
+  global osirrox_allowed
+
+  reset_yesno_to_all
+  if {[window_yesno \
+             "Really irrevocably ban any extraction from ISO to hard disk ?"] \
+      != 1} { return "" }
+
+  send_loggable_cmd "-osirrox banned"
+  set osirrox_allowed 0
+
+  set m ".script_log.menu"
+  $m entryconfigure "Allow extract to disk" -state "disabled"
+  $m entryconfigure "Permanently ban extraction" -state "disabled"
+
+  .extract_button configure -state "disabled"
+  
+}
+
+
+# ------ A primitive file tree browser for hard disk filesystem and ISO model 
+
+# Write a directory content list into a Tree widget
+#
+proc browse_tree_fill_dir {tr parent children} {
+
+  if {$parent == "/"} {
+    set parent_name root
+    set parent_dir /
+  } else {
+    set parent_name [escape_to_tree $parent]
+    set parent_dir $parent_name
+  }
+  if {[$tr exists $parent_name] == 0} {return ""}
+
+  $tr delete [$tr nodes $parent_name]
+
+  foreach i $children {
+    set name [string range $i 2 end]
+    set escpd [escape_to_tree $name]
+    set adr [combine_dir_and_name $parent_dir $escpd]
+    $tr insert end $parent_name $adr -text $name
+    if {[string range $i 0 0] == "d"} {
+      set dir_dummy [combine_dir_and_name $adr "_"]
+      $tr insert end $adr $dir_dummy -text " "
+    }
+  }
+}
+
+
+# The command to be executed when the user double-clicks a node.
+#
+proc browse_tree_accept {adr_var_name do_return tr value} {
+  global have_bwidget
+  global extract_to_adr insert_from_adr burn_write_image_adr isodir_adr
+  global isomanip_move_target indev_adr outdev_adr cmd_log_target
+  global debug_log_file execute_script_adr
+
+  # Caution: Before using $tr, check for $have_bwidget
+
+  if {$adr_var_name == "burn_write_image_adr"} {
+    set burn_write_image_adr $value
+    if {$do_return == 1} {burn_write_image}
+  }
+  if {$adr_var_name == "extract_to_adr"} {
+    set extract_to_adr $value
+    if {$do_return == 1} {extract_to}
+  }
+  if {$adr_var_name == "insert_from_adr"} {
+    set insert_from_adr $value
+    if {$do_return == 1} {insert_from}
+  }
+  if {$adr_var_name == "isodir_adr"} {
+    set isodir_adr $value
+    if {$do_return == 1} {isodir_return "browse_tree_accept"}
+  }
+  if {$adr_var_name == "isomanip_move_target"} {
+    set isomanip_move_target $value
+    if {$do_return == 1} {isomanip_mv}
+  }
+  if {$adr_var_name == "indev_adr"} {
+    set indev_adr $value
+    if {$do_return == 1} {indev_return}
+  }
+  if {$adr_var_name == "outdev_adr"} {
+    set outdev_adr $value
+    if {$do_return == 1} {outdev_return}
+  }
+  if {$adr_var_name == "cmd_log_target"} {
+    set cmd_log_target $value
+    if {$do_return == 1} {effectuate_command_logging 1}
+  }
+  if {$adr_var_name == "debug_log_file"} {
+    set debug_log_file $value
+    if {$do_return == 1} {effectuate_debug_logging 1}
+  }
+  if {$adr_var_name == "execute_script_adr"} {
+    set execute_script_adr $value
+    if {$do_return == 1} {execute_script 1}
+  }
+}
+
+
+# Translate a browser tree variable in a human readable topic text
+#
+proc browse_tree_topic {adr_var_name} {
+  if {$adr_var_name == "burn_write_image_adr"} {
+    return "Burn image file:"
+  }
+  if {$adr_var_name == "extract_to_adr"} {
+    return "Extract to disk:"
+  }
+  if {$adr_var_name == "insert_from_adr"} {
+    return "Insert from disk:"
+  }
+  if {$adr_var_name == "isodir_adr"} {
+    return "ISO directory:"
+  }
+  if {$adr_var_name == "isomanip_move_target"} {
+    return "Move to:"
+  }
+  if {$adr_var_name == "indev_adr"} {
+    return "Input drive/image"
+  }
+  if {$adr_var_name == "outdev_adr"} {
+    return "Output drive/image"
+  }
+  if {$adr_var_name == "cmd_log_target"} {
+    return "Set log script address"
+  }
+  if {$adr_var_name == "debug_log_file"} {
+    return "Set pipe log address"
+  }
+  if {$adr_var_name == "execute_script_adr"} {
+    return "Execute command script"
+  }
+  return $adr_var_name
+}
+
+
+# Unescape &|^! from Bwidget tree browser
+#
+proc unescape_from_tree {text} {
+  return [string map [list "\{\{\}" "\{" "\{+\}" "&" "\{I\}" "|" \
+                           "\{A\}" "^"   "\{.\}"  "!"] \
+                     $text]
+
+  # <<< alternative encoding
+  # set escpd [string map [list "\\\\" "\\" "\\+" "&" "\\I" "|" \ 
+  #                             "\\A" "^"   "\\."  "!"] \ 
+}
+
+
+# Escape &|^! which are special to BWidget Tree
+#
+proc escape_to_tree {text} {
+  return [string map [list "\{" "\{\{\}"  "&" "\{+\}"  "|" "\{I\}" \
+                           "^"  "\{A\}"   "!" "\{.\}"] \
+                     $text]
+}
+
+
+
+# Accept the single selected item of the tree browser
+# Called by the \"Accept\" button in the browser window.
+#
+proc browse_tree_accept_sel {adr_var_name do_return tr} {
+  set selected [$tr selection get]
+
+  if {[llength $selected] != 1} {
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You must select a single tree item before clicking the \"Accept\" button."
+    return ""
+  }
+  browse_tree_accept $adr_var_name $do_return $tr \
+                     [unescape_from_tree [lindex $selected 0]]
+}
+
+
+# Hit the Return key on the text entry of the browser
+#
+proc browse_tree_accept_entry {adr_var_name do_return tr} {
+  global extract_to_adr insert_from_adr burn_write_image_adr isodir_adr
+  global isomanip_move_target indev_adr outdev_adr cmd_log_target
+  global debug_log_file execute_script_adr
+
+  eval set text $$adr_var_name
+  browse_tree_accept $adr_var_name $do_return $tr $text
+}
+
+
+# Submit a Tree-escaped path to browse_tree_accept.
+# Called by Double-click in browser.
+#
+proc browse_tree_accept_escd {adr_var_name do_return tr escd_path} {
+  browse_tree_accept $adr_var_name $do_return $tr \
+                     [unescape_from_tree $escd_path]
+}
+
+
+# Move up one directory level of the file browser selection
+#
+proc browse_tree_up {adr_var_name tr which_fs} {
+  global extract_to_adr insert_from_adr burn_write_image_adr isodir_adr
+  global isomanip_move_target indev_adr outdev_adr
+
+  set selected [$tr selection get]
+  if {[llength $selected] != 1} {
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You must select a single tree item before clicking the \"Up\" button."
+    return ""
+  }
+  set old_adr [lindex $selected 0]
+  set adr [file dirname $old_adr]
+  catch {
+    $tr see $adr
+    if {[$tr nodes $old_adr 0] != ""} {
+      $tr closetree $old_adr
+    }
+  }
+  if {$adr != "/" && $adr != ""} {
+    $tr selection clear
+    $tr selection set $adr
+  }
+}
+
+
+# Move down one directory level of the file browser selection
+#
+proc browse_tree_down {adr_var_name tr which_fs} {
+  global extract_to_adr insert_from_adr burn_write_image_adr isodir_adr
+  global isomanip_move_target indev_adr outdev_adr
+
+  set selected [$tr selection get]
+  if {[llength $selected] != 1} {
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You must select a single tree item before clicking the \"Down\" button."
+    return ""
+  }
+  set adr [lindex $selected 0]
+  if {$which_fs == "isofs"} {
+    browse_iso_open_dir $tr $adr
+  } else {
+    browse_disk_open_dir $tr $adr
+  }
+  catch {
+    $tr opentree $adr 0
+    $tr see $adr
+  }
+}
+
+
+# The command to be executed when the user closes a directory node.
+# It replaces the directory content list by a single dummy item.
+#
+proc browse_tree_close_dir {tr name} {
+  browse_tree_fill_dir $tr $name [list "?  "]
+}
+
+
+# Delete the old content of the browse window and display the freshly
+# obtained current state down to the current address in the field variable.
+#
+proc browse_tree_populate {which_fs} {
+  global have_bwidget
+  global browse_disk_window_var browse_iso_window_var
+  global browse_iso_window_is_active browse_disk_window_is_active
+  global extract_to_adr insert_from_adr burn_write_image_adr isodir_adr
+  global isomanip_move_target indev_adr outdev_adr cmd_log_target
+  global debug_log_file execute_script_adr
+
+  if {$have_bwidget != 1} {return ""}
+
+  if {$which_fs == "isofs"} {
+    if {$browse_iso_window_is_active == 0} {return ""}
+    set w {.browse_iso_window}
+    set open_dir_cmd "browse_iso_open_dir"
+    set adr_var $browse_iso_window_var
+  } else {
+    if {$browse_disk_window_is_active == 0} {return ""}
+    set w {.browse_disk_window}
+    set open_dir_cmd "browse_disk_open_dir"
+    set adr_var $browse_disk_window_var
+  }
+
+  # Variable indirection
+  eval set adr $$adr_var
+
+  # Install root level
+  $open_dir_cmd $w.tree "/" 
+
+  # Set $adr as current address
+  set comps [split $adr "/"]
+  # Install the stack of directories above current address
+  set path "/"
+  foreach i $comps {
+    if {$i == ""} {
+  continue
+    }
+    set path [combine_dir_and_name $path [escape_to_tree $i]]
+    $open_dir_cmd $w.tree $path 
+    catch {
+      $w.tree opentree $path 0
+      $w.tree see $path
+    }
+  }
+}
+
+
+# The procedure to be run by mouse button 3 in the file browser.
+# It has to strip off the surplus parameter added by the Tree widget.
+#
+proc browse_tree_help {about_what button_color from_item} {
+  window_help $about_what $button_color
+}
+
+
+# Destroy the hard disk browser pop-up window.
+# 
+proc destroy_browse_disk {w} {
+  global browse_disk_window_is_active browse_disk_window_geometry
+  global browse_disk_window_is_grabbed
+
+  if {$w != "" && $browse_disk_window_is_active == 1} {
+    if {$browse_disk_window_is_grabbed == 1} {
+      grab release $w
+    }
+    set browse_disk_window_is_grabbed 0
+    set browse_disk_window_geometry [wm geometry $w]
+    destroy $w
+  }
+  set browse_disk_window_is_active 0
+}
+
+
+# The command to be executed when the user opens a directory node in
+# the hard disk filesystem.
+#
+proc browse_disk_open_dir {tr name} {
+  set escpd [unescape_from_tree $name]
+  if {[localfs_filetype $escpd] != "d"} {return ""}
+  set lslist [localfs_ls $escpd]
+  browse_tree_fill_dir $tr $escpd $lslist
+}
+
+
+# Refresh the content of a possibly displayed tree browser for hard disk
+#
+proc browse_disk_refresh {} {
+  browse_tree_populate "localfs"
+}
+
+
+# The command to be executed when the user opens a directory node in
+# the ISO model.
+#
+proc browse_iso_open_dir {tr name} {
+  set escpd [unescape_from_tree $name]
+  if {[isofs_filetype $escpd] != "d"} {return ""}
+  set lslist [isofs_ls $escpd]
+  browse_tree_fill_dir $tr $escpd $lslist
+}
+
+
+# Destroy the ISO browser pop-up window.
+# 
+proc destroy_browse_iso {w} {
+  global browse_iso_window_is_active browse_iso_window_geometry
+  global browse_iso_window_is_grabbed
+
+  if {$w != "" && $browse_iso_window_is_active == 1} {
+    set browse_iso_window_geometry [wm geometry $w]
+    if {$browse_iso_window_is_grabbed == 1} {
+      grab release $w
+    }
+    set browse_iso_window_is_grabbed 0
+    destroy $w
+  }
+  set browse_iso_window_is_active 0
+}
+
+
+# Refresh the content of a possibly displayed tree browser for ISO model
+#
+proc browse_iso_refresh {} {
+  browse_tree_populate "isofs"
+}
+
+
+# Multiplexer for updating both vertical scrollbars
+#
+proc browse_tree_yscrollcommand {w arg1 arg2} {
+  $w.treescroll_y_l set $arg1 $arg2
+  $w.treescroll_y_r set $arg1 $arg2
+}
+
+
+# Open a file browser window for hard disk filesystem or ISO model
+#
+proc browse_tree {adr_var which_fs} {
+  upvar $adr_var adr
+  global have_bwidget browse_disk_window_is_active browse_iso_window_is_active
+  global browse_disk_window_var browse_iso_window_var
+  global tree_window_lines tree_window_width tree_window_button_width
+  global browse_disk_window_geometry browse_iso_window_geometry
+
+  set button_color "grey"
+
+  if {$which_fs == "isofs"} {
+    set w {.browse_iso_window}
+    set window_is_active $browse_iso_window_is_active
+    set title_name "xorriso-tcltk ISO model browser"
+    set open_dir_cmd "browse_iso_open_dir"
+    set destroy_cmd "destroy_browse_iso"
+    if {$browse_iso_window_var != $adr_var && $window_is_active == 1} {
+      destroy_browse_iso $w
+      set window_is_active 0
+    }
+    set browse_iso_window_var $adr_var
+    set old_geometry $browse_iso_window_geometry
+    set browse_iso_window_is_active 1
+  } else {
+    set w {.browse_disk_window}
+    set window_is_active $browse_disk_window_is_active
+    set title_name "xorriso-tcltk hard disk filesystem browser"
+    set open_dir_cmd "browse_disk_open_dir"
+    set destroy_cmd "destroy_browse_disk"
+    if {$browse_disk_window_var != $adr_var && $window_is_active == 1} {
+      destroy_browse_disk $w
+      set window_is_active 0
+    }
+    set browse_disk_window_var $adr_var
+    set old_geometry $browse_disk_window_geometry
+    set browse_disk_window_is_active 1
+  }
+  set re_use_widgets 0
+  if {$window_is_active == 0} {
+    toplevel $w -borderwidth 10 -class Browser
+    wm title $w $title_name
+    set_window_position $w $old_geometry
+  } else { 
+    set re_use_widgets 1
+  }
+  if {$re_use_widgets == 0} {
+
+    if {$have_bwidget == 1} {
+      # BWidget Tree
+      frame $w.tree_frame
+      frame $w.tree_frame_x
+      Tree $w.tree -width $tree_window_width -height $tree_window_lines \
+                   -opencmd "$open_dir_cmd $w.tree" \
+                   -closecmd "browse_tree_close_dir $w.tree" \
+                   -selectfill 1 \
+                   -yscrollcommand "browse_tree_yscrollcommand $w" \
+                   -xscrollcommand "$w.treescroll_x set"
+
+      # ??? why doesn't <Return> work ?
+      # $w.tree bindText <Return> \
+      #                  "browse_tree_accept_bindtext $adr_var 1 $w.tree"
+
+      # At least double-click does work
+      $w.tree bindText <Double-Button-1> \
+                       "browse_tree_accept_escd $adr_var 1 $w.tree"
+
+      $w.tree bindText <Button-3> {browse_tree_help "Browse tree" grey}
+
+      scrollbar $w.treescroll_y_l -command "$w.tree yview"
+      scrollbar $w.treescroll_y_r -command "$w.tree yview"
+      scrollbar $w.treescroll_x -orient horizontal -command "$w.tree xview "
+      pack $w.tree -in $w.tree_frame_x -side top  -expand 1 -fill both
+      pack $w.treescroll_x -in $w.tree_frame_x -side top  -expand 1 -fill x
+      pack $w.treescroll_y_l -in $w.tree_frame -side left -expand 1 -fill y
+      pack $w.tree_frame_x   -in $w.tree_frame -side left -expand 1 -fill both
+      pack $w.treescroll_y_r -in $w.tree_frame -side left -expand 1 -fill y
+
+      frame $w.button_line
+      button $w.accept -text "Accept" -width $tree_window_button_width \
+                       -command "browse_tree_accept_sel $adr_var 1 $w.tree"
+      bind_help $w.accept "Accept (browse tree)"
+      button $w.to_field -text "Edit" -width $tree_window_button_width \
+                         -command "browse_tree_accept_sel $adr_var 0 $w.tree"
+      bind_help $w.to_field "Edit (browse tree)"
+      button $w.up -text "Up" -width $tree_window_button_width \
+                   -command "browse_tree_up $adr_var $w.tree $which_fs"
+      bind_help $w.up "Up (browse tree)"
+      button $w.down -text "Down" -width $tree_window_button_width \
+                     -command "browse_tree_down $adr_var $w.tree $which_fs"
+      bind_help $w.down "Down (browse tree)"
+      pack $w.up $w.down $w.accept $w.to_field \
+           -in $w.button_line -side left -expand 0
+
+      pack $w.tree_frame -side top -anchor w -expand 1 -fill both
+    } else {
+      frame $w.button_line
+      button $w.accept -text "Accept" -width $tree_window_button_width \
+                       -command "browse_tree_accept_entry $adr_var 1 $w.tree"
+      bind_help $w.accept "Accept (browse tree)"
+      pack $w.accept -in $w.button_line -side left -expand 0
+    }
+    button $w.help -text "Help" -width $tree_window_button_width \
+                   -command {window_help "Browse tree" grey}
+    bind_help $w.help "Browse tree"
+    button $w.close -text "Close" -width $tree_window_button_width \
+                    -command "$destroy_cmd $w" \
+                    -background $button_color
+    bind_help $w.close "Close (browse tree)"
+    pack $w.help $w.close \
+         -in $w.button_line -side left -expand 0
+
+    pack $w.button_line -side top -anchor center
+
+    frame $w.text_frame
+    label $w.topic -text "[browse_tree_topic $adr_var]"
+    bind_help $w.topic "Browse tree"
+    entry $w.text_entry -relief sunken -bd 1 -width 40 \
+                        -textvariable $adr_var
+    bind_entry_keys $w.text_entry \
+                    "browse_tree_accept_entry $adr_var 1 $w.tree"
+    bind_help $w.text_entry "Browse tree"
+    pack $w.topic -in $w.text_frame -side left
+    pack $w.text_entry -in $w.text_frame -side left -expand 1 -fill both
+    pack $w.text_frame -side top -expand 1 -fill both
+  }
+  raise $w
+  if {$have_bwidget == 1} {
+    browse_tree_populate $which_fs
+    focus $w.tree
+  }
+  update idletasks
+}
+
+ 
+# ------ GUI display procedures ----
+
+
+# Display a message of xorriso or of this frontend in the .msglist box
+#
+proc display_msg {msg} {
+  global .msglist
+  global msglist_max_fill msglist_running pre_msglist display_msg_enabled
+
+  if {$display_msg_enabled == 0} {return ""}
+  if {$msg == "============================" || \
+  $msg == "==============================================================" || \
+  $msg == "enter option and arguments :"} {return ""}
+    
+  if {$msglist_running == 0} {
+    lappend pre_msglist $msg
+  } else {
+    if {[.msglist index end] > $msglist_max_fill} {
+      .msglist delete 0 0
+    }
+    .msglist insert end [escape_newline $msg 0]
+    .msglist see [expr "[.msglist index end]-1"]
+    update idletasks
+  }
+}
+
+
+# Set whether messages submitted to proc display_message shall really show up
+# This is used by callback procedures to hide auxiliary commands and lengthy
+# reply messages from the user display.
+#
+proc set_display_msg {mode} {
+  global display_msg_enabled
+
+  set old $display_msg_enabled
+  if {$mode == "0"} {
+    set display_msg_enabled 0
+  } else {
+    set display_msg_enabled "1"
+  }
+  return $old
+}
+
+
+# Display a frontend error message in the .msglist box and by a pop-up window.
+#
+proc xorriso_tcltk_errmsg {msg} {
+  global highest_cmd_sev_msg
+
+  set highest_cmd_sev_msg [escape_newline $msg 0]
+  display_msg $msg
+  window_ack $msg "grey" "toplevel"
+  update idletasks
+}
+
+
+# Memorize the current selection in the .isolist box.
+#
+proc memorize_isolist_selection {} {
+  global memorized_isolist_selection isolist_names
+  global .isolist
+
+  set memorized_isolist_selection ""
+  set selected [.isolist curselection]
+  foreach i $selected {
+    lappend memorized_isolist_selection [lindex $isolist_names $i]
+  }
+}
+
+
+# Restore the memorized selection in the .isolist box as far as the
+# names have survived in the meantime.
+#
+proc restore_isolist_selection {} {
+  global memorized_isolist_selection isolist_names
+  global .isolist
+
+  .isolist selection clear 0 end
+  foreach i $memorized_isolist_selection {
+    set idx [lsearch -exact $isolist_names $i]
+    if {$idx > -1} {
+      .isolist selection set $idx $idx
+    }
+  }
+  set memorized_isolist_selection ""
+}
+
+
+# Receive the answer of the yes/no window and destroy it.
+#
+proc destroy_yesno {w answer} {
+  global yesno_window_is_active answer_of_yesno yesno_window_geometry
+  global yesno_to_all
+
+  if {$w != ""} {
+    set yesno_window_geometry [wm geometry $w]
+    grab release $w
+    destroy $w
+    update idletasks
+  }
+  set yesno_window_is_active 0
+  set answer_of_yesno $answer
+  if {$answer == 2} {
+    set yesno_to_all 1
+    set answer_of_yesno 1
+  }
+  if {$answer == -1} {
+    set yesno_to_all -1
+    set answer_of_yesno 0
+  }
+}
+  
+
+# Pop-up a window which asks for yes or no. Return 1 if answer is yes.
+#
+proc window_yesno {question} {
+  global answer_of_yesno yesno_window_is_active yesno_window_geometry
+
+  set w {.yesno_window}
+  if {$yesno_window_is_active == 1} {
+    set yesno_window_is_active [window_exists $w]
+  }
+  if {$yesno_window_is_active == 1} {
+    raise $w
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You still need to answer an older yes/no question"
+    return "0"
+  }
+  set yesno_window_is_active 1
+  set answer_of_yesno ""
+  toplevel $w -borderwidth 20 -class Dialog
+  wm title $w "xorriso-tcltk yes/no"
+  set_window_position $w $yesno_window_geometry
+  label $w.question -text $question
+  button $w.yes -text "yes" -command "destroy_yesno $w 1" \
+                -borderwidth 4 -padx 20 -pady 20
+  bind_help $w.yes "yes/no"
+  button $w.no -text "no" -command "destroy_yesno $w 0" \
+                -borderwidth 4 -padx 20 -pady 20
+  bind_help $w.no "yes/no"
+  pack $w.yes $w.question $w.no -side left
+  update idletasks
+
+  grab set $w
+  tkwait variable answer_of_yesno
+  return $answer_of_yesno
+}
+
+
+# Pop-up a window which asks for yes, yes-to-all, no, or no-to-all.
+# Return 1 if answer is yes.
+#
+proc window_yesno_ever {question} {
+  global answer_of_yesno yesno_window_is_active yesno_window_geometry
+  global yesno_to_all
+
+  set w {.yesno_window}
+  if {$yesno_window_is_active == 1} {
+    set yesno_window_is_active [window_exists $w]
+  }
+  if {$yesno_window_is_active == 1} {
+    raise $w
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You still need to answer an older yes/no question"
+    return "0"
+  }
+  if {$yesno_to_all == 1} {
+    return "1"
+  }
+  if {$yesno_to_all == -1} {
+    return "0"
+  }
+  set yesno_window_is_active 1
+  set answer_of_yesno ""
+  toplevel $w -borderwidth 20 -class Dialog
+  wm title $w "xorriso-tcltk yes/no"
+  set_window_position $w $yesno_window_geometry
+
+  frame $w.yes_frame
+  frame $w.no_frame
+  label $w.question -text $question
+  button $w.yes -text "yes" -command "destroy_yesno $w 1" \
+                -borderwidth 4 -padx 20 -pady 20 -relief raised
+  button $w.no -text "no" -command "destroy_yesno $w 0" \
+                -borderwidth 4 -padx 20 -pady 20 -relief raised 
+  button $w.yes_to_all -text "yes to all" -command "destroy_yesno $w 2"
+  bind_help $w.yes_to_all "yes to all"
+  button $w.no_to_all -text "no to all" -command "destroy_yesno $w -1"
+  bind_help $w.no_to_all "no to all"
+  pack $w.yes $w.yes_to_all -in $w.yes_frame -side top  -expand 1 -fill both
+  pack $w.no $w.no_to_all -in $w.no_frame -side top  -expand 1 -fill both
+  pack $w.yes_frame $w.question $w.no_frame \
+                -in $w -side left -expand 1 -fill both
+
+  raise $w
+  update idletasks
+
+  grab set $w
+  tkwait variable answer_of_yesno
+  return $answer_of_yesno
+}
+
+
+proc reset_yesno_to_all {} {
+  global yesno_to_all
+
+  set yesno_to_all 0
+}
+
+
+# Destroy the notification pop-up window.
+#
+proc destroy_ack {w had_focus} {
+  global ack_window_is_active ack_window_geometry
+
+  if {$w != ""} {
+    set ack_window_geometry [wm geometry $w]
+    grab release $w
+    if {$had_focus != "-"} {
+      focus $had_focus
+    }
+    destroy $w
+    update idletasks
+  }
+  set ack_window_is_active 0
+}
+
+
+# Pop-up a window which notifies of a problem and asks for a button click.
+#
+proc window_ack {question button_color where} {
+  global answer_of_yesno ack_window_is_active ack_window_geometry
+  global continue_from_ack
+
+  set had_focus [focus]
+  if {$had_focus == ""} {set had_focus "-"}
+  set re_use_widgets 0
+  if {$where == "embedded"} {
+    set w ""
+    set destroy_cmd ""
+  } else {
+    set w {.ack_window}
+    if {$ack_window_is_active == 1} {
+      set ack_window_is_active [window_exists $w]
+    }
+    if {$ack_window_is_active == 0} {
+      toplevel $w -borderwidth 20 -class Dialog
+      wm title $w "xorriso-tcltk acknowledge"
+      set ack_window_is_active 1
+    } else {
+      set re_use_widgets 1
+    }
+    set_window_position $w $ack_window_geometry
+    set destroy_cmd "destroy_ack $w $had_focus"
+  }
+  if {$re_use_widgets == 1} {
+    $w.question configure -text $question
+  } else {
+    label $w.question -text $question
+    button $w.ok -text "Continue" -command $destroy_cmd \
+                 -background $button_color
+    bind $w.ok <Return> $destroy_cmd
+    bind_help $w.ok "Continue"
+    pack $w.question -side top -expand 1 -fill both
+    pack $w.ok -side top 
+  }
+
+  raise $w
+  update idletasks
+  focus $w.ok
+  grab set $w
+  tkwait variable ack_window_is_active
+}
+
+
+# Destroy the help pop-up window.
+#
+proc destroy_help {w help_main} {
+  global help_window_is_active help_window_has_scroll help_window_geometry
+  global main_help_window_is_active main_help_window_geometry
+
+  if {$w != ""} {
+    if {$help_main == 1} {
+      set main_help_window_geometry [wm geometry $w]
+    } else {
+      set help_window_geometry [wm geometry $w]
+    }
+    destroy $w
+  }
+  if {$help_main == 1} {
+    set main_help_window_is_active 0
+  } else {
+    set help_window_is_active 0
+    set help_window_has_scroll 0
+  }
+}
+
+
+proc surround_text {text} {
+  return "\n\n  [string map {\n "\n  "} $text]\n"
+}
+
+
+# Pop-up a window which shows a help text and a Close button.
+#
+proc window_help {about_what button_color} {
+  global help_window_is_active help_window_lines help_window_has_scroll
+  global help_window_border_width help_window_geometry
+  global main_help_window_is_active
+  global main_help_window_lines main_help_window_geometry
+  global .help_window .main_help_window
+
+  # The main help window is independent of the GUI element help window
+  if {$about_what == "Help"} {
+    set help_main 1
+    set w {.main_help_window}
+    set window_is_active $main_help_window_is_active
+    set window_has_scroll 1
+    set old_geometry $main_help_window_geometry
+    set window_lines $main_help_window_lines
+  } else {
+    set help_main 0
+    set w {.help_window}
+    set window_is_active $help_window_is_active
+    set window_has_scroll $help_window_has_scroll
+    set old_geometry $help_window_geometry
+    set window_lines $help_window_lines
+  }
+  if {$window_is_active == 1} {
+    set window_is_active [window_exists $w]
+  }
+
+  # Giving the help text some distance from the border decorations
+  set line_width 82
+  set helptext "\n\n  [string map {\n "\n  "} [tell_helptext $about_what]]\n"
+
+  if {[count_newlines $helptext] >= $window_lines} {
+    if {$window_is_active == 1 && $window_has_scroll == 0} {
+       destroy_help $w $help_main
+       set window_is_active 0
+    }
+    if {$help_main == 1} {
+      set old_geometry $main_help_window_geometry
+    } else {
+      set help_window_has_scroll 1
+      set window_has_scroll 1
+      set old_geometry $help_window_geometry
+    }
+  }
+  # Dealing with initiating windows that are grabbed
+  set grabbed [grab current]
+  if {$grabbed == ""} {set grabbed "-"}
+  if {$grabbed != "-" && $window_is_active == 1} {
+     destroy_help $w $help_main
+     set window_is_active 0
+  }
+  if {$grabbed != "-"} {
+    # Set old_geometry to position underneath grabbed window
+    set value [wm geometry $grabbed]
+    set idx [string first "+" $value]
+    set height_idx [string first "x" $value]
+    if {$idx != -1 && $height_idx != -1 && $idx > $height_idx} {
+      set width [string range $value 0 [expr $height_idx-1]]
+      set height [string range $value [expr $height_idx+1] [expr $idx-1]]
+      set x [string range $value [expr $idx+1] end]
+      set idx [string first "+" $x]
+      if {$idx != -1} {
+        set y [string range $x [expr $idx+1] end]
+        set x [string range $x 0 [expr $idx-1]]
+        set y [expr $y+$height]
+        set old_geometry "${width}x${height}+${x}+${y}"
+      }
+    }
+  }
+
+  set re_use_widgets 0
+  if {$window_is_active == 0} {
+    toplevel $w -borderwidth $help_window_border_width -class Help
+    set_window_position $w $old_geometry
+    if {$help_main == 1} {
+      wm title $w "xorriso-tcltk main help text"
+      set main_help_window_is_active 1
+      reset_to_normal_background .help
+      update idletasks
+    } else {
+      wm title $w "xorriso-tcltk GUI element help text"
+      set help_window_is_active 1
+    }
+  } else {
+    set re_use_widgets 1
+  }
+
+  if {$re_use_widgets == 1} {
+    $w.text configure -state normal
+    $w.text delete 1.0 end
+    $w.text insert end $helptext
+    raise $w
+  } else {
+    set destroy_cmd "destroy_help $w $help_main"
+
+    frame $w.text_frame
+    text $w.text -width $line_width -height $window_lines \
+                 -relief flat -borderwidth 0
+    $w.text insert end $helptext
+    pack $w.text -in $w.text_frame -side left  -expand 1 -fill both
+    if {$window_has_scroll == 1} {
+      scrollbar $w.scroll_y -command "$w.text yview"
+      $w.text configure -yscrollcommand "$w.scroll_y set"
+      bind_listbox_keys $w.text $window_lines "text"
+      pack $w.scroll_y -in $w.text_frame -side left -fill y
+    } 
+
+    button $w.close -text "Close" -command $destroy_cmd \
+                    -background $button_color
+    pack $w.text_frame -side top -expand 1 -fill both
+    frame $w.middle_spacer -height 6
+    frame $w.bottom_spacer -height 6
+    pack $w.middle_spacer $w.close $w.bottom_spacer -side top 
+  }
+  $w.text configure -state disabled
+}
+
+
+# Display the busy/ready state of xorriso.
+# Called with 1 by sender of commands and with 0 by receivers of replies .
+#  
+proc display_busy {state} {
+  global busy_text_exists
+  global .busy_text 
+
+  if {$busy_text_exists == 0} {return ""}
+
+  if {$state == 0} {
+    .busy_text configure -text "ready"
+    .busy_text configure -background "#D0D0D0"
+  } else {
+    .busy_text configure -text "busy"
+    .busy_text configure -background "#808080"
+  }
+  update idletasks
+}
+
+
+# Tries to make use of the BWidget package for getting its Tree widget
+#
+proc check_for_bwidget {} {
+  global have_bwidget bwidget_version
+
+  if {$have_bwidget == 0} {
+    catch {
+      set bwidget_version [package require BWidget]
+      set have_bwidget 1
+    }
+  }
+}
+
+
+# A window to display if no file browser is available
+#
+proc browser_dummy {} {
+  window_ack \
+    "The file browser cannot be used because Tcl/Tk package \"BWidget\" is not loaded" "grey" "toplevel"
+}
+
+
+# Obtain the geometry string of a window
+#
+proc get_window_geometry {w} {
+  wm geometry $w
+}
+
+
+# Set the position of a window from a geometry string
+#
+proc set_window_position {w geometry} {
+  set value $geometry
+  set idx [string first "+" $value]
+  if {$idx == -1} {
+    set value [wm geometry .]
+    set idx [string first "+" $value]
+  }
+  if {$idx == -1} { return "" }
+  set pos [string range $value $idx end]
+  wm geometry $w $pos
+}
+
+
+# Reset button appearance from startup color to normal color
+#
+proc reset_to_normal_background {w} {
+  set normal_color [.drive_drop_both cget -background]
+  $w configure -background $normal_color
+}
+
+
+# Checks whether a window is really there
+#
+proc window_exists {w} {
+  set window_exists 0
+  catch {
+    $w cget -background
+    set window_exists 1
+  }
+  return $window_exists
+}
+
+
+# ------ Building GUI components ------
+
+# ------ GUI layout parameters ------
+
+# The default position of the main window
+set main_window_geometry ""
+
+# How to mark the borders of the main grouping frames
+set main_framerelief ridge
+set main_borderwidth 4
+
+# How to mark the borders of the second level grouping frames
+set borderwidth 1
+
+# Number of lines in msglist display
+set msglist_lines 8 
+set msglist_max_fill 1000
+set msglist_running 0
+
+# Number of lines in drivelist display
+set drivelist_lines 2
+
+# Number of lines in ISO directory content display
+set isolist_lines 8
+
+# Whether the message box shall export its selection to the whole X display
+set export_msg_selection true
+
+# Whether the item lists shall export their selection
+set export_selection false
+
+# The number of lines in the display of the help texts
+set main_help_window_lines 24
+set help_window_lines 16
+
+# The distance of the help text from the help window border
+set help_window_border_width 0
+
+# The number of items to display in a tree browser window
+set tree_window_lines 12
+# The number of visible characters in a tree browser line
+set tree_window_width 50
+# The width in characters of the six buttons under the tree browser
+set tree_window_button_width 6
+
+
+# -------- GUI definition procedures
+
+
+# Overall definition of the GUI
+#
+proc init_gui {} {
+  global .input .cmdline_entry .msgbox  .errmsg .dev .drivebox
+  global .isobox .localfs
+  global main_framerelief main_borderwidth click_to_focus
+
+  check_for_bwidget
+
+  # Main grouping frames
+  frame .connection_block \
+        -relief $main_framerelief -borderwidth $main_borderwidth
+  frame .drive_block \
+        -relief $main_framerelief -borderwidth $main_borderwidth
+  frame .iso_block \
+        -relief $main_framerelief -borderwidth $main_borderwidth
+
+  init_input
+  init_msgbox
+  init_errmsg
+  init_dev
+  init_drivebox
+  init_isobox
+  init_isomanip
+  init_burn
+  init_localfs
+
+  pack .input .msgbox .errmsg -in .connection_block \
+       -side top -expand 1 -fill both
+  pack .drivebox .dev .burn -in .drive_block \
+       -side top -expand 1 -fill both
+  pack .localfs .isobox .isomanip -in .iso_block \
+       -side top -expand 1 -fill both
+
+  pack .connection_block .drive_block .iso_block \
+       -side top -expand 1 -fill both
+
+  if {$click_to_focus == 1} {
+    focus .msglist
+  }
+}
+
+
+# The xorriso headline with End button, xorriso version, busy/ready indicator,
+# command line, and "Refresh disp" button.
+#
+proc init_input {} {
+  global borderwidth busy_text_exists xorriso_version debug_logging
+  global cmd_logging_mode cmd_log_target osirrox_allowed cmd_logging_all
+  global .input .input_line1 .xorriso_version .busy .busy_text
+  global .refresh_state .end_button .cmdline .log_pipes_switch
+
+  set extract_state "normal"
+  if {$osirrox_allowed == 0} {set extract_state "disabled"}
+
+  frame .input -borderwidth $borderwidth
+  frame .input_line1 -borderwidth 0
+  pack .input_line1 -in .input \
+                    -side top -anchor w -expand 1 -fill both
+
+  button .end_button -text "End" -command "end_xorriso"
+  bind_help .end_button "End"
+
+  if {[string length $xorriso_version] > 10} {
+    set xorriso_version [string range $xorriso_version 0 9]
+  }
+  label .xorriso_version -text "xorriso-$xorriso_version"
+  bind_help .xorriso_version "version"
+  frame .busy -relief ridge -borderwidth 2
+  label .busy_text -width 5 -text "busy"
+  bind_help .busy_text "ready/busy"
+  set busy_text_exists 1
+  pack .busy_text -in .busy
+
+  button .refresh_state -text "Refresh disp" \
+                        -command "refresh_state"
+  bind_help .refresh_state "Refresh disp"
+
+  menubutton .script_log -text "Script/Log" -anchor w \
+                         -direction below -relief ridge -indicatoron 1 \
+                          -menu .script_log.menu
+  bind_help .script_log "Script/Log"
+  set m ".script_log.menu"
+  menu $m
+  $m add checkbutton -label "Log command script" \
+                     -indicatoron 1 -selectcolor "" \
+                     -command "effectuate_command_logging 0" \
+                     -variable cmd_logging_mode \
+                     -onvalue 1 -offvalue 0
+  $m add checkbutton -label "Log non-essential commands" \
+                     -indicatoron 1 -selectcolor "" \
+                     -variable cmd_logging_all \
+                     -onvalue 1 -offvalue 0
+  $m add command     -label "Set log script address" \
+                     -command "set_log_script_address"
+  $m add separator
+  $m add checkbutton -label "Log pipes" \
+                     -indicatoron 1 -selectcolor "" \
+                     -variable debug_logging \
+                     -onvalue 1 -offvalue 0
+  $m add command     -label "Set pipe log address" \
+                     -command "set_debug_log_address"
+  $m add separator
+  $m add separator
+  $m add command     -label "Execute command script" \
+                     -command "start_script_execution"
+  $m add checkbutton -label "Allow extract to disk" \
+                     -state $extract_state \
+                     -indicatoron 1 -selectcolor "" \
+                     -variable script_with_osirrox \
+                     -onvalue 1 -offvalue 0
+  $m add separator
+  $m add command     -label "Permanently ban extraction" \
+                     -state $extract_state \
+                     -command "osirrox_banned"
+
+  button .help -text "Help" -command {window_help "Help" "grey"} \
+               -background "grey"
+  bind_help .help "Help"
+
+  init_cmdline
+
+  pack .end_button .xorriso_version .busy -in .input_line1 -side left
+  pack .cmdline \
+       -in .input_line1 -side left -expand 1 -fill both
+  pack .refresh_state .script_log .help -in .input_line1 -side left
+}
+
+
+# The combination of "Command:" label and command line
+#
+proc init_cmdline {} {
+  global cmdline borderwidth
+  global .cmdline .cmdline_text .cmdline_entry
+
+  frame .cmdline -borderwidth 0
+
+  label .cmdline_text -width 10 -text "Command:"
+  bind_help .cmdline_text "Command:"
+  entry .cmdline_entry -width 56 -relief sunken -bd 1 \
+                              -textvariable cmdline
+  bind_entry_keys .cmdline_entry {cmdline_return}
+  bind_help .cmdline_entry "Command:"
+
+  # >>> is there a chance to get a history on an entry ?
+
+  pack .cmdline_text -in .cmdline -side left 
+  pack .cmdline_entry -in .cmdline -side left -expand 1 -fill both
+}
+
+
+# The listbox where to display commands and reply messages unless this is
+# disabled for auxiliary commands which shall not clutter the display.
+#
+proc init_msgbox {} {
+  global borderwidth
+  global msglist_lines export_msg_selection msglist_running pre_msglist
+  global .msgbox .msglist .msgscroll
+
+  frame .msgbox -borderwidth $borderwidth
+
+  listbox .msglist -height $msglist_lines -selectmode extended \
+                   -yscrollcommand ".msgscroll set" \
+                   -exportselection $export_msg_selection
+  bind_listbox_keys ".msglist" $msglist_lines "listbox"
+  bind_help .msglist "message box"
+  set msglist_running 1
+  foreach i $pre_msglist {
+    display_msg [escape_newline $i 0]
+  }
+  scrollbar .msgscroll -command ".msglist yview"
+  pack .msglist   -in .msgbox -side left  -expand 1 -fill both
+  pack .msgscroll -in .msgbox -side right -fill y
+  set pre_msglist ""
+}
+
+
+# Two display lines for most severe event messages. One gets reset with
+# each important command. The other one stays until the user clears it.
+#
+proc init_errmsg {} {
+  global borderwidth
+  global .errmsg .total_errmsg .cmd_errmsg
+
+  frame .errmsg -borderwidth $borderwidth
+
+  init_total_errmsg
+  init_cmd_errmsg
+
+  pack .cmd_errmsg .total_errmsg -in .errmsg \
+       -side top -anchor w -expand 1 -fill both
+ 
+}
+
+
+# The most severe message display which gets reset automatically.
+#
+proc init_cmd_errmsg {} {
+  global borderwidth
+  global .cmd_errmsg .cmd_errmsg_label .cmd_errmsg_msg
+
+  frame .cmd_errmsg -borderwidth $borderwidth
+
+  label .cmd_errmsg_label -width 14 -text "Recent problem:" -anchor w
+  bind_help .cmd_errmsg_label "Recent problem:"
+  label .cmd_errmsg_msg -width 80 -relief ridge -bd 2 \
+                        -anchor w \
+                        -textvariable highest_cmd_sev_msg
+  # (no keys, no focus)
+  bind_help .cmd_errmsg_msg "Recent problem:"
+  pack .cmd_errmsg_label -in .cmd_errmsg -side left
+  pack .cmd_errmsg_msg -in .cmd_errmsg -side left -expand 1 -fill both
+}
+
+
+# The persistent most severe message display that is to be reset by the user.
+#
+proc init_total_errmsg {} {
+  global borderwidth
+  global .total_errmsg .total_errmsg_label .total_errmsg_msg
+  global .total_errmsg_clear
+
+  frame .total_errmsg -borderwidth $borderwidth
+
+  label .total_errmsg_label -text "Worst problem:" -width 14 -anchor w
+  bind_help .total_errmsg_label "Worst problem:"
+  button .total_errmsg_clear -text "Clear" \
+                             -width 5 \
+                             -command "clear_total_errmsg"
+  bind_help .total_errmsg_clear "Clear"
+  label .total_errmsg_msg -width 80 -relief ridge -bd 2 \
+                          -anchor w \
+                          -textvariable highest_total_sev_msg
+  # (no keys, no focus)
+  bind_help .total_errmsg_msg "Worst problem:"
+  pack .total_errmsg_label -in .total_errmsg -side left 
+  pack .total_errmsg_msg -in .total_errmsg -side left -expand 1 -fill both
+  pack .total_errmsg_clear -in .total_errmsg -side left
+}
+
+
+# The list of drives which were found by scanning, the Scan button, and
+# buttons for picking a drive from the list, for giving them up, for
+# calming them down, and for reloading the ISO image from the input drive.
+#
+proc init_drivebox {} {
+  global borderwidth drivelist_lines export_selection
+  global .drivebox .drivelistbox .drivelist .drivescroll .drive_scan
+  global .drive_picker .drive_scan .drive_pick_in .drive_pick_out
+  global .drive_pick_both .drive_drop_both .drive_calm .iso_rollback_button
+
+
+  frame .drivebox -borderwidth $borderwidth
+  frame .drivelistbox -borderwidth $borderwidth
+  listbox .drivelist -height $drivelist_lines -selectmode extended \
+                     -yscrollcommand ".drivescroll set" \
+                     -exportselection $export_selection
+  bind_listbox_keys ".drivelist" $drivelist_lines "listbox"
+  bind_help .drivelist "drivelist"
+  scrollbar .drivescroll -command ".drivelist yview"
+
+  pack .drivelist   -in .drivelistbox -side left  -expand 1 -fill both
+  pack .drivescroll -in .drivelistbox -side right -fill y 
+
+  frame .drive_picker -borderwidth $borderwidth
+  frame .drive_picker_line_1 -borderwidth 0
+  frame .drive_picker_line_2 -borderwidth 0
+  frame .drive_aux_buttons_line_1 -borderwidth 0
+  frame .drive_aux_buttons_line_2 -borderwidth 0
+  frame .drive_aux_buttons -borderwidth 0
+
+  button .drive_scan -text "Scan for drives" \
+                     -background "grey" \
+                     -command "scan_for_drives"
+  bind_help .drive_scan "Scan for drives"
+  button .drive_pick_in -text "Pick input drive" \
+                        -command "pick_indev"
+  bind_help .drive_pick_in "Pick input drive"
+  button .drive_pick_out -text "Pick output drive" \
+                         -command "pick_outdev"
+  bind_help .drive_pick_out "Pick output drive"
+  button .drive_pick_both -text "Pick drive for both roles" \
+                         -command "pick_dev"
+  bind_help .drive_pick_both "Pick drive for both roles"
+  button .drive_drop_both -text "Give up drives" \
+                         -command "give_up_dev"
+  bind_help .drive_drop_both "Give up drives"
+  button .drive_calm -text "Calm drives" \
+                         -command "calm_drives"
+  bind_help .drive_calm "Calm drives"
+  button .iso_rollback_button -text "Rollback" -width 9 \
+                              -command {iso_rollback}
+  bind_help .iso_rollback_button "Rollback"
+
+  # One button block left, one right
+  pack .drive_pick_in .drive_pick_out \
+       -in .drive_picker_line_1 -side left -expand 1 -fill none
+  pack .drive_pick_both \
+       -in .drive_picker_line_2 -side left -expand 1 -fill x
+  pack .drive_picker_line_1 .drive_picker_line_2 \
+       -in .drive_picker -side top -expand 1 -fill x -anchor w
+  pack .drive_scan .drive_calm  \
+       -in .drive_aux_buttons_line_1 -side left -expand 1 -fill none
+  pack .drive_drop_both .iso_rollback_button \
+       -in .drive_aux_buttons_line_2 -side left -expand 1 -fill x
+  pack .drive_aux_buttons_line_1 .drive_aux_buttons_line_2 \
+       -in .drive_aux_buttons -side top -expand 1 -fill x -anchor w
+  pack .drive_picker -in .drivebox -side left -expand 0 -fill none
+  pack .drivelistbox -in .drivebox  -side left -expand 1 -fill both
+  pack .drive_aux_buttons -in .drivebox -side left -expand 0 -fill none
+
+  bind .drivelist <Double-Button-1> {
+    pick_dev
+  }
+}
+
+
+# The text fields for setting and display of the current input and output
+# drives. With Eject button and a short text description of the medium status.
+#
+proc init_dev {} {
+  global borderwidth
+  global .dev .indev .outdev
+
+  frame .dev -borderwidth $borderwidth
+
+  init_indev
+  init_outdev 
+
+  pack .indev .outdev -in .dev \
+                    -side top -anchor w -expand 1 -fill both
+}
+
+
+# Set and display the current input drive.
+#
+proc init_indev {} {
+  global borderwidth indev_adr
+  global .indev .indev_eject .indev_label .indev_entry .indev_summary
+
+  frame .indev -borderwidth $borderwidth
+
+  button .indev_eject -text "Eject" -command {eject_indev}
+  bind_help .indev_eject "Eject (indev)"
+
+  button .indev_label -width 16 -text "Input drive/image  " \
+                      -command {indev_return}   
+
+  bind_help .indev_label "Input drive/image"
+  entry .indev_entry -width 34 -relief sunken -bd 1 \
+                     -textvariable indev_adr
+
+  bind_entry_keys .indev_entry {indev_return}
+  bind_help .indev_entry  "Input drive/image"
+  label .indev_summary -width 60 -text "" -relief ridge -borderwidth 2
+  bind_help .indev_summary  "input drive info"
+  create_browser_button .indev_browse_button \
+                        "indev_adr" "localfs" "Browse disk (indev)"
+
+  pack .indev_eject .indev_label .indev_entry \
+       -in .indev -side left -expand 1 -fill both
+  pack .indev_browse_button -in .indev -side left 
+  pack .indev_summary \
+       -in .indev -side left -expand 1 -fill both
+}
+
+
+# Set and display the current output drive.
+#
+proc init_outdev {} {
+  global .outdev .outdev_eject .outdev_label .outdev_entry .outdev_summary
+  global borderwidth outdev_adr
+
+  frame .outdev -borderwidth $borderwidth
+
+  button .outdev_eject -text "Eject" -command {eject_outdev}
+  bind_help .outdev_eject "Eject (outdev)"
+
+  button .outdev_label -width 16 -text "Output drive/image" \
+                       -command {outdev_return}   
+
+  bind_help .outdev_label "Output drive/image"
+  entry .outdev_entry -width 34 -relief sunken -bd 1 \
+                      -textvariable outdev_adr
+  bind_entry_keys .outdev_entry {outdev_return}
+  bind_help .outdev_entry "Output drive/image"
+  create_browser_button .outdev_browse_button \
+                        "outdev_adr" "localfs" "Browse disk (outdev)"
+  label .outdev_summary -width 60 -text "" -relief ridge -borderwidth 2
+  bind_help .outdev_summary "output drive info"
+  pack .outdev_eject .outdev_label .outdev_entry \
+       -in .outdev -side left -expand 1 -fill both
+  pack .outdev_browse_button -in .outdev -side left 
+  pack .outdev_summary \
+       -in .outdev -side left -expand 1 -fill both
+}
+
+
+# The button panel for blanking, formatting, and writing to the output drive.
+#
+proc init_burn {} {
+  global borderwidth burn_write_image_adr burn_write_close burn_write_tao
+  global burn_write_defect_mgt
+  global .burn .burn_blank_button .burn_format_button .burn_commit_button
+  global .burn_write_image .burn_write_image_entry .burn_write_close
+  global .burn_write_tao .burn_write_defect_mgt
+
+  frame .burn -borderwidth $borderwidth
+ 
+  button .burn_blank_button -text "Blank" \
+                            -command {burn_blank}
+  bind_help .burn_blank_button "Blank"
+  button .burn_format_button -text "Format" \
+                             -command {burn_format}
+  bind_help .burn_format_button "Format"
+  button .burn_commit_button -text "Write ISO session" \
+                             -command {burn_commit}
+  bind_help .burn_commit_button "Write ISO session"
+  button .burn_write_image -text "Burn image file:" \
+                           -command {burn_write_image}
+  bind_help .burn_write_image "Burn image file:"
+  entry .burn_write_image_entry -width 40 -relief sunken -bd 1 \
+                                -textvariable burn_write_image_adr
+  bind_entry_keys .burn_write_image_entry {burn_write_image}
+  bind_help .burn_write_image_entry "Burn image file:"
+  create_browser_button .burn_image_browse_button \
+                    "burn_write_image_adr" "localfs" "Browse disk (burn image)"
+  checkbutton .burn_write_close -text "Close" \
+                                -indicatoron 1 -selectcolor "" \
+                                -relief ridge -borderwidth 2 \
+                                -variable burn_write_close \
+                                -onvalue 1 -offvalue 0
+  bind_help .burn_write_close "Close"
+  checkbutton .burn_write_tao -text "TAO" \
+                                -indicatoron 1 -selectcolor "" \
+                                -relief ridge -borderwidth 2 \
+                                -variable burn_write_tao \
+                                -onvalue 1 -offvalue 0
+  bind_help .burn_write_tao "TAO"
+  checkbutton .burn_write_defect_mgt -text "Defect Mgt" \
+                                -indicatoron 1 -selectcolor "" \
+                                -relief ridge -borderwidth 2 \
+                                -variable burn_write_defect_mgt \
+                                -onvalue 1 -offvalue 0
+  bind_help .burn_write_defect_mgt "Defect Mgt"
+  pack .burn_blank_button .burn_format_button \
+       .burn_commit_button .burn_write_close .burn_write_tao \
+       .burn_write_defect_mgt \
+       .burn_write_image .burn_write_image_entry \
+       -in .burn -side left -expand 1 -fill both
+  pack .burn_image_browse_button -in .burn -side left
+}
+
+
+# Set and display the current ISO directory and its content.
+#
+proc init_isobox {} {
+  global borderwidth isolist_lines export_selection
+  global .isobox .isodir .isolist .isodir_entry .isodir_up .isodir_up2
+  global .isodir_label .isodir_verify .isolistbox .isoscroll_y .isoscroll_x
+  
+  frame .isobox -borderwidth $borderwidth
+  frame .isodir -borderwidth 0
+
+  label .isodir_label -text "ISO directory:" \
+                      -width 14
+  bind_help .isodir_label "ISO directory:"
+  entry .isodir_entry -width 60 -relief sunken -bd 1 \
+                      -textvariable isodir_adr
+  bind_entry_keys .isodir_entry {isodir_return "isodir_entry"}
+  bind_help .isodir_entry "ISO directory:"
+  create_browser_button .isodir_browse_button \
+                        "isodir_adr" "isofs" "Browse ISO (isodir)"
+  button .isodir_verify -text "Verify" -command {isodir_verify}
+  bind_help .isodir_verify "Verify"
+  button .isodir_up -text "Up" -command {isodir_up}
+  bind_help .isodir_up "Up"
+  button .isodir_up2 -text "Up" -command {isodir_up}
+  bind_help .isodir_up2 "Up"
+  pack .isodir_label .isodir_up \
+       -in .isodir -side left
+  pack .isodir_entry \
+       -in .isodir -side left -expand 1 -fill both
+  pack .isodir_browse_button .isodir_up2 .isodir_verify \
+       -in .isodir -side left
+
+  frame .isolistbox -borderwidth 0
+  listbox .isolist -height $isolist_lines -selectmode extended \
+                   -yscrollcommand ".isoscroll_y set" \
+                   -xscrollcommand ".isoscroll_x set" \
+                   -exportselection $export_selection
+  bind_listbox_keys ".isolist" $isolist_lines "listbox"
+  bind_help .isolist "isolist"
+  scrollbar .isoscroll_y -command ".isolist yview"
+  scrollbar .isoscroll_x -orient horizontal -command ".isolist xview"
+  pack .isolist     -in .isolistbox -side left  -expand 1 -fill both
+  bind .isolist <Double-Button-1> { pick_isodir }
+  pack .isoscroll_y -in .isolistbox -side right -fill y 
+
+  pack .isodir .isolistbox .isoscroll_x \
+       -in .isobox -side top -expand 1 -fill both
+}
+
+
+# The ISO-internal manipulation buttons for the ISO directory or its content.
+# Plus a text field where to set an ISO path as target for renaming or
+# directory making.
+#
+proc init_isomanip {} {
+  global borderwidth isomanip_move_target
+  global .isomanip .isomanip_move .isomanip_prefix .isomanip_verify_button
+  global .isomanip_move_target .isomanip_rm_r_button .isomanip_move_button
+  global .isomanip_mkdir_button .isomanip_move_target
+  global .avail_label .avail_label_frame .avail_button
+
+  frame .isomanip -borderwidth $borderwidth
+  frame .isomanip_move -borderwidth 0
+ 
+  label .isomanip_prefix -text "Selection:"
+  bind_help .isomanip_prefix "Selection:"
+
+  button .isomanip_verify_button -text "Verify" \
+                                -command {isomanip_verify}
+  bind_help .isomanip_verify_button "Verify (selection)"
+  button .isomanip_rm_r_button  -text "Delete" \
+                                -command {isomanip_rm_r}
+  bind_help .isomanip_rm_r_button "Delete"
+  button .isomanip_move_button -text "Move to:" \
+                               -command {isomanip_mv}
+  bind_help .isomanip_move_button "Move to:"
+  button .isomanip_mkdir_button  -text "Make dir" \
+                                -command {isomanip_mkdir}
+  bind_help .isomanip_mkdir_button "Make dir"
+  entry .isomanip_move_target -width 60 -relief sunken -bd 1 \
+                             -textvariable isomanip_move_target
+  bind_entry_keys .isomanip_move_target {isomanip_mv}
+  bind_help .isomanip_move_target "rename and mkdir target"
+  create_browser_button .isomanip_move_target_button \
+                      "isomanip_move_target" "isofs" "Browse ISO (move target)"
+
+  pack .isomanip_prefix .isomanip_verify_button .isomanip_rm_r_button \
+       .isomanip_move_button \
+       -in .isomanip_move -side left
+  pack .isomanip_move_target \
+       -in .isomanip_move -side left -expand 1 -fill both
+  pack .isomanip_move_target_button -in .isomanip_move -side left
+  pack .isomanip_mkdir_button \
+       -in .isomanip_move -side left -expand 1 -fill both
+  pack .isomanip_move \
+       -in .isomanip -side top -expand 1 -fill both
+}
+
+
+# The means for interaction of ISO image and hard disk filesystem.
+#
+proc init_localfs {} {
+  global borderwidth
+  global .localfs .extract_frame .aux_control_frame .insert_frame
+
+  frame .localfs -borderwidth $borderwidth
+
+  init_extract
+  init_aux_control
+  init_insert
+
+  pack .extract_frame .aux_control_frame .insert_frame \
+       -in .localfs -side top -expand 1 -fill both
+}
+
+
+# The means for extracting files from ISO image to disk
+# 
+proc init_extract {} {
+  global borderwidth extract_to_adr extract_from_selected extract_underneath
+  global osirrox_allowed
+  global .extract_button .extract_frame .extract_entry .extract_from_selected
+  global .extract_underneath 
+
+  set extract_state "normal"
+  if {$osirrox_allowed == 0} {set extract_state "disabled"}
+
+  frame .extract_frame -borderwidth 0
+  button .extract_button -text "Extract to disk:" \
+                         -state $extract_state \
+                         -width 17 \
+                         -command {extract_to}
+  bind_help .extract_button "Extract to disk:"
+  entry .extract_entry -width 40 -relief sunken -bd 1 \
+                       -textvariable "extract_to_adr"
+  bind_entry_keys .extract_entry {extract_to}
+  bind_help .extract_entry "Extract to disk:"
+  create_browser_button .extract_browse_button \
+                        "extract_to_adr" "localfs" "Browse disk (extract)"
+  checkbutton .extract_underneath -text "Underneath" \
+                                  -indicatoron 1 -selectcolor "" \
+                                  -relief ridge -borderwidth 2 \
+                                  -variable extract_underneath \
+                                  -onvalue 1 -offvalue 0
+  bind_help .extract_underneath "Underneath (extract)"
+  checkbutton .extract_from_selected -text "Selected" \
+                                     -indicatoron 1 -selectcolor "" \
+                                     -relief ridge -borderwidth 2 \
+                                     -variable extract_from_selected \
+                                     -onvalue 1 -offvalue 0
+  bind_help .extract_from_selected "Selected (extract)"
+  pack .extract_button -in .extract_frame -side left
+  pack .extract_entry \
+       -in .extract_frame -side left -expand 1 -fill both
+  pack .extract_from_selected .extract_underneath \
+       -in .extract_frame -side right
+  pack .extract_browse_button -in .extract_frame -side right
+}
+
+
+# Some controls which apply to insertion, extraction, or both.
+#
+proc init_aux_control {} {
+  global borderwidth have_bwidget permission_policy
+  global .aux_control_frame
+  global .overwrite_iso_files_button .overwrite_dir_button .extract_auto_chmod
+
+  frame .aux_control_frame -borderwidth 0
+
+  menubutton .overwriting -text "Overwriting:" -width 16 -anchor w \
+                          -direction above -relief ridge -indicatoron 1 \
+                          -menu .overwriting.menu
+  bind_help .overwriting "Overwriting:"
+  set_overwriting_label
+  set m ".overwriting.menu"
+  menu $m 
+  $m add checkbutton -label "Overwrite ISO files" \
+                     -indicatoron 1 -selectcolor "" \
+                     -command set_overwriting_label \
+                     -variable overwrite_iso_files \
+                     -onvalue 1 -offvalue 0
+  $m add checkbutton -label "Overwrite ISO dirs" \
+                     -indicatoron 1 -selectcolor "" \
+                     -command set_overwriting_label \
+                     -variable overwrite_iso_dirs \
+                     -onvalue 1 -offvalue 0
+  $m add checkbutton -label "Overwrite hard disk files" \
+                     -indicatoron 1 -selectcolor "" \
+                     -command set_overwriting_label \
+                     -variable overwrite_disk_files \
+                     -onvalue 1 -offvalue 0
+  $m add checkbutton -label "Enforce disk dir write access" \
+                     -indicatoron 1 -selectcolor "" \
+                     -command set_overwriting_label \
+                     -variable extract_auto_chmod \
+                     -onvalue 1 -offvalue 0
+
+  pack .overwriting -in .aux_control_frame -side left
+
+  menubutton .perm_policy -text "Permissions: as is" -width 22 -anchor w \
+                          -direction above -relief ridge -indicatoron 1 \
+                          -menu .perm_policy.menu
+  set m ".perm_policy.menu"
+  menu $m -tearoff 0
+  $m add radiobutton -label "as is" -value "as_is" \
+                    -variable permission_policy -command show_permission_policy
+  $m add radiobutton -label "readable" -value "readable" \
+                    -variable permission_policy -command show_permission_policy
+  $m add radiobutton -label "readonly" -value "readonly" \
+                    -variable permission_policy -command show_permission_policy
+  $m add radiobutton -label "mkisofs -r" -value "mkisofs_r" \
+                    -variable permission_policy -command show_permission_policy
+  show_permission_policy
+  bind_help .perm_policy "Permissions:"
+
+  button .avail_button -text "Refresh avail:" \
+                             -command {refresh_avail}
+  bind_help .avail_button "Refresh avail:"
+  frame .avail_label_frame -relief ridge -borderwidth 2
+  label .avail_label -width 12 -text ""
+  bind_help .avail_label "Refresh avail:"
+  pack .avail_label -in .avail_label_frame
+
+  pack .avail_label_frame .avail_button .perm_policy \
+       -in .aux_control_frame -side right
+}
+
+
+# The means for inserting files from disk into the ISO image
+# 
+proc init_insert {} {
+  global borderwidth insert_from_adr insert_at_selected insert_underneath
+  global .insert_button .insert_from_frame .insert_entry .insert_at_selected
+  global .insert_underneath .insert_frame
+
+  frame .insert_frame -borderwidth 0
+  frame .insert_from_frame -borderwidth 0
+  button .insert_button -text "Insert from disk:" \
+                        -width 17 \
+                        -command {insert_from}
+  bind_help .insert_button "Insert from disk:"
+  entry .insert_entry -width 40 -relief sunken -bd 1 \
+                      -textvariable "insert_from_adr"
+  bind_entry_keys .insert_entry {insert_from}
+  bind_help .insert_entry "Insert from disk:"
+  create_browser_button .insert_browse_button \
+                        "insert_from_adr" "localfs" "Browse disk (insert)"
+  checkbutton .insert_underneath -text "Underneath" \
+                                 -indicatoron 1 -selectcolor "" \
+                                 -relief ridge -borderwidth 2 \
+                                 -variable insert_underneath \
+                                 -onvalue 1 -offvalue 0
+  bind_help .insert_underneath "Underneath (insert)"
+  checkbutton .insert_at_selected -text "Selected" \
+                                  -indicatoron 1 -selectcolor "" \
+                                  -relief ridge -borderwidth 2 \
+                                  -variable insert_at_selected \
+                                  -onvalue 1 -offvalue 0
+  bind_help .insert_at_selected "Selected (insert)"
+  pack .insert_button -in .insert_from_frame -side left
+  pack .insert_entry \
+       -in .insert_from_frame -side left -expand 1 -fill both
+  pack .insert_browse_button -in .insert_from_frame -side left
+  pack .insert_at_selected .insert_underneath \
+       -in .insert_from_frame -side right
+  pack .insert_from_frame -in .insert_frame -side left -expand 1 -fill both
+}
+
+
+# Set common behavior of listboxes in respect to focus and navigation keys.
+#
+proc bind_listbox_keys {box height what_widget} {
+  global click_to_focus
+
+  if {$click_to_focus == 1} {
+    bind $box <1> "focus \"$box\""
+    bind $box <2> "focus \"$box\""
+    bind $box <3> "focus \"$box\""
+  } else {
+    bind $box <Enter> "focus \"$box\""
+  }
+
+  # No underlining
+  if {$what_widget == "listbox"} {
+    $box configure -activestyle "none"
+  }
+
+  # Need to evaluate all $box and $height at bind-time. Thus "-quotes.
+  bind $box <Any-KeyPress> "
+    if {\"%K\" == \"Up\"} {
+      $box yview scroll \"-1\" units
+    }
+    if {\"%K\" == \"Down\"} {
+      $box yview scroll 1 units
+    }
+    if {\"%K\" == \"Prior\"} {
+      $box yview scroll -[expr \"$height\" - 1] units
+#      $box yview scroll -1 pages
+    }
+    if {\"%K\" == \"Next\"} {
+      $box yview scroll [expr \"$height\" - 1] units
+#      $box yview scroll 1 pages
+    }
+    if {\"%K\" == \"Home\"} {
+      $box yview 0
+    }
+    if {\"%K\" == \"End\"} {
+      $box yview end
+    }
+
+    # >>> Do i need this ?
+      # >>> For now: yes. It prevents double scrolling by PgUp PgDown
+    # Prevent other bindings from being performed
+    break
+  "
+}
+
+
+# Set common behavior of entries in respect to focus and Return key.
+#
+proc bind_entry_keys {entry return_cmd} {
+  global click_to_focus
+
+  if {$click_to_focus != 1} {
+    bind $entry <Enter> "focus \"$entry\""
+  }
+  if {$return_cmd != ""} {
+    bind $entry <Return> $return_cmd
+  }
+}
+
+
+# Bind a help text to a widget.
+#
+proc bind_help {to_what help_name} {
+  bind $to_what <Button-3> "window_help \"$help_name\" grey"
+}
+
+
+# Create a "/" button and wire it with variable, filesystem type,and help text.
+#
+proc create_browser_button {button_name var_name which_fs help_name} {
+  global have_bwidget
+
+  button $button_name -text "/" -command "browse_tree $var_name $which_fs"
+  bind_help $button_name $help_name
+}
+
+
+proc set_overwriting_label {} {
+  global overwrite_iso_files overwrite_iso_dirs overwrite_disk_files
+  global extract_auto_chmod
+  global .overwriting
+
+  # Determine text suffix for menubutton from overwrite variables
+  set oif "-"
+  if {$overwrite_iso_files == 1} {set oif "f"}
+  set oid "-"
+  if {$overwrite_iso_dirs == 1} {set oid "d"}
+  set ohf "-"
+  if {$overwrite_disk_files == 1} {set ohf "h"}
+  set fdw "-"
+  if {$extract_auto_chmod == 1} {set fdw "w"}
+  set otext "Overwriting:  ${oif}${oid}${ohf}${fdw}"
+  .overwriting configure -text $otext
+}
+
+
+# The central storage for help texts.
+#
+proc tell_helptext {what} {
+  global own_version argv0 bwidget_version use_command_move
+
+  if {$what == "Help"} {
+    return \
+"For getting particular help texts:
+
+  Click the rightmost mouse button on any button, list box, or text field. 
+
+For a help text about startup options of this frontend, execute in a shell:
+
+  $argv0 --help
+
+For background info about xorriso and its commands, execute in a shell:
+
+  man xorriso
+
+-----------------------------------------------------------------------------
+
+The GUI window is separated into three main areas:
+
+- The area for connection to xorriso
+  - shows xorriso messages,
+  - offers some general activities,
+  - displays the \"ready/busy\" state of the connection,
+  - and allows to toggle xorriso commands into the \"Command:\" field.
+
+- The area for management of drives and ISO image data files
+  - allows to scan for optical drives,
+  - to acquire them and load their ISO directory tree,
+  - to acquire ISO image files from hard disk as pseudo drives like DVD+RW,
+  - to blank CD-RW, DVD-RW DVD+RW, BD-RE and format DVD-RW, BD-R,
+  - to trigger writing of ISO sessions (which get defined in the third area),
+  - and to burn image data files from hard disk to optical media.
+
+- The area for inspection, manipulation, and exploitation of the ISO model
+  - allows to insert directories and files from hard disk into the ISO model,
+  - to delete and rename file objects in the ISO model,
+  - to verify data files of loaded ISO directory trees by MD5,
+  - to extract directories and files from ISO filesystem to hard disk.
+  
+-----------------------------------------------------------------------------
+                              Some Use Cases
+-----------------------------------------------------------------------------
+
+- Burn a directory as only content onto a CD, DVD or BD
+- Write a directory as only content to an ISO image data file on hard disk
+- Burn an image data file from hard disk onto CD, DVD or BD
+- Add more data to an appendable medium or to an ISO image data file
+- Extract a directory tree from an ISO filesystem to hard disk
+
+-----------------------------------------------------------------------------
+
+            Burn a directory as only content onto a CD, DVD or BD
+
+- Click the \"Scan for drives\" button in the middle area.
+- Select a drive and click the \"Pick output drive\" button.
+- If the information field in the \"Output drive/image\" line begins by
+  \"appendable\" or \"closed\" and if the medium is CD-RW, DVD-RW, DVD+RW, or
+  BD-RE then click the \"Blank\" button to erase the old data.
+  (Blanking of \"DVD-RW sequential recording\" will last very long.)
+- Go to the \"Insert from disk:\" line in the lower area.
+  Either toggle in the address of the hard disk directory,
+  or click on the \"/\" button to the right of the text field to get
+  a file browser.
+- Hit the Return key in the text field or double click on a name in the
+  browser to schedule the disk directory for writing to the medium.
+  You may of course insert several directories or files that way.
+- Close the browser and click the \"Write ISO session\" button in the
+  middle area. Confirm in the \"yes/no\" window that pops up.
+  Burning will begin (or refuse on unsuitable medium status).
+- When the \"busy\" field displays \"ready\" again, you may click \"Eject\".
+  Desktop drives should then put out the tray with the medium.
+
+-----------------------------------------------------------------------------
+
+   Write a directory as only content to an ISO image data file on hard disk
+
+- Go to the text field beside the \"Output drive/image\" button and toggle
+  the address of the image file. Click the button or hit the Return key
+  when the address is complete.
+  Or click on the \"/\" button to the right of the field to get a file browser.
+- You may click on a name in the browser and bring it into the text field
+  by button \"Edit\".
+- When the intended file address is composed, hit the Return key in the
+  text field or click the \"Output drive/image\" button.
+- If the information field in the \"Output drive/image\" line begins by
+  \"appendable\" or \"closed\" then you addressed an existing data file.
+  Warning: Applying the \"Blank\" button to it would damage its content !
+  You probably do not want this in this special use case.
+- Go to the \"Insert from disk:\" line in the lower area.
+  Continue like in the above description for CD, DVD, and BD media.
+
+-----------------------------------------------------------------------------
+
+         Burn an image data file from hard disk onto CD, DVD or BD
+
+- Click the \"Scan for drives\" button in the middle area.
+- Select a drive and click the \"Pick output drive\" button.
+- If the information field in the \"Output drive/image\" line begins by
+  \"appendable\" or \"closed\" and if the medium is CD-RW, DVD-RW, DVD+RW, or
+  BD-RE then click the \"Blank\" button to erase the old data.
+  (Blanking of \"DVD-RW sequential recording\" will last very long.)
+- Go to the text field beside the \"Burn image file:\" button and toggle
+  the address of the image file. Or click on the \"/\" button to the right
+  of the field to get a file browser.
+- Hit the Return key in the text field or double click on a name in the
+  browser to initiate the burn run.
+  Confirm in the \"yes/no\" window that pops up.
+- When the \"busy\" field displays \"ready\" again, you may click \"Eject\".
+  Desktop drives should then put out the tray with the medium.
+
+-----------------------------------------------------------------------------
+
+      Add more data to an appendable medium or to an ISO image data file
+
+- Like above, \"Scan for drives\" but click button \"Pick drive for both roles\"
+  in order to load the directory tree of the existing ISO filesystem.
+  For an ISO image data file, bring its name into the input fields of both
+  lines \"Input drive/image\" and \"Output drive/image\" and activate it
+  by clicking both buttons or hitting the Return key in both fields.
+  You should now see in both info fields texts which begin by \"appendable\".
+- Go to the \"Insert from disk:\" line in the lower area.
+  Use the means described in the first use case to add more directories or
+  data files.
+- If you are interested in \"Delete\" or \"Move to:\" buttons in the
+  bottom line of the GUI: Click them by the rightmost mouse button to see
+  their help texts.
+- When all intended changes are done: Click \"Write ISO session\" and
+  confirm in the \"yes/no\" window.
+
+-----------------------------------------------------------------------------
+
+         Extract a directory tree from an ISO filesystem to hard disk
+
+- Like above, \"Scan for drives\" but click button \"Pick input drive\"
+  in order to load the directory tree of the existing ISO filesystem.
+  For an ISO image data file, bring its name into the input field of the
+  line \"Input drive/image\". You should now see in its info field a text
+  which begins by \"appendable\" or \"closed\".
+- Go to the \"ISO directory:\" line and list box in the lower area and
+  select the directory or file you want to copy to hard disk.
+- To get to see the desired file items, either toggle the address of their
+  parent directory into the text field and hit Return, or double click items
+  to open them as directories, or click the \"/\" button to get a file browser.
+  Select the item in the list box of the main window by a single click.
+- Go to the \"Extract to disk:\" line and choose the target address on disk.
+  Either toggle in the address of the hard disk directory, or click on the
+  \"/\" button to the right of the text field to get a file browser.
+- Hit the Return key in the text field or double click on a name in the
+  browser to initiate the extraction run.
+  If a \"yes/no\" window pops up, consider well whether you are up to
+  shooting your own foot right now.
+  Enable the \"Overwrite hard disk files\" switch only if you are really
+  sure that the files from ISO are better than the ones on hard disk.
+
+-----------------------------------------------------------------------------
+
+xorriso-tcltk is mainly a proof of concept for a frontend that operates
+xorriso in dialog mode.
+
+It demonstrates some of xorriso's multi-session features with ISO 9660
+filesystems on optical media (CD, DVD, BD) or in disk files.
+
+Dependencies:
+  xorriso, Tcl language, Tk GUI toolkit, optionally Tcl/Tk package BWidget
+
+Copyright (C) 2012 - 2016
+Thomas Schmitt <scdbackup@gmx.net>, libburnia-project.org
+Provided under BSD license: Use, modify, and distribute as you like."
+  }
+  if {$what == "End"} {
+    return \
+"The \"End\" button leads to the end of frontend and xorriso process."
+  }
+  if {$what == "version"} {
+    return \
+"The field between \"End\" button and ready/busy field displays the
+version of the serving xorriso program.
+
+xorriso is a program which copies file objects from POSIX compliant
+filesystems into Rock Ridge enhanced ISO 9660 filesystems and allows
+session-wise manipulation of such filesystems. It can load the management
+information of existing ISO images and it writes the session results to
+optical media or to filesystem objects.
+Vice versa xorriso is able to restore file objects from ISO 9660 filesystems.
+
+xorriso-tcltk-$own_version is mainly a proof of concept for a frontend
+that operates xorriso in dialog mode.
+
+It exercises several fundamental gestures of communication:
+- connecting via two pipes
+- sending commands
+- receiving replies
+- inquiring the xorriso message sieve
+- using the xorriso parsing service
+
+Note that any other language than Tcl/Tk could be used, if it only can
+do i/o via standard input and standard output or via named pipes.
+Further it has to perform integer arithmetics and string manipulations.
+And, well, a graphical widget set would be nice."
+  }
+  if {$what == "Refresh disp"} {
+    return \
+"The \"Refresh disp\" button causes several text fields and list
+boxes to update their display after manually transmitted commands may
+have changed the state of drives or ISO model."
+  }
+  if {$what == "ready/busy"} {
+    return \
+"The ready/busy field indicates whether a xorriso command is being executed
+and the frontend is still waiting for its reply messages."
+  }
+  if {$what == "Command:"} {
+    return \
+"The \"Command:\" field can be used to send commands to xorriso.
+See the manual page of xorriso for its concepts and commands.
+
+Normally the other GUI elements will emit xorriso commands for you.
+This input field is presented only to make accessible those features
+of xorriso which are not covered by the GUI. Use the \"Refresh disp\"
+button to update the display after you have manually transmitted commands."
+  }
+  if {$what == "Script/Log"} {
+    return \
+"The \"Script/Log\" menu controls logging of xorriso commands and replies.
+
+The \"Log command script\" switch controls whether the essential xorriso
+commands of the GUI session shall be written to the end of a script file
+on hard disk. Not written will be the commands by which the GUI inspects
+the xorriso state, but only those which set up that state and those which
+get sent via the \"Command:\" field.
+Commands -osirrox and -extract will be logged only as comments.
+
+The \"Log non-essential commands\" switch controls whether all commands
+shall be logged if \"Log command script\" is enabled. Commands
+-msg_op \"parse\" and -msg_op \"parse_bulk\" will be logged only as comments.
+
+The item \"Set log script address\" pops up a file tree browser window
+which asks for the target of appending to script. Address \"-\" means
+standard error. Else it must not yet exist or be a writable data file.
+
+The \"Log pipes\" switch controls whether all xorriso commands and replies
+shall be logged to standard error or to the file that has been given
+with program argument --pipe_log_file.
+Caution: This log is verbose.
+
+The item \"Set pipe log address\" pops up a file tree browser window
+which asks for the target of pipe logging . Address \"-\" means
+standard error. Else it must not yet exist or be a writable data file.
+
+The item \"Execute command script\" executes the commands in a script
+file that should stem from \"Log command script\".
+At least it must begin by this line:
+# xorriso-tcltk command log script
+Be aware that xorriso will slavishly execute those commands. Better check
+in advance whether the content of the script file is what you expect.
+See man xorriso for the meaning of the commands.
+
+The \"Allow extract to disk\" switch controls whether commands like -extract
+are allowed in command scripts. If disabled, then command -osirrox is used
+to temporarily block those commands (unless the script unblocks itself, which
+would be nasty behavior).
+
+The item \"Permanently ban extraction\" disables -extract irrevocably for
+scripts and GUI alike."
+  }
+  if {$what == "message box"} {
+    return \
+"The message box displays commands sent to xorriso and messages received
+from xorriso.
+
+Many commands which are emitted by the GUI will hide themselves and their
+replies from this display. All event messages with severity WARNING or
+higher will show up, nevertheless."
+  }
+  if {$what == "Recent problem:"} {
+    return \
+"The \"Recent problem:\" field shows the most severe event message that occurred
+during the execution of the most recent command. It also displays the most
+recent problem message from the frontend program itself.
+
+Several commands emitted by the GUI will not clear this display. But any
+manually transmitted command and the major GUI gestures will do.
+"
+  }
+  if {$what == "Worst problem:"} {
+    return \
+"The \"Worst problem:\" field shows the most severe event message that occurred
+since last time the \"Clear\" button was hit. It will not clear automatically."
+  }
+  if {$what == "Clear"} {
+    return \
+"The \"Clear\" button removes the message from the \"Worst problem:\" field."
+  }
+  if {$what == "Scan for drives"} {
+    return \
+"The \"Scan for drives\" button executes command -devices and puts the list
+of found optical drives into the box beside the button.
+
+Scanning should be done before any ISO image manipulations because xorriso
+has to give up its acquired drives in order to perform the scan run.
+
+To become visible and to be usable, the drives have to offer rw-permission
+to the user of this program. If drives do not show up, then consider to
+become superuser and to execute
+  xorriso -devices
+Then apply
+  chmod a+rw 
+to the listed device files. (Consider to use finer means of permission
+granting for a permanent solution.)"
+  }
+  if {$what == "Pick input drive"} {
+    return \
+"The \"Pick input drive\" button executes command -indev and obtains some
+information about the medium status. This info is displayed in the 
+\"Input drive/image\" line. 
+Further it causes the display of the ISO image model to be updated.
+
+The medium in the input drive must be blank or contain a valid ISO 9660
+filesystem.
+Choosing an input drive causes a root directory to be created in the ISO
+model of xorriso. If there is a valid ISO filesystem in the input drive
+then its directory tree gets loaded underneath that model root directory.
+
+The input drive may also be a data file on hard disk if that file contains
+an ISO 9660 filesystem image. See the \"Input drive/image\" button."
+  }
+  if {$what == "Pick output drive"} {
+    return \
+"The \"Pick output drive\" button executes command -outdev and obtains some
+information about the medium status. This info is displayed in the 
+\"Output drive/image\" line.
+
+The output drive may be empty or loaded with a medium, that may be blank,
+appendable or closed.
+It is usable for writing only if there is a medium inserted which is either
+blank or appendable. Button \"Blank\" can bring appendable or closed media
+into blank state.
+
+The output drive may also be a data file on hard disk. See field
+\"Output drive/image\"."
+It is considered appendable if it contains an ISO 9660 filesystem image.
+It is considered blank if it is empty or marked as blank by button \"Blank\".
+It is considered closed if it contains other data."
+  }
+  if {$what == "Pick drive for both roles"} {
+    return \
+"The \"Pick drive for both roles\" button executes command -dev and obtains some
+information about the medium status. This info is displayed in the
+\"Input drive/image\" line and in the \"Output drive/image\" line.
+Further it causes the display of the ISO image model to be updated.
+
+The medium in the drive must be blank or contain a valid ISO 9660 filesystem.
+Else the drive will only be acquired as output drive.
+
+This drive configuration is the most usual one with xorriso. It loads
+an eventual ISO image, allows to manipulate it by insertion, deletion,
+and renaming. When this is done, the changes get written to the drive
+via button \"Write ISO session\".
+
+The drive may also be a data file on hard disk. See the fields beside
+the \"Input drive/image\" and \"Output drive/image\" buttons.
+A file is considered appendable if it contains an ISO 9660 filesystem image.
+It is considered blank if it is empty or marked as blank by button \"Blank\".
+It is considered closed if it contains other data."
+  }
+  if {$what == "Give up drives"} {
+    return \
+"The \"Give up drives\" button executes commands -indev \"\" -outdev \"\"
+and clears both \"... drive/image\" lines, as well as the ISO model."
+  }
+  if {$what == "Calm drives"} {
+    return \
+"The \"Calm drives\" button executes command -calm_drives which tells the
+acquired optical drives to stop spinning until the next drive activity
+gets triggered."
+  }
+  if {$what == "Rollback"} {
+    return \
+"The \"Rollback\" button executes command -rollback which drops all pending
+changes of the ISO model and reloads it from the input drive, if one is
+acquired."
+  }
+  if {$what == "drivelist"} {
+    return \
+"The box beside the \"Scan for drives\" button shows the optical drives
+which were found by the most recent scan run.
+
+A double-click on a drive item has the same effect as button
+\"Pick drive for both roles\".
+"
+  }
+  if {$what == "Input drive/image"} {
+    return \
+"The field beside the \"Input drive/image\" button displays the address of
+the input drive. You may edit this field.
+Clicking the button or pressing the Return key causes the execution of
+command -indev with the field content as drive address.
+
+Use this to load the model from an ISO image data file on hard disk.
+It is of course permissible that input image and output image are the
+same file.
+"
+  }
+  if {$what == "input drive info"} {
+    return \
+"The text beside the \"Input drive/image\" field displays the medium
+status of the input drive. It tells about the writability, the medium type,
+the number of ISO sessions, and the amount of readable data."
+  }
+  if {$what == "Eject (indev)"} {
+    return \
+"The \"Eject\" button beside the \"Input drive/image\" button executes
+command -eject \"in\"."
+  }
+  if {$what == "Output drive/image"} {
+    return \
+"The field beside the \"Output drive/image\" button displays the address
+of the output drive. You may edit this field.
+Clicking the button or pressing the Return key causes the execution
+of command -outdev with the field content as drive address.
+
+Use this to direct writing to an ISO image data file on hard disk.
+It is of course permissible that input image and output image are the
+same file.
+"
+  }
+  if {$what == "output drive info"} {
+    return \
+"The text beside the \"Output drive/image\" field displays the medium
+status of the output drive. It tells about the writability, the medium type,
+the number of ISO sessions, and the amount of free space."
+  }
+  if {$what == "Eject (outdev)"} {
+    return \
+"The \"Eject\" button beside the \"Output drive/image\" button executes
+command -eject \"out\"."
+  }
+  if {$what == "Blank"} {
+    return \
+"The \"Blank\" button executes command -blank \"as_needed\" on the output drive
+in order to make a re-usable medium or an ISO image data file writable from
+scratch.
+
+Genuine blanking applies only to CD-RW and DVD-RW.
+But xorriso emulates ISO 9660 multi-session on DVD+RW, DVD-RAM,
+formatted DVD-RW, BD-RE, as well as in ISO image data files on hard disk.
+On those media and pseudo media, blanking will be performed by a small
+write operation which invalidates their existing ISO filesystem.
+
+One-time writable media CD-R, DVD-R, DVD+R, and BD-R cannot be blanked."
+  }
+  if {$what == "Format"} {
+    return \
+"The \"Format\" button executes -format \"as_needed\".
+
+This only applies to real optical drives and is of interest only with DVD-RW
+or BD-R media, which both can be used formatted and unformatted. Other media
+types which mandatorily need formatting will be formatted by the write
+commands.
+
+Formatted DVD-RW media have the advantage of being overwritable and thus
+being quickly blankable while maintaining the capability for multi-session.
+
+Formatted BD-R can perform Defect Management, which is of questionable value."
+  }
+  if {$what == "Write ISO session"} {
+    return \
+"The \"Write ISO session\" executes command -commit, which writes a session
+with all pending changes to the output drive.
+
+The output drive must be either blank or it must be the same as the input
+drive.
+
+Writing the session is the last step in the course of creating a new ISO
+filesystem or an add-on session that expands or changes the ISO filesystem
+on the medium of the output drive.
+So first choose a drive, then insert files from hard disk or do other
+manipulations, and then click \"Write ISO session\" to let xorriso
+write the data to medium or ISO image file.
+"
+  }
+  if {$what == "Close"} {
+    return \
+"The \"Close\" switch controls whether command -close \"on\" is emitted with
+\"Write ISO session\" or whether -as cdrecord option -multi is omitted with
+\"Burn image file:\".
+
+Closed optical media cannot be written any more unless they get blanked,
+which is not possible with CD-R, DVD-R, DVD+R, and BD-R.
+"
+  }
+  if {$what == "TAO"} {
+    return \
+"The \"TAO\" switch controls whether an incremental MMC write type shall be
+enforced with write commands. See xorriso command -write_type.
+
+Normally xorriso will decide by medium status and job parameters which
+MMC write type to choose. Some drives at the edge of failure might work
+with the one write type while already failing with the other."
+  }
+  if {$what == "Defect Mgt"} {
+    return \
+"The \"Defect Mgt\" switch controls whether slow and error-prone drive internal
+check-reading shall be enabled when writing to formatted BD-R or BD-RE.
+See xorriso command -stream_recording."
+  }
+  if {$what == "Burn image file:"} {
+    return \
+"The \"Burn image file:\" button executes command -as \"cdrecord\" to
+burn a data file from hard disk onto the output drive.
+The address of the disk file is taken from the neighboring text field.
+
+If you do not plan to append further data to the medium, then consider
+to enable the \"Close\" switch.
+
+No input drive may be acquired. (Delete all characters from the field
+\"Input drive/image\" and hit Return to give up the input drive.)
+
+The medium in the drive must be blank.
+(It is well possible to burn image files to appendable media. But the
+image needs to be prepared for the address offset. Who can do that can
+as well use one of the command line tools for burning the result. E.g.
+  xorriso -as cdrecord -v dev=/dev/sr0 -multi stream_recording=32s image.iso
+)"
+  }
+  if {$what == "Extract to disk:"} {
+    return \
+"The \"Extract to disk:\" button executes command -extract with the whole
+tree of the current ISO directory or with the selected items of the box
+underneath \"ISO directory:\".
+
+This copies the selected files or directory trees from the input drive
+to the address on hard disk which is given by the text field right of
+the button."
+  }
+  if {$what == "Browse tree"} {
+    return "[tell_file_browser_help 0]"
+  }
+  if {$what == "Close (browse tree)"} {
+    return \
+"The \"Close\" button in the file browser closes the browser window without
+performing other actions."
+  }
+  if {$what == "Up (browse tree)"} {
+    return \
+"The \"Up\" button in the file browser brings you to the parent directory
+of the currently selected file tree item.
+
+The parent directory will be opened and become the selected item.
+All opened directory trees underneath the parent will be closed."
+  }
+  if {$what == "Down (browse tree)"} {
+    return \
+"The \"Down\" button in the file browser opens the directory underneath 
+the currently selected file tree item.
+
+It has the same effect as clicking the \"+\" node of the selected item."
+  }
+  if {$what == "Accept (browse tree)"} {
+    return \
+"The \"Accept\" button in the file browser brings the single selected item
+from the file browser tree into effect with the associated text field.
+I.e. it hits the Return key of the field.
+
+It works as if the item had been double clicked."
+  }
+  if {$what == "Edit (browse tree)"} {
+    return \
+"The \"Edit\" button in the file browser brings the single selected item
+from the file browser tree into the associated text field.
+
+It does not hit the Return key of the field, but gives you the opportunity
+to edit the file address."
+  }
+  if {$what == "Browse disk (extract)"} {
+    return \
+"The \"/\" button in the \"Extract to disk:\" line pops up a file tree
+browser to select a target address in the hard disk filesystem.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse disk (burn image)"} {
+    return \
+"The \"/\" button beside the \"Burn image file\" field pops up a file
+tree browser to select a source address in the hard disk filesystem.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse disk (insert)"} {
+    return \
+"The \"/\" button beside the \"Insert from disk\" field pops up a file
+tree browser to select a source address in the hard disk filesystem.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse disk (indev)"} {
+    return \
+"The \"/\" button in the \"Input drive/image\" line pops up a file tree
+browser to select a source address in the hard disk filesystem.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse disk (outdev)"} {
+    return \
+"The \"/\" button in the \"Output drive/image\" line pops up a file tree
+browser to select a source address in the hard disk filesystem.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse ISO (isodir)"} {
+    return \
+"The \"/\" button in the \"ISO directory\" line pops up a file tree
+browser to select the current directory in the ISO filesystem model.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse ISO (move target)"} {
+    return \
+"The \"/\" button in the \"Selection:\" line pops up a file tree
+browser to select the current directory in the ISO filesystem model.
+
+[tell_file_browser_help 1]"
+  }
+  if {$what == "Browse disk (dummy)"} {
+    return \
+"Normally this button would start a file browser to select a file or
+directory on hard disk.
+
+But the browser cannot be displayed because Tcl/Tk package \"BWidget\"
+is not loaded."
+  }
+  if {$what == "Browse ISO (dummy)"} {
+    return \
+"Normally this button would start a file browser to select a file or
+directory in the ISO model.
+
+But the browser cannot be displayed because Tcl/Tk package \"BWidget\"
+is not loaded."
+  }
+  if {$what == "Underneath (extract)"} {
+    return \
+"The \"Underneath\" switch controls the effective hard disk target address
+of an item if the address in the \"Extract to disk:\" field points to a
+directory.
+
+If \"Underneath\" is enabled, then the file object from the ISO filesystem
+will be copied to its name underneath the hard disk directory.
+If \"Underneath\" is disabled then an ISO directory tree item will be merged
+with the disk directory tree at the given address.
+
+Example:
+Selected are \"/iso_dir\" and \"/iso_file\".
+Address for hard disk is \"/tmp/from_iso\". Switch \"Selected\" is enabled.
+\"Underneath\" enabled causes commands:
+  -extract /iso_dir /tmp/from_iso/iso_dir
+  -extract /iso_file /tmp/from_iso/iso_file
+\"Underneath\" disabled:
+  -extract /iso_dir /tmp/from_iso
+  -extract /iso_file /tmp/from_iso
+The last command will fail because /tmp/from_iso already exists as directory."
+  }
+  if {$what == "Selected (extract)"} {
+    return \
+"The \"Selected\" switch controls whether the whole current ISO directory,
+or only the selected items shall be copied to hard disk.
+"
+  }
+  if {$what == "Overwriting:"} {
+    return \
+"The \"Overwriting\" menu bundles several switches which control whether
+existing files or directories may be overwritten.
+
+The frontend program will only detect the most obvious name collisions,
+but xorriso will reliably refuse to overwrite files if this is banned.
+
+----------------------------------------------------------------------------
+
+The \"Overwrite ISO files\" switch controls whether existing files may be
+overwritten in the ISO image. See xorriso command -overwrite \"nondir\".
+
+----------------------------------------------------------------------------
+
+The \"Overwrite ISO dirs\" switch controls whether it is allowed to replace
+an ISO directory by a another file. See xorriso command -overwrite \"on\".
+
+----------------------------------------------------------------------------
+
+The \"Overwrite hard disk files\" switch controls whether existing files may be
+overwritten by extraction to hard disk. See xorriso command -overwrite \"on\".
+
+This is DANGEROUS, of course, but comes in handy with restoring of backups.
+
+----------------------------------------------------------------------------
+
+The \"Enforce disk dir write access\" switch enables the -osirrox options
+\"auto_chmod_on\" and \"sort_lba_on\" which influence file extraction.
+
+\"auto_chmod_on\" allows xorriso to give itself temporariy w-permission to
+all disk directories which are owned by the xorriso user.
+
+This is DANGEROUS, of course, but comes in handy with restoring of backups.
+
+Option \"sort_lba_on\" reduces head-moves of optical drives and thus can
+speed up extraction substantially. It is bound to \"auto_chmod_on\" because
+else it might get into trouble when restoring ISO directories which offer
+no w-permission."
+  }
+  if {$what == "Permissions:"} {
+    return \
+"The \"Permissions\" menu allows to choose a global policy to adjust
+the access permissions of the files when an ISO session gets written.
+
+The default policy \"as is\" leaves the permissions as they are.
+Usually they have been imported from hard disk or from a loaded ISO image.
+xorriso commands -chmod , -chmod_r, and -find ... -exec chmod --
+may be used to perform permission manipulations.
+
+Policy \"readable\" adds read permission to all kinds of files and
+search permission to all directories.
+
+Policy \"readonly\" sets the permissions of all kinds of files to read-only.
+Directories get added search permission.
+
+Policy \"mkisofs -r\" does what option -r of program mkisofs does:
+User id and group id become 0, all r-permissions get granted, all w denied.
+If there is any x-permission, then all three x get granted. s- and t-bits
+get removed.
+"
+  }
+  if {$what == "Refresh avail:"} {
+    return \
+"The \"Refresh avail:\" button triggers command -tell_media_space. It makes
+a time consuming exact prediction of the free space on the medium in the
+output drive. For this purpose, the size of an ISO session with the pending
+changes is computed.
+
+With image files rather than real optical drives, the free space of
+the hosting filesystem is displayed."
+  }
+  if {$what == "Insert from disk:"} {
+    return \
+"The \"Insert from disk:\" button executes command -map with the disk file
+address that is given by the text field right to the button.
+
+This inserts files or directory trees into the ISO image model and
+schedules them for being copied with the next \"Write ISO session\" run.
+
+The switches \"Underneath\" and \"Selected\" control what ISO address
+the inserted files shall have. You may use buttons \"Delete\" and
+\"Move to:\" for further adjustments.
+"
+  }
+  if {$what == "Underneath (insert)"} {
+    return \
+"The \"Underneath\" switch controls the effective ISO target address
+if the address in the \"Insert from disk:\" field points to a hard disk
+directory.
+
+If \"Underneath\" is enabled, a directory from disk will not be unpacked
+to its single files but be put underneath the target address by its own
+leaf name."
+
+If \"Underneath\" is disabled then the directory itself will not show up in
+the ISO image but only its files and sub directories will do."
+  }
+  if {$what == "Selected (insert)"} {
+    return \
+"If the switch \"Selected\" is enabled, then the given disk file or tree will
+be inserted at or underneath the only selected item in the box underneath
+\"ISO directory:\"."
+  }
+  if {$what == "ISO directory:"} {
+    return \
+"The current ISO directory shall be used to navigate in the ISO image model
+of xorriso. By default it is the target of file insertions and the source
+of file extractions.
+
+The text field in the \"ISO directory:\" line displays the current ISO
+directory and can be used to toggle its path directly.
+Hitting the Return key causes the current directory to change and the
+display in the box underneath to be refreshed.
+
+It is possible to choose the ISO directory by double-clicking an item
+in the box underneath the \"ISO directory:\" line.
+"
+  }
+  if {$what == "Up"} {
+    return \
+"The \"Up\" buttons move the current ISO directory one directory level up."
+  }
+  if {$what == "Verify"} {
+    return \
+"The \"Verify\" button executes -md5_check_r \"SORRY\" with the current ISO
+directory.
+
+This reads the content of all data files which are underneath the current ISO
+directory and which have MD5 checksums in the ISO image. 
+ISO images bear MD5 checksums for each data file if they were produced
+by xorriso with -md5 \"on\" or -for_backup. This frontend enables
+this feature on startup."
+  }
+  if {$what == "isolist"} {
+    return \
+"The list box underneath the \"ISO directory:\" line displays the files in
+the current ISO directory. One or more item can be selected and play a
+role with extraction or insertion of files.
+
+Most of the buttons underneath the box operate on the selected items
+unconditionally."
+  }
+  if {$what == "Selection:"} {
+    return \
+"The ISO selection consists of the items which are selected in the list box
+above the \"Selection:\" line.
+
+If the respective \"Selected\" switches are enabled, then the ISO selection
+is source of file extraction and target of file insertion.
+
+In any case it is the old name of the \"Move to:\" button, the victim
+of the \"Delete\" button, and the subject of the \"Verify\" button."
+  }
+  if {$what == "Verify (selection)"} {
+    return \
+"The \"Verify\" button in the \"Selection:\" line executes command
+-md5_check_r \"SORRY\" with each of the selected items.
+
+This reads the content of all data files which are selected or underneath
+selected directories and which have MD5 checksums in the ISO image. 
+ISO images bear MD5 checksums for each data file if they were produced
+by xorriso with -md5 \"on\" or -for_backup. This frontend enables
+this feature on startup."
+  }
+  if {$what == "Delete"} {
+    return \
+"The \"Delete\" button executes command -rm_r with each of the selected items.
+
+This removes the affected files and directory trees from the ISO model.
+They will not show up in the directory tree of the next session that
+is written via \"Write ISO session\". Nevertheless they will stay present
+in earlier sessions beginning from the session where they were inserted."
+  }
+  if {$what == "Move to:"} {
+    if {$use_command_move == 0} {
+      return \
+"The \"Move to:\" button uses command -mv to move each of the selected
+items to the address that is given by the text field right to the button.
+
+If this address points to an existing ISO directory, then the items will
+be moved underneath that directory and keep their leaf names.
+Else there may be only one selected item which will be renamed to the
+given address."
+    } else {
+      return \
+"The \"Move to:\" button uses command -move to rename each of the selected
+items to the address that is given by the text field right to the button."
+    }
+  }
+  if {$what == "Make dir"} {
+    return \
+"The \"Make dir\" button executes command -mkdir with the address in the
+text field to its left (the same as used by \"Move to:\").
+
+Useful to create a target directory before moving the selection."
+  }
+  if {$what == "rename and mkdir target"} { 
+    return \
+"The text field between the \"Move to:\" button and the \"Make dir\" button
+serves both buttons by providing the target address for renaming
+or directory creation, respectively.
+
+If you hit the Return key in this field, it will trigger \"Mode to:\"."
+  }
+  if {$what == "yes to all"} {
+    return \
+"The \"yes to all\" button appears in the yes/no window if a GUI action is
+about to overwrite a file object and more such overwrite situations are
+to be expected.
+
+If the button is clicked, then all further yes/no questions of that GUI
+action will be answered automatically with yes.
+
+[about_help_for_yesno]"
+  }
+  if {$what == "no to all"} {
+    return \
+"The \"no to all\" button appears in the yes/no window if a GUI action is
+about to overwrite a file object and more such overwrite situations are
+to be expected.
+
+If the button is clicked, then all further yes/no questions of that GUI
+action will be answered automatically with no.
+
+[about_help_for_yesno]"
+  }
+  if {$what == "Continue"} {
+    return \
+"The \"Continue\" button appears in the notification windows which tell
+about a failed or rejected GUI action.
+
+---------------------------------------------------------------------------
+
+It is impossible to trigger any further GUI action while the notification
+window is displayed. You either have to click the \"Continue\" button
+or hit the Return key.
+
+You cannot even close this help window before you did that."
+  }
+  if {$what == "yes/no"} {
+    return \
+"The \"yes\" and \"no\" buttons appear in the confirmation window which tells
+about a potentially dangerous GUI action and demands a user decision whether
+to really perform this action.
+
+[about_help_for_yesno]"
+  }
+
+  return "--- No help text found for topic '$what'"
+}
+
+
+# Tell the general help text of the file browser.
+#
+proc tell_file_browser_help {with_separator} {
+  global have_bwidget
+
+  set text ""
+  if {$with_separator == 1} {
+    set text \
+"-------------------------------------------------------------------------\n\n"
+  }
+  if {$have_bwidget == 1} { 
+
+    set text \
+"${text}The file tree browser presents to you a directory tree and
+lets you bring into effect one of the file addresses in that tree.\n"
+
+  } else {
+
+    set text \
+"${text}Normally the file tree browser would present to you a directory tree
+and let you bring into effect one of the file addresses in that tree.
+
+But the tree view cannot be displayed because Tcl/Tk package \"BWidget\"
+is not loaded.
+
+-------------------------------------------------------------------------\n"
+
+  }
+
+  set text "${text}
+The bottom line of the browser window tells the associated text field
+in the GUI. E.g. \"ISO directory:\".
+Left of this label is a copy of that associated text field. You may edit
+its content and bring it into effect by hitting the Return key.\n"
+
+  if {$have_bwidget == 1} { 
+
+    set text "${text}
+In the tree display click on the \"+\" or \"-\" nodes to open or
+close directories, respectively.
+
+Double click on an item to bring it into effect with the associated
+text field. I.e. double clicking also hits the Return key in that field.\n"
+
+  }
+
+  set text "${text}
+The \"Accept\" button does the same with the selected item.\n"
+
+  if {$have_bwidget == 1} { 
+
+    set text "${text}
+The \"Edit\" button brings the selected item into the text field
+without hitting the Return key. So you may edit the name before hitting
+Return yourself.
+
+The \"Up\" button brings you to the parent directory of the selected item.
+
+The \"Down\" button works like clicking the \"+\" node of the selected item.\n"
+
+  }
+
+  set text "${text}
+The \"Help\" button displays this help text window.
+
+The \"Close\" button closes the browser window.\n"
+}
+
+
+# Tell about pecliarity of help window triggered by yes/no window
+proc about_help_for_yesno {} {
+  return \
+"---------------------------------------------------------------------------
+
+It is impossible to trigger any further GUI action while the confirmation
+window is displayed. You have to click one of the buttons in that window.
+
+You cannot even close this help window before you clicked one of the buttons."
+}
+
+
+# ------- Misc helper procedures -------
+
+
+# Equip a text with quotation marks so that xorriso will consider it as
+# a single word.
+#
+proc make_text_shellsafe {text} {
+  set result "'"
+  set rest $text
+  while {[string length $rest]} {
+    set idx [string first "'" $rest]
+    if {$idx == -1} {
+      set result "$result$rest"
+  break
+    } else {
+      if {$idx > 0} {
+        set result "$result[string range $rest 0 [expr $idx - 1]]"
+      }
+      set result "$result'\"'\"'"
+      if {$idx == [expr [string length $rest] - 1]} {
+  break
+      }
+      set rest [string range $rest [expr $idx + 1] end]
+    }
+  }
+  set result "$result'"
+}
+
+
+# Count the number of newline characters in text.
+#
+proc count_newlines {text} {
+  set rest $text
+  set count 0
+  while {[string length $rest]} {
+    set idx [string first "\n" $rest]
+    if {$idx == -1} {
+  break
+    } else {
+      set count [expr $count + 1]
+      if {$idx == [expr [string length $rest] - 1]} {
+  break
+      }
+      set rest [string range $rest [expr $idx + 1] end]
+    }
+  }
+  return $count
+}
+
+
+# Append name to dir so that the result is a path to name under dir.
+#
+proc combine_dir_and_name {dir name} {
+  set has_slash 0
+  if {$name == ""} {
+    return $dir
+  }
+  if {[string range $name 0 0] == "/"} {
+    incr has_slash
+  }
+  if {[string last "/" $dir] == [expr [string length $dir] - 1] &&
+      $dir != ""} {
+    incr has_slash 1
+  }
+  if {$has_slash == 2} {
+    return "$dir[string range $name" 1 end]"
+  }
+  if {$has_slash == 1} {
+    return "$dir$name"
+  }
+  return "$dir/$name"
+}
+
+
+# Force the content of variable isodir_adr to be an absolute address
+#
+proc normalize_isodir_adr {} {
+  global isodir_adr
+
+  if {$isodir_adr == ""} {
+    set isodir_adr "/"
+  }
+  if {[string range $isodir_adr 0 0] != "/"} {
+    set isodir_adr "/$isodir_adr"
+  }
+}
+
+
+# Inspect path whether one of its components is in isodir_adr
+#
+proc path_touches_isodir {path} {
+  global isodir_adr
+
+  normalize_isodir_adr
+  set cmp_start 0
+  if {$isodir_adr == "/"} {
+    set cmp_start 1
+  }
+  if {[string range $path 0 0] != "/"} {
+    if {[string first "/" $path] == -1} {
+      return $path
+    } else {
+      return [file dirname $path]
+    }
+  }
+  set l [expr {[string length $isodir_adr] - $cmp_start}]
+  if {[string length $path] < [expr {$l + 2}]} {
+    return ""
+  }
+  if {$l > 0} { 
+    if {[string range $path $cmp_start [expr {$l - 1}]] != \
+        [string range $isodir_adr $cmp_start end]} {
+      return ""
+    }
+  }
+  if {[string range $path $l $l] != "/"} {
+    return ""
+  }
+  set subpath [string range $path [expr {$l + 1}] end]
+  set slash [string first "/" $subpath]
+  if {$slash == -1} {
+    return $subpath
+  }
+  if {$slash == 0} {
+    return ""
+  }
+  return [string range $subpath 0 [expr {$slash - 1}]]
+}
+
+
+# Compare two severity names by help of the severity list that was obtained
+# from xorriso via proc inquire_severity_list.
+#
+proc compare_sev {sev1 sev2} {
+  global xorriso_severity_list
+
+  set idx1 [lsearch -exact $xorriso_severity_list $sev1]
+  set idx2 [lsearch -exact $xorriso_severity_list $sev2]
+  if {$idx1 < $idx2} {return -1}
+  if {$idx1 > $idx2} {return 1}
+  return 0
+}
+
+
+# Write a text to the pipe log
+#
+proc debug_log_puts {text} {
+  global debug_logging debug_log_conn
+
+  if {$debug_logging == 1} {
+    puts $debug_log_conn $text
+    flush $debug_log_conn
+  }
+}
+
+
+# End program and return the given exit value.
+#
+proc central_exit {value} {
+  exit $value
+}
+
+
+# Start a xorriso process which will in return launch another frontend
+# process. This is necessary until i learned how to create a pair of pipes
+# and to fork in Tcl.
+#
+proc start_xorriso {} {
+  global argv0 argv
+
+  set self ""
+  if {[string first "/" $argv0] != -1} {
+    set self $argv0
+  }
+  if {$self == ""} {
+    set self "/usr/bin/xorriso-tcltk"
+    if {[file executable $self] == 0} {set self ""}
+  }
+  if {$self == ""} {
+    set self "/usr/local/bin/xorriso-tcltk"
+    if {[file executable $self] == 0} {set self ""}
+  }
+  if {$self == ""} {
+    catch {
+      set conn [open "|which xorriso-tcltk" r]
+      set self [gets $conn]
+      close $conn
+    }
+  }
+  if {$self == ""} {
+    catch {
+      set conn [open "|sh -c \"type -p xorriso-tcltk\"" r]
+      set self [gets $conn]
+      close $conn
+    }
+  }
+  if {$self == ""} {
+    puts stderr "$argv0 :\n  Cannot locate address of script xorriso-tcltk in filesystem.\n"
+    puts stderr "You will have to use --stdio or --named_pipes."
+    puts stderr "See $argv0 --help\n"
+    central_exit 1
+  }
+
+  # eval is used to split $argv into single words
+  eval exec xorriso -launch_frontend "\"$self\"" --silent_start --stdio $argv -- 2>@stderr
+
+  central_exit 0
+}
+
+
+# Print a startup message to stderr if not the first argument is --silent_start
+#
+proc yell_xorriso_tcltk {} {
+  global argv own_version
+
+  if {[llength $argv] > 0} {
+    if {[lindex $argv 0] == "--silent_start"} {return ""}
+  }
+  puts stderr "xorriso-tcltk $own_version : Proof of concept for GUI frontends of xorriso\n"
+}
+
+
+# Log a command (if enabled)
+#
+proc log_command {cmd essential} {
+  global cmd_log_conn cmd_logging_mode cmd_logging_all recent_cd_path
+
+  if {$cmd_logging_mode < 1} {return ""}
+  if {$essential <= 0} {
+    if {$cmd_logging_all <= 0} {return ""}
+  } else {
+    # Leave logging to non-essential call which will come soon after
+    if {$cmd_logging_all > 0} {return ""}
+  }
+
+  if {[string first "-cd " $cmd] == 0} {
+    set path [string range $cmd 4 end]
+    if {$path == $recent_cd_path && $cmd_logging_all <= 0} {return ""}
+    set recent_cd_path $path
+  }
+
+  if {$cmd_log_conn == ""} {
+    effectuate_command_logging 0
+    if {$cmd_logging_mode < 1} {return ""}
+  }
+  set prefix ""
+  if {$cmd_logging_mode == 1} {
+    if {[string first "-osirrox" $cmd] != -1 || \
+        [string first "-extract" $cmd] != -1} {
+      set prefix "# "
+    }
+  }
+  if {[string first "-msg_op parse" $cmd] != -1} {
+      set prefix "# "
+  }
+  puts $cmd_log_conn $prefix$cmd
+  flush $cmd_log_conn
+}
+
+
+# Start command logging
+# Called by setup_by_args and by the "Script/Log" menu.
+# (target == "." and mode == -1 preserve the current state.)
+#
+proc start_command_logging {target mode} {
+  global cmd_log_conn cmd_logging_mode msglist_running cmd_log_target
+
+  set is_stderr 0
+  if {$cmd_log_target == "" || $cmd_log_target == "-" || \
+      $cmd_log_conn == "stderr"} {set is_stderr 1}
+  set errmsg ""
+  if {$target != "." && $cmd_log_conn != "" && $target != $cmd_log_target && \
+      $is_stderr == 0} {
+    catch "close $cmd_log_conn"
+    set cmd_log_conn ""
+  }
+  set ret 0
+  if {$cmd_log_conn == "" || $is_stderr == 1} {
+    if {$target == "-" || $target == "" || $target == "."} {
+      set cmd_log_conn stderr
+    } else {
+      set ret [catch {set cmd_log_conn [open $target a]} errmsg]
+    }
+    if {$target != "."} {
+      set cmd_log_target $target
+    }
+  }
+  if {$ret == 0 && $mode >= 0} {
+    set cmd_logging_mode $mode
+  }
+  if {$ret == 1} {
+    set msg "xorriso-tcltk : SORRY : Failed to open command log script [make_text_shellsafe $target] :\n$errmsg"
+    if {$msglist_running == 1} {
+      xorriso_tcltk_errmsg $msg
+    } else {
+      puts stderr $msg
+    }
+    set cmd_logging_mode 0
+    return 0
+  }
+  if {$mode > 0} {
+    puts $cmd_log_conn "# xorriso-tcltk command log script"
+    puts $cmd_log_conn  [xorriso_loggable_init_cmds]
+    flush $cmd_log_conn
+  }
+  return 1
+}
+
+
+# Start communications pipe logging
+# Called by setup_by_args and by the "Script/Log" menu.
+# (target == "." and mode == -1 preserve the current state.)
+#
+proc start_debug_logging {target mode} {
+  global debug_log_conn debug_log_file debug_logging msglist_running 
+
+  set is_stderr 0
+  if {$debug_log_file == "" || $debug_log_file == "-" || \
+      $debug_log_conn == "stderr"} {set is_stderr 1}
+  set errmsg ""
+  if {$target != "." && $debug_log_conn != "" && \
+      $target != $debug_log_file && $is_stderr == 0} {
+    catch "close $debug_log_conn"
+    set debug_log_conn ""
+  }
+  set ret 0
+  if {$debug_log_conn == "" || $is_stderr == 1} {
+    if {$target == "-" || $target == "" || $target == "."} {
+      set debug_log_conn stderr
+    } else {
+      set ret [catch {set debug_log_conn [open $target a]} errmsg]
+    }
+    if {$target != "."} {
+      set debug_log_file $target
+    }
+  }
+  if {$ret == 0 && $mode >= 0} {
+    set debug_logging $mode
+  }
+  if {$ret == 1} {
+    set msg "xorriso-tcltk : SORRY : Failed to open pipe log [make_text_shellsafe $target] :\n$errmsg"
+    if {$msglist_running == 1} {
+      xorriso_tcltk_errmsg $msg
+    } else {
+      puts stderr $msg
+    }
+    return 0
+  }
+  return 1
+}
+
+
+proc execute_script {close_window} {
+  global execute_script_conn execute_script_adr browse_disk_window_is_active
+  global osirrox_allowed script_with_osirrox cmd_logging_mode cmd_log_target
+  global highest_cmd_sev
+
+  if {$close_window == 1 && $browse_disk_window_is_active == 1} {
+    destroy_browse_disk .browse_disk_window
+  }
+
+  set n1 [file normalize $execute_script_adr]
+  set n2 [file normalize $cmd_log_target]
+  if {$n1 == $n2 && $cmd_logging_mode > 0} {
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : You first have to disable command script logging before using the log script"
+    return ""
+  }
+
+  set errmsg ""
+  set ret [catch {set execute_script_conn [open $execute_script_adr r]} errmsg]
+  if {$ret != 0} {
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : Failed to open command script [make_text_shellsafe $execute_script_adr] :\n$errmsg"
+    return ""
+  }
+  set line ""
+  set ret [gets $execute_script_conn line]
+  if {$ret < 0 || $line != "# xorriso-tcltk command log script"} {
+    xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : Given file does not look like a xorriso command log script"
+    close $execute_script_conn
+    return ""
+  }
+
+  # >>> ??? Show script
+
+  if {[window_yesno "Really perform the xorriso commands in file\n\n[make_text_shellsafe $execute_script_adr]\n\n?"] != 1} {
+    close $execute_script_conn
+    return ""
+  }
+  if {$script_with_osirrox != 1} {
+    send_silent_cmd "-osirrox blocked"
+  }
+  while {1} {
+    set ret [gets $execute_script_conn line]
+    if {$ret < 0} {
+  break
+    }
+    if {$line == "" || [string first "#" $line] == 0} {
+  continue
+    }
+    reset_highest_cmd_sev
+    send_loggable_cmd $line
+    if {[compare_sev $highest_cmd_sev "FAILURE"] >= 0} {
+      xorriso_tcltk_errmsg "xorriso-tcltk : SORRY : Encountered problem event of severity '$highest_cmd_sev'.\nScript execution aborted."
+  break
+    }
+  }
+  close $execute_script_conn
+  if {$script_with_osirrox != 1} {
+    send_silent_cmd "-osirrox unblock"
+  }
+}
+
+
+# Convert newline into \n
+#
+proc escape_newline {text backslash_too} {
+  if {$backslash_too == 0} {
+    return [string map [list "\n" "\\n"] $text]
+  }
+  return [string map [list "\n" "\\n" "\\" "\\\\"] $text]
+}
+
+
+# -------- start living
+
+
+proc setup_by_args {argv0 argv} {
+  global cmd_pipe_adr reply_pipe_adr main_window_geometry click_to_focus
+  global have_bwidget cmd_conn reply_conn geometry stdout stdin
+  global osirrox_allowed cmd_logging_all use_command_move
+
+  # wish normally eats the -geometry option and puts the result into $geometry
+  catch {set main_window_geometry $geometry}
+
+  set connection_defined 0
+  set pipe_logging 0
+  set script_logging 0
+
+  set loop_limit [llength $argv]
+  for {set i 0} {$i < $loop_limit} {incr i} {
+    set ok "0"
+    set opt [lrange $argv $i $i]
+    if {$opt == "--help"} {
+      set ok "1"
+      print_usage $argv0
+      central_exit 0
+    }
+    if {$opt == "--silent_start"} {
+      set ok "1"
+    }
+    if {$opt == "--stdio"} {
+      set ok "1"
+      set connection_defined 1
+    }
+    if {$opt == "--named_pipes"} {
+      set ok "1"
+      incr i
+      set cmd_pipe_adr [lrange $argv $i $i]
+      incr i
+      set reply_pipe_adr [lrange $argv $i $i]
+      if {$cmd_pipe_adr != "" && $reply_pipe_adr != "" &&
+          $cmd_pipe_adr != "-" && $reply_pipe_adr != "-"} {
+        init_frontend_named_pipes $cmd_pipe_adr $reply_pipe_adr
+      }
+      set connection_defined 1
+    }
+    if {$opt == "--geometry" || $opt == "-geometry"} {
+      set ok "1"
+      # Just in case -geometry does not get eaten by wish
+      incr i
+      set main_window_geometry [lrange $argv $i $i]
+      set give_geometry [lrange $argv $i $i]
+    }
+    if {$opt == "--click_to_focus"} {
+      set ok "1"
+      set click_to_focus "1"
+    }
+    if {$opt == "--auto_focus"} {
+      set ok "1"
+      set click_to_focus "0"
+    }
+    if {$opt == "--pipe_log_file"} {
+      set ok "1"
+      incr i
+      set pipe_log_name [lrange $argv $i $i]
+      # postpone actual log start until start_xorriso has been passed
+      set pipe_logging 1
+    }
+    if {$opt == "--script_log_file"} {
+      set ok "1"
+      incr i
+      set script_log_name [lrange $argv $i $i]
+      # postpone actual log start until start_xorriso has been passed
+      set script_logging 1
+    }
+    if {$opt == "--script_log_all_commands"} {
+      set ok "1"
+      set cmd_logging_all 1
+    }
+    if {$opt == "--no_extract"} {
+      set ok "1"
+      set osirrox_allowed 0
+    }
+    if {$opt == "--no_bwidget"} {
+      set ok "1"
+      set have_bwidget "-1"
+    }
+    if {$opt == "--use_command_move"} {
+      set ok "1"
+      set use_command_move 1
+    }
+    if {$opt == "--use_command_mv"} {
+      set ok "1"
+      set use_command_move 0
+    }
+    if {$ok == 0} {
+      puts stderr "$argv0 : Unknown option '$opt'"
+      print_usage $argv0
+      central_exit 1
+    }
+  }
+
+  if {$connection_defined == 0} {
+    start_xorriso
+  }
+
+  if {$cmd_pipe_adr == "" || $reply_pipe_adr == "" ||
+      $cmd_pipe_adr == "-" || $reply_pipe_adr == "-"} {
+    set cmd_conn stdout
+    set reply_conn stdin
+  }
+  if {$pipe_logging == 1} {
+    set ret [start_debug_logging $pipe_log_name 1]
+    if {$ret <= 0} {
+      puts stderr \
+           "$argv0 : Cannot open --pipe_log_file '$pipe_log_name' for writing"
+      central_exit 2
+    }
+  }
+  if {$script_logging == 1} {
+    set ret [start_command_logging $script_log_name 1]
+    if {$ret <= 0} {
+      puts stderr \
+        "$argv0 : Cannot open --script_log_file '$script_log_name' for writing"
+      central_exit 2
+    }
+  }
+
+  if {$main_window_geometry != ""} {
+    wm geometry . $main_window_geometry
+  }
+}
+
+yell_xorriso_tcltk
+
+setup_by_args $argv0 $argv
+check_xorriso_version
+setup_xorriso
+
+init_gui
+
+display_busy 0
+refresh_state
+
