@@ -32,12 +32,6 @@
 *.app
 
 0.bin
-build.bin
-build.raw
-build.elf
-build.iso
-build.cue
-build.map
 /src/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
