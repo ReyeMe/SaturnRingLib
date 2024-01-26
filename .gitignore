@@ -11,31 +11,12 @@
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
-
 0.bin
 /src/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
 /[Mm]ednafen/b/*
+/[Mm]ednafen/**
 /[Mm]ednafen/sav/*
 /[Mm]ednafen/firmware/*
 /[Mm]ednafen/*.cfg
