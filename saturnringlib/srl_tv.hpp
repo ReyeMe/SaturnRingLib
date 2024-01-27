@@ -32,40 +32,40 @@ namespace SRL::TV
 #ifdef SRL_MODE_PAL
 	/** @brief Screen width
 	 */
-	static inline const Uint16 Width = 320;
+	inline static const Uint16 Width = 320;
 
 	/** @brief Screen height
 	 */
-	static inline const Uint16 Height = 256;
+	inline static const Uint16 Height = 256;
 
 	/** @brief Selected resolution
 	 */
-	static inline const TV::Reslotutions Reslotution = TV::Reslotutions::Normal320x256;
+	inline static const TV::Reslotutions Reslotution = TV::Reslotutions::Normal320x256;
 #elif SRL_MODE_NTSC
 	#ifdef SRL_HIGH_RES
 	/** @brief Screen width
 	 */
-	static inline const Uint16 Width = 704;
+	inline static const Uint16 Width = 704;
 
 	/** @brief Screen height
 	 */
-	static inline const Uint16 Height = 480;
+	inline static const Uint16 Height = 480;
 
 	/** @brief Selected resolution
 	 */
-	static inline const TV::Reslotutions Reslotution = TV::Reslotutions::Interlaced704x480;
+	inline static const TV::Reslotutions Reslotution = TV::Reslotutions::Interlaced704x480;
 	#else
 	/** @brief Screen width
 	 */
-	static inline const Uint16 Width = 320;
+	inline static const Uint16 Width = 320;
 
 	/** @brief Screen height
 	 */
-	static inline const Uint16 Height = 240;
+	inline static const Uint16 Height = 240;
 
 	/** @brief Selected resolution
 	 */
-	static inline const TV::Reslotutions Reslotution = TV::Reslotutions::Normal320x240;
+	inline static const TV::Reslotutions Reslotution = TV::Reslotutions::Normal320x240;
 	#endif
 #endif
 };

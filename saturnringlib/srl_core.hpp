@@ -3,6 +3,7 @@
 #include "srl_memory.hpp"
 #include "srl_tv.hpp"
 #include "types/srl_color.hpp"
+#include "srl_cd.hpp"
 #include "srl_vdp1.hpp"
 #include "srl_vdp2.hpp"
 
@@ -13,7 +14,7 @@ namespace SRL::Core
 	/** @brief Initialize basic environment
 	 * @param backColor Color of the screen
 	 */
-	static inline void Initialize(const Types::SaturnColor& backColor)
+	inline static void Initialize(const Types::SaturnColor& backColor)
 	{
 		SRL::Memory::Initialize();
 
@@ -23,6 +24,8 @@ namespace SRL::Core
 		slInitSystem((Uint16)SRL::TV::Reslotution, (TEXTURE*)SRL::VDP1::Textures, 1);
 		slDynamicFrame(1);
 #endif
+		// Initialize CD drive
+		SRL:Cd::Initialize();
 
 		// Start initializing stuff
 		slTVOff();

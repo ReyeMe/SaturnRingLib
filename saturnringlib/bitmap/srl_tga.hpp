@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../srl_utils.hpp"
+#include "../srl_debug.hpp"
 #include "srl_bitmap.hpp"
 #include "../srl_cd.hpp"
 
@@ -139,7 +139,7 @@ namespace SRL::Bitmap
 
 		/** @brief Image data
 		 */
-		void* imageData;
+		char* imageData;
 
 		/** @brief Color palette
 		 */
@@ -156,7 +156,16 @@ namespace SRL::Bitmap
 		 */
 		TGA(char* filename) : imageData(nullptr), palette(nullptr)
 		{
-			// TODO: TGA loader
+			Cd::File tgaFile = Cd::File(filename);
+			
+			// Open file
+			if (tgaFile.Open())
+			{
+
+
+				// Close the file
+				tgaFile.Close();
+			}
 		}
 
 		/** @brief Destroy the TGA image

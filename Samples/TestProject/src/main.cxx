@@ -27,13 +27,8 @@ int main()
 
 	while(1)
 	{
-		Uint32 freeMem = SRL::Memory::GetAvailableMemory();
-
-		slPrintHex(freeMem ,slLocate(0,22));
-
-		Uint32 blocks = SRL::Memory::GetNumberOfBlocks();
-
-		slPrintHex(blocks ,slLocate(0,23));
+		SRL::Debug::Print(1,23, "Free memory %d", SRL::Memory::GetAvailableMemory());
+		SRL::Debug::Print(1,24, "Free blocks %d", SRL::Memory::GetNumberOfBlocks());
 
 		bool make = true;
 
@@ -43,7 +38,7 @@ int main()
 			{
 
 				entities[index]->x += entities[index]->dx;
-				slPrintHex(entities[index]->id ,slLocate(0,index));
+				SRL::Debug::Print(1,index + 1, "%d", entities[index]->id);
 
 				bool hit = false;
 
@@ -79,8 +74,7 @@ int main()
 				}
 				else
 				{
-					slPrintHex(total,slLocate(0,index));
-					slPrint("FAIL" ,slLocate(0,index));
+					SRL::Debug::Assert("Memory allocation failed!");
 				}
 			}
 		}

@@ -11,7 +11,7 @@ namespace SRL
 	private:
 		/** @brief Pointer to the last free space in the heap
 		 */
-		static inline Uint32 HeapPointer = 0;
+		inline static  Uint32 HeapPointer = 0;
 
 	public:
 		/** @brief VDP1 front bugffer address
@@ -21,6 +21,10 @@ namespace SRL
 		/** @brief VDP1 ram address
 		 */
 		inline static const Uint32 RAM = 0x25C00000;
+
+		/** @brief End location of the user area
+		 */
+		inline static const Uint32 UserAreaEnd = 0x25C7FEF8;
 
 		/** @brief Texture color mode
 		 */
@@ -131,11 +135,25 @@ namespace SRL
 
 		/** @brief Texture heap
 		 */
-		static inline Texture Textures[SRL_MAX_TEXTURES] = { Texture() };
+		inline static Texture Textures[SRL_MAX_TEXTURES] = { Texture() };
 
 		/** @brief Texture metadata
 		 */
-		static inline TextureMetadata Metadata[SRL_MAX_TEXTURES] = { TextureMetadata() };
+		inline static TextureMetadata Metadata[SRL_MAX_TEXTURES] = { TextureMetadata() };
+
+		/** @brief Get free avaialbe memory left for textures on VDP1
+		 * @return Number of bytes left 
+		 */
+		inline static size_t GetAvailableMemory()
+		{
+			if (VDP1::HeapPointer == 0)
+			{
+				return VDP1::UserAreaEnd - (VDP1::RAM + 0x1f);
+			}
+
+			VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
+			return VDP1::UserAreaEnd - (VDP1::RAM + AdjCG(previous.Address, previous.Width, previous.Height, previous.Size));
+		}
 
 		/** @brief Try to load a texture
 		 * @param width Texture width
@@ -145,7 +163,7 @@ namespace SRL
 		 * @param data Texture data
 		 * @return Index of the loaded texture
 		 */
-		static inline Uint32 TryLoadTexture(const Uint16 width, const Uint16 height, const VDP1::TextureColorMode colorMode, const Uint16 palette, void* data)
+		inline static Uint32 TryLoadTexture(const Uint16 width, const Uint16 height, const VDP1::TextureColorMode colorMode, const Uint16 palette, void* data)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
@@ -158,7 +176,7 @@ namespace SRL
 				}
 
 				// Create texture entry
-				VDP1::Textures[VDP1::HeapPointer] = VDP1::Texture(width, height, address);
+				VDP1::Textures[VDP1::HeapPointer] = VDP1::Texture(width, height, address >> 3);
 
 				// Create metadata entry
 				VDP1::TextureMetadata metadata = VDP1::TextureMetadata(&VDP1::Textures[VDP1::HeapPointer], colorMode, palette);
@@ -177,7 +195,7 @@ namespace SRL
 
 		/** @brief Fully reset texture heap
 		 */
-		static inline void ResetTextureHeap()
+		inline static  void ResetTextureHeap()
 		{
 			VDP1::HeapPointer = 0;
 		}
@@ -185,7 +203,7 @@ namespace SRL
 		/** @brief Reset texture heap to specified index
 		 * @param index Index to reset to (texture on this index will be overwritten on next TryLoadTexture(); call)
 		 */
-		static inline void ResetTextureHeap(const Uint32 index)
+		inline static  void ResetTextureHeap(const Uint32 index)
 		{
 			VDP1::HeapPointer = VDP1::HeapPointer > index ? index : VDP1::HeapPointer;
 		}

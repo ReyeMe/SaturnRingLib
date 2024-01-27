@@ -15,39 +15,41 @@ namespace SRL
 		/** @brief Set the back color
 		 * @param color Color to use
 		 */
-		static inline void SetBackColor(const Types::SaturnColor& color)
+		inline static  void SetBackColor(const Types::SaturnColor& color)
 		{
 			slBack1ColSet((void*)(VDP2_VRAM_A1 + 0x1fffe), color.ARGB);
 		}
 
-		/** @brief Set color for printf
+		/** @brief Set color for print
 		 * @param index Color index
 		 * @param color Color to set
 		 */
-		static inline void SetPrintfPaletteColor(const Uint16 index, const Types::SaturnColor& color)
+		inline static  void SetPrintPaletteColor(const Uint16 index, const Types::SaturnColor& color)
 		{
-			*(((Types::SaturnColor*)VDP2_COLRAM) + index) = color.ARGB;
+			*(((Types::SaturnColor*)VDP2_COLRAM) + (1 + (index << 8))) = color.ARGB;
 		}
 
 		/** @brief Initialize VDP2
 		 * @param backColor starting back color
 		 */
-		static inline void Initialize(const Types::SaturnColor& backColor)
+		inline static  void Initialize(const Types::SaturnColor& backColor)
 		{
 			// Initialize color ram mode
 			slColRAMMode(CRM16_2048);
 
 			// Initialize printf
 			slCharNbg0(COL_TYPE_256, CHAR_SIZE_1x1);
-			VDP2::SetPrintfPaletteColor(0, Types::Colors::White);
-			VDP2::SetPrintfPaletteColor(1, Types::Colors::Black);
-			VDP2::SetPrintfPaletteColor(2, Types::Colors::Red);
-			VDP2::SetPrintfPaletteColor(3, Types::Colors::Green);
-			VDP2::SetPrintfPaletteColor(4, Types::Colors::Blue);
-			VDP2::SetPrintfPaletteColor(5, Types::Colors::Yellow);
-			VDP2::SetPrintfPaletteColor(6, Types::Colors::Magenta);
-    		slCurColor(1);
+			VDP2::SetPrintPaletteColor(0, Types::Colors::White);
+			VDP2::SetPrintPaletteColor(1, Types::Colors::Black);
+			VDP2::SetPrintPaletteColor(2, Types::Colors::Red);
+			VDP2::SetPrintPaletteColor(3, Types::Colors::Green);
+			VDP2::SetPrintPaletteColor(4, Types::Colors::Blue);
+			VDP2::SetPrintPaletteColor(5, Types::Colors::Yellow);
+			VDP2::SetPrintPaletteColor(6, Types::Colors::Magenta);
 
+			// Set default color to white
+    		slCurColor(0);
+			
 			// Setup NBG1
 			slBitMapNbg1(COL_TYPE_32768, (Uint16)TV::Reslotution, (void*)VDP2_VRAM_A1);
 

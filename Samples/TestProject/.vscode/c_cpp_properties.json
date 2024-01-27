@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/../../saturnringlib",
                 "${workspaceFolder}/../../Compiler/COMMON/SGL_302j/INC",
-                "${workspaceFolder}/../../Compiler/COMMON/std",
+                "${workspaceFolder}/../../Compiler/COMMON/other/**",
                 "${workspaceFolder}/../../Compiler/sh2eb-elf/include",
                 "${workspaceFolder}/../../saturnringlib/**"
             ],
@@ -22,7 +22,9 @@
                 "SRL_FRAMERATE=0",
 				"SRL_MAX_CD_BACKGROUND_JOBS=1",
 				"SRL_MAX_CD_FILES=255",
-				"SRL_MAX_CD_RETRIES=5"
+				"SRL_MAX_CD_RETRIES=5",
+				"SRL_DEBUG_MAX_PRINT_LENGTH=45",
+				"DEBUG=1"
             ]
         }
     ],

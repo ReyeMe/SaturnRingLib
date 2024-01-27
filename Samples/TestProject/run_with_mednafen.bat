@@ -8,12 +8,12 @@ IF ERRORLEVEL 1 (
     SET MEDNAFEN=../../mednafen/mednafen.exe
 )
 
-if not exist ./cd/BuildDrop/*.cue (
+if not exist ./BuildDrop/*.cue (
     echo "CUE/ISO missing, please build first."
 ) else (
     @REM Finding first cue file and running it on mednafen
-    FOR %%F IN (./cd/BuildDrop/*.cue) DO (
-        start "" /MIN %MEDNAFEN% ./cd/BuildDrop/%%F
+    FOR %%F IN (./BuildDrop/*.cue) DO (
+        start "" /MIN %MEDNAFEN% ./BuildDrop/%%F
         exit /b
     )
 )

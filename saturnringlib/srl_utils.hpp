@@ -1,7 +1,10 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include <utils.h>
+#include "types/srl_color.hpp"
+#include "srl_vdp2.hpp"
+#include "srl_memory.hpp"
+#include <std/string.h>
 
 /** @brief Utility functions
  */

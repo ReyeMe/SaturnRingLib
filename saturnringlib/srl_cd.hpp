@@ -57,15 +57,17 @@ namespace SRL
 
 					if (id >= 0)
 					{
-						GfsHn handle = GFS_Open(id);
+						this->identifier = id;
 
-						if (handle != NULL)
+						if (this->Open())
 						{
-							this->identifier = id;
-							this->Handle = handle;
-							GFS_GetFileSize(handle, &sectorSize, &sectorCount, &lastSectorSize);
+							GFS_GetFileSize(this->Handle, &sectorSize, &sectorCount, &lastSectorSize);
 							this->Size = (sectorSize * (sectorCount - 1)) + lastSectorSize;
 							this->Close();
+						}
+						else
+						{
+							this->identifier = -1;
 						}
 					}
 				}

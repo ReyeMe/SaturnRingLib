@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
+#include "srl_utils.hpp"
 
 namespace SRL
 {
@@ -38,13 +39,13 @@ namespace SRL
 
 		/** @brief Memory heap
 		 */
-		static inline Uint8 MemoryHeap[SRL_MALLOC_MEMORY];
+		inline static Uint8 MemoryHeap[SRL_MALLOC_MEMORY];
 
 		/** @brief Get location of the next block in memory
 		 * @param currentBlock Current block location
 		 * @return Location of the next block in memory 
 		 */
-		static inline size_t GetNextBlockLocation(size_t currentBlock)
+		inline static size_t GetNextBlockLocation(size_t currentBlock)
 		{
 			return currentBlock + sizeof(Memory::Header) + ((Memory::Header*)&Memory::MemoryHeap[currentBlock])->Size;
 		}
@@ -52,7 +53,7 @@ namespace SRL
 		/** @brief Merges all free memory blocks until allocated block
 		 * @param startBlock Starting free block
 		 */
-		static inline void MergeFreeMemoryBlocks(size_t startBlock)
+		inline static void MergeFreeMemoryBlocks(size_t startBlock)
 		{
 			size_t next = startBlock;
 
@@ -98,7 +99,7 @@ namespace SRL
 		 * @param size New block size
 		 * @return True if block was succesfully allocated 
 		 */
-		static inline bool SetBlockAllocation(size_t location, size_t size)
+		inline static bool SetBlockAllocation(size_t location, size_t size)
 		{
 			// Gets block header
 			Memory::Header* header = ((Memory::Header*)&Memory::MemoryHeap[location]);
@@ -143,7 +144,7 @@ namespace SRL
 		/** @brief Free memory
 		 * @param address Allocated memory
 		 */
-		static inline void Free(void* address)
+		inline static void Free(void* address)
 		{
 			// Validate pointer to not be null
 			if (address != nullptr)
@@ -166,7 +167,7 @@ namespace SRL
 		/** @brief Gets all available free memory
 		 * @return Number of bytes free 
 		 */
-		static inline size_t GetAvailableMemory()
+		inline static size_t GetAvailableMemory()
 		{
 			size_t freeMemory = 0;
 
@@ -194,7 +195,7 @@ namespace SRL
 		/** @brief Gets all blocks created by allocation
 		 * @return Number of blocks
 		 */
-		static inline size_t GetNumberOfBlocks()
+		inline static size_t GetNumberOfBlocks()
 		{
 			// Search memory for free blocks
 			size_t blocks = 0;
@@ -214,7 +215,7 @@ namespace SRL
 		/** @brief Gets all available free blocks (when used in tandum with GetNumberOfBlocks() this number can indicate fragmentation of the memory)
 		 * @return Number of blocks that can fit stuff
 		 */
-		static inline size_t GetNumberOfFreeBlocks()
+		inline static size_t GetNumberOfFreeBlocks()
 		{
 			// Search memory for free blocks
 			size_t freeBlocks = 0;
@@ -240,7 +241,7 @@ namespace SRL
 
 		/** @brief Initialize memory
 		 */
-		static inline void Initialize()
+		inline static void Initialize()
 		{
 			((Memory::Header*)Memory::MemoryHeap)->Size = SRL_MALLOC_MEMORY - sizeof(Memory::Header);
 			((Memory::Header*)Memory::MemoryHeap)->State = Memory::BlockState::Free;
@@ -250,7 +251,7 @@ namespace SRL
 		 * @param size Number of bytes to allocate
 		 * @return Pointer to allocated space
 		 */
-		static inline void* Malloc(size_t size)
+		inline static void* Malloc(size_t size)
 		{
 			// Allign to 4
 			size_t length = size;
@@ -298,7 +299,7 @@ namespace SRL
 		 * @param size New size of the allocated block
 		 * @return void* Pointer to resized or moved block
 		 */
-		static inline void * Realloc(void* address, size_t size)
+		inline static void * Realloc(void* address, size_t size)
 		{
 			// Validate pointer to not be null
 			if (address != nullptr)

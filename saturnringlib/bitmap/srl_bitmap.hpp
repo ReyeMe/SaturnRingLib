@@ -75,11 +75,17 @@ namespace SRL::Bitmap
 		/** @brief Get image data
 		 * @return Pointer to image data
 		 */
-		virtual void* GetData() {}
+		virtual void* GetData()
+		{
+			return nullptr;
+		}
 		
 		/** @brief Get bitmap info
 		 * @return Bitmap info
 		 */
-		virtual BitmapInfo GetInfo() {}
+		virtual BitmapInfo GetInfo()
+		{
+			return BitmapInfo(0, 0);
+		}
 	};
 }
