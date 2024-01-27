@@ -259,10 +259,17 @@ namespace SRL
 			}
 		}
 
+#ifdef DEBUG
 		/** @brief Breaks any further execution and shows assert screen
 		 * @param message Custom message to show
 		 */
 		#define Assert(message) Assert((char*)message, __FILE__, __FUNCTION__);
+#else
+		/** @brief Breaks any further execution and shows assert screen
+		 * @param message Custom message to show
+		 */
+		#define Assert(message) ()
+#endif
 	};
 
 	/** @brief Structure data loader by dannyduarte
