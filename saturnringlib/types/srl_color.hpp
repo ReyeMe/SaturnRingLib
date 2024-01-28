@@ -10,68 +10,122 @@ namespace SRL::Types
 	{
 		/** @brief Color data
 		 */
-		Uint16 ARGB;
+		Uint16 Opaque : 1;
+		Uint16 Blue : 5;
+		Uint16 Green : 5;
+		Uint16 Red : 5;
 
 		/** @brief Defines new transparent color
 		 */
-		constexpr SaturnColor() : ARGB(0)
+		constexpr SaturnColor() : Opaque(0), Blue(0), Green(0), Red(0)
 		{
 			// Do nothing
 		}
 		
-		/** @brief Defines new color from ARGB value
+		/** @brief Defines new color from saturn ABGR555 value
+		 * @param value VAlue in ABGR555
 		 */
-		constexpr SaturnColor(const Uint16& argb) : ARGB(argb)
+		constexpr SaturnColor(const Uint16& value) :
+			Opaque((value >> 15) & 0x1),
+			Blue((value >> 10) & 0x1f),
+			Green((value >> 5) & 0x1f),
+			Red(value & 0x1f)
 		{
 			// Do nothing
 		}
 		
-		/** @brief Defines new color, components are in rage of 0-255 but are divided by 8
+		/** @brief Defines new color (components are in rage of 0-255 but are divided by 8)
 		 * @param r Red component
-		 * @param g Red component
-		 * @param b Red component
+		 * @param g Ggreen component
+		 * @param b Blue component
 		 */
-		constexpr SaturnColor(const Uint8& r, const Uint8& g, const Uint8& b) : ARGB(0x8000 | (((b >> 3) & 0x1f) << 10) | (((g >> 3) & 0x1f) << 5) | ((r >> 3) & 0x1f))
+		constexpr SaturnColor(const Uint8& r, const Uint8& g, const Uint8& b) :
+			Opaque(1),
+			Red((r >> 3) & 0x1f),
+			Green((g >> 3) & 0x1f),
+			Blue((b >> 3) & 0x1f)
 		{
 			// Do nothing
 		}
-		
-		/** @brief Is color transparent
-		 * @return true 
-		 * @return false 
+
+		/** @brief Get color from RGB555 (components are in range o 0-31)
+		 * @param r Red component
+		 * @param g Ggreen component
+		 * @param b Blue component
+		 * @return constexpr SaturnColor 
 		 */
-		constexpr inline bool IsTransparent()
+		constexpr inline static SaturnColor FromRGB555(const Uint8& r, const Uint8& g, const Uint8& b)
 		{
-			return this->ARGB & 0x8000 == 0;
+			return SaturnColor(r & 0x1f, g & 0x1f, b & 0x1f);
+		}
+
+		/** @brief Get from RGB555
+		 * @param value Value in ARGB555 format
+		 * @return SaturnColor color
+		 */
+		constexpr inline static SaturnColor FromARGB15(const Uint16& value)
+		{
+			return ((value >> 15) & 0x1) != 0 ? SaturnColor::FromRGB555((value >> 10) & 0x1f, (value >> 5) & 0x1f, value & 0x1f) : SaturnColor();
 		}
 		
-		/** @brief Is color transparent
-		 * @return true 
-		 * @return false 
+		/** @brief Get from RGB888
+		 * @param value Value in ARGB888 format
+		 * @return SaturnColor color
 		 */
-		constexpr inline bool Red()
+		constexpr inline static SaturnColor FromRGB24(const Uint32& value)
 		{
-			return this->ARGB & 0x1f;
+			return SaturnColor::FromRGB555(
+				(((value >> 16) & 0xff) >> 3) & 0x1f,
+				(((value >> 8) & 0xff) >> 3) & 0x1f,
+				((value & 0xff) >> 3) & 0x1f);
 		}
 		
-		/** @brief Is color transparent
-		 * @return true 
-		 * @return false 
+		/** @brief Get from ARGB888
+		 * @param value Value in ARGB888 format
+		 * @return SaturnColor color
 		 */
-		constexpr inline bool Green()
+		constexpr inline static SaturnColor FromARGB32(const Uint32& value)
 		{
-			return (this->ARGB >> 5) & 0x1f;
+			if (value & 0xff000000 > 0)
+			{
+				return SaturnColor::FromRGB555(
+					(((value >> 16) & 0xff) >> 3) & 0x1f,
+					(((value >> 8) & 0xff) >> 3) & 0x1f,
+					((value & 0xff) >> 3) & 0x1f);
+			}
+
+			return SaturnColor();
 		}
 		
-		/** @brief Is color transparent
-		 * @return true 
-		 * @return false 
+		/** @brief Get color represented as ABGR555 value
+		 * @return Single ABGR555 value
 		 */
-		constexpr inline bool Blue()
+		constexpr inline Uint16 GetABGR()
 		{
-			return (this->ARGB >> 10) & 0x1f;
+			return *((Uint16*)this);
 		}
 		
+		// This is automatically called 
+		// when '=' operator is 
+		// used between C1 and C2. 
+	
+		constexpr inline void operator=(const Uint16& value) 
+		{ 
+			this->Opaque = (value >> 15) & 0x1;
+			this->Red = value & 0x1f;
+			this->Green = (value >> 5) & 0x1f;
+			this->Blue = (value >> 10) & 0x1f; 
+		} 
+  
+		/** @brief Cast to ABGR555
+		 * @return ABGR value
+		 */
+    	constexpr inline operator Uint16&() { return *((Uint16*)this); }
+		
+		/** @brief Cast to ABGR555
+		 * @return ABGR value
+		 */
+    	constexpr inline operator Uint16() const { return *((Uint16*)this); }
 	};
 		
 	/** @brief Predefined colors

@@ -17,7 +17,7 @@ namespace SRL
 		 */
 		inline static  void SetBackColor(const Types::SaturnColor& color)
 		{
-			slBack1ColSet((void*)(VDP2_VRAM_A1 + 0x1fffe), color.ARGB);
+			slBack1ColSet((void*)(VDP2_VRAM_A1 + 0x1fffe), (Uint16)color);
 		}
 
 		/** @brief Set color for print
@@ -26,7 +26,7 @@ namespace SRL
 		 */
 		inline static  void SetPrintPaletteColor(const Uint16 index, const Types::SaturnColor& color)
 		{
-			*(((Types::SaturnColor*)VDP2_COLRAM) + (1 + (index << 8))) = color.ARGB;
+			*(((Types::SaturnColor*)VDP2_COLRAM) + (1 + (index << 8))) = (Uint16)color;
 		}
 
 		/** @brief Initialize VDP2

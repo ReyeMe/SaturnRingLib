@@ -19,12 +19,27 @@ namespace SRL::Bitmap
 		SRL::Types::SaturnColor* Colors;
 
 		/** @brief Construct a new Palette object
+		 * @param count Number of colors in the palette
+		 */
+		Palette(size_t count) : Colors(nullptr), Count(count)
+		{
+			this->Colors = new SRL::Types::SaturnColor[count];
+		}
+
+		/** @brief Construct a new Palette object
 		 * @param colors Palette colors
 		 * @param count Number of colors in the palette
 		 */
 		Palette(SRL::Types::SaturnColor* colors, size_t count) : Colors(colors), Count(count)
 		{
 			// Do nothing
+		}
+
+		/** @brief Destroy the Palette object
+		 */
+		~Palette()
+		{
+			delete this->Colors;
 		}
 	};
 

@@ -259,27 +259,63 @@ namespace SRL::Bitmap
 			return TGA::HeaderSize + header.ImageIdLength;
 		}
 
+		/** @brief Decode image header
+		 * @param stream File stream
+		 * @param header File header
+		 */
+		void DecodePalette(Uint8* stream, const TGA::TgaHeader& header)
+		{
+			Uint8* buffer = (stream + TGA::ImagePaletteOffset(header));
+			this->palette = new Bitmap::Palette(header.Palette.PaletteLength);
+
+			for (Uint32 index = 0; index < header.Palette.PaletteLength; index++)
+			{
+				switch (header.Palette.PaletteColorDepth >> 3)
+				{
+				case 2:
+					this->palette->Colors[index] = SRL::Types::SaturnColor::FromARGB15(buffer[index << 1]);
+					break;
+				
+				// Loading RGB24 is a tad slower thx to the multiplication
+				case 3:
+					this->palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(buffer[index * 3]);
+					break;
+					
+				case 4:
+					this->palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(buffer[index << 2]);
+					break;
+
+				default:
+					break;
+				}
+			}
+		}
+
 		/** @brief Decode paletted image
-		 * @param data Image data
+		 * @param stream File stream
+		 * @param header File header
 		 */
 		void DecodePaletted(Uint8* stream, const TGA::TgaHeader& header)
 		{
 			// Allocated space for image data
-			this->imageData = new Uint8[this->width * this->height];
+			Uint32 pixels = this->width * this->height;
+			this->imageData = new Uint8[pixels];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
 
-
-		}
-		
-		/** @brief Decode paletted image with RLE compression
-		 * @param data Image data
-		 */
-		void DecodePalettedRle(Uint8* stream, const TGA::TgaHeader& header)
-		{
-			// Allocated space for image data
-			this->imageData = new Uint8[this->width * this->height];
-			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
-
+			if (header.Palette.PaletteLength - 1 <= 16)
+			{
+				for (Uint32 index = 0; index < pixels; index += 2)
+				{
+					this->imageData[index] = ((buffer[index] && 0x0f) << 4) | (buffer[index + 1] && 0x0f);
+				}
+			}
+			else
+			{
+				for (Uint32 index = 0; index < pixels; index++)
+				{
+					this->imageData[index] = buffer[index];
+				}
+			}
 		}
 		
 		/** @brief Decode true color image
@@ -290,6 +326,7 @@ namespace SRL::Bitmap
 			// Allocated space for image data
 			this->imageData = (Uint8*)new SRL::Types::SaturnColor[this->width * this->height];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
+
 
 		}
 		
@@ -350,13 +387,10 @@ namespace SRL::Bitmap
 				switch (header.ImageType)
 				{
 				case ((Uint8)TGA::TgaTypes::TgaPaletted):
+					this->DecodePalette(stream, header);
 					this->DecodePaletted(stream, header);
 					break;
 
-				case ((Uint8)TGA::TgaTypes::TgaRlePaletted):
-					this->DecodePalettedRle(stream, header);
-					break;
-				
 				case ((Uint8)TGA::TgaTypes::TgaTrueColor):
 					this->DecodeTrueColor(stream, header);
 					break;
