@@ -152,7 +152,7 @@ namespace SRL
 			}
 
 			VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-			return VDP1::UserAreaEnd - (VDP1::RAM + AdjCG(previous.Address, previous.Width, previous.Height, previous.Size));
+			return VDP1::UserAreaEnd - (VDP1::RAM + AdjCG(previous.Address << 3, previous.Width, previous.Height, previous.Size));
 		}
 
 		/** @brief Try to load a texture
@@ -172,7 +172,7 @@ namespace SRL
 				if (VDP1::HeapPointer > 0)
 				{
 					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-					address = AdjCG(previous.Address, previous.Width, previous.Height, previous.Size);
+					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, previous.Size);
 				}
 
 				// Create texture entry

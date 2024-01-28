@@ -75,7 +75,7 @@ namespace SRL::Bitmap
 		/** @brief Get image data
 		 * @return Pointer to image data
 		 */
-		virtual void* GetData()
+		virtual Uint8* GetData()
 		{
 			return nullptr;
 		}

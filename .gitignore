@@ -1,5 +1,7 @@
 0.bin
+**.zip
 /[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
-/[Mm]ednafen/**
+/[Ee]mulators/[Mm]ednafen/**
+!/[Ee]mulators/[Mm]ednafen/put_mednafen_here.txt

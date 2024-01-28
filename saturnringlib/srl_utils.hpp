@@ -10,6 +10,33 @@
  */
 namespace SRL::Utils
 {
+	/** @brief Endianity helpers
+	 */
+	namespace Endianity
+	{
+		/** @brief Swap endianity
+		 * @tparam ValueType Type of the value
+		 * @param value Value to swap
+		 * @return ValueType 
+		 */
+		template<typename ValueType>
+		inline static ValueType Swap(const ValueType& value)
+		{
+			ValueType result = 0;
+			ValueType original = value;
+			Sint32 size = sizeof(ValueType);
+
+			while (size-- > 0)
+			{
+				result <<= 8;
+				result = result | (original & 0xff);
+				original >>= 8;
+			}
+			
+			return result;
+		};
+	};
+
 	/** @brief Structure data loader by dannyduarte
 	 */
 	namespace StructLoader
