@@ -265,7 +265,7 @@ namespace SRL::Bitmap
 		void DecodePaletted(Uint8* stream, const TGA::TgaHeader& header)
 		{
 			// Allocated space for image data
-			this->imageData = (Uint8*)Memory::Malloc(this->width * this->height);
+			this->imageData = new Uint8[this->width * this->height];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
 
 
@@ -277,7 +277,7 @@ namespace SRL::Bitmap
 		void DecodePalettedRle(Uint8* stream, const TGA::TgaHeader& header)
 		{
 			// Allocated space for image data
-			this->imageData = (Uint8*)Memory::Malloc(this->width * this->height);
+			this->imageData = new Uint8[this->width * this->height];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
 
 		}
@@ -288,7 +288,7 @@ namespace SRL::Bitmap
 		void DecodeTrueColor(Uint8* stream, const TGA::TgaHeader& header)
 		{
 			// Allocated space for image data
-			this->imageData = (Uint8*)Memory::Malloc(this->width * this->height * sizeof(SRL::Types::SaturnColor));
+			this->imageData = (Uint8*)new SRL::Types::SaturnColor[this->width * this->height];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
 
 		}
@@ -299,7 +299,7 @@ namespace SRL::Bitmap
 		void DecodeTrueColorRle(Uint8* stream, const TGA::TgaHeader& header)
 		{
 			// Allocated space for image data
-			this->imageData = (Uint8*)Memory::Malloc(this->width * this->height * sizeof(SRL::Types::SaturnColor));
+			this->imageData = (Uint8*)new SRL::Types::SaturnColor[this->width * this->height];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
 
 		}

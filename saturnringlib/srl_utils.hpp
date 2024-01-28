@@ -34,7 +34,7 @@ namespace SRL::Utils
 			}
 			
 			return result;
-		};
+		}
 	};
 
 	/** @brief Structure data loader by dannyduarte
@@ -71,6 +71,5 @@ namespace SRL::Utils
 
 			return ptr;
 		}
-
 	}
 }
