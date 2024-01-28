@@ -317,7 +317,7 @@ namespace SRL::Bitmap
 			if (tgaFile.Open())
 			{
 				// Load file
-				Uint8* stream = (Uint8*)Memory::Malloc(tgaFile.Size);
+				Uint8* stream = new Uint8[tgaFile.Size];
 				tgaFile.Read(0, tgaFile.Size, stream);
 				Uint8* data = stream;
 
@@ -371,7 +371,7 @@ namespace SRL::Bitmap
 				}
 
 				// Clear allocated memory
-				Memory::Free(stream);
+				delete stream;
 			}
 		}
 
