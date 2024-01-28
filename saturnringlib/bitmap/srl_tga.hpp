@@ -278,11 +278,11 @@ namespace SRL::Bitmap
 				
 				// Loading RGB24 is a tad slower thx to the multiplication
 				case 3:
-					this->palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(buffer[index * 3]);
+					this->palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(*((Uint32*)(&buffer[index * 3])));
 					break;
 					
 				case 4:
-					this->palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(buffer[index << 2]);
+					this->palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(*((Uint32*)(&buffer[index << 2])));
 					break;
 
 				default:
