@@ -54,7 +54,7 @@ namespace SRL::Types
 		 * @param b Blue component
 		 * @return constexpr SaturnColor 
 		 */
-		constexpr inline static SaturnColor FromRGB555(const Uint8& r, const Uint8& g, const Uint8& b)
+		static SaturnColor FromRGB555(const Uint8& r, const Uint8& g, const Uint8& b)
 		{
 			return SaturnColor(r & 0x1f, g & 0x1f, b & 0x1f);
 		}
@@ -63,7 +63,7 @@ namespace SRL::Types
 		 * @param value Value in ARGB555 format
 		 * @return SaturnColor color
 		 */
-		constexpr inline static SaturnColor FromARGB15(const Uint16& value)
+		static SaturnColor FromARGB15(const Uint16& value)
 		{
 			return ((value >> 15) & 0x1) != 0 ? SaturnColor::FromRGB555((value >> 10) & 0x1f, (value >> 5) & 0x1f, value & 0x1f) : SaturnColor();
 		}
@@ -72,7 +72,7 @@ namespace SRL::Types
 		 * @param value Value in ARGB888 format
 		 * @return SaturnColor color
 		 */
-		constexpr inline static SaturnColor FromRGB24(const Uint32& value)
+		static SaturnColor FromRGB24(const Uint32& value)
 		{
 			return SaturnColor::FromRGB555(
 				(((value >> 16) & 0xff) >> 3) & 0x1f,
@@ -84,7 +84,7 @@ namespace SRL::Types
 		 * @param value Value in ARGB888 format
 		 * @return SaturnColor color
 		 */
-		constexpr inline static SaturnColor FromARGB32(const Uint32& value)
+		static SaturnColor FromARGB32(const Uint32 value)
 		{
 			if (value & 0xff000000 > 0)
 			{

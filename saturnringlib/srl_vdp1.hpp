@@ -95,13 +95,13 @@ namespace SRL
 			 */
 			VDP1::TextureColorMode ColorMode; 
 
-			/** @brief Identifier of the palette (not used in RGB555)
-			 */
-			Uint16 PaletteId;
-
 			/** @brief Pointer to texture
 			 */
 			VDP1::Texture* Texture;
+
+			/** @brief Identifier of the palette (not used in RGB555)
+			 */
+			Uint32 PaletteId;
 
 			/** @brief Construct a new Texture Metadata object
 			 */
@@ -114,7 +114,7 @@ namespace SRL
 			 * @param colorMode Texture color mode
 			 * @param palette Id of the pallet (not used in RGB555 mode)
 			 */
-			TextureMetadata(VDP1::Texture* texture, VDP1::TextureColorMode colorMode, Uint16 palette) : ColorMode(colorMode), Texture(texture), PaletteId(palette)
+			TextureMetadata(VDP1::Texture* texture, VDP1::TextureColorMode colorMode, Uint32 palette) : ColorMode(colorMode), Texture(texture), PaletteId(palette)
 			{
 				// Do nothing
 			}

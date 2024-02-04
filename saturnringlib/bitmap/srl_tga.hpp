@@ -40,30 +40,11 @@ namespace SRL::Bitmap
 		{
 			/** @brief X coordinate
 			 */
-			Uint16 X;
+			Sint16 X;
 
 			/** @brief Y coordinate
 			 */
-			Uint16 Y;
-
-			/** @brief Construct a new Tga Point object
-			 */
-			TgaPoint()
-			{
-				// Do nothing
-			}
-
-			/** @brief Construct a new Tga Point object
-			 * @param data little endian data
-			 */
-			TgaPoint(Uint8* data)
-			{
-				this->X = SRL::Utils::Endianity::Swap<Uint16>(*(data++));
-				data++;
-
-				this->Y = SRL::Utils::Endianity::Swap<Uint16>(*(data++));
-				data++;
-			}
+			Sint16 Y;
 		};
 
 		/** @brief Palette description
@@ -72,36 +53,19 @@ namespace SRL::Bitmap
 		{
 			/** @brief Start of the palette data
 			 */
-			Uint16 PaletteStart;
+			Sint16 PaletteStart;
 
 			/** @brief Length of the palette data
 			 */
-			Uint16 PaletteLength;
+			Sint16 PaletteLength;
 
 			/** @brief Color bit depth of the palette entry
 			 */
-			Uint8 PaletteColorDepth;
+			Sint8 PaletteColorDepth;
 
-			/** @brief Construct a new Tga Palette object
+			/** @brief 
 			 */
-			TgaPalette()
-			{
-				// Do nothing
-			}
-
-			/** @brief Construct a new Tga Palette object
-			 * @param data little endian data
-			 */
-			TgaPalette(Uint8* data)
-			{
-				this->PaletteStart = SRL::Utils::Endianity::Swap<Uint16>(*(data++));
-				data++;
-
-				this->PaletteLength = SRL::Utils::Endianity::Swap<Uint16>(*(data++));
-				data++;
-
-				this->PaletteColorDepth = *(data++);
-			}
+			Sint8 Reserved;
 		};
 
 		/** @brief Image description
@@ -118,29 +82,11 @@ namespace SRL::Bitmap
 
 			/** @brief Color bit depth
 			 */
-			Uint8 PixelColorDepth;
+			Sint8 PixelColorDepth;
 
 			/** @brief Image descriptor
 			 */
-			Uint8 Descriptor;
-
-			/** @brief Construct a new Tga Image object
-			 */
-			TgaImage()
-			{
-				// Do nothing
-			}
-
-			/** @brief Construct a new Tga Image object
-			 * @param data little endian data
-			 */
-			TgaImage(Uint8* data)
-			{
-				this->Origin = TGA::TgaPoint(data);
-				this->Size = TGA::TgaPoint(data);
-				this->PixelColorDepth = *(data++);
-				this->Descriptor = *(data++);
-			}
+			Sint8 Descriptor;
 		};
 
 		/** @brief TGA image header
@@ -149,15 +95,15 @@ namespace SRL::Bitmap
 		{
 			/** @brief Image identifier length
 			 */
-			Uint8 ImageIdLength;
+			Sint8 ImageIdLength;
 
 			/** @brief Has palette
 			 */
-			Uint8 HasPalette;
+			Sint8 HasPalette;
 
 			/** @brief Image type
 			 */
-			Uint8 ImageType;
+			Sint8 ImageType;
 
 			/** @brief Palette description
 			 */
@@ -166,61 +112,100 @@ namespace SRL::Bitmap
 			/** @brief Image description
 			 */
 			TGA::TgaImage Image;
-
-			/** @brief Construct a new Tga Header object
-			 * @param data little endian data
-			 */
-			TgaHeader(Uint8* data)
-			{
-				this->ImageIdLength = *(data++);
-				this->HasPalette = *(data++);
-				this->ImageType = *(data++);
-				this->Palette = TGA::TgaPalette(data);
-				this->Image = TGA::TgaImage(data);
-			}
 		};
 
-		/** @brief Height of the bitmap
+		/** @brief Run lenght encoding packet
 		 */
-		Uint16 height;
+		struct TgaRlePacket
+		{
+			enum class PacketType : Uint8
+			{
+				/** @brief Count contains number of pixels after the packet
+				 */
+				RawPacket = 0,
 
-		/** @brief Image data
-		 */
-		Uint8* imageData;
+				/** @brief Count contains number of repetitions of a color specified after the packet
+				 */
+				RlePacket = 1
+			};
 
+			/** @brief Type of the packet
+			 */
+			PacketType Type:1;
+
+			/** @brief Number of pixels or repetitions
+			 */
+			Uint8 Count:7;
+		};
+		
 		/** @brief Color palette
 		 */
 		Bitmap::Palette* palette;
 
 		/** @brief Width of the bitmap
 		 */
-		Uint16 width;
+		size_t width;
+
+		/** @brief Height of the bitmap
+		 */
+		size_t height;
+
+		/** @brief Image data
+		 */
+		Uint8* imageData;
+
+		/** @brief Deserialize number
+		 * @param buf Value buffer
+		 * @return Deserialited value
+		 */
+		constexpr inline static Uint16 DeserializeUint16(Uint8 *buf)
+		{
+			return (*(buf + 1) << 8) | *(buf);
+		}
+
+		/** @brief Deserialize number
+		 * @param buf Value buffer
+		 * @return Deserialited value
+		 */
+		constexpr inline static Uint32 DeserializeUint32(Uint8 *buf)
+		{
+			return (*(buf + 3) << 24) | (*(buf + 3) << 16) | (*(buf + 3) << 8) | *(buf + 3);
+		}
+
+		/** @brief Deserialize number
+		 * @param buf Value buffer
+		 * @return Deserialited value
+		 */
+		constexpr inline static Uint32 DeserializeUint24(Uint8 *buf)
+		{
+			return (*(buf + 3) << 16) | (*(buf + 3) << 8) | *(buf + 3);
+		}
 
 		/** @brief Check if format is wrong or not
 		 * @param header Tga header
 		 * @return True if format is supported
 		 */
-		inline static bool IsFormatValid(const TGA::TgaHeader& header)
+		static bool IsFormatValid(const TGA::TgaHeader* header)
 		{
-			Uint8 bitDepth = header.Image.PixelColorDepth >> 3;
+			Uint8 bitDepth = header->Image.PixelColorDepth >> 3;
 
-			switch (header.ImageType)
+			switch (header->ImageType)
 			{
-			case ((Uint8)TGA::TgaTypes::TgaGrayscale):
-			case ((Uint8)TGA::TgaTypes::TgaRleGrayscale):
-				if (bitDepth != 1 || header.HasPalette) return false;
+			case ((Sint8)TGA::TgaTypes::TgaGrayscale):
+			case ((Sint8)TGA::TgaTypes::TgaRleGrayscale):
+				if (bitDepth != 1 || header->HasPalette) return false;
 				break;
 			
-			case ((Uint8)TGA::TgaTypes::TgaTrueColor):
-			case ((Uint8)TGA::TgaTypes::TgaRleTrueColor):
-				if ((bitDepth != 2 && bitDepth != 3 && bitDepth != 4) || header.HasPalette) return false;
+			case ((Sint8)TGA::TgaTypes::TgaTrueColor):
+			case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
+				if ((bitDepth != 2 && bitDepth != 3 && bitDepth != 4) || header->HasPalette) return false;
 				break;
 			
-			case ((Uint8)TGA::TgaTypes::TgaPaletted):
-			case ((Uint8)TGA::TgaTypes::TgaRlePaletted):
-				if (header.Palette.PaletteStart >= header.Palette.PaletteLength || !header.HasPalette) return false;
+			case ((Sint8)TGA::TgaTypes::TgaPaletted):
+			case ((Sint8)TGA::TgaTypes::TgaRlePaletted):
+				if (header->Palette.PaletteStart >= header->Palette.PaletteLength || !header->HasPalette) return false;
 
-				switch (header.Palette.PaletteColorDepth)
+				switch (header->Palette.PaletteColorDepth)
 				{
 				case 15:
 				case 16:
@@ -245,65 +230,67 @@ namespace SRL::Bitmap
 		 * @param header TGA header
 		 * @return Offset to the data block
 		 */
-		constexpr inline static Uint32 ImageDataOffset(const TGA::TgaHeader& header)
+		constexpr inline static Uint32 ImageDataOffset(const TGA::TgaHeader* header)
 		{
-			return TGA::HeaderSize + header.ImageIdLength + (header.Palette.PaletteLength * (header.Palette.PaletteColorDepth >> 3));
+			return TGA::HeaderSize + header->ImageIdLength + (header->Palette.PaletteLength * (header->Palette.PaletteColorDepth >> 3));
 		}
 
 		/** @brief Get offset to palette block
 		 * @param header TGA header
 		 * @return Offset to the palette block
 		 */
-		constexpr inline static Uint32 ImagePaletteOffset(const TGA::TgaHeader& header)
+		constexpr inline static Uint32 ImagePaletteOffset(const TGA::TgaHeader* header)
 		{
-			return TGA::HeaderSize + header.ImageIdLength;
+			return TGA::HeaderSize + header->ImageIdLength;
 		}
 
 		/** @brief Decode image header
 		 * @param stream File stream
 		 * @param header File header
 		 */
-		void DecodePalette(Uint8* stream, const TGA::TgaHeader& header)
+		static Bitmap::Palette* DecodePalette(Uint8* stream, const TGA::TgaHeader* header)
 		{
 			Uint8* buffer = (stream + TGA::ImagePaletteOffset(header));
-			this->palette = new Bitmap::Palette(header.Palette.PaletteLength);
+			Bitmap::Palette* palette = new Bitmap::Palette(header->Palette.PaletteLength);
 
-			for (Uint32 index = 0; index < header.Palette.PaletteLength; index++)
+			for (Sint32 index = 0; index < header->Palette.PaletteLength; index++)
 			{
-				switch (header.Palette.PaletteColorDepth >> 3)
+				switch (header->Palette.PaletteColorDepth >> 3)
 				{
 				case 2:
-					this->palette->Colors[index] = SRL::Types::SaturnColor::FromARGB15(buffer[index << 1]);
+					palette->Colors[index] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(&buffer[index << 1]));
 					break;
 				
 				// Loading RGB24 is a tad slower thx to the multiplication
 				case 3:
-					this->palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(*((Uint32*)(&buffer[index * 3])));
+					palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(&buffer[index * 3]));
 					break;
 					
-				case 4:
-					this->palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(*((Uint32*)(&buffer[index << 2])));
-					break;
-
 				default:
+				case 4:
+					palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(&buffer[index << 2]));
 					break;
 				}
 			}
+
+			return palette;
 		}
 
 		/** @brief Decode paletted image
 		 * @param stream File stream
 		 * @param header File header
 		 */
-		void DecodePaletted(Uint8* stream, const TGA::TgaHeader& header)
+		inline void DecodePaletted(Uint8* stream, const TGA::TgaHeader* header)
 		{
 			// Allocated space for image data
 			Uint32 pixels = this->width * this->height;
 			this->imageData = new Uint8[pixels];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
 
-			if (header.Palette.PaletteLength - 1 <= 16)
+			// Read palette data
+			if (header->Palette.PaletteLength - 1 <= 16)
 			{
+				// 16 color palette
 				for (Uint32 index = 0; index < pixels; index += 2)
 				{
 					this->imageData[index] = ((buffer[index] && 0x0f) << 4) | (buffer[index + 1] && 0x0f);
@@ -311,6 +298,7 @@ namespace SRL::Bitmap
 			}
 			else
 			{
+				// 256 color palette
 				for (Uint32 index = 0; index < pixels; index++)
 				{
 					this->imageData[index] = buffer[index];
@@ -321,24 +309,114 @@ namespace SRL::Bitmap
 		/** @brief Decode true color image
 		 * @param data Image data
 		 */
-		void DecodeTrueColor(Uint8* stream, const TGA::TgaHeader& header)
+		inline void DecodeTrueColor(Uint8* stream, const TGA::TgaHeader* header)
 		{
 			// Allocated space for image data
-			this->imageData = (Uint8*)new SRL::Types::SaturnColor[this->width * this->height];
+			Uint32 size = this->width * this->height;
+			this->imageData = (Uint8*)new SRL::Types::SaturnColor[size];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
+			Uint8 depth = header->Image.PixelColorDepth >> 3;
 
+			// Read image data
+			for (Uint32 index = 0; index < size; index++)
+			{
+				Uint8* pixelData = buffer + (depth * index);
 
+				switch (depth)
+				{
+				case 2:
+					((SRL::Types::SaturnColor*)this->imageData)[index] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(pixelData));
+					break;
+				
+				case 3:
+					((SRL::Types::SaturnColor*)this->imageData)[index] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(pixelData));
+					break;
+					
+				default:
+				case 4:
+					((SRL::Types::SaturnColor*)this->imageData)[index] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(pixelData));
+					break;
+				}
+			}
 		}
 		
 		/** @brief Decode true color image with RLE compression
 		 * @param data Image data
 		 */
-		void DecodeTrueColorRle(Uint8* stream, const TGA::TgaHeader& header)
+		inline void DecodeTrueColorRle(Uint8* stream, const TGA::TgaHeader* header)
 		{
 			// Allocated space for image data
-			this->imageData = (Uint8*)new SRL::Types::SaturnColor[this->width * this->height];
+			Uint32 size = this->width * this->height;
+			this->imageData = (Uint8*)new SRL::Types::SaturnColor[size];
 			Uint8* buffer = (stream + TGA::ImageDataOffset(header));
+			Uint8 depth = header->Image.PixelColorDepth >> 3;
+			SRL::Types::SaturnColor fill;
 
+			for (Uint32 pixel = 0; pixel < size;)
+			{
+				TgaRlePacket* packet = (TgaRlePacket*)(buffer++);
+
+				switch (packet->Type)
+				{
+				case TgaRlePacket::PacketType::RawPacket:
+					for (int packed = 0; packed <= packet->Count; packed++)
+					{
+						// Read pixel
+						switch (depth)
+						{
+						case 2:
+							((SRL::Types::SaturnColor*)this->imageData)[pixel] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(buffer));
+							break;
+						
+						case 3:
+							((SRL::Types::SaturnColor*)this->imageData)[pixel] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(buffer));
+							break;
+							
+						default:
+						case 4:
+							((SRL::Types::SaturnColor*)this->imageData)[pixel] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(buffer));
+							break;
+						}
+
+						// Move to next pixel data
+						buffer += depth;
+
+						// Move to next pixel
+						pixel++;
+					}
+
+					break;
+				
+				default:
+				case TgaRlePacket::PacketType::RlePacket:
+					// Read pixel color
+					switch (depth)
+					{
+					case 2:
+						fill = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(buffer));
+						break;
+					
+					case 3:
+						fill = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(buffer));
+						break;
+						
+					default:
+					case 4:
+						fill= SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(buffer));
+						break;
+					}
+
+					// Repeat the pixel color
+					for (int repeater = 0; repeater <= packet->Count; repeater++)
+					{
+						((SRL::Types::SaturnColor*)this->imageData)[pixel++] = fill;
+					}
+
+					// Move to next pixel data
+					buffer += depth;
+					break;
+				}
+			}
 		}
 
 	public:
@@ -346,57 +424,67 @@ namespace SRL::Bitmap
 		/** @brief Construct RGB555 TGA image from file
 		 * @param filename TGA file name
 		 */
-		TGA(char* filename) : imageData(nullptr), palette(nullptr)
+		TGA(const char* filename) : imageData(nullptr), palette(nullptr)
 		{
 			Cd::File tgaFile = Cd::File(filename);
+			Uint8* stream = new Uint8[tgaFile.Size.Bytes + 1];
 			
 			// Open file
-			if (tgaFile.Open())
+			if (tgaFile.OpenBatch(0, tgaFile.Size.Bytes, stream) >= 0)
 			{
 				// Load file
-				Uint8* stream = new Uint8[tgaFile.Size];
-				tgaFile.Read(0, tgaFile.Size, stream);
 				Uint8* data = stream;
 
-				// Close the file
-				tgaFile.Close();
-
 				// Load header, this is a bit complicated since the header not only is not alligned, but is also little endian
-				TgaHeader header = TgaHeader(data);
-
+				TgaHeader header;
+				header.ImageIdLength = *(data);
+				header.HasPalette = *(data + 1);
+				header.ImageType = *(data + 2);
+				header.Palette.PaletteStart = (*(data + 3) << 8) | *(data + 4);
+				header.Palette.PaletteLength = (*(data + 6) << 8) | *(data + 5);
+				header.Palette.PaletteColorDepth = *(data + 7);
+				header.Image.Origin.X = TGA::DeserializeUint16(data + 8);
+				header.Image.Origin.Y = TGA::DeserializeUint16(data + 10);
+				header.Image.Size.X = TGA::DeserializeUint16(data + 12);
+				header.Image.Size.Y = TGA::DeserializeUint16(data + 14);
+				header.Image.PixelColorDepth = *(data + 16);
+				header.Image.Descriptor = *(data + 17);
+				
 				// Lets check whether the header makes sense
 				if (header.Image.Size.X == 0 || header.Image.Size.Y == 0 ||
 					header.Image.Size.X > 512 || header.Image.Size.Y > 482)
 				{
 					// Image has no size or is too big
-					SRL::Debug::Assert("Image has no size or is too big!");
+					SRL::Debug::Assert("Image has no size or is too big!\nWidth=%d\nHeight=%d", header.Image.Size.X, header.Image.Size.Y);
 				}
-				
+
 				// Check format
-				if (!this->IsFormatValid(header))
+				if (!TGA::IsFormatValid(&header))
 				{
 					// We do not know how to read this type
 					SRL::Debug::Assert("Image is of unsupported type!");
 				}
 
 				// Set TGA object stuff
-				this->width = header.Image.Size.X;
-				this->height = header.Image.Size.Y;
+				this->width = (size_t)header.Image.Size.X;
+				this->height = (size_t)header.Image.Size.Y;
 
 				// Data stream should now be pointing to after the header
 				switch (header.ImageType)
 				{
-				case ((Uint8)TGA::TgaTypes::TgaPaletted):
-					this->DecodePalette(stream, header);
-					this->DecodePaletted(stream, header);
+				case ((Sint8)TGA::TgaTypes::TgaPaletted):
+					this->palette = TGA::DecodePalette(stream, &header);
+					this->DecodePaletted(stream, &header);
 					break;
 
-				case ((Uint8)TGA::TgaTypes::TgaTrueColor):
-					this->DecodeTrueColor(stream, header);
+				case ((Sint8)TGA::TgaTypes::TgaTrueColor):
+					SRL::Debug::Assert("A%d", header.ImageType);
+					this->DecodeTrueColor(stream, &header);
 					break;
 
-				case ((Uint8)TGA::TgaTypes::TgaRleTrueColor):
-					this->DecodeTrueColorRle(stream, header);
+				case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
+					SRL::Debug::Assert("V%d", header.ImageType);
+					this->DecodeTrueColorRle(stream, &header);
 					break;
 				
 				default:

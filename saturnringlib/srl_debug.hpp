@@ -192,8 +192,10 @@ namespace SRL
 		 * @param message Custom message to show
 		 * @param file File the asser happened in
 		 * @param function Function that threw the exception
+		 * @param args... Text arguments
 		 */
-		inline static void Assert(const char* message, const char* file, const char* function)
+    	template <typename ...Args>
+		inline static void Assert(const char* message, const char* file, const char* function, Args...args)
 		{
 			if constexpr (Debug::Enabled)
 			{
@@ -208,21 +210,23 @@ namespace SRL
 				Uint8 lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
 				
 				Debug::Print(1,lines + 4, "Message:");
-				Debug::PrintWithWrap(2, lines + 5, 1, 39, message);
+				Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
 				
 				Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
 				Debug::Print(1,25, "Free memory: %d bytes", SRL::Memory::GetAvailableMemory());
 
+				// Small animation so we know it did not crash
 				Debug::Print(1,27, "[");
 				Debug::Print(38,27, "]");
 				Uint8 frame = 0;
-				Uint16 frameCountdown = 10;
-
-				while (true)
+				Uint16 frameCountdown = 3;
+				bool breakOut = false;
+				
+				while (!breakOut)
 				{
 					if (frameCountdown == 0)
 					{
-						frameCountdown = 10;
+						frameCountdown = 3;
 						Sint16 clearFrame = (Sint16)frame - 5;
 						Sint16 backArrowFrame = (Sint16)frame - 4;
 
@@ -245,6 +249,7 @@ namespace SRL
 						if (frame > 35)
 						{
 							frame = 0;
+							breakOut = true;
 						}
 
 						Debug::Print(frame + 2, 27, ">");
@@ -263,12 +268,12 @@ namespace SRL
 		/** @brief Breaks any further execution and shows assert screen
 		 * @param message Custom message to show
 		 */
-		#define Assert(message) Assert((char*)message, __FILE__, __FUNCTION__);
+		#define Assert(message, ...) Assert((char*)message, __FILE__, __FUNCTION__ __VA_OPT__(,) __VA_ARGS__);
 #else
 		/** @brief Breaks any further execution and shows assert screen
 		 * @param message Custom message to show
 		 */
-		#define Assert(message) ()
+		#define Assert(message, ...) ()
 #endif
 	};
 }

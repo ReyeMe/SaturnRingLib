@@ -24,6 +24,41 @@ namespace SRL
 
     public:
 
+		/** @brief File size
+		 */
+		struct FileSize
+		{
+			/** @brief Number of bytes this file takes
+			 */
+			Sint32 Bytes;
+
+			/** @brief Number of sectors on disk the file takes
+			 */
+			Sint32 Sectors;
+
+			/** @brief Size of the sector
+			 */
+			Sint32 SectorSize;
+
+			/** @brief Size of the last sector
+			 */
+			Sint32 LastSectorSize;
+
+			/** @brief Construct a new File Size object
+			 */
+			FileSize() : Bytes(0), Sectors(0), SectorSize(0), LastSectorSize(0) { }
+
+			/** @brief Construct a new File Size object
+			 * @param handle File handle
+			 */
+			FileSize(GfsHn handle)
+			{
+				GFS_GetFileSize(handle, &this->SectorSize, &this->Sectors, &this->LastSectorSize);
+				this->Bytes = (this->SectorSize * (this->Sectors - 1)) + this->LastSectorSize;
+			}
+		};
+		
+
 		/** @brief Disk file
 		 */
 		struct File
@@ -41,12 +76,12 @@ namespace SRL
 
 			/** @brief Size of the file
 			 */
-			Sint32 Size;
+			FileSize Size;
 
 			/** @brief Open a file on CD
 			 * @param handle File handle
 			 */
-			File(char* name) : Handle(nullptr), Size(0), identifier(-1)
+			File(const char* name) : Handle(nullptr), Size(0), identifier(-1)
 			{
 				if (name != nullptr)
 				{
@@ -61,8 +96,7 @@ namespace SRL
 
 						if (this->Open())
 						{
-							GFS_GetFileSize(this->Handle, &sectorSize, &sectorCount, &lastSectorSize);
-							this->Size = (sectorSize * (sectorCount - 1)) + lastSectorSize;
+							this->Size = FileSize(this->Handle);
 							this->Close();
 						}
 						else
@@ -80,6 +114,14 @@ namespace SRL
 				this->Close();
 			}
 
+			/** @brief File exists
+			 * @return True if exists
+			 */
+			constexpr Bool Exists()
+			{
+				return this->identifier >= 0;
+			}
+
 			/** @brief Close file
 			 */
 			void Close()
@@ -91,20 +133,36 @@ namespace SRL
 				}
 			}
 
-			/** @brief Read file
+			/** @brief Open batch from file (this function does not need file to be open)
 			 * @param startOffset Number of bytes to skip at the start
-			 * @param size Number of bytes to read
-			 * @param stream File stream
-			 * @return Sint32 Number of bytes read
+			 * @param size Number of bytes to read (length of the batch)
+			 * @param destination Buffer to read batch into
+			 * @return Number of bytes read (if lower than 0, error was encountered)
 			 */
-			Sint32 Read(Sint32 startOffset, Sint32 size, void* stream)
+			Sint32 OpenBatch(Sint32 startOffset, Sint32 size, void* destination)
 			{
-				if (this->Handle != nullptr)
-				{
-					return GFS_Load(this->identifier, startOffset, stream, this->Size);
-				}
+				Bool wasOpen = false;
+				Sint32 result = 0;
 
-				return 0;
+				if (this->identifier >= 0)
+				{
+					if (this->Handle != nullptr)
+					{
+						this->Close();
+						wasOpen = true;
+					}
+
+					// This function reads whole file, file does not need to be opened
+					result = GFS_Load(this->identifier, startOffset, destination, size);
+
+					// Open again
+					if (wasOpen)
+					{
+						this->Open();
+					}
+				}
+				
+				return result;
 			}
 
 			/** @brief Open file
