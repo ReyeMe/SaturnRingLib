@@ -169,16 +169,16 @@ namespace SRL::Bitmap
 		 */
 		constexpr inline static Uint32 DeserializeUint32(Uint8 *buf)
 		{
-			return (*(buf + 3) << 24) | (*(buf + 3) << 16) | (*(buf + 3) << 8) | *(buf + 3);
+			return (*(buf + 3) << 24) | (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
 		}
 
 		/** @brief Deserialize number
-		 * @param buf Value buffer
+		 * @param buf Value buffers
 		 * @return Deserialited value
 		 */
 		constexpr inline static Uint32 DeserializeUint24(Uint8 *buf)
 		{
-			return (*(buf + 3) << 16) | (*(buf + 3) << 8) | *(buf + 3);
+			return (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
 		}
 
 		/** @brief Check if format is wrong or not
@@ -478,12 +478,10 @@ namespace SRL::Bitmap
 					break;
 
 				case ((Sint8)TGA::TgaTypes::TgaTrueColor):
-					SRL::Debug::Assert("A%d", header.ImageType);
 					this->DecodeTrueColor(stream, &header);
 					break;
 
 				case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
-					SRL::Debug::Assert("V%d", header.ImageType);
 					this->DecodeTrueColorRle(stream, &header);
 					break;
 				

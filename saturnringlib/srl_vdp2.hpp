@@ -32,7 +32,7 @@ namespace SRL
 		/** @brief Initialize VDP2
 		 * @param backColor starting back color
 		 */
-		inline static  void Initialize(const Types::SaturnColor& backColor)
+		inline static void Initialize(const Types::SaturnColor& backColor)
 		{
 			// Initialize color ram mode
 			slColRAMMode(CRM16_2048);
@@ -58,7 +58,7 @@ namespace SRL
 
 			// Set default screens to show
 			slScrTransparent(RBG0ON);
-			slScrAutoDisp(NBG0ON | NBG1ON |SPRON);
+			slScrAutoDisp(NBG0ON | NBG1ON | SPRON);
 		}
 	};
 }

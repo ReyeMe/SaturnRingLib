@@ -1,6 +1,7 @@
 #pragma once
 
-#include "..\srl_core.hpp"
+#include "../srl_memory.hpp"
+#include "../types/srl_color.hpp"
 
 /** @brief Bitmap loading
  */
@@ -47,6 +48,23 @@ namespace SRL::Bitmap
 	 */
 	struct BitmapInfo
 	{
+		/** @brief Texture color mode
+		 */
+		enum class TextureColorMode : Uint16
+		{
+			/** @brief 16 color image
+			 */
+			Paletted16 = 3,
+
+			/** @brief 64 color image
+			 */
+			Paletted = 2,
+
+			/** @brief 32k color image
+			 */
+			RGB555 = 1
+		};
+
 		/** @brief Image width
 		 */
 		Uint16 Width;
@@ -57,7 +75,7 @@ namespace SRL::Bitmap
 
 		/** @brief Image color mode
 		 */
-		SRL::VDP1::TextureColorMode ColorMode;
+		BitmapInfo::TextureColorMode ColorMode;
 
 		/** @brief Used palette (not in use for RGB555 images)
 		 */
@@ -67,7 +85,7 @@ namespace SRL::Bitmap
 		 * @param width Image width
 		 * @param height Image height
 		 */
-		BitmapInfo(Uint16 width, Uint16 height) : Width(width), Height(height), ColorMode(SRL::VDP1::TextureColorMode::RGB555), Palette(nullptr)
+		BitmapInfo(Uint16 width, Uint16 height) : Width(width), Height(height), ColorMode(BitmapInfo::TextureColorMode::RGB555), Palette(nullptr)
 		{
 			// Do nothing
 		}
@@ -77,7 +95,7 @@ namespace SRL::Bitmap
 		 * @param height Image height
 		 * @param palette Color palette
 		 */
-		BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), ColorMode(SRL::VDP1::TextureColorMode::Paletted), Palette(palette)
+		BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), ColorMode(BitmapInfo::TextureColorMode::Paletted), Palette(palette)
 		{
 			// Do nothing
 		}

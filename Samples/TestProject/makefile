@@ -2,7 +2,7 @@
 SRL_CUSTOM_SGL_WORK_AREA = 0	# Set to 1 if you are using your own SGL work area
 SRL_MALLOC_MEMORY = 131072		# How much memory malloc can use (in bytes)
 SRL_MAX_TEXTURES = 100			# Number of VDP1 texture slots
-SRL_MODE = PAL					# Valid options are PAL or NTSC
+SRL_MODE = NTSC					# Valid options are PAL or NTSC
 SRL_HIGH_RES = 0				# 480i mode
 SRL_FRAMERATE = 1				# Framerate control (0=dynamic, 1=< 60/value)
 SRL_MAX_CD_BACKGROUND_JOBS = 1	# Maximum number of files GFS can open at once

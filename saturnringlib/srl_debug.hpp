@@ -2,7 +2,6 @@
 
 #include "srl_base.hpp"
 #include "types/srl_color.hpp"
-#include "srl_vdp1.hpp"
 #include "srl_vdp2.hpp"
 #include "srl_memory.hpp"
 #include <std/string.h>
@@ -212,7 +211,7 @@ namespace SRL
 				Debug::Print(1,lines + 4, "Message:");
 				Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
 				
-				Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
+				//Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
 				Debug::Print(1,25, "Free memory: %d bytes", SRL::Memory::GetAvailableMemory());
 
 				// Small animation so we know it did not crash

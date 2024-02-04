@@ -1,6 +1,8 @@
 #pragma once
 
 #include "srl_base.hpp"
+#include "./bitmap/srl_bitmap.hpp"
+#include "srl_debug.hpp"
 
 namespace SRL
 {
@@ -18,10 +20,6 @@ namespace SRL
 		 */
 		inline static const Uint32 FrontBuffer = 0x25C80000;
 
-		/** @brief VDP1 ram address
-		 */
-		inline static const Uint32 RAM = 0x25C00000;
-
 		/** @brief End location of the user area
 		 */
 		inline static const Uint32 UserAreaEnd = 0x25C7FEF8;
@@ -30,18 +28,22 @@ namespace SRL
 		 */
 		enum class TextureColorMode : Uint16
 		{
-			/** @brief 256 color image
+			/** @brief 16 color image
 			 */
-			Paletted = 4,
+			Paletted16 = 3,
 
-			/** @brief RGB555 image
+			/** @brief 64 color image
 			 */
-			RGB555 = 5
+			Paletted = 2,
+
+			/** @brief 32k color image
+			 */
+			RGB555 = 1
 		};
 
 		/** @brief VDP1 texture
 		 */
-		struct Texture
+		struct Texture : public SRL::SGL::SglType<Texture, TEXTURE>
 		{
 			/** @brief Texture width
 			 */
@@ -122,11 +124,11 @@ namespace SRL
 			/** @brief Get texture image data
 			 * @return Pointer to image data
 			 */
-			void* GetData()
+			Uint8* GetData()
 			{
 				if (this->Texture != nullptr)
 				{
-					return (void*)(VDP1::RAM + (this->Texture->Address << 3));
+					return (Uint8*)(SpriteVRAM + (this->Texture->Address << 3));
 				}
 
 				return nullptr;
@@ -148,11 +150,11 @@ namespace SRL
 		{
 			if (VDP1::HeapPointer == 0)
 			{
-				return VDP1::UserAreaEnd - (VDP1::RAM + 0x1f);
+				return VDP1::UserAreaEnd - (SpriteVRAM + 0x1f);
 			}
 
 			VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-			return VDP1::UserAreaEnd - (VDP1::RAM + AdjCG(previous.Address << 3, previous.Width, previous.Height, previous.Size));
+			return VDP1::UserAreaEnd - (SpriteVRAM + AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode));
 		}
 
 		/** @brief Try to load a texture
@@ -172,7 +174,7 @@ namespace SRL
 				if (VDP1::HeapPointer > 0)
 				{
 					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, previous.Size);
+					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode);
 				}
 
 				// Create texture entry
@@ -184,6 +186,48 @@ namespace SRL
 
 				// Copy data over to the VDP1
 				slDMACopy(data, metadata.GetData(), (Uint32)(((width * height) << 2) >> (Uint32)colorMode));
+
+				// Increase heap pointer
+				return VDP1::HeapPointer++;
+			}
+
+			// There is no free space left
+			return -1;
+		}
+
+		/** @brief Try to load a texture
+		 * @param bitmap Texture to load
+		 * @param paletteHandler Palette loader handling (expects index of the palette in CRAM as result, only needed for loading paletted image)
+		 * @return Index of the loaded texture
+		 */
+		inline static Uint32 TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, Uint16 (*paletteHandler)(SRL::Bitmap::Palette*) = nullptr)
+		{
+			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
+			{
+				Uint16 palette = 0;
+				SRL::Bitmap::BitmapInfo info = bitmap->GetInfo();
+				Uint32 address = CGADDRESS;
+
+				if (VDP1::HeapPointer > 0)
+				{
+					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
+					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode);
+				}
+
+				// Create texture entry
+				VDP1::Textures[VDP1::HeapPointer] = VDP1::Texture(info.Width, info.Height, address >> 3);
+
+				if (paletteHandler != nullptr && info.Palette != nullptr)
+				{
+					palette = paletteHandler(info.Palette);
+				}
+
+				// Create metadata entry
+				VDP1::TextureMetadata metadata = VDP1::TextureMetadata(&VDP1::Textures[VDP1::HeapPointer], (VDP1::TextureColorMode)info.ColorMode, palette);
+				VDP1::Metadata[VDP1::HeapPointer] = metadata;
+
+				// Copy data over to the VDP1
+				slDMACopy(bitmap->GetData(), metadata.GetData(), (Uint32)(((info.Width * info.Height) << 2) >> (Uint32)info.ColorMode));
 
 				// Increase heap pointer
 				return VDP1::HeapPointer++;
