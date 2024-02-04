@@ -440,7 +440,7 @@ namespace SRL::Bitmap
 				header.ImageIdLength = *(data);
 				header.HasPalette = *(data + 1);
 				header.ImageType = *(data + 2);
-				header.Palette.PaletteStart = TGA::DeserializeUint16(data + 4);
+				header.Palette.PaletteStart = TGA::DeserializeUint16(data + 3);
 				header.Palette.PaletteLength = TGA::DeserializeUint16(data + 5);
 				header.Palette.PaletteColorDepth = *(data + 7);
 				header.Image.Origin.X = TGA::DeserializeUint16(data + 8);
