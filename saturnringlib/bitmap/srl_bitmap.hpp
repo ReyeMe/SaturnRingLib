@@ -65,6 +65,10 @@ namespace SRL::Bitmap
 			RGB555 = 1
 		};
 
+		/** @brief Used palette (not in use for RGB555 images)
+		 */
+		Bitmap::Palette* Palette;
+
 		/** @brief Image width
 		 */
 		Uint16 Width;
@@ -76,10 +80,6 @@ namespace SRL::Bitmap
 		/** @brief Image color mode
 		 */
 		BitmapInfo::TextureColorMode ColorMode;
-
-		/** @brief Used palette (not in use for RGB555 images)
-		 */
-		Bitmap::Palette* Palette;
 
 		/** @brief Construct a new Bitmap info
 		 * @param width Image width

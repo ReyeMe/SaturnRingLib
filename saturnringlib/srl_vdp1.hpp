@@ -13,7 +13,7 @@ namespace SRL
 	private:
 		/** @brief Pointer to the last free space in the heap
 		 */
-		inline static  Uint32 HeapPointer = 0;
+		inline static Uint16 HeapPointer = 0;
 
 	public:
 		/** @brief VDP1 front bugffer address
@@ -93,17 +93,17 @@ namespace SRL
 		 */
 		struct TextureMetadata
 		{
-			/** @brief Texture color mode
-			 */
-			VDP1::TextureColorMode ColorMode; 
-
 			/** @brief Pointer to texture
 			 */
 			VDP1::Texture* Texture;
 
+			/** @brief Texture color mode
+			 */
+			VDP1::TextureColorMode ColorMode; 
+
 			/** @brief Identifier of the palette (not used in RGB555)
 			 */
-			Uint32 PaletteId;
+			Uint16 PaletteId;
 
 			/** @brief Construct a new Texture Metadata object
 			 */
@@ -165,11 +165,11 @@ namespace SRL
 		 * @param data Texture data
 		 * @return Index of the loaded texture
 		 */
-		inline static Uint32 TryLoadTexture(const Uint16 width, const Uint16 height, const VDP1::TextureColorMode colorMode, const Uint16 palette, void* data)
+		inline static Sint32 TryLoadTexture(const Uint16 width, const Uint16 height, const VDP1::TextureColorMode colorMode, const Uint16 palette, void* data)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
-				Uint16 address = (Uint16)CGADDRESS;
+				Uint32 address = CGADDRESS;
 
 				if (VDP1::HeapPointer > 0)
 				{
@@ -200,7 +200,7 @@ namespace SRL
 		 * @param paletteHandler Palette loader handling (expects index of the palette in CRAM as result, only needed for loading paletted image)
 		 * @return Index of the loaded texture
 		 */
-		inline static Uint32 TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, Uint16 (*paletteHandler)(SRL::Bitmap::Palette*) = nullptr)
+		inline static Sint32 TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, Uint16 (*paletteHandler)(SRL::Bitmap::Palette*) = nullptr)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
@@ -208,29 +208,20 @@ namespace SRL
 				SRL::Bitmap::BitmapInfo info = bitmap->GetInfo();
 				Uint32 address = CGADDRESS;
 
-				if (VDP1::HeapPointer > 0)
+				if (info.Palette != nullptr)
 				{
-					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode);
+					if (paletteHandler != nullptr)
+					{
+						palette = paletteHandler(info.Palette);
+					}
+					else
+					{
+						// Palette loader not specified
+						return -1;
+					}
 				}
 
-				// Create texture entry
-				VDP1::Textures[VDP1::HeapPointer] = VDP1::Texture(info.Width, info.Height, address >> 3);
-
-				if (paletteHandler != nullptr && info.Palette != nullptr)
-				{
-					palette = paletteHandler(info.Palette);
-				}
-
-				// Create metadata entry
-				VDP1::TextureMetadata metadata = VDP1::TextureMetadata(&VDP1::Textures[VDP1::HeapPointer], (VDP1::TextureColorMode)info.ColorMode, palette);
-				VDP1::Metadata[VDP1::HeapPointer] = metadata;
-
-				// Copy data over to the VDP1
-				slDMACopy(bitmap->GetData(), metadata.GetData(), (Uint32)(((info.Width * info.Height) << 2) >> (Uint32)info.ColorMode));
-
-				// Increase heap pointer
-				return VDP1::HeapPointer++;
+				return VDP1::TryLoadTexture(info.Width, info.Height, (VDP1::TextureColorMode)info.ColorMode, palette, bitmap->GetData());
 			}
 
 			// There is no free space left
@@ -247,7 +238,7 @@ namespace SRL
 		/** @brief Reset texture heap to specified index
 		 * @param index Index to reset to (texture on this index will be overwritten on next TryLoadTexture(); call)
 		 */
-		inline static  void ResetTextureHeap(const Uint32 index)
+		inline static  void ResetTextureHeap(const Uint16 index)
 		{
 			VDP1::HeapPointer = VDP1::HeapPointer > index ? index : VDP1::HeapPointer;
 		}

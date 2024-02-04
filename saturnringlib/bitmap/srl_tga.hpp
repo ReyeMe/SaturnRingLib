@@ -247,29 +247,37 @@ namespace SRL::Bitmap
 		/** @brief Decode image header
 		 * @param stream File stream
 		 * @param header File header
+		 * @param transparentColor defines a color that should be changed to be transparent
 		 */
-		static Bitmap::Palette* DecodePalette(Uint8* stream, const TGA::TgaHeader* header)
+		static Bitmap::Palette* DecodePalette(Uint8* stream, const TGA::TgaHeader* header, Sint32 transparentColor)
 		{
 			Uint8* buffer = (stream + TGA::ImagePaletteOffset(header));
 			Bitmap::Palette* palette = new Bitmap::Palette(header->Palette.PaletteLength);
 
 			for (Sint32 index = 0; index < header->Palette.PaletteLength; index++)
 			{
-				switch (header->Palette.PaletteColorDepth >> 3)
+				if (index != transparentColor)
 				{
-				case 2:
-					palette->Colors[index] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(&buffer[index << 1]));
-					break;
-				
-				// Loading RGB24 is a tad slower thx to the multiplication
-				case 3:
-					palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(&buffer[index * 3]));
-					break;
+					switch (header->Palette.PaletteColorDepth >> 3)
+					{
+					case 2:
+						palette->Colors[index] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(&buffer[index << 1]));
+						break;
 					
-				default:
-				case 4:
-					palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(&buffer[index << 2]));
-					break;
+					// Loading RGB24 is a tad slower thx to the multiplication
+					case 3:
+						palette->Colors[index] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(&buffer[index * 3]));
+						break;
+						
+					default:
+					case 4:
+						palette->Colors[index] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(&buffer[index << 2]));
+						break;
+					}
+				}
+				else
+				{
+					palette->Colors[index] = SRL::Types::SaturnColor();
 				}
 			}
 
@@ -308,8 +316,10 @@ namespace SRL::Bitmap
 		
 		/** @brief Decode true color image
 		 * @param data Image data
+		 * @param header File header
+		 * @param transparentColor defines a color that should be changed to be transparent
 		 */
-		inline void DecodeTrueColor(Uint8* stream, const TGA::TgaHeader* header)
+		inline void DecodeTrueColor(Uint8* stream, const TGA::TgaHeader* header, SRL::Types::SaturnColor transparentColor)
 		{
 			// Allocated space for image data
 			Uint32 size = this->width * this->height;
@@ -321,29 +331,34 @@ namespace SRL::Bitmap
 			for (Uint32 index = 0; index < size; index++)
 			{
 				Uint8* pixelData = buffer + (depth * index);
+				SRL::Types::SaturnColor color;
 
 				switch (depth)
 				{
 				case 2:
-					((SRL::Types::SaturnColor*)this->imageData)[index] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(pixelData));
+					color = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(pixelData));
 					break;
 				
 				case 3:
-					((SRL::Types::SaturnColor*)this->imageData)[index] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(pixelData));
+					color = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(pixelData));
 					break;
 					
 				default:
 				case 4:
-					((SRL::Types::SaturnColor*)this->imageData)[index] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(pixelData));
+					color = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(pixelData));
 					break;
 				}
+				
+				((SRL::Types::SaturnColor*)this->imageData)[index] = color != transparentColor ? color : SRL::Types::SaturnColor();
 			}
 		}
 		
 		/** @brief Decode true color image with RLE compression
 		 * @param data Image data
+		 * @param header File header
+		 * @param transparentColor defines a color that should be changed to be transparent
 		 */
-		inline void DecodeTrueColorRle(Uint8* stream, const TGA::TgaHeader* header)
+		inline void DecodeTrueColorRle(Uint8* stream, const TGA::TgaHeader* header, SRL::Types::SaturnColor transparentColor)
 		{
 			// Allocated space for image data
 			Uint32 size = this->width * this->height;
@@ -361,22 +376,26 @@ namespace SRL::Bitmap
 				case TgaRlePacket::PacketType::RawPacket:
 					for (int packed = 0; packed <= packet->Count; packed++)
 					{
+						SRL::Types::SaturnColor color;
+
 						// Read pixel
 						switch (depth)
 						{
 						case 2:
-							((SRL::Types::SaturnColor*)this->imageData)[pixel] = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(buffer));
+							color = SRL::Types::SaturnColor::FromARGB15(TGA::DeserializeUint16(buffer));
 							break;
 						
 						case 3:
-							((SRL::Types::SaturnColor*)this->imageData)[pixel] = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(buffer));
+							color = SRL::Types::SaturnColor::FromRGB24(TGA::DeserializeUint24(buffer));
 							break;
 							
 						default:
 						case 4:
-							((SRL::Types::SaturnColor*)this->imageData)[pixel] = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(buffer));
+							color = SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(buffer));
 							break;
 						}
+
+						((SRL::Types::SaturnColor*)this->imageData)[pixel] = color != transparentColor ? color : SRL::Types::SaturnColor();
 
 						// Move to next pixel data
 						buffer += depth;
@@ -405,6 +424,8 @@ namespace SRL::Bitmap
 						fill= SRL::Types::SaturnColor::FromARGB32(TGA::DeserializeUint32(buffer));
 						break;
 					}
+		
+					fill = fill != transparentColor ? fill : SRL::Types::SaturnColor();
 
 					// Repeat the pixel color
 					for (int repeater = 0; repeater <= packet->Count; repeater++)
@@ -421,10 +442,33 @@ namespace SRL::Bitmap
 
 	public:
 
+		/** @brief Settings for TGA loader
+		 */
+		struct LoaderSettings
+		{
+			/** @brief Defines a index of color in palette that should be changed to be transparent
+			 * @note Used only with paletted images
+			 */
+			Sint32 TransparentColorIndex;
+			
+			/** @brief Defines a color that should be changed to be transparent
+			 * @note Used only with RGB images
+			 */
+			SRL::Types::SaturnColor TransparentColor;
+
+			/** @brief Construct a new loader settings object
+			 */
+			LoaderSettings() : TransparentColor(SRL::Types::SaturnColor()), TransparentColorIndex(-1)
+			{
+				// Do nothing
+			}
+		};
+
 		/** @brief Construct RGB555 TGA image from file
 		 * @param filename TGA file name
+		 * @param settings TGA loader settings
 		 */
-		TGA(const char* filename) : imageData(nullptr), palette(nullptr)
+		TGA(const char* filename, TGA::LoaderSettings settings = TGA::LoaderSettings()) : imageData(nullptr), palette(nullptr)
 		{
 			Cd::File tgaFile = Cd::File(filename);
 			Uint8* stream = new Uint8[tgaFile.Size.Bytes + 1];
@@ -473,16 +517,16 @@ namespace SRL::Bitmap
 				switch (header.ImageType)
 				{
 				case ((Sint8)TGA::TgaTypes::TgaPaletted):
-					this->palette = TGA::DecodePalette(stream, &header);
+					this->palette = TGA::DecodePalette(stream, &header, settings.TransparentColorIndex);
 					this->DecodePaletted(stream, &header);
 					break;
 
 				case ((Sint8)TGA::TgaTypes::TgaTrueColor):
-					this->DecodeTrueColor(stream, &header);
+					this->DecodeTrueColor(stream, &header, settings.TransparentColor);
 					break;
 
 				case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
-					this->DecodeTrueColorRle(stream, &header);
+					this->DecodeTrueColorRle(stream, &header, settings.TransparentColor);
 					break;
 				
 				default:

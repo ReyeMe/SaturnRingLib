@@ -6,7 +6,7 @@ int main()
 	SRL::Debug::Print(1,1, "Sprite demo");
 
 	SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");
-	Uint16 textureIndex = SRL::VDP1::TryLoadTexture(tga);
+	Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);
 	delete tga;
 	
     SPR_ATTR attr = SPR_ATTRIBUTE(0, No_Palet, No_Gouraud, MESHoff | CL32KRGB | No_Window, sprVflip | FUNC_Sprite);
