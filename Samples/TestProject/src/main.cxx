@@ -4,20 +4,32 @@ using namespace SRL::Types;
 
 int main()
 {
-	SRL::Core::Initialize(SRL::Types::SaturnColor(200,100,50));
-	SRL::Debug::Print(1,1, "Sprite demo");
+	SRL::Core::Initialize(SaturnColor(200,100,50));
 
 	SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");
 	Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);
 	delete tga;
 	
-	Uint32 frame = 0;
+	Vector3D location = Vector3D(0.0, 0.0, 500.0);
+	Vector2D velocity = Vector2D(0.5, 0.5);
 
-	// Game loop
+	Vector2D screenMax = Vector2D(
+			Fxp::FromInt(SRL::TV::Width >> 1),
+			Fxp::FromInt(SRL::TV::Height >> 1));
+
+	Vector2D screenMin = Vector2D(
+			-Fxp::FromInt(SRL::TV::Width >> 1),
+			-Fxp::FromInt(SRL::TV::Height >> 1));
+
 	while(1)
 	{
-		SRL::Render::DrawSprite(textureIndex, Vector3D(0.0, 0.0, 500.0));
-		SRL::Debug::PrintWithWrap(1, 2, 1, 39, "Frame %d\n addr %x", frame++, SRL::VDP1::Metadata->GetData());
+		SRL::Render::DrawSprite(textureIndex, location);
+
+		if (location.X < screenMin.X || location.X > screenMax.X) velocity.X *= -1.0;
+		if (location.Y < screenMin.Y || location.Y > screenMax.Y) velocity.Y *= -1.0;
+		
+		location += velocity;
+
 		slSynch();
 	}
 

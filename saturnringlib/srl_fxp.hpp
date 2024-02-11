@@ -66,7 +66,7 @@ namespace SRL::Types
 		 * @param value Integer fixed point value
 		 * @return Fixed point value
 		 */
-		static constexpr Fxp FxpFromRaw(Sint32& value)
+		static constexpr Fxp FromRaw(const Sint32& value)
 		{
 			return Fxp(value);
 		}
@@ -75,7 +75,7 @@ namespace SRL::Types
 		 * @param value Integer value
 		 * @return Fixed point value
 		 */
-		static constexpr  Fxp FxpFromInt(Sint32& value)
+		static constexpr Fxp FromInt(const Sint32& value)
 		{
 			return Fxp(value << 16);
 		}

@@ -31,8 +31,8 @@ namespace SRL::Types
 		 */
 		constexpr Vector2D(void* data) : Vector2D()
 		{
-			this->X = Fxp::FxpFromRaw(((Sint32*)data)[0]);
-			this->Y = Fxp::FxpFromRaw(((Sint32*)data)[1]);
+			this->X = Fxp::FromRaw(((Sint32*)data)[0]);
+			this->Y = Fxp::FromRaw(((Sint32*)data)[1]);
 		}
 
 		/** @brief Constructor to create a new 2D vector out of double values
@@ -40,8 +40,8 @@ namespace SRL::Types
 		 */
 		constexpr Vector2D(VECTOR sglVector) : Vector2D()
 		{
-			this->X = Fxp::FxpFromRaw(sglVector[0]);
-			this->Y = Fxp::FxpFromRaw(sglVector[1]);
+			this->X = Fxp::FromRaw(sglVector[0]);
+			this->Y = Fxp::FromRaw(sglVector[1]);
 		}
 
 		/** @brief Constructor to create a new 2D vector out of double values
@@ -291,9 +291,9 @@ namespace SRL::Types
 		 */
 		constexpr Vector3D(void* data) : Vector3D()
 		{
-			this->X = Fxp::FxpFromRaw(((Sint32*)data)[0]);
-			this->Y = Fxp::FxpFromRaw(((Sint32*)data)[1]);
-			this->Z = Fxp::FxpFromRaw(((Sint32*)data)[2]);
+			this->X = Fxp::FromRaw(((Sint32*)data)[0]);
+			this->Y = Fxp::FromRaw(((Sint32*)data)[1]);
+			this->Z = Fxp::FromRaw(((Sint32*)data)[2]);
 		}
 
 		/** @brief Constructor to create a new 2D vector out of double values
@@ -301,9 +301,9 @@ namespace SRL::Types
 		 */
 		constexpr Vector3D(VECTOR sglVector) : Vector3D()
 		{
-			this->X = Fxp::FxpFromRaw(sglVector[0]);
-			this->Y = Fxp::FxpFromRaw(sglVector[1]);
-			this->Z = Fxp::FxpFromRaw(sglVector[3]);
+			this->X = Fxp::FromRaw(sglVector[0]);
+			this->Y = Fxp::FromRaw(sglVector[1]);
+			this->Z = Fxp::FromRaw(sglVector[3]);
 		}
 
 		/** @brief Constructor to create a new 3D vector out of double values
