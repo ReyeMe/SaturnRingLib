@@ -1,7 +1,7 @@
 #pragma once
 
 #include "srl_tv.hpp"
-#include "types/srl_color.hpp"
+#include "srl_color.hpp"
 
 namespace SRL
 {

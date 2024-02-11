@@ -1,7 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include "./bitmap/srl_bitmap.hpp"
+#include "srl_bitmap.hpp"
 #include "srl_debug.hpp"
 
 namespace SRL

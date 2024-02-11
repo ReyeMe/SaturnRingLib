@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../srl_debug.hpp"
+#include "srl_debug.hpp"
 #include "srl_bitmap.hpp"
-#include "../srl_cd.hpp"
+#include "srl_cd.hpp"
 
 /*
  * This TGA loader is loosely based on TGA loader from yaul by:
@@ -464,17 +464,14 @@ namespace SRL::Bitmap
 			}
 		};
 
-		/** @brief Construct RGB555 TGA image from file
-		 * @param filename TGA file name
-		 * @param settings TGA loader settings
-		 */
-		TGA(const char* filename, TGA::LoaderSettings settings = TGA::LoaderSettings()) : imageData(nullptr), palette(nullptr)
+	private:
+
+		void LoadData(Cd::File* file, LoaderSettings* settings)
 		{
-			Cd::File tgaFile = Cd::File(filename);
-			Uint8* stream = new Uint8[tgaFile.Size.Bytes + 1];
+			Uint8* stream = new Uint8[file->Size.Bytes + 1];
 			
 			// Open file
-			if (tgaFile.OpenBatch(0, tgaFile.Size.Bytes, stream) >= 0)
+			if (file->OpenBatch(0, file->Size.Bytes, stream) >= 0)
 			{
 				// Load file
 				Uint8* data = stream;
@@ -517,16 +514,16 @@ namespace SRL::Bitmap
 				switch (header.ImageType)
 				{
 				case ((Sint8)TGA::TgaTypes::TgaPaletted):
-					this->palette = TGA::DecodePalette(stream, &header, settings.TransparentColorIndex);
+					this->palette = TGA::DecodePalette(stream, &header, settings->TransparentColorIndex);
 					this->DecodePaletted(stream, &header);
 					break;
 
 				case ((Sint8)TGA::TgaTypes::TgaTrueColor):
-					this->DecodeTrueColor(stream, &header, settings.TransparentColor);
+					this->DecodeTrueColor(stream, &header, settings->TransparentColor);
 					break;
 
 				case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
-					this->DecodeTrueColorRle(stream, &header, settings.TransparentColor);
+					this->DecodeTrueColorRle(stream, &header, settings->TransparentColor);
 					break;
 				
 				default:
@@ -537,6 +534,27 @@ namespace SRL::Bitmap
 				// Clear allocated memory
 				delete stream;
 			}
+		}
+
+	public:
+
+		/** @brief Construct RGB555 TGA image from file
+		 * @param filename TGA file name
+		 * @param settings TGA loader settings
+		 */
+		TGA(Cd::File* data, TGA::LoaderSettings settings = TGA::LoaderSettings()) : imageData(nullptr), palette(nullptr)
+		{
+			this->LoadData(data, &settings);
+		}
+
+		/** @brief Construct RGB555 TGA image from file
+		 * @param filename TGA file name
+		 * @param settings TGA loader settings
+		 */
+		TGA(const char* filename, TGA::LoaderSettings settings = TGA::LoaderSettings()) : imageData(nullptr), palette(nullptr)
+		{
+			Cd::File file = Cd::File(filename);
+			this->LoadData(&file, &settings);
 		}
 
 		/** @brief Destroy the TGA image

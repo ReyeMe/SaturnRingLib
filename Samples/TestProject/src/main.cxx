@@ -1,5 +1,7 @@
 #include <srl.hpp>
 
+using namespace SRL::Types;
+
 int main()
 {
 	SRL::Core::Initialize(SRL::Types::SaturnColor(200,100,50));
@@ -12,13 +14,15 @@ int main()
     SPR_ATTR attr = SPR_ATTRIBUTE(0, No_Palet, No_Gouraud, MESHoff | CL32KRGB | No_Window, sprVflip | FUNC_Sprite);
 	attr.colno = 0;
     FIXED sgl_pos[XYZSS];
-    sgl_pos[0] = 0;
-    sgl_pos[1] = 0;
-    sgl_pos[2] = (500 << 16);
-    sgl_pos[3] = 10 << 16;
-    sgl_pos[4] = 10 << 16;
+    sgl_pos[0] = Fxp(0.0).Value();
+    sgl_pos[1] = Fxp(0.0).Value();
+    sgl_pos[2] = Fxp(500.0).Value();
+    sgl_pos[3] = Fxp(10.0).Value();
+    sgl_pos[4] = Fxp(10.0).Value();
 	
 	Uint32 frame = 0;
+
+	
 	
 	// Game loop
 	while(1)

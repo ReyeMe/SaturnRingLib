@@ -1,4 +1,5 @@
 #pragma once
 
 #include "srl_core.hpp"
-#include "bitmap/srl_tga.hpp"
+#include "srl_tga.hpp"
+#include "srl_render.hpp"

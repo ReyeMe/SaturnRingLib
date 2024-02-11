@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../srl_memory.hpp"
-#include "../types/srl_color.hpp"
+#include "srl_memory.hpp"
+#include "srl_color.hpp"
 
 /** @brief Bitmap loading
  */
