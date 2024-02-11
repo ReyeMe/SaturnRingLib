@@ -230,7 +230,7 @@ namespace SRL
 
 		/** @brief Fully reset texture heap
 		 */
-		inline static  void ResetTextureHeap()
+		inline static void ResetTextureHeap()
 		{
 			VDP1::HeapPointer = 0;
 		}
@@ -238,7 +238,7 @@ namespace SRL
 		/** @brief Reset texture heap to specified index
 		 * @param index Index to reset to (texture on this index will be overwritten on next TryLoadTexture(); call)
 		 */
-		inline static  void ResetTextureHeap(const Uint16 index)
+		inline static void ResetTextureHeap(const Uint16 index)
 		{
 			VDP1::HeapPointer = VDP1::HeapPointer > index ? index : VDP1::HeapPointer;
 		}

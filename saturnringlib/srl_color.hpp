@@ -8,11 +8,20 @@ namespace SRL::Types
 	 */
 	struct SaturnColor
 	{
-		/** @brief Color data
+		/** @brief Indicates whether color is pague or not
 		 */
 		Uint16 Opaque : 1;
+
+		/** @brief Blue color channel
+		 */
 		Uint16 Blue : 5;
+		
+		/** @brief Green color channel
+		 */
 		Uint16 Green : 5;
+		
+		/** @brief Red color channel
+		 */
 		Uint16 Red : 5;
 
 		/** @brief Defines new transparent color

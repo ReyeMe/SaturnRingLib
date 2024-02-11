@@ -471,7 +471,7 @@ namespace SRL::Bitmap
 			Uint8* stream = new Uint8[file->Size.Bytes + 1];
 			
 			// Open file
-			if (file->OpenBatch(0, file->Size.Bytes, stream) >= 0)
+			if (file->LoadBytes(0, file->Size.Bytes, stream) >= 0)
 			{
 				// Load file
 				Uint8* data = stream;

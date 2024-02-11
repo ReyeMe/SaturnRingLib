@@ -7,37 +7,40 @@
 #include "srl_vdp1.hpp"
 #include "srl_vdp2.hpp"
 
-/** @brief Core functions of the library
- */
-namespace SRL::Core
+namespace SRL
 {
-	/** @brief Initialize basic environment
-	 * @param backColor Color of the screen
+	/** @brief Core functions of the library
 	 */
-	inline static void Initialize(const Types::SaturnColor& backColor)
+	class Core
 	{
-		SRL::Memory::Initialize();
+	public:
+		/** @brief Initialize basic environment
+		 * @param backColor Color of the screen
+		 */
+		inline static void Initialize(const Types::SaturnColor& backColor)
+		{
+			SRL::Memory::Initialize();
 
 #if SRL_FRAMERATE > 0
-		slInitSystem((Uint16)SRL::TV::Reslotution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
+			slInitSystem((Uint16)SRL::TV::Reslotution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
 #else
-		slInitSystem((Uint16)SRL::TV::Reslotution, SRL::VDP1::Textures->SglPtr(), 1);
-		slDynamicFrame(1);
+			slInitSystem((Uint16)SRL::TV::Reslotution, SRL::VDP1::Textures->SglPtr(), 1);
+			slDynamicFrame(1);
 #endif
-		// Initialize CD drive
-		SRL:Cd::Initialize();
+			// Initialize CD drive
+			SRL:Cd::Initialize();
 
-		// Start initializing stuff
-		slTVOff();
+			// Start initializing stuff
+			slTVOff();
 
-		// Initialize VDP2
-		VDP2::Initialize(backColor);
+			// Initialize VDP2
+			VDP2::Initialize(backColor);
 
-		// Set cull depth
-    	slZdspLevel(3);
+			// Set cull depth
+			slZdspLevel(3);
 
-		// All was initialized
-		slTVOn();
-	}
-
+			// All was initialized
+			slTVOn();
+		}
+	};
 };

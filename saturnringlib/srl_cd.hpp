@@ -133,7 +133,7 @@ namespace SRL
 				}
 			}
 
-			/** @brief Read specified number of bytes from the CD
+			/** @brief Read specified number of bytes from the file
 			 * @param size Number of bytes to read
 			 * @param destination Buffer to read bytes into
 			 * @return Number of bytes read (if lower than 0, error was encountered)
@@ -148,14 +148,14 @@ namespace SRL
 				return -1;
 			}
 
-			/** @brief Open batch from file
+			/** @brief Loads specified amount of bytes from a file
 			 * @note This function does not need file to be open
 			 * @param startOffset Number of bytes to skip at the start
 			 * @param size Number of bytes to read (length of the batch)
 			 * @param destination Buffer to read batch into
 			 * @return Number of bytes read (if lower than 0, error was encountered)
 			 */
-			Sint32 OpenBatch(Sint32 startOffset, Sint32 size, void* destination)
+			Sint32 LoadBytes(Sint32 startOffset, Sint32 size, void* destination)
 			{
 				Bool wasOpen = false;
 				Sint32 result = 0;
