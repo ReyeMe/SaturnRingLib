@@ -56,7 +56,7 @@ namespace SRL::Bitmap
 			 */
 			Paletted16 = 3,
 
-			/** @brief 64 color image
+			/** @brief 256 color image
 			 */
 			Paletted = 2,
 

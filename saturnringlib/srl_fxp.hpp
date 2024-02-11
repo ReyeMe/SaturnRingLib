@@ -5,7 +5,7 @@
 
 namespace SRL::Types
 {
-	/** @brief Fixed point matype and math by https://github.com/robertoduarte
+	/** @brief Fixed point type and math by https://github.com/robertoduarte
 	 */
 	class Fxp
 	{

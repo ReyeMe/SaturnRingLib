@@ -23,11 +23,13 @@ int main()
 
 	while(1)
 	{
+		SRL::Debug::PrintWithWrap( 1, 1, 1, 40, "X: %x    \nY: %x    ", location.X.Value(), location.Y.Value());
+
 		SRL::Render::DrawSprite(textureIndex, location);
 
 		if (location.X < screenMin.X || location.X > screenMax.X) velocity.X *= -1.0;
 		if (location.Y < screenMin.Y || location.Y > screenMax.Y) velocity.Y *= -1.0;
-		
+
 		location += velocity;
 
 		slSynch();

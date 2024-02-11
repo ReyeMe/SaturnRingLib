@@ -133,7 +133,23 @@ namespace SRL
 				}
 			}
 
-			/** @brief Open batch from file (this function does not need file to be open)
+			/** @brief Read specified number of bytes from the CD
+			 * @param size Number of bytes to read
+			 * @param destination Buffer to read bytes into
+			 * @return Number of bytes read (if lower than 0, error was encountered)
+			 */
+			Sint32 Read(Sint32 size, void* destination)
+			{
+				if (this->Handle != nullptr)
+				{
+					return GFS_Fread(this->Handle, this->Size.Sectors, destination, size);
+				}
+
+				return -1;
+			}
+
+			/** @brief Open batch from file
+			 * @note This function does not need file to be open
 			 * @param startOffset Number of bytes to skip at the start
 			 * @param size Number of bytes to read (length of the batch)
 			 * @param destination Buffer to read batch into
