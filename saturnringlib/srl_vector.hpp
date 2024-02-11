@@ -265,7 +265,7 @@ namespace SRL::Types
 
 	/** @brief 3D vector
 	 */
-	class Vector3D : Vector2D
+	class Vector3D : public Vector2D
 	{
 	public:
 		/** @brief Z axis component
