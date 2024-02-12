@@ -1,12 +1,11 @@
 #pragma once
 
-#include <jo\Jo.hpp>
-
 extern "C" {
 #include <stddef.h>
 #include <string.h>
 }
 
+#include "srl_memory.hpp"
 #include "utils.h"
 
 namespace std

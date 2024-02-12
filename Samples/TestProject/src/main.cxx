@@ -1,6 +1,7 @@
 #include <srl.hpp>
 
 using namespace SRL::Types;
+using Buttons = SRL::Input::Gamepad::Button;
 
 int main()
 {
@@ -11,26 +12,35 @@ int main()
 	delete tga;
 	
 	Vector3D location = Vector3D(0.0, 0.0, 500.0);
-	Vector2D velocity = Vector2D(0.5, 0.5);
+	Vector2D velocity = Vector2D(0.0, 0.0);
 
 	Vector2D screenMax = Vector2D(
 			Fxp::FromInt(SRL::TV::Width >> 1),
 			Fxp::FromInt(SRL::TV::Height >> 1));
-
 	Vector2D screenMin = Vector2D(
 			-Fxp::FromInt(SRL::TV::Width >> 1),
 			-Fxp::FromInt(SRL::TV::Height >> 1));
 
+	SRL::Input::Gamepad gamepad = SRL::Input::Gamepad(0);
+
 	while(1)
 	{
-		SRL::Debug::PrintWithWrap( 1, 1, 1, 40, "X: %x    \nY: %x    ", location.X.Value(), location.Y.Value());
+		if (gamepad.IsHeld(Buttons::Left)) velocity.X = -0.5;
+		else if (gamepad.IsHeld(Buttons::Right)) velocity.X = 0.5;
+
+		if (gamepad.IsHeld(Buttons::Up)) velocity.Y = -0.5;
+		else if (gamepad.IsHeld(Buttons::Down)) velocity.Y = 0.5;
+
+		// Move
+		location += velocity;
+		location.X = SRL::Math::Clamp(screenMin.X, screenMax.X, location.X);
+		location.Y = SRL::Math::Clamp(screenMin.Y, screenMax.Y, location.Y);
+
+		// Reset velocity
+		velocity.X = 0.0;
+		velocity.Y = 0.0;
 
 		SRL::Render::DrawSprite(textureIndex, location);
-
-		if (location.X < screenMin.X || location.X > screenMax.X) velocity.X *= -1.0;
-		if (location.Y < screenMin.Y || location.Y > screenMax.Y) velocity.Y *= -1.0;
-
-		location += velocity;
 
 		slSynch();
 	}
