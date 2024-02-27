@@ -68,6 +68,16 @@ namespace std
             }
 
             /**
+             * @brief Overloaded equality operator.
+             * @param other Another iterator for comparison.
+             * @return True if iterators are equal, false otherwise.
+             */
+            bool operator==(const Iterator& other) const
+            {
+                return ptr == other.ptr;
+            }
+
+            /**
              * @brief Overloaded subtraction operator.
              * @param n Number of positions to move backward.
              * @return Iterator moved back by n positions.

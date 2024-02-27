@@ -7,7 +7,7 @@
 #include "srl_vdp1.hpp"
 #include "srl_vdp2.hpp"
 #include "srl_input.hpp"
-#include "std/vector.h"
+#include "srl_event.hpp"
 
 namespace SRL
 {
@@ -15,25 +15,19 @@ namespace SRL
 	 */
 	class Core
 	{
+	public:
+		/** @brief Event triggered every v-blank
+		 */
+		inline static SRL::Types::Event<> OnVblank;
+
 	private:
 		
-		/** @brief Contains all user functions to be called when V-Blank event fires
-		 */
-		inline static std::vector<void (*)()> VblankCallbacks = std::vector<void (*)()>();
-
 		/** @brief Haandle V-Blank events
 		 */
-		static void VblankHandling()
+		inline static void VblankHandling()
 		{
 			SRL::Input::IPeripheral::RefreshPeripherals();
-
-			for (auto event : Core::VblankCallbacks)
-			{
-				if (event != nullptr)
-				{
-					event();
-				}
-			}
+			Core::OnVblank.Invoke();
 		}
 
 	public:
@@ -68,27 +62,6 @@ namespace SRL
 
 			// All was initialized
 			slTVOn();
-		}
-
-		/** @brief Register a function to be called when V-Blank hits
-		 * @param function Function to register
-		 */
-		inline static void RegisterVblankCallback(void (*function)())
-		{
-			Core::VblankCallbacks.push_back(function);
-		}
-
-		/** @brief Un-register a function from being called when V-Blank hits
-		 * @param function Function to register
-		 */
-		inline static void UnRegisterVblankCallback(void (*function)())
-		{
-			auto it = std::find(Core::VblankCallbacks.begin(), Core::VblankCallbacks.end(), function);
-
-			if (it != Core::VblankCallbacks.end())
-			{
-				Core::VblankCallbacks.erase(it);
-			}
 		}
 	};
 };
