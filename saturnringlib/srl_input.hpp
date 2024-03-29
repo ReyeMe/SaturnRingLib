@@ -105,6 +105,14 @@ namespace SRL::Input
 		inline static PerDigital Peripherals[IPeripheral::MaxPeripherals] = { 0xff, 0, 0, 0, 0, 0 };
 
 	public:
+        /** @brief Get the Raw port data
+         * @param port Port index
+         * @return Port data
+         */
+        static PerDigital* GetRawData(const Uint8& port)
+        {
+            return &IPeripheral::Peripherals[port];
+        }
 
 		/** @brief Checks whether any peripheral is connected to specified port
 		 * @param port Peripheral port
