@@ -3,6 +3,7 @@
 #include "srl_base.hpp"
 #include "srl_vdp1.hpp"
 #include "srl_geo.hpp"
+#include "srl_mesh.hpp"
 
 namespace SRL
 {
@@ -12,6 +13,15 @@ namespace SRL
 	
 
 	public:
+
+		/** @brief Draw mesh
+		 * @param mesh Mesh to draw
+		 * @return True on success
+		 */
+		static bool DrawMesh(Types::Mesh& mesh)
+		{
+			return slPutPolygonS(mesh.SglPtr());
+		}
 
 		/** @brief Draw simple sprite
 		 * @param texture Sprite texture

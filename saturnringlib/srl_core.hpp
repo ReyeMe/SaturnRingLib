@@ -63,5 +63,13 @@ namespace SRL
 			// All was initialized
 			slTVOn();
 		}
+
+		/** @brief Wait until graphic processing time is reached
+		 *  @note Graphic processing time is set by 'SRL_FRAMERATE' in makefile
+		 */
+		inline static void Synchronize()
+		{
+			slSynch();
+		}
 	};
 };

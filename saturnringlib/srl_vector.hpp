@@ -6,9 +6,8 @@ namespace SRL::Types
 {
 	/** @brief 2D vector
 	 */
-	class Vector2D
+	struct Vector2D
 	{
-	public:
 		/** @brief X axis component
 		 */
 		Fxp X;
@@ -265,9 +264,8 @@ namespace SRL::Types
 
 	/** @brief 3D vector
 	 */
-	class Vector3D : public Vector2D
+	struct Vector3D : public Vector2D
 	{
-	public:
 		/** @brief Z axis component
 		 */
 		Fxp Z;
