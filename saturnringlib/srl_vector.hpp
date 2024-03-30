@@ -64,7 +64,7 @@ namespace SRL::Types
 		/** @brief Get approximate length of the vector
 		 * @return Vector length
 		 */
-		virtual Fxp ApproximateLength()
+		constexpr Fxp ApproximateLength()
 		{
 			Fxp x = Math::Abs(this->X);
 			Fxp y = Math::Abs(this->Y);
@@ -81,7 +81,7 @@ namespace SRL::Types
 
 		/** @brief Normalize vector with approximate length
 		 */
-		virtual void ApproximateNormalize()
+		constexpr void ApproximateNormalize()
 		{
 			Fxp length = this->ApproximateLength();
 
@@ -103,7 +103,7 @@ namespace SRL::Types
 		/** @brief Get length of the vector
 		 * @return Vector length
 		 */
-		constexpr virtual Fxp Length()
+		constexpr Fxp Length()
 		{
 			return this->Dot(*this).Sqrt();
 		}
@@ -112,14 +112,14 @@ namespace SRL::Types
 		 * @param vector Other vector
 		 * @return Distance to vector
 		 */
-		constexpr virtual Fxp DistanceTo(const Vector2D& vector)
+		constexpr Fxp DistanceTo(const Vector2D& vector)
 		{
 			return (*this - vector).Length();
 		}
 
 		/** @brief Normalize vector
 		 */
-		constexpr virtual void Normalize()
+		constexpr void Normalize()
 		{
 			Fxp length = this->Length();
 
@@ -129,6 +129,7 @@ namespace SRL::Types
 				this->Y /= length;
 			}
 		}
+
 		/** @brief Indexer operator
 		 * @param index Component index
 		 * @return Component reference
@@ -515,7 +516,7 @@ namespace SRL::Types
 		/** @brief Get approximate length of the vector
 		 * @return Vector length
 		 */
-		constexpr Fxp ApproximateLength() override
+		constexpr Fxp ApproximateLength()
 		{
 			Fxp x = Math::Abs(this->X);
 			Fxp y = Math::Abs(this->Y);
@@ -538,7 +539,7 @@ namespace SRL::Types
 
 		/** @brief Normalize vector with approximate length
 		 */
-		constexpr void ApproximateNormalize() override
+		constexpr void ApproximateNormalize()
 		{
 			Fxp length = this->ApproximateLength();
 
@@ -573,14 +574,14 @@ namespace SRL::Types
 		 * @param vector Other vector
 		 * @return Distance to vector
 		 */
-		constexpr virtual Fxp DistanceTo(const Vector3D& vector)
+		constexpr Fxp DistanceTo(const Vector3D& vector)
 		{
 			return (*this - vector).Length();
 		}
 		
 		/** @brief Normalize vector
 		 */
-		constexpr void Normalize() override
+		constexpr void Normalize()
 		{
 			Fxp length = this->Length();
 

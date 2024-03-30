@@ -180,7 +180,7 @@ namespace SRL::Types
 		/** @brief Convert fixed point value to integer by dividing with 65536
 		 * @return Integer value 
 		 */
-		consteval Sint32 ToInt()
+		constexpr Sint32 ToInt() const
 		{
 			return this->value >> 16;
 		}

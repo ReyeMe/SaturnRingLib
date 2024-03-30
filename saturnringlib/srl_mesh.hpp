@@ -55,6 +55,7 @@ namespace SRL::Types
             Direction(0) { }
 
         /** @brief Construct a new Attribute object
+         *  @note TODO: Needs documenting and better contructor!
          *  @param visibility 
          *  @param sort 
          *  @param texture 
@@ -64,8 +65,8 @@ namespace SRL::Types
          *  @param direction 
          *  @param options 
          */
-        Attribute(const FaceVisibility visibility, const SortMode sort, const Uint16 texture, Uint16 color, Uint16 gouraud, Uint16 mode, Uint16 direction, Uint8 options) :
-            Visibility(Visibility),
+        Attribute(const FaceVisibility visibility, const SortMode sort, const Uint16 texture, Uint16 color, Uint16 gouraud, Uint16 mode, Uint32 direction, Uint16 options) :
+            Visibility(visibility),
             Sort(sort | (((direction) >> 16) & 0x1c) | options),
             Texture(texture),
             Display(mode | (((direction) >> 24) & 0xc0)),
@@ -114,7 +115,7 @@ namespace SRL::Types
          * @param normal Normal vector
          * @param vertices Polygon vertex indicies
          */
-        Polygon(const Vector3D& normal, const int vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
+        Polygon(const Vector3D& normal, const Uint16 vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
 
         /** @brief Normal vector of the polygon
          */
@@ -122,7 +123,7 @@ namespace SRL::Types
 
         /** @brief Vertices of the polygon
          */
-        int Vertices[4];
+        Uint16 Vertices[4];
     };
 
     /** @brief 3D mesh
@@ -186,9 +187,9 @@ namespace SRL::Types
             Polygon* faces,
             Attribute* attributes) : Mesh(vertexCount, faceCount)
         {
-            slDMACopy(vertices, this->Vertices, vertexCount * sizeof(POINT));
-            slDMACopy(faces, this->Faces, faceCount * sizeof(POLYGON));
-            slDMACopy(attributes, this->Attributes, faceCount * sizeof(ATTR));
+            this->Vertices = vertices;
+            this->Faces = faces;
+            this->Attributes = attributes;
         }
         
         /** @brief Move assignment operator
