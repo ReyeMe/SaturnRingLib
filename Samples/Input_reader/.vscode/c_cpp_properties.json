@@ -4,8 +4,8 @@
             "name": "Saturn",
             "includePath": [
                 "${workspaceFolder}/../../saturnringlib",
-                "${workspaceFolder}/../../Compiler/COMMON/SGL_302j/INC",
-                "${workspaceFolder}/../../Compiler/COMMON/other/**",
+                "${workspaceFolder}/../../modules/sgl/INC",
+                "${workspaceFolder}/../../modules/danny/**",
                 "${workspaceFolder}/../../Compiler/sh2eb-elf/include",
                 "${workspaceFolder}/../../saturnringlib/**"
             ],

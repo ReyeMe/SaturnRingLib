@@ -67,11 +67,11 @@ namespace SRL::Types
          */
         Attribute(const FaceVisibility visibility, const SortMode sort, const Uint16 texture, Uint16 color, Uint16 gouraud, Uint16 mode, Uint32 direction, Uint16 options) :
             Visibility(visibility),
-            Sort(sort | (((direction) >> 16) & 0x1c) | options),
             Texture(texture),
-            Display(mode | (((direction) >> 24) & 0xc0)),
             ColorMode(color),
             Gouraud(gouraud),
+            Sort(sort | (((direction) >> 16) & 0x1c) | options),
+            Display(mode | (((direction) >> 24) & 0xc0)),
             Direction(direction & 0x3f) { }
 
         /** @brief Inidcates whether face is visible at all times or only when its normal vector is pointing towards camera
