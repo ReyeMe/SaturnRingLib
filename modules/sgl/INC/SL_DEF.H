@@ -17,6 +17,9 @@
 #if Compiler == shc
 #define STCNS static const
 #else
+
+/** @brief Static flag
+ */
 #define STCNS static
 #endif
 
@@ -24,75 +27,143 @@
 /****************************** Basic declaration *****************************/
 /*****************************************************************************/
 
-typedef unsigned char Uint8;   /* Unsigned 1-byte integer */
-typedef signed char Sint8;     /* Signed 1-byte integer */
-typedef unsigned short Uint16; /* Unsigned 2-byte integer */
-typedef signed short Sint16;   /* Signed 2-byte integer */
-typedef unsigned long Uint32;  /* Unsigned 4-byte integer */
-typedef signed long Sint32;    /* Signed 4-byte integer */
-typedef float Float32;         /* 4-byte real number */
-typedef double Float64;        /* 8-byte real number */
+/** @brief Unsigned 1-byte integer
+ */
+typedef unsigned char Uint8;
 
-typedef int Int; /* INT type (for tools)		*/
+/** @brief Signed 1-byte integer
+ */
+typedef signed char Sint8;
 
-typedef int Bool; /* Logical type (takes logical constant as value)	*/
+/** @brief Unsigned 2-byte integer
+ */
+typedef unsigned short Uint16;
+
+/** @brief Signed 2-byte integer
+ */
+typedef signed short Sint16;
+
+/** @brief Unsigned 4-byte integer
+ */
+typedef unsigned long Uint32;
+
+/** @brief Signed 4-byte integer
+ */
+typedef signed long Sint32;
+
+/** @brief 4-byte real number
+ */
+typedef float Float32;
+
+/** @brief 8-byte real number
+ */
+typedef double Float64;
+
+/** @brief INT type (for tools)
+ */
+typedef int Int;
+
+/** @brief Logical type (takes logical constant as value)
+ */
+typedef int Bool;
 
 /*****************************************************************************/
 /********************************* Constant macro ********************************/
 /*****************************************************************************/
 
 #ifndef NULL
-#define NULL ((void *)0) /* NULL */
-#endif                   /* NULL */
+
+/** @brief Null pointer
+ */
+#define NULL ((void *)0) 
+#endif
 
 /*****************************************************************************/
 /********************************** Enumeration constant *********************************/
 /*****************************************************************************/
 
+/** @brief Logical constant 1 (false, true)
+ */
 enum BooleanLogic
-{ /* Logical constant 1 (false, true) */
-  FALSE = 0,
-  TRUE = 1
+{
+    FALSE = 0,
+    TRUE = 1
 };
 
+/** @brief Logical constant 2 (switch)
+ */
 enum BooleanSwitch
-{ /* Logical constant 2 (switch) */
-  OFF = 0,
-  ON = 1
+{
+    OFF = 0,
+    ON = 1
 };
 
+/** @brief Result determination constant (success, failure)
+ */
 enum Judgement
-{         /* Result determination constant (success, failure) */
-  OK = 0, /* success */
-  NG = -1 /* failure */
+{ 
+    /** @brief Success
+     */
+    OK = 0,
+
+    /** @brief Failure
+     */
+    NG = -1
 };
 
 /*****************************************************************************/
 /********************************* 処理マクロ ********************************/
 /*****************************************************************************/
 
-#define MAX(x, y) ((x) > (y) ? (x) : (y)) /* Maximum value */
-#define MIN(x, y) ((x) < (y) ? (x) : (y)) /* minimum value */
-#define ABS(x) ((x) < 0 ? -(x) : (x))     /* Absolute value */
+/** @brief Maximum value
+ */
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+
+/** @brief Minimum value
+ */
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+
+/** @brief Absolute value
+ */
+#define ABS(x) ((x) < 0 ? -(x) : (x))
 
 /*------------------------------------------------------------------------------------*/
 
-#define DI 15 /* 割り込みの禁止 */
-#define EI 0  /* 割り込みの許可 */
+/** @brief Disable interrupts
+ */
+#define DI 15
+
+/** @brief Enable interrupts
+ */
+#define EI 0
 
 #if 0                 /* Ver2.1 より削除 */
 #define MAX_EVENTS 64 /* 使用できるイベントの数 */
 #define MAX_WORKS 256 /* 使用できるワークの数 */
 #endif
 
-#define MAX_NEST 20 /* Number of nestable matrices */
+/** @brief Number of nestable matrices
+ */
+#define MAX_NEST 20
 
-#define WORK_SIZE 0x40  /* Work size */
-#define EVENT_SIZE 0x80 /* Event size */
+/** @brief Work size
+ */
+#define WORK_SIZE 0x40
 
-typedef Sint16 ANGLE; /* 360 degree angle is represented by 16 bits */
-typedef Sint32 FIXED; /* Fixed-point type that represents the integer part in the upper 16 bits and the decimal part in the lower 16 bits */
+/** @brief Event size
+ */
+#define EVENT_SIZE 0x80
 
+/** @brief 360 degree angle is represented by 16 bits
+ */
+typedef Sint16 ANGLE;
+
+/** @brief Fixed-point type that represents the integer part in the upper 16 bits and the decimal part in the lower 16 bits
+ */
+typedef Sint32 FIXED;
+
+/** @brief Point component and array size
+ */
 enum ps
 {
     X,
@@ -122,18 +193,33 @@ typedef struct evnt
     Uint8 user[EVENT_SIZE - (sizeof(WORK *) + sizeof(struct evnt *) * 2 + sizeof(void (*)()))];
 } EVENT;
 
-typedef FIXED MATRIX[4][3]; /* Matrix data */
-typedef FIXED VECTOR[XYZ];  /* Vector data */
-typedef FIXED POINT[XYZ];   /* Vertex position data */
+/** @brief Matrix data
+ */
+typedef FIXED MATRIX[4][3];
 
-#define CURRENT 0          /* Current Matrix */
-#define ORIGINAL (0.99999) /* Original Scale */
+/** @brief Vector data
+ */
+typedef FIXED VECTOR[XYZ];
 
+/** @brief Vertex position data
+ */
+typedef FIXED POINT[XYZ];
+
+/** @brief Current Matrix
+ */
+#define CURRENT 0
+
+/** @brief Original Scale
+ */
+#define ORIGINAL (0.99999)
+
+/** @brief Matrix element number
+ */
 enum mtrx
 {
     M00,
     M01,
-    M02, /* Matrix element number */
+    M02,
     M10,
     M11,
     M12,
@@ -146,6 +232,8 @@ enum mtrx
     MTRX
 };
 
+/** @brief Screen resolution
+ */
 enum tvsz
 {
     TV_320x224,
@@ -221,55 +309,162 @@ enum tvsz
 #define FUNC_BasePosition 10
 #define FUNC_End -1
 
-#define _ZmLT (0x05 << 8) /* Zoom base Left Top */
-#define _ZmLC (0x09 << 8) /* Zoom base Left Center */
-#define _ZmLB (0x0d << 8) /* Zoom base Left Bottom */
-#define _ZmCT (0x06 << 8) /* Zoom base Center Top */
-#define _ZmCC (0x0a << 8) /* Zoom base Center Center */
-#define _ZmCB (0x0e << 8) /* Zoom base Center Bottom */
-#define _ZmRT (0x07 << 8) /* Zoom base Right Top */
-#define _ZmRC (0x0b << 8) /* Zoom base Right Center */
-#define _ZmRB (0x0f << 8) /* Zoom base Right Bottom */
+/** @brief Zoom base Left Top
+ */
+#define _ZmLT (0x05 << 8)
 
-#define MSBon (1 << 15)     /* Set MSB to be written to frame buffer to 1 */
-#define HSSon (1 << 12)     /* High speed shrink */
-#define HSSoff (0 << 12)    /* High speed shrink disabled (default) */
-#define No_Window (0 << 9)  /* No window restrictions (default) */
-#define Window_In (2 << 9)  /* Display inside window */
-#define Window_Out (3 << 9) /* Display outside window */
-#define MESHoff (0 << 8)    /* Usually expressed as (default) */
-#define MESHon (1 << 8)     /* Display as mesh */
-#define ECdis (1 << 7)      /* Use end code as one of the palettes */
-#define ECenb (0 << 7)      /* End code valid */
-#define SPdis (1 << 6)      /* Use space code as one of the palettes */
-#define SPenb (0 << 6)      /* Do not display spaces (default) */
-#define CL16Bnk (0 << 3)    /* Color bank 16-color mode (default) */
-#define CL16Look (1 << 3)   /* Color lookup 16 color mode */
-#define CL64Bnk (2 << 3)    /* Color bank 64 color mode */
-#define CL128Bnk (3 << 3)   /* Color bank 128 color mode */
-#define CL256Bnk (4 << 3)   /* Color bank 256 color mode */
-#define CL32KRGB (5 << 3)   /* RGB32K color mode */
-#define CL_Replace 0        /* Overwrite mode */
-#define CL_Shadow 1         /* Shadow mode */
-#define CL_Half 2           /* Half-brightness mode */
-#define CL_Trans 3          /* Translucent mode */
-#define CL_Gouraud 4        /* Gouraud shading mode */
+/** @brief Zoom base Left Center
+ */
+#define _ZmLC (0x09 << 8)
 
-#define UseTexture (1 << 2) /* Polygon to put texture */
-#define UseLight (1 << 3)   /* Polygon affected by light source */
-#define UsePalette (1 << 5) /* Polygon color */
+/** @brief Zoom base Left Bottom
+ */
+#define _ZmLB (0x0d << 8)
 
-/* SGL Ver3.0 Add */
-#define UseNearClip (1 << 6) /* Near clipping */
-#define UseGouraud (1 << 7)  /* Real gourd */
-#define UseDepth (1 << 4)    /* Depth Cue */
-/* */
+/** @brief Zoom base Center Top
+ */
+#define _ZmCT (0x06 << 8)
 
-#if 0                    /* SGL Ver3.0 Delete */
-#define UseClip (1 << 4) /* Do not display when vertices appear outside the screen */
-#else
-#define UseClip UseNearClip /* Perform near clipping */
-#endif
+/** @brief Zoom base Center Center
+ */
+#define _ZmCC (0x0a << 8)
+
+/** @brief Zoom base Center Bottom
+ */
+#define _ZmCB (0x0e << 8)
+
+/** @brief Zoom base Right Top
+ */
+#define _ZmRT (0x07 << 8)
+
+/** @brief Zoom base Right Center
+ */
+#define _ZmRC (0x0b << 8)
+
+/** @brief Zoom base Right Bottom
+ */
+#define _ZmRB (0x0f << 8)
+
+/** @brief Set MSB to be written to frame buffer to 1
+ */
+#define MSBon (1 << 15)
+
+/** @brief High speed shrink
+ */
+#define HSSon (1 << 12)
+
+/** @brief High speed shrink disabled (default)
+ */
+#define HSSoff (0 << 12)
+
+/** @brief No window restrictions (default)
+ */
+#define No_Window (0 << 9)
+
+/** @brief Display inside window
+ */
+#define Window_In (2 << 9)
+
+/** @brief Display outside window
+ */
+#define Window_Out (3 << 9)
+
+/** @brief Usually expressed as (default)
+ */
+#define MESHoff (0 << 8)
+
+/** @brief Display as mesh
+ */
+#define MESHon (1 << 8)
+
+/** @brief Use end code as one of the palettes
+ */
+#define ECdis (1 << 7)
+
+/** @brief End code valid
+ */
+#define ECenb (0 << 7)
+
+/** @brief Use space code as one of the palettes
+ */
+#define SPdis (1 << 6)
+
+/** @brief Do not display spaces (default)
+ */
+#define SPenb (0 << 6)
+
+/** @brief Color bank 16-color mode (default)
+ */
+#define CL16Bnk (0 << 3)
+
+/** @brief Color lookup 16 color mode
+ */
+#define CL16Look (1 << 3)
+
+/** @brief Color bank 64 color mode
+ */
+#define CL64Bnk (2 << 3)
+
+/** @brief Color bank 128 color mode
+ */
+#define CL128Bnk (3 << 3)
+
+/** @brief Color bank 256 color mode
+ */
+#define CL256Bnk (4 << 3)
+
+/** @brief RGB32K color mode
+ */
+#define CL32KRGB (5 << 3)
+
+/** @brief Overwrite mode
+ */
+#define CL_Replace 0
+
+/** @brief Shadow mode
+ */
+#define CL_Shadow 1
+
+/** @brief Half-brightness mode
+ */
+#define CL_Half 2
+
+/** @brief Translucent mode
+ */
+#define CL_Trans 3
+
+/** @brief Gouraud shading mode
+ */
+#define CL_Gouraud 4
+
+
+/** @brief Polygon to put texture
+ */
+#define UseTexture (1 << 2)
+
+/** @brief Polygon affected by light source
+ */
+#define UseLight (1 << 3)
+
+/** @brief Polygon color
+ */
+#define UsePalette (1 << 5)
+
+/** @brief Near clipping
+ */
+#define UseNearClip (1 << 6)
+
+/** @brief Real gouraud
+ */
+#define UseGouraud (1 << 7)
+
+/** @brief Depth Cue
+ */
+#define UseDepth (1 << 4)
+
+/** @brief Perform near clipping
+ */
+#define UseClip UseNearClip /*  */
 
 #define sprHflip ((1 << 4) | FUNC_Texture | (UseTexture << 16))
 #define sprVflip ((1 << 5) | FUNC_Texture | (UseTexture << 16))
@@ -279,58 +474,150 @@ enum tvsz
 #define sprPolyLine (FUNC_PolyLine | ((ECdis | SPdis) << 24))
 #define sprLine (FUNC_Line | ((ECdis | SPdis) << 24))
 
-#define No_Texture 0                       /* When texture is not used */
-#define No_Option 0                        /* When option is not used */
-#define No_Gouraud 0                       /* When Gouraud shading is not used */
-#define No_Palet 0                         /* When color palette is not required */
-#define GouraudRAM (0x00080000 - (32 * 8)) /* Gouraud buffer for light effects */
+/** @brief When texture is not used
+ */
+#define No_Texture 0
 
+/** @brief When option is not used
+ */
+#define No_Option 0
+
+/** @brief When Gouraud shading is not used
+ */
+#define No_Gouraud 0
+
+/** @brief When color palette is not required
+ */
+#define No_Palet 0
+
+/** @brief Gouraud buffer for light effects
+ */
+#define GouraudRAM (0x00080000 - (32 * 8))
+
+/** @brief Mesh face
+ */
 typedef struct
 {
-    VECTOR norm;        /* Normal vector */
-    Uint16 Vertices[4]; /* Vertex numbers that make up the polygon */
+    /** @brief Normal vector
+     */
+    VECTOR norm;
+
+    /** @brief Vertex numbers that make up the polygon
+     */
+    Uint16 Vertices[4];
 } POLYGON;
 
+/** @brief Mesh face attributes
+ */
 typedef struct
 {
-    Uint8 flag;   /* Single-sided or double-sided flag */
-    Uint8 sort;   /* Sort reference position and optional settings */
-    Uint16 texno; /* Texture number */
-    Uint16 atrb;  /* Attribute data (display mode) */
-    Uint16 colno; /* Color number */
-    Uint16 gstb;  /* Gouraud shading table */
-    Uint16 dir;   /* Texture inversion and function number */
+    /** @brief Single-sided or double-sided flag
+     */
+    Uint8 flag;
+
+    /** @brief Sort reference position and optional settings
+     */
+    Uint8 sort;
+
+    /** @brief Texture number
+     */
+    Uint16 texno;
+
+    /** @brief Attribute data (display mode)
+     */
+    Uint16 atrb;
+
+    /** @brief Color number
+     */
+    Uint16 colno;
+
+    /** @brief Gouraud shading table
+     */
+    Uint16 gstb;
+
+    /** @brief Texture inversion and function number
+     */
+    Uint16 dir;
 } ATTR;
 
+/** @brief Sprite attributes
+ */
 typedef struct
 {
-    Uint16 texno; /* Texture number */
-    Uint16 atrb;  /* Attribute data (display mode) */
-    Uint16 colno; /* Color number */
-    Uint16 gstb;  /* Gouraud shading table */
-    Uint16 dir;   /* Texture inversion and function number */
+    /** @brief Texture number
+     */
+    Uint16 texno;
+
+    /** @brief Attribute data (display mode)
+     */
+    Uint16 atrb;
+
+    /** @brief Color number
+     */
+    Uint16 colno;
+
+    /** @brief Gouraud shading table
+     */
+    Uint16 gstb;
+
+    /** @brief Texture inversion and function number
+     */
+    Uint16 dir;
 } SPR_ATTR;
 
+/** @brief Flat shaded model data
+ */
 typedef struct
 {
-    POINT *pntbl;     /* Vertex position data table */
-    Uint32 nbPoint;   /* Number of vertices */
-    POLYGON *pltbl;   /* Polygon definition table */
-    Uint32 nbPolygon; /* Number of polygons */
-    ATTR *attbl;      /* Polygon attribute table */
+    /** @brief Vertex position data table
+     */
+    POINT *pntbl;
+
+    /** @brief Number of vertices
+     */
+    Uint32 nbPoint;
+
+    /** @brief Polygon definition table
+     */
+    POLYGON *pltbl;
+
+    /** @brief Number of polygons
+     */
+    Uint32 nbPolygon;
+
+    /** @brief Polygon attribute table
+     */
+    ATTR *attbl;
 } PDATA;
 
-/* SGL Ver3.0 Add */
+/** @brief Smooth shaded model data
+ */
 typedef struct
 {
-    POINT *pntbl;     /* Vertex position data table */
-    Uint32 nbPoint;   /* Number of vertices */
-    POLYGON *pltbl;   /* Polygon definition table */
-    Uint32 nbPolygon; /* Number of polygons */
-    ATTR *attbl;      /* Polygon attribute table */
+    /** @brief Vertex position data table
+     */
+    POINT *pntbl;     /*  */
+
+    /** @brief Number of vertices
+     */
+    Uint32 nbPoint;   /*  */
+
+    /** @brief Polygon definition table
+     */
+    POLYGON *pltbl;   /*  */
+
+    /** @brief Number of polygons
+     */
+    Uint32 nbPolygon; /*  */
+
+    /** @brief Polygon attribute table
+     */
+    ATTR *attbl;
+    
+    /** @brief Normal line vector data for vertexes
+     */
     VECTOR *vntbl;
 } XPDATA;
-/* */
 
 #ifdef ST_VE
 
@@ -429,77 +716,208 @@ typedef struct
             (cl)
 #endif
 
+/** @brief Object data
+ */
 typedef struct obj
 {
-    PDATA *pat;          /* Polygon model data table */
-    FIXED pos[XYZ];      /* Relative position data */
-    ANGLE ang[XYZ];      /* Rotation angle data */
-    FIXED scl[XYZ];      /* Scaling data */
-    struct obj *child;   /* Child object data */
-    struct obj *sibling; /* Sibling object data */
+    /** @brief Polygon model data table
+     */
+    PDATA *pat;
+
+    /** @brief Relative position data
+     */
+    FIXED pos[XYZ];
+
+    /** @brief Rotation angle data
+     */
+    ANGLE ang[XYZ];
+
+    /** @brief Scaling data
+     */
+    FIXED scl[XYZ];
+
+    /** @brief Child object data
+     */
+    struct obj *child;
+
+    /** @brief Sibling object data
+     */
+    struct obj *sibling;
 } OBJECT;
 
+/** @brief VDP1 texture entry
+ */
 typedef struct
 {
-    Uint16 Hsize;  /* H size of sprite */
-    Uint16 Vsize;  /* V size of sprite */
-    Uint16 CGadr;  /* Sprite CG address / 8 */
-    Uint16 HVsize; /* H size / 8, V size (for hardware) */
+    /** @brief Texture height
+     */
+    Uint16 Hsize;
+
+    /** @brief Texture width
+     */
+    Uint16 Vsize;
+
+    /** @brief Texture address
+     *  @note Address is divided by 8
+     */
+    Uint16 CGadr;
+
+    /** @brief Texture data size
+     *  @note H size / 8, V size (for hardware)
+     */
+    Uint16 HVsize;
 } TEXTURE;
 
+/** @brief Texture metadata
+ */
 typedef struct
 {
-    Uint16 texno; /* Texture number */
-    Uint16 cmode; /* Color mode */
-    void *pcsrc;  /* Location of original data */
+    /** @brief Texture number
+     */
+    Uint16 texno;
+
+    /** @brief Color mode
+     */
+    Uint16 cmode;
+
+    /** @brief Location of original data
+     */
+    void *pcsrc;
 } PICTURE;
 
-#define COL_16 (2 + 1)  /* Color bank 16 color mode */
-#define COL_64 (2 + 0)  /* Color bank 64 color mode */
-#define COL_128 (2 + 0) /* Color bank 128 color mode */
-#define COL_256 (2 + 0) /* Color bank 256 color mode */
-#define COL_32K (2 - 1) /* RGB32K color mode */
+/** @brief Color bank 16 color mode
+ */
+#define COL_16 (2 + 1)
 
+/** @brief Color bank 64 color mode
+ */
+#define COL_64 (2 + 0)
+
+/** @brief Color bank 128 color mode
+ */
+#define COL_128 (2 + 0)
+
+/** @brief Color bank 256 color mode
+ */
+#define COL_256 (2 + 0)
+
+/** @brief RGB32K color mode
+ */
+#define COL_32K (2 - 1)
+
+/** @brief Quad sort function
+ */
 enum base
 {
-    SORT_BFR, /* Use the position of the polygon displayed immediately before */
-    SORT_MIN, /* Use the foremost point out of 4 points */
-    SORT_MAX, /* Use the farthest of the four points */
-    SORT_CEN  /* Use the average position of 4 points */
+    /** @brief Use the position of the polygon displayed immediately before
+     */
+    SORT_BFR,
+
+    /** @brief Use the foremost point out of 4 points
+     */
+    SORT_MIN,
+
+    /** @brief Use the farthest of the four points
+     */
+    SORT_MAX,
+
+    /** @brief Use the average position of 4 points
+     */
+    SORT_CEN
 };
 
+/** @brief Quad culling mode
+ */
 enum pln
 {
-    Single_Plane, /* Single-sided polygon */
-    Dual_Plane    /* Double-sided polygon (Do not see the result of front / back judgment) */
+    /** @brief Single-sided polygon (not visible when rotated away from camera)
+     */
+    Single_Plane, /*  */
+
+    /** @brief Double-sided polygon
+     */
+    Dual_Plane
 };
 
+/** @brief Sprite entry
+ */
 typedef struct
 {
-    Uint16 CTRL; /* Control function */
-    Uint16 LINK; /* Link address */
-    Uint16 PMOD; /* Put mode */
-    Uint16 COLR; /* Color data */
-    Uint16 SRCA; /* CG address */
-    Uint16 SIZE; /* Character size */
-    Sint16 XA;   /* Indicates position A */
+    /** @brief Control function
+     */
+    Uint16 CTRL;
+
+    /** @brief Link address
+     */
+    Uint16 LINK;
+
+    /** @brief Put mode
+     */
+    Uint16 PMOD;
+
+    /** @brief Color data
+     */
+    Uint16 COLR;
+
+    /** @brief CG address
+     */
+    Uint16 SRCA;
+
+    /** @brief Character size
+     */
+    Uint16 SIZE;
+
+    /** @brief Indicates X position A
+     */
+    Sint16 XA;
+    
+    /** @brief Indicates Y position A
+     */
     Sint16 YA;
-    Sint16 XB; /* Indicates position B */
+    
+    /** @brief Indicates X position B
+     */
+    Sint16 XB;
+    
+    /** @brief Indicates Y position B
+     */
     Sint16 YB;
-    Sint16 XC; /* Indicates position C */
+    
+    /** @brief Indicates X position C
+     */
+    Sint16 XC;
+    
+    /** @brief Indicates Y position C
+     */
     Sint16 YC;
-    Sint16 XD; /* Indicates position D */
+    
+    /** @brief Indicates X position D
+     */
+    Sint16 XD;
+    
+    /** @brief Indicates Y position D
+     */
     Sint16 YD;
-    Uint16 GRDA; /* Gouraud shading table */
-    Uint16 DMMY; /* Dummy data for size adjustment */
+
+    /** @brief Gouraud shading table
+     */
+    Uint16 GRDA;
+
+    /** @brief Dummy data for size adjustment
+     */
+    Uint16 DMMY;
 } SPRITE;
 
+/** @brief Start address of VDP1 texture ram
+ */
 #define SpriteVRAM 0x25c00000
 
 /*-----------------------------------------------------------------------*/
 
 /* RGB mode color sample data */
 
+/** @brief No opacity flag
+ */
 #define RGB_Flag 0x8000
 
 #define CD_Black (0 << 10) | (0 << 5) | (0) | RGB_Flag
@@ -887,29 +1305,95 @@ typedef struct
 
 /*------[ System Work Assignments ]---------------------------------------*/
 
-extern const void *MasterStack;    /* Stack area End */
-extern const Uint16 MaxVertices;   /* Calculatable vertice numbers */
-extern const Uint16 MaxPolygons;   /* Calculatable polygon numbers */
-extern const Uint16 EventSize;     /* sizeof(EVENT) */
-extern const Uint16 WorkSize;      /* sizeof(WORK) */
-extern const Uint16 MaxEvents;     /* Useful Event count */
-extern const Uint16 MaxWorks;      /* Useful Work count */
-extern const void *SortList;       /* SCU D.M.A. Table */
-extern const Uint32 SortListSize;  /* Sprite transfer request table size */
-extern const void *TransList;      /* SCU D.M.A. Table */
-extern const void *Zbuffer;        /* (128 + 128 + 256) * 4 Bytes fix */
-extern const void *SpriteBuf;      /* Sprite control data buffer */
-extern const Uint32 SpriteBufSize; /* Sprite control data buffer size */
-extern const void *Pbuffer;        /* Point calculate buffer */
-extern const void *CLOfstBuf;      /* 32 * 32 Bytes fix */
-extern const void *CommandBuf;     /* Command for slave CPU buffer */
-extern const void *PCM_Work;       /* PCM data buffer */
-extern const Uint32 PCM_WkSize;    /* PCM data buffer size */
+/** @brief Stack area End
+ */
+extern const void *MasterStack;
 
-extern EVENT EventBuf[];     /* buffer for Event use */
-extern WORK WorkBuf[];       /* buffer for Work use */
-extern EVENT *RemainEvent[]; /* Remain Event address buffer */
-extern WORK *RemainWork[];   /* Remain Work address buffer */
+/** @brief Calculatable vertice numbers
+ */
+extern const Uint16 MaxVertices;
+
+/** @brief Calculatable polygon numbers
+ */
+extern const Uint16 MaxPolygons;
+
+/** @brief sizeof(EVENT)
+ */
+extern const Uint16 EventSize;
+
+/** @brief sizeof(WORK)
+ */
+extern const Uint16 WorkSize;
+
+/** @brief Useful Event count
+ */
+extern const Uint16 MaxEvents;
+
+/** @brief Useful Work count
+ */
+extern const Uint16 MaxWorks;
+
+/** @brief SCU D.M.A. Table
+ */
+extern const void *SortList;
+
+/** @brief Sprite transfer request table size
+ */
+extern const Uint32 SortListSize;
+
+/** @brief SCU D.M.A. Table
+ */
+extern const void *TransList;
+
+/** @brief Sort buffer
+ *  @note (128 + 128 + 256) * 4 Bytes fix
+ */
+extern const void *Zbuffer;
+
+/** @brief Sprite control data buffer
+ */
+extern const void *SpriteBuf;
+
+/** @brief Sprite control data buffer size
+ */
+extern const Uint32 SpriteBufSize;
+
+/** @brief Point calculate buffer
+ */
+extern const void *Pbuffer;
+
+/** @brief Offset buffer
+ *  @note 32 * 32 Bytes fix
+ */
+extern const void *CLOfstBuf;
+
+/** @brief Command for slave CPU buffer
+ */
+extern const void *CommandBuf;
+
+/** @brief PCM data buffer
+ */
+extern const void *PCM_Work;
+
+/** @brief PCM data buffer size
+ */
+extern const Uint32 PCM_WkSize;
+
+/** @brief Buffer for Event use
+ */
+extern EVENT EventBuf[];
+
+/** @brief Buffer for Work use
+ */
+extern WORK WorkBuf[];
+
+/** @brief Remain Event address buffer
+ */
+extern EVENT *RemainEvent[];
+
+/** @brief Remain Work address buffer
+ */
+extern WORK *RemainWork[];
 
 /*------[ Prottype ]------------------------------------------------------*/
 
@@ -1012,8 +1496,13 @@ extern Bool slPutObject(OBJECT *);
 extern void slCurWindow(Uint8);
 enum
 {
-    winFar, /* Far side Window */
-    winNear /* Near side Window */
+    /** @brief Far side Window 
+     */
+    winFar,
+
+    /** @brief Near side Window
+     */
+    winNear
 };
 extern Uint8 slSprWinNum();
 extern void slFrameClipSize(Sint16, Sint16);
