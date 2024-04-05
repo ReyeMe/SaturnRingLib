@@ -136,7 +136,7 @@ namespace SRL::Types
 
         /** @brief Number of vertices of the mesh
          */
-        size_t VerticesCount;
+        size_t VertexCount;
 
         /** @brief Mesh faces
          */
@@ -152,40 +152,31 @@ namespace SRL::Types
 
         /** @brief Construct a new empty mesh object
          */
-        Mesh()
-        {
-            this->Vertices = nullptr;
-            this->VerticesCount = 0;
-            this->Faces = nullptr;
-            this->FaceCount = 0;
-            this->Attributes = nullptr;
-        }
+        Mesh() : Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr) { }
 
         /** @brief Construct a new empty mesh object and initialize its arrays
          * @param vertexCount Number of vertices in the mesh
          * @param polygonCount Number of polygons in the mesh
          */
-        Mesh(const size_t& vertexCount, const size_t& polygonCount)
+        Mesh(const size_t& vertexCount, const size_t& polygonCount) : FaceCount(0), VertexCount(0)
         {
             this->Vertices = new Vector3D[vertexCount];
-            this->VerticesCount = vertexCount;
             this->Faces = new Polygon[polygonCount];
-            this->FaceCount = polygonCount;
             this->Attributes = new Attribute[polygonCount];
         }
 
         /** @brief Construct a new mesh object from existing data
          * @param vertexCount Number of points
-         * @param vertices 
-         * @param faceCount 
-         * @param faces 
-         * @param attributes
+         * @param vertices Vertex data
+         * @param faceCount Number of faces
+         * @param faces Face polygons
+         * @param attributes Face attributes
          */
         Mesh(const size_t& vertexCount,
             Vector3D* vertices,
             const size_t& faceCount,
             Polygon* faces,
-            Attribute* attributes) : Mesh(vertexCount, faceCount)
+            Attribute* attributes)
         {
             this->Vertices = vertices;
             this->Faces = faces;
@@ -203,7 +194,7 @@ namespace SRL::Types
                 // Steal resources from the source object
                 delete[] this->Vertices;
                 this->Vertices = other.Vertices;
-                this->VerticesCount = other.VerticesCount;
+                this->VertexCount = other.VertexCount;
 
                 delete[] this->Faces;
                 this->Faces = other.Faces;
@@ -214,7 +205,7 @@ namespace SRL::Types
 
                 // Reset the source object
                 other.Vertices = nullptr;
-                other.VerticesCount = 0;
+                other.VertexCount = 0;
                 other.Faces = nullptr;
                 other.FaceCount = 0;
                 other.Attributes = nullptr;
@@ -231,6 +222,118 @@ namespace SRL::Types
             delete[] this->Vertices;
             delete[] this->Faces;
             delete[] this->Attributes;
+        }
+    };
+
+    /** @brief 3D smooths mesh
+     */
+    struct SmoothMesh : public SRL::SGL::SglType<SmoothMesh, XPDATA>
+    {
+        /** @brief Vertices of the mesh
+         */
+        Vector3D *Vertices;
+
+        /** @brief Number of vertices of the mesh
+         */
+        size_t VertexCount;
+
+        /** @brief Mesh faces
+         */
+        Polygon *Faces;
+
+        /** @brief Number of faces
+         */
+        size_t FaceCount;
+
+        /** @brief Face attributes
+         */
+        Attribute *Attributes;
+
+        /** @brief Normal vector data for vertices
+         */
+        Vector3D* Normals;
+
+        /** @brief Construct a new empty mesh object
+         */
+        SmoothMesh() : Normals(), Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr)  { }
+        
+        /** @brief Construct a new empty mesh object and initialize its arrays
+         * @param vertexCount Number of vertices in the mesh
+         * @param faceCount Number of polygons in the mesh
+         */
+        SmoothMesh(const size_t& vertexCount, const size_t& faceCount) : FaceCount(faceCount), VertexCount(vertexCount)
+        {
+            this->Vertices = new Vector3D[vertexCount];
+            this->Faces = new Polygon[faceCount];
+            this->Attributes = new Attribute[faceCount];
+            this->Normals = new Vector3D[vertexCount];
+        }
+
+        /** @brief Construct a new mesh object from existing data
+         * @param vertexCount Number of points
+         * @param vertices Vertex data
+         * @param faceCount Number of faces
+         * @param faces Face polygons
+         * @param attributes Face attributes
+         * @param normals Vertex normals
+         */
+        SmoothMesh(const size_t& vertexCount,
+            Vector3D* vertices,
+            const size_t& faceCount,
+            Polygon* faces,
+            Attribute* attributes,
+            Vector3D* normals) : FaceCount(faceCount), VertexCount(vertexCount)
+        {
+            this->Vertices = vertices;
+            this->Faces = faces;
+            this->Attributes = attributes;
+            this->Normals = normals;
+        }
+        
+        /** @brief Move assignment operator
+         * @param other Mesh to assign
+         * @return Mesh3D& Assigned mesh data
+         */
+        SmoothMesh& operator=(SmoothMesh&& other) noexcept
+        {
+            if (this != &other)
+            {
+                // Steal resources from the source object
+                delete[] this->Vertices;
+                this->Vertices = other.Vertices;
+                this->VertexCount = other.VertexCount;
+
+                delete[] this->Normals;
+                this->Normals = other.Normals;
+
+                delete[] this->Faces;
+                this->Faces = other.Faces;
+                this->FaceCount = other.FaceCount;
+
+                delete[] this->Attributes;
+                this->Attributes = other.Attributes;
+
+                // Reset the source object
+                other.Vertices = nullptr;
+                other.VertexCount = 0;
+                other.Faces = nullptr;
+                other.FaceCount = 0;
+                other.Attributes = nullptr;
+                other.Normals = nullptr;
+            }
+
+            return *this;
+        }
+
+        /** @brief Destroy the Mesh object
+         */
+        ~SmoothMesh()
+        {
+            // Release resources
+            delete[] this->Vertices;
+            delete[] this->Faces;
+            delete[] this->Attributes;
+            delete[] this->Normals;
         }
     };
 }

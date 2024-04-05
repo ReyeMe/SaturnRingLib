@@ -16,6 +16,16 @@ namespace SRL
 
 		/** @brief Draw mesh
 		 * @param mesh Mesh to draw
+         * @param light Light direction
+		 * @return True on success
+		 */
+		static void DrawSmoothMesh(Types::SmoothMesh& mesh, Types::Vector3D& light)
+		{
+			slPutPolygonX(mesh.SglPtr(), (FIXED*)&light);
+		}
+
+		/** @brief Draw mesh
+		 * @param mesh Mesh to draw
 		 * @return True on success
 		 */
 		static bool DrawMesh(Types::Mesh& mesh)
