@@ -1,5 +1,7 @@
 0.bin
 **.zip
+/[Dd]ocumentation/**
+/[Mm]odules/sgl/[Dd]ocumentation/**
 /[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
