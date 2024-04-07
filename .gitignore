@@ -1,6 +1,7 @@
 0.bin
 **.zip
 /[Dd]ocumentation/**
+!/[Dd]ocumentation/resources/**
 /[Mm]odules/sgl/[Dd]ocumentation/**
 /[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**

@@ -2,6 +2,10 @@
 /* SEGA Library defines Ver3.00 */
 /* */
 
+/** \defgroup sl_def SL_DEF.H
+ *  @{
+ */
+
 #ifndef SEGA_XPT_H
 #define SEGA_XPT_H
 
@@ -297,7 +301,9 @@ enum tvsz
 #define DGTtoRGB(c) (0x8000 | (((c)&0x0f00) << 3) | (((c)&0x4000) >> 4) | (((c)&0x00f0) << 2) | (((c)&0x2000) >> 8) | (((c)&0x000f) << 1) | (((c)&0x1000) >> 12))
 #define SLocate(x, y, p) ((p)*Page + (y)*Line + (x))
 
-/* Sprite control function */
+/** \defgroup sprite_control Sprite control function
+ *  @{
+ */
 
 #define FUNC_Sprite 1
 #define FUNC_Texture 2
@@ -912,9 +918,13 @@ typedef struct
  */
 #define SpriteVRAM 0x25c00000
 
+/** @}*/
+
 /*-----------------------------------------------------------------------*/
 
-/* RGB mode color sample data */
+/** \defgroup colors RGB mode color sample data
+ *  @{
+ */
 
 /** @brief No opacity flag
  */
@@ -950,83 +960,241 @@ typedef struct
 #define CD_Magenta (31 << 10) | (31 << 5) | (0) | RGB_Flag
 #define CD_White (31 << 10) | (31 << 5) | (31) | RGB_Flag
 
+/** @}*/
+
 /*------[ Scroll control ]------------------------------------------------*/
 
-/*	Scroll V-RAM map address	*/
+/** \defgroup scroll_control Scroll control
+ *  @{
+ */
+
+/** \defgroup scroll_control_addr Scroll V-RAM map address
+ *  @{
+ */
 
 #define VDP2_VRAM_A0 0x25e00000
 #define VDP2_VRAM_A1 0x25e20000
 #define VDP2_VRAM_B0 0x25e40000
 #define VDP2_VRAM_B1 0x25e60000
 
-#define CGN01_RAM VDP2_VRAM_B1         /* CG data for scroll 0, 1 */
-#define NBG0_MAP (CGN01_RAM + 0x16000) /* Scroll 0 VRAM address */
-#define NBG1_MAP (CGN01_RAM + 0x18000) /* Scroll 1 VRAM address */
+/** @brief CG data for scroll 0, 1
+ */
+#define CGN01_RAM VDP2_VRAM_B1
 
-#define KTBL0_RAM VDP2_VRAM_A1          /*Coefficient table for rotary scroll */
-#define BACK_CRAM (KTBL0_RAM + 0x1fffe) /*Back color */
+/** @brief Scroll 0 VRAM address
+ */
+#define NBG0_MAP (CGN01_RAM + 0x16000)
+
+/** @brief Scroll 1 VRAM address
+ */
+#define NBG1_MAP (CGN01_RAM + 0x18000)
+
+/** @brief Coefficient table for rotary scroll
+ */
+#define KTBL0_RAM VDP2_VRAM_A1
+
+/** @brief Back color
+ */
+#define BACK_CRAM (KTBL0_RAM + 0x1fffe)
+
 #define RBG_PARA_ADR (KTBL0_RAM + 0x1ff00)
 #define RBG_PARB_ADR (RBG_PARA_ADR + 0x80)
 
-#define CGR0_RAM VDP2_VRAM_A0 /* CG data for rotary scroll */
-#define RBG0_MAP VDP2_VRAM_B0 /* Rotating scroll 0 VRAM address */
+/** @brief CG data for rotary scroll
+ */
+#define CGR0_RAM VDP2_VRAM_A0
+
+/** @brief Rotating scroll 0 VRAM address
+ */
+#define RBG0_MAP VDP2_VRAM_B0
+
 #define VDP2_COLRAM 0x25f00000
 
-#define CG_Size (8 * 8)        /* 1 cell size (CG) */
-#define CG16Size (8 * 8 / 2)   /* 1 cell size (CG 16Colors) */
-#define CG256Size (8 * 8)      /* 1 cell size (CG 256Colors) */
-#define CG2048Size (8 * 8 * 2) /* 1 cell size (CG 2048Colors) */
-#define CG32KSize (8 * 8 * 2)  /* 1 cell size (CG 32KColors) */
+/** @}*/
 
-typedef Uint16 CELL;     /* 1 cell size (Pattern name) */
-#define Line 64          /* 1 line size */
-#define Page (64 * Line) /* 1 page size */
+/** @brief 1 cell size (CG) 
+ */
+#define CG_Size (8 * 8)
 
+/** @brief 1 cell size (CG 16Colors)
+ */
+#define CG16Size (8 * 8 / 2)
+
+/** @brief 1 cell size (CG 256Colors)
+ */
+#define CG256Size (8 * 8)
+
+/** @brief 1 cell size (CG 2048Colors)
+ */
+#define CG2048Size (8 * 8 * 2)
+
+/** @brief 1 cell size (CG 32KColors)
+ */
+#define CG32KSize (8 * 8 * 2)
+
+/** @brief 1 cell size (Pattern name)
+ */
+typedef Uint16 CELL;
+
+/** @brief 1 line size
+ */
+#define Line 64
+
+/** @brief 1 page size
+ */
+#define Page (64 * Line)
+
+/** @brief Rotation and scroll control
+ */
 typedef struct rdat
 {
-    FIXED XST;  /* Screen screen start coordinates Xst */
-    FIXED YST;  /* Screen screen start coordinate Yst */
-    FIXED ZST;  /* Screen screen start coordinate Zst */
-    FIXED DXST; /* Screen screen vertical coordinate increment dXst */
-    FIXED DYST; /* Screen screen vertical coordinate increment dYst */
-    FIXED DX;   /* Screen screen horizontal coordinate increment dX */
-    FIXED DY;   /* Screen screen horizontal coordinate increment dY */
-    FIXED MATA; /* Rotation matrix parameter A */
-    FIXED MATB; /* Rotation matrix parameter B */
-    FIXED MATC; /* Rotation matrix parameter C */
-    FIXED MATD; /* Rotation matrix parameter D */
-    FIXED MATE; /* Rotation matrix parameter E */
-    FIXED MATF; /* Rotation matrix parameter F */
+    /** @brief Screen screen start coordinates Xst
+     */
+    FIXED XST;
 
-    Sint16 PX; /* Viewpoint coordinates Px */
-    Sint16 PY; /* Viewpoint coordinates Py */
-    Sint16 PZ; /* Viewpoint coordinates Pz */
+    /** @brief Screen screen start coordinate Yst
+     */
+    FIXED YST;
+
+    /** @brief Screen screen start coordinate Zst
+     */
+    FIXED ZST;
+
+    /** @brief Screen screen vertical coordinate increment dXst
+     */
+    FIXED DXST;
+
+    /** @brief Screen screen vertical coordinate increment dYst
+     */
+    FIXED DYST;
+
+    /** @brief Screen screen horizontal coordinate increment dX
+     */
+    FIXED DX;
+
+    /** @brief Screen screen horizontal coordinate increment dY
+     */
+    FIXED DY;
+
+    /** @brief Rotation matrix parameter A
+     */
+    FIXED MATA;
+
+    /** @brief Rotation matrix parameter B
+     */
+    FIXED MATB;
+
+    /** @brief Rotation matrix parameter C
+     */
+    FIXED MATC;
+
+    /** @brief Rotation matrix parameter D
+     */
+    FIXED MATD;
+
+    /** @brief Rotation matrix parameter E
+     */
+    FIXED MATE;
+
+    /** @brief Rotation matrix parameter F
+     */
+    FIXED MATF;
+
+
+    /** @brief Viewpoint coordinates Px
+     */
+    Sint16 PX;
+
+    /** @brief Viewpoint coordinates Py
+     */
+    Sint16 PY;
+
+    /** @brief Viewpoint coordinates Pz
+     */
+    Sint16 PZ;
     Sint16 dummy0;
-    Sint16 CX; /* Center coordinates Cx */
-    Sint16 CY; /* Center coordinates Cy */
-    Sint16 CZ; /* Center coordinates Cz */
+
+    /** @brief Center coordinates Cx
+     */
+    Sint16 CX;
+
+    /** @brief Center coordinates Cy
+     */
+    Sint16 CY;
+
+    /** @brief Center coordinates Cz
+     */
+    Sint16 CZ;
     Sint16 dummy1;
 
-    FIXED MX; /* Parallel movement amount Mx*/
-    FIXED MY; /* Parallel movement amount My*/
-    FIXED KX; /* Zoom out large reduction factor kx */
-    FIXED KY; /* Zoom out large reduction factor ky */
+    /** @brief  Parallel movement amount Mx
+     */
+    FIXED MX;
 
-    Uint32 KAST;  /* Coefficient table start address KAst */
-    Sint32 DKAST; /* Coefficient table vertical address increment KAst */
-    Sint32 DKA;   /* Coefficient table horizontal address increment KA */
+    /** @brief Parallel movement amount My
+     */
+    FIXED MY;
+
+    /** @brief Zoom out large reduction factor kx
+     */
+    FIXED KX;
+
+    /** @brief Zoom out large reduction factor ky
+     */
+    FIXED KY;
+
+    /** @brief Coefficient table start address KAst
+     */
+    Uint32 KAST;
+
+    /** @brief Coefficient table vertical address increment KAst
+     */
+    Sint32 DKAST;
+
+    /** @brief Coefficient table horizontal address increment KA
+     */
+    Sint32 DKA;
 } ROTSCROLL;
 
-/* slExtSignal */
-#define EXLTEN 0x0200 /* External latch enable */
-#define EXSYEN 0x0100 /* External synch enable */
-#define DASEL 0x0002  /* Display area select */
-#define EXBGEN 0x0001 /* External background screen enable */
+/** \defgroup slExtSignal slExtSignal
+ *  @{
+ */
+/** @brief External latch enable
+ */
+#define EXLTEN 0x0200
 
-/* slColRAMMode */
+/** @brief External synch enable
+ */
+#define EXSYEN 0x0100
+
+/** @brief Display area select
+ */
+#define DASEL 0x0002
+
+/** @brief External background screen enable
+ */
+#define EXBGEN 0x0001
+/** @}*/
+
+/** \defgroup slColRAMMode slColRAMMode
+ *  @brief Color RAM control
+ *  @{
+ */
+
+/** @brief Color mode 0. 5 bits for each of R, G and B; total 15bits. 1024 colors out of 32,768 colors.
+ */
 #define CRM16_1024 0
+
+/** @brief Color mode 1. 5 bits for each of R, G and B; total 15bits. 2048 colors out of 32,768 colors.
+ */
 #define CRM16_2048 1
+
+/** @brief Color mode 2. 8 bits for each of R, G and B; total 24bits. 1024 colors out of 16,77 million colors.
+ */
 #define CRM32_1024 2
+
+/** @}*/
+
 /* slChar */
 #define COL_TYPE_16 0x00
 #define COL_TYPE_256 0x10
@@ -1177,6 +1345,8 @@ enum color_rate
 #define bmNBG0 1
 #define bmNBG1 0
 #define bmRBG0 3
+
+/** @}*/
 
 /* Window control */
 #define win_OR 0x80
@@ -1491,7 +1661,12 @@ extern void slSetScreenDist(FIXED);
 extern Bool slWindow(Sint16, Sint16, Sint16, Sint16, Sint16, Sint16, Sint16);
 extern void slLight(VECTOR);
 extern Bool slSetSprite(SPRITE *, FIXED);
+
+/** @brief This function specifies how far in front of the projection surface to actually project (the front boundary surface)
+ * @image html slZdspLevel.png
+ */
 extern void slZdspLevel(Uint16);
+
 extern Bool slPutObject(OBJECT *);
 extern void slCurWindow(Uint8);
 enum
@@ -1509,14 +1684,37 @@ extern void slFrameClipSize(Sint16, Sint16);
 extern void slSetScreenDist(FIXED);
 extern void slGetFrameData(void *, Uint16, Uint16);
 
-/* Scroll library	*/
+/** \addtogroup scroll_control
+ *  @{
+ */
 
 extern void slTVOn(void);
 extern void slTVOff(void);
 extern Uint16 slGetHCount(void);
 extern Uint16 slGetVCount(void);
+
+/** \addtogroup slExtSignal
+ *  @{
+ */
 extern void slExtSignal(Uint16, Uint16);
+/** @}*/
+
+/** \addtogroup slColRAMMode
+ *  @{
+ */
+/** @brief This function determines the color RAM mode.
+ *  @note Always be sure to set the color RAM mode before storing color color data in RAM.
+ *  @details For the parameter, substitute the value corresponding to the desired color RAM mode. For details on each color RAM mode, refer to the table below.
+ * | Color RAM mode | Color bits                                  | Data size | Number of colors                        |
+ * | -------------- | ------------------------------------------- | --------- | --------------------------------------- |
+ * | Mode 0         | 5 bits for each of R, G and B; total 15bits | 1 word    | 1024 colors out of 32,768 colors        |
+ * | Mode 1         | 5 bits for each of R, G and B; total 15bits | 1 word    | 2048 colors out of 32,768 colors        |
+ * | Mode 2         | 8 bits for each of R, G and B; total 24bits | 2 words   | 1024 colors out of 16,77 million colors |
+ * @note In color mode 0, color RAM is divided into two partitions, each storing the same color data.
+ */
 extern void slColRAMMode(Uint16);
+/** @}*/
+
 extern void slVRAMMode(Uint16);
 extern void slScrCycleSet(Uint32, Uint32, Uint32, Uint32);
 extern void slScrDisp(Uint32);
@@ -1706,6 +1904,8 @@ extern void setASC_1to8(Uint8 *, void *, Uint32, Uint8);
 extern void setASC_4to8(Uint8 *, void *, Uint32, Uint8);
 extern void setASC_1to4(Uint8 *, void *, Uint32, Uint8, Sint32);
 extern Uint8 SGL_ASCII_CG[];
+
+/** @}*/
 
 /* BitMap graphics library */
 
@@ -2494,3 +2694,5 @@ extern void slWindowClipLevel(Sint32);
 /*------------------------------------------------------------------------*/
 
 #endif
+
+/** @}*/
