@@ -1,9 +1,9 @@
 0.bin
 **.zip
-/[Dd]ocumentation/**
-!/[Dd]ocumentation/resources/**
-/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/**
-!/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/[Rr]esources/**
+/[Dd]ocumentation/*
+!/[Dd]ocumentation/resources
+/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/*
+!/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/resources
 /[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
