@@ -24,6 +24,10 @@ namespace SRL
 
     public:
 
+        /** @brief Number of tracks CD can have
+         */
+        static const int MaxTrackCount = 99;
+
 		/** @brief File size
 		 */
 		struct FileSize
@@ -58,7 +62,6 @@ namespace SRL
 			}
 		};
 		
-
 		/** @brief Disk file
 		 */
 		struct File
@@ -224,5 +227,174 @@ namespace SRL
 			GFS_LoadDir(fid, &GfsDirectories);
 			GFS_SetDir(&GfsDirectories);
         }
+
+        /** @brief Table of contents of the CD
+         */
+        struct TableOfContents
+        {
+        public:
+
+            /** @brief Type of track present
+             */
+            enum TrackType
+            {
+                /** @brief Unknown or empty track
+                 */
+                Unknown = 0x00,
+
+                /** @brief Is audio track
+                 */
+                Audio = 0x01,
+
+                /** @brief Is 4 channel audio track
+                 */
+                Audio4Ch = 0x02,
+
+                /** @brief Is data track
+                 */
+                Data = 0x08
+            };
+
+        private:
+
+            /** @brief Construct a new Table Of Contents object
+             */
+            TableOfContents() { }
+
+            /** @brief Track interface
+             */
+            struct ITrack
+            {
+                /** @brief Track type and flags
+                 */
+                unsigned int Control:4;
+
+                /** @brief Get type of the track
+                 * @return Type of the track 
+                 */
+                constexpr TrackType GetType()
+                {
+                    if (this->Control == 0x0f)
+                    {
+                        return TrackType::Unknown;
+                    }
+                    else if ((this->Control & 0x04) == 0)
+                    {
+                        return TrackType::Audio;
+                    }
+                    else if ((this->Control & 0x0C) == 0x08)
+                    {
+                        return TrackType::Audio4Ch;
+                    }
+                    else if ((this->Control & 0x0C) == 0x04)
+                    {
+                        return TrackType::Data;
+                    }
+                    
+                    return TrackType::Unknown;
+                }
+
+                /** @brief Check whether digital copy of this track is permitted
+                 * @return true if digital copy of this track is permitted
+                 */
+                constexpr bool IsCopyPermitted()
+                {
+                    return (this->Control & 0x02) == 0x02;
+                }
+
+                /** @brief Check whether track is data, recorded incrementally
+                 * @return true if data track is recorded incrementally
+                 */
+                constexpr bool IsIncremental()
+                {
+                    return ((this->Control & 0x0D)) == 0x05;
+                }
+            };
+
+        public:
+
+            /** @brief Track location data
+             */
+            struct TrackLocation : public ITrack
+            {
+                /** @brief Track number
+                 */
+                unsigned int Number:4;
+
+                /** @brief Frame address
+                 */
+                unsigned int FrameAddress:24;
+            };
+
+            /** @brief Track information data
+             */
+            struct TrackInformation : public ITrack
+            {
+                /** @brief Track address
+                 */
+                unsigned char Address:4;
+
+                /** @brief Track number
+                 */
+                unsigned char Number;
+
+                union {
+                    /** @brief Track location
+                     */
+                    short Location;
+                    struct {
+                        /** @brief Sector number
+                         */
+                        char Sector;
+
+                        /** @brief Frame number
+                         */
+                        char Frame;
+                    } LocationData;
+                }LocationBody;
+            };
+
+            /** @brief Session data
+             */
+            struct Session
+            {
+
+                unsigned int Control:4;
+
+                /** @brief Track address
+                 */
+                unsigned int Address:4;
+
+                /** @brief Frame address
+                 */
+                unsigned int fad:24;
+            };
+
+            /** @brief Get table of contents of the current CD
+             * @return Table of contents
+             */
+            static TableOfContents GetTable()
+            {
+                TableOfContents toc;
+                CDC_TgetToc((Uint32*)&toc);
+                return toc;
+            }
+
+            /** @brief Information about each track present on the CD
+             */
+            TableOfContents::TrackLocation Tracks[Cd::MaxTrackCount];
+
+            /** @brief Information about first track on the CD
+             */
+            TableOfContents::TrackInformation FirstTrack;
+
+            /** @brief Information about last track on the CD
+             */
+            TableOfContents::TrackInformation LastTrack;
+
+            /** @brief Information about current session data
+             */
+            TableOfContents::Session Session;
+        };
     };
 }

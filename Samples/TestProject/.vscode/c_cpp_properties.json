@@ -24,6 +24,8 @@
 				"SRL_MAX_CD_FILES=255",
 				"SRL_MAX_CD_RETRIES=5",
 				"SRL_DEBUG_MAX_PRINT_LENGTH=45",
+                "SRL_USE_SGL_SOUND_DRIVER=1",
+                "SRL_ENABLE_FREQ_ANALYSIS=1",
 				"DEBUG=1"
             ]
         }
