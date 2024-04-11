@@ -82,21 +82,27 @@ namespace SRL
 				return slDispSprite(sgl_pos, &attr, 0) != 0;
 			}
 		}
-
-		static bool DrawLine(const Types::Vector2D& A, const Types::Vector2D& B, const Types::SaturnColor& color, const FIXED sort_nr)
+			
+		/** @brief Draws a Line
+		* @param A start point
+		* @param B end point
+		* @param color color of the line
+		* @param sortNr z order 
+		*/
+		static bool DrawLine(const Types::Vector2D& A, const Types::Vector2D& B, const Types::SaturnColor& color, const Types::Fxp  sortNr)
 		{
-			SRL::Debug::Print(1, 3, "Drawline");
-			//set attr
+			
+			
 			SPRITE line;
-			line.XA = A.X.Value();
-			line.YA = A.Y.Value();
-			line.XB = B.X.Value();
-			line.YB = B.Y.Value();
+			line.XA = A.X.ToInt();
+			line.YA = A.Y.ToInt();
+			line.XB = B.X.ToInt();
+			line.YB = B.Y.ToInt();
 			line.COLR = color;
 			line.CTRL = FUNC_Line;
 			line.GRDA = 0;
 			line.PMOD =  0x0080 |((CL32KRGB & 7) << 3);
-			return slSetSprite(&line,sort_nr) != 0;
+			return slSetSprite(&line,sortNr.Value()) != 0;
 		}
 	};
 }
