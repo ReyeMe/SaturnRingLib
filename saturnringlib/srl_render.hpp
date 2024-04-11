@@ -82,6 +82,26 @@ namespace SRL
 				return slDispSprite(sgl_pos, &attr, 0) != 0;
 			}
 		}
+			
+		/** @brief Draws a Line
+		* @param start start point
+		* @param end end point
+		* @param color color of the line
+		* @param sortNr z order 
+		*/
+		static bool DrawLine(const Types::Vector2D& start, const Types::Vector2D& end, const Types::SaturnColor& color, const Types::Fxp sort)
+		{
+			SPRITE line;
+			line.XA = start.X.ToInt();
+			line.YA = start.Y.ToInt();
+			line.XB = end.X.ToInt();
+			line.YB = end.Y.ToInt();
+			line.COLR = color;
+			line.CTRL = FUNC_Line;
+			line.GRDA = 0;
+			line.PMOD =  0x0080 |((CL32KRGB & 7) << 3);
+			return slSetSprite(&line,sort.Value()) != 0;
+		}
 	};
 }
 
