@@ -9,6 +9,10 @@
 #include "srl_input.hpp"
 #include "srl_event.hpp"
 
+#if SRL_USE_SGL_SOUND_DRIVER == 1
+    #include "srl_sound.hpp"
+#endif
+
 namespace SRL
 {
 	/** @brief Core functions of the library
@@ -59,6 +63,11 @@ namespace SRL
 
 			// Set cull depth
 			slZdspLevel(3);
+
+            // Load sound driver
+#if SRL_USE_SGL_SOUND_DRIVER == 1
+            SRL::Sound::Hardware::Initialize();
+#endif
 
 			// All was initialized
 			slTVOn();

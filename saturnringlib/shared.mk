@@ -21,62 +21,67 @@ COBJECTS = $(SOURCES:.c=.o)
 OBJECTS = $(COBJECTS:.cxx=.o)
 
 # Handle defaults for user settings
-ifeq (${SRL_CUSTOM_SGL_WORK_AREA},)
+ifeq ($(strip ${SRL_CUSTOM_SGL_WORK_AREA}),)
 	SRL_CUSTOM_SGL_WORK_AREA = 0
 endif
 
-ifeq (${SRL_MAX_CD_BACKGROUND_JOBS},)
+ifeq ($(strip ${SRL_MAX_CD_BACKGROUND_JOBS}),)
 	SRL_MAX_CD_BACKGROUND_JOBS=1
 endif
 
-ifeq (${SRL_MAX_CD_FILES},)
+ifeq ($(strip ${SRL_MAX_CD_FILES}),)
 	SRL_MAX_CD_FILES=255
 endif
 
-ifeq (${SRL_MAX_CD_RETRIES},)
+ifeq ($(strip ${SRL_MAX_CD_RETRIES}),)
 	SRL_MAX_CD_RETRIES=5
 endif
 
-ifeq (${SRL_HIGH_RES}, 1)
+ifeq ($(strip ${SRL_HIGH_RES}), 1)
 	CCFLAGS += -DSRL_HIGH_RES
 endif
 
-ifeq (${SRL_FRAMERATE},)
+ifeq ($(strip ${SRL_FRAMERATE}),)
 	CCFLAGS += -DSRL_FRAMERATE=1
 endif
 
-ifeq (${SRL_MALLOC_MEMORY},)
+ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}),1)
+	CCFLAGS += -DSRL_ENABLE_FREQ_ANALYSIS=1
+endif
+
+ifeq ($(strip ${SRL_MALLOC_MEMORY}),)
 	SRL_MALLOC_MEMORY=131072
 endif
 
-ifeq (${SRL_MAX_TEXTURES},)
+ifeq ($(strip ${SRL_MAX_TEXTURES}),)
 	SRL_MAX_TEXTURES=100
 endif
 
-ifeq (${DEBUG}, 1)
+ifeq ($(strip ${DEBUG}), 1)
 	CCFLAGS += -DDEBUG
 endif
 
-ifneq (${SRL_MODE},PAL)
+ifneq ($(strip ${SRL_MODE}),PAL)
 	ifneq (${SRL_MODE},NTSC)
 		SRL_MODE = NTSC
 	endif
 endif
 
-ifeq (${SRL_DEBUG_MAX_PRINT_LENGTH},)
+ifeq ($(strip ${SRL_DEBUG_MAX_PRINT_LENGTH}),)
 	SRL_DEBUG_MAX_PRINT_LENGTH = 45
 endif
 
-CCFLAGS += -DSRL_MODE_${SRL_MODE} \
-	-DSRL_MAX_TEXTURES=${SRL_MAX_TEXTURES} \
-	-DSRL_MALLOC_MEMORY=${SRL_MALLOC_MEMORY} \
-	-DSRL_MAX_CD_BACKGROUND_JOBS=${SRL_MAX_CD_BACKGROUND_JOBS} \
-	-DSRL_MAX_CD_FILES=${SRL_MAX_CD_FILES} \
-	-DSRL_MAX_CD_RETRIES=${SRL_MAX_CD_RETRIES} \
-	-DSRL_DEBUG_MAX_PRINT_LENGTH=${SRL_DEBUG_MAX_PRINT_LENGTH}
+CCFLAGS += -DSRL_MODE_$(strip ${SRL_MODE}) \
+	-DSRL_MAX_TEXTURES=$(strip ${SRL_MAX_TEXTURES}) \
+	-DSRL_MALLOC_MEMORY=$(strip ${SRL_MALLOC_MEMORY}) \
+	-DSRL_MAX_CD_BACKGROUND_JOBS=$(strip ${SRL_MAX_CD_BACKGROUND_JOBS}) \
+	-DSRL_MAX_CD_FILES=$(strip ${SRL_MAX_CD_FILES}) \
+	-DSRL_MAX_CD_RETRIES=$(strip ${SRL_MAX_CD_RETRIES}) \
+	-DSRL_DEBUG_MAX_PRINT_LENGTH=$(strip ${SRL_DEBUG_MAX_PRINT_LENGTH}) \
+	-DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
 
 # Handle work area
-ifneq (${SRL_CUSTOM_SGL_WORK_AREA}, 1)
+ifneq ($(strip ${SRL_CUSTOM_SGL_WORK_AREA}), 1)
 	SYSOBJECTS = $(SGLLDIR)/SGLAREA.O
 endif
 
@@ -104,6 +109,12 @@ convert_binary : compile_objects
 	sh2eb-elf-objcopy.exe -O binary $(BUILD_ELF) ./cd/data/0.bin
 
 create_iso : convert_binary
+ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
+	cp -r $(SGLDIR)/DRV/. ./cd/data/
+ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}), 1)
+	cp $(SGLDIR)/DSP/3BANDANA.EXB ./cd/data/
+endif
+endif
 	mkisofs -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" -sectype 2352 \
 	-publisher "SEGA ENTERPRISES, LTD." -preparer "SEGA ENTERPRISES, LTD." -appid "SaturnApp" \
 	-abstract "$(ASSETS_DIR)/ABS.TXT" -copyright "$(ASSETS_DIR)/CPY.TXT" -biblio "$(ASSETS_DIR)/BIB.TXT" -generic-boot $(IPFILE) \
@@ -115,6 +126,12 @@ create_cue : create_iso
 	
 clean:
 	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
+ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
+	rm -f $(ASSETS_DIR)/SDDRVS.DAT $(ASSETS_DIR)/SDDRVS.TSK $(ASSETS_DIR)/BOOTSND.MAP
+ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}), 1)
+	rm -f $(ASSETS_DIR)/3BANDANA.EXB
+endif
+endif
 	rm -rf $(BUILD_DROP)/
 
 build : create_cue
