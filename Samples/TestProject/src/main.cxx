@@ -7,9 +7,9 @@ Event<> emptyEvent;
 Event<int, Vector3D&> drawSpriteEvent;
 Event<Vector2D&, Vector2D&, SaturnColor&> drawLineEvent;
 
-void DrawLineHandler(Vector2D &A, Vector2D &B, SaturnColor &color)
+void DrawLineHandler(Vector2D &start, Vector2D &end, SaturnColor &color)
 {
-	SRL::Render::DrawLine(A,B,color, 500.0);
+	SRL::Render::DrawLine(start,end,color, 500.0);
 }
 
 void DrawSpriteHandler(int texture, Vector3D& loc)
@@ -41,9 +41,9 @@ int main()
 	SRL::Input::Gamepad gamepad = SRL::Input::Gamepad(0);
 
 	//
-	Vector2D a = Vector2D(0.0 , 0.0);
-	Vector2D b = Vector2D(50.0, 50.0);
-	SaturnColor c = SaturnColor(0, 0, 0);
+	Vector2D start = Vector2D(0.0 , 0.0);
+	Vector2D end = Vector2D(128.0, 128.0);
+	SaturnColor color = SaturnColor(0, 0, 56);
 	//
 
 
@@ -53,7 +53,7 @@ int main()
 	drawSpriteEvent += DrawSpriteHandler;
 	emptyEvent += DoEmptyEventStuff;
 	drawLineEvent += DrawLineHandler;
-
+	
 
 
 	while(1)
@@ -72,7 +72,7 @@ int main()
 
 		// Invoke event
 		emptyEvent.Invoke();
-		drawLineEvent.Invoke(a,b,c);
+		drawLineEvent.Invoke(start,end,color);
 		drawSpriteEvent.Invoke(textureIndex, location);
 
 		slSynch();
