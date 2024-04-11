@@ -84,25 +84,23 @@ namespace SRL
 		}
 			
 		/** @brief Draws a Line
-		* @param A start point
-		* @param B end point
+		* @param start start point
+		* @param end end point
 		* @param color color of the line
 		* @param sortNr z order 
 		*/
-		static bool DrawLine(const Types::Vector2D& A, const Types::Vector2D& B, const Types::SaturnColor& color, const Types::Fxp  sortNr)
+		static bool DrawLine(const Types::Vector2D& start, const Types::Vector2D& end, const Types::SaturnColor& color, const Types::Fxp sort)
 		{
-			
-			
 			SPRITE line;
-			line.XA = A.X.ToInt();
-			line.YA = A.Y.ToInt();
-			line.XB = B.X.ToInt();
-			line.YB = B.Y.ToInt();
+			line.XA = start.X.ToInt();
+			line.YA = start.Y.ToInt();
+			line.XB = end.X.ToInt();
+			line.YB = end.Y.ToInt();
 			line.COLR = color;
 			line.CTRL = FUNC_Line;
 			line.GRDA = 0;
 			line.PMOD =  0x0080 |((CL32KRGB & 7) << 3);
-			return slSetSprite(&line,sortNr.Value()) != 0;
+			return slSetSprite(&line,sort.Value()) != 0;
 		}
 	};
 }
