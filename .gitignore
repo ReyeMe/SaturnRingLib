@@ -9,3 +9,6 @@
 /[Cc]ompiler/msys2/tmp/*
 /[Ee]mulators/[Mm]ednafen/**
 !/[Ee]mulators/[Mm]ednafen/put_mednafen_here.txt
+**/cd/data/SDDRVS.*
+**/cd/data/BOOTSND.MAP
+**/cd/data/3BANDANA.EXB
