@@ -11,11 +11,13 @@ namespace SRL
 	class VDP1
 	{
 	private:
+
 		/** @brief Pointer to the last free space in the heap
 		 */
 		inline static Uint16 HeapPointer = 0;
 
 	public:
+
 		/** @brief VDP1 front bugffer address
 		 */
 		inline static const Uint32 FrontBuffer = 0x25C80000;
@@ -156,6 +158,14 @@ namespace SRL
 			VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
 			return VDP1::UserAreaEnd - (SpriteVRAM + AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode));
 		}
+
+        /** @brief Get the start location of the gouraud table
+         * @return SaturnColor* Start location of the gouraud table
+         */
+        inline static Types::SaturnColor* GetGouraudTable()
+        {
+            return (Types::SaturnColor*)(SpriteVRAM + 0x70000);
+        }
 
 		/** @brief Try to load a texture
 		 * @param width Texture width

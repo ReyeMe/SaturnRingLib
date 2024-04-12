@@ -1,81 +1,68 @@
 #include <srl.hpp>
 
 using namespace SRL::Types;
-using Buttons = SRL::Input::Gamepad::Button;
 
-Event<> emptyEvent;
-Event<int, Vector3D&> drawSpriteEvent;
-Event<Vector2D&, Vector2D&, SaturnColor&> drawLineEvent;
-
-void DrawLineHandler(Vector2D &start, Vector2D &end, SaturnColor &color)
-{
-	SRL::Render::DrawLine(start,end,color, 500.0);
-}
-
-void DrawSpriteHandler(int texture, Vector3D& loc)
-{
-	SRL::Render::DrawSprite(texture, loc);
-}
-
-void DoEmptyEventStuff()
-{
-	static long r = 0;
-	SRL::Debug::Print(1, 1, "%d   ", r++);
-}
 
 int main()
 {
-#pragma region SRL Initialization code
-	SRL::Core::Initialize(SaturnColor(200,100,50));
-	SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");
-	Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);
-	delete tga;
-	Vector3D location = Vector3D(0.0, 0.0, 500.0);
-	Vector2D velocity = Vector2D(0.0, 0.0);
-	Vector2D screenMax = Vector2D(
-			Fxp::FromInt(SRL::TV::Width >> 1),
-			Fxp::FromInt(SRL::TV::Height >> 1));
-	Vector2D screenMin = Vector2D(
-			-Fxp::FromInt(SRL::TV::Width >> 1),
-			-Fxp::FromInt(SRL::TV::Height >> 1));
-	SRL::Input::Gamepad gamepad = SRL::Input::Gamepad(0);
+	SRL::Core::Initialize(SaturnColor(20,10,50));
 
-	//
-	Vector2D start = Vector2D(0.0 , 0.0);
-	Vector2D end = Vector2D(128.0, 128.0);
-	SaturnColor color = SaturnColor(0, 0, 56);
-	//
+    SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");
+    Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);
+    delete tga;
 
-
-#pragma endregion SRL Initialization code
-
-	// Attach event
-	drawSpriteEvent += DrawSpriteHandler;
-	emptyEvent += DoEmptyEventStuff;
-	drawLineEvent += DrawLineHandler;
-	
-
+    Vector2D first[4] =
+    {
+        Vector2D(0.0, 0.0),
+        Vector2D(0.0, 20.0),
+        Vector2D(30.0, 10.0),
+        Vector2D(30.0, 0.0)
+    };
+    
+    Vector2D second[4] =
+    {
+        Vector2D(0.0, 40.0) + first[0],
+        Vector2D(0.0, 40.0) + first[1],
+        Vector2D(0.0, 40.0) + first[2],
+        Vector2D(0.0, 40.0) + first[3]
+    };
+    
+    Vector2D third[4] =
+    {
+        Vector2D(0.0, 40.0) + second[0],
+        Vector2D(0.0, 40.0) + second[1],
+        Vector2D(0.0, 40.0) + second[2],
+        Vector2D(0.0, 40.0) + second[3]
+    };
+    
+    SaturnColor* table = SRL::VDP1::GetGouraudTable();
+    table[0] = Colors::Blue;
+    table[1] = Colors::Red;
+    table[2] = Colors::Red;
+    table[3] = Colors::Blue;
+    table[4] = Colors::Yellow;
+    table[5] = Colors::Green;
+    table[6] = Colors::Green;
+    table[7] = Colors::Yellow;
 
 	while(1)
 	{
-#pragma region Movement handling
-		if (gamepad.IsHeld(Buttons::Left)) velocity.X = -0.5;
-		else if (gamepad.IsHeld(Buttons::Right)) velocity.X = 0.5;
-		if (gamepad.IsHeld(Buttons::Up)) velocity.Y = -0.5;
-		else if (gamepad.IsHeld(Buttons::Down)) velocity.Y = 0.5;
-		location += velocity;
-		location.X = SRL::Math::Clamp(screenMin.X, screenMax.X, location.X);
-		location.Y = SRL::Math::Clamp(screenMin.Y, screenMax.Y, location.Y);
-		velocity.X = 0.0;
-		velocity.Y = 0.0;
-#pragma endregion Movement handling
+        SRL::Render::DisableGouraud();
+        SRL::Render::DrawPolygon(first, true, Colors::White, 500.0);
+        SRL::Render::DrawLine(first[0], Vector2D(-50.0, 0.0), Colors::White, 500.0);
+        SRL::Render::DrawSprite(textureIndex, Vector3D(-50.0, 0.0, 500.0));
+        
+        SRL::Render::EnableGouraud(0);
+        SRL::Render::DrawPolygon(second, false, Colors::White, 500.0);
+        SRL::Render::DrawLine(second[0], Vector2D(-50.0, 40.0), Colors::White, 500.0);
+        SRL::Render::DrawSprite(textureIndex, Vector3D(-50.0, 40.0, 500.0));
 
-		// Invoke event
-		emptyEvent.Invoke();
-		drawLineEvent.Invoke(start,end,color);
-		drawSpriteEvent.Invoke(textureIndex, location);
+        SRL::Render::EnableGouraud(1);
+        SRL::Render::DrawPolygon(third, false, Colors::White, 500.0);
+        SRL::Render::DrawLine(third[0], Vector2D(-50.0, 80.0), Colors::White, 500.0);
+        SRL::Render::DrawSprite(textureIndex, Vector3D(-50.0, 80.0, 500.0));
 
-		slSynch();
+        SRL::Core::Synchronize();
 	}
 
 	return 0;

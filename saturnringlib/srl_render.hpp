@@ -7,12 +7,48 @@
 
 namespace SRL
 {
+    /** @brief Rendering of VDP1 objects
+     */
 	class Render
 	{
 	private:
-	
+
+        /** @brief Base address of the gouraud table
+         */
+        static const Uint16 GrouraudTableBase = 0xe000;
+
+        /** @brief Address to the gouraud table
+         */
+        static inline Uint16 GouraudTableEntry = SRL::Render::GrouraudTableBase - 1;
+
+        /** @brief Is gouraud shading enabled?
+         * @return true if gouraud shaind is enabled
+         */
+        static constexpr inline bool IsGouraudEnabled()
+        {
+            return Render::GouraudTableEntry >= SRL::Render::GrouraudTableBase;
+        }
 
 	public:
+
+        /** @brief Set reference to the chunk of gouraud table to be used when drawing 2D object
+         * @details This function sets reference to the first color in 4 color sequence that will be used for the gouraud shading of the 2D objects.
+         * To set the colors inside  the table use @ref SRL::VDP1::GetGouraudTable() function to get pointer to the gouraud table array
+         * @note This function does not apply to @ref SRL::Types::SmoothMesh and @ref SRL::Types::Mesh
+         * @param index Index of the first color in the table
+         */
+        static inline void EnableGouraud(Uint16 index)
+        {
+            SRL::Render::GouraudTableEntry = SRL::Render::GrouraudTableBase | index;
+        }
+
+        /** @brief This will disable gouraud shading when drawing 2D objects
+         * @note This function does not apply to @ref SRL::Types::SmoothMesh and @ref SRL::Types::Mesh
+         */
+        static inline void DisableGouraud()
+        {
+            SRL::Render::GouraudTableEntry = SRL::Render::GrouraudTableBase - 1;
+        }
 
 		/** @brief Draw mesh
 		 * @param mesh Mesh to draw
@@ -63,7 +99,12 @@ namespace SRL
 			// Sprite attributes and command points
 			#pragma GCC diagnostic push
 			#pragma GCC diagnostic ignored "-Wnarrowing"
-			SPR_ATTR attr = SPR_ATTRIBUTE(texture, palette, No_Gouraud, MESHoff | colorMode | No_Window | ECdis, sprVflip | FUNC_Sprite);
+			SPR_ATTR attr = SPR_ATTRIBUTE(
+                texture,
+                palette,
+                (Render::IsGouraudEnabled() ? Render::GouraudTableEntry : 0),
+                MESHoff | colorMode | No_Window | ECdis | (Render::IsGouraudEnabled() ? CL_Gouraud : 0),
+                sprVflip | FUNC_Sprite);
 			#pragma GCC diagnostic pop
 
     		FIXED sgl_pos[XYZSS];
@@ -87,7 +128,7 @@ namespace SRL
 		* @param start start point
 		* @param end end point
 		* @param color color of the line
-		* @param sortNr z order 
+		* @param sort Z order
 		*/
 		static bool DrawLine(const Types::Vector2D& start, const Types::Vector2D& end, const Types::SaturnColor& color, const Types::Fxp sort)
 		{
@@ -97,11 +138,35 @@ namespace SRL
 			line.XB = end.X.ToInt();
 			line.YB = end.Y.ToInt();
 			line.COLR = color;
-			line.CTRL = FUNC_Line;
-			line.GRDA = 0;
-			line.PMOD =  0x0080 |((CL32KRGB & 7) << 3);
+			line.CTRL = FUNC_Line | (Render::IsGouraudEnabled() ? UseGouraud : 0);
+			line.GRDA = (Render::IsGouraudEnabled() ? Render::GouraudTableEntry : 0);
+			line.PMOD =  0x0080 |((CL32KRGB & 7) << 3) | (Render::IsGouraudEnabled() ? CL_Gouraud : 0);
 			return slSetSprite(&line,sort.Value()) != 0;
 		}
+
+        /** @brief Draws a generic polygon
+         * @param points Points of the polygon
+         * @param fill Indicates whether polygon is filled or if it is just a polyline
+         * @param color Polygon color
+		 * @param sort Z order
+         */
+        static void DrawPolygon(const Types::Vector2D points[4], const bool fill, const Types::SaturnColor& color, const Types::Fxp sort)
+        {
+            SPRITE line;
+            line.COLR = color;
+            line.CTRL = (fill ? FUNC_Polygon : FUNC_PolyLine) | (Render::IsGouraudEnabled() ? UseGouraud : 0);
+            line.PMOD = 0x0080 | ((CL32KRGB & 7) << 3) | (Render::IsGouraudEnabled() ? CL_Gouraud : 0);
+            line.GRDA = (Render::IsGouraudEnabled() ? SRL::Render::GouraudTableEntry : 0);
+            line.XA = points[0].X.ToInt();
+            line.YA = points[0].Y.ToInt();
+            line.XB = points[1].X.ToInt();
+            line.YB = points[1].Y.ToInt();
+            line.XC = points[2].X.ToInt();
+            line.YC = points[2].Y.ToInt();
+            line.XD = points[3].X.ToInt();
+            line.YD = points[3].Y.ToInt();
+            slSetSprite(&line, sort.Value());
+        }
 	};
 }
 
