@@ -4,171 +4,340 @@
 
 namespace SRL::Types
 {
-	/** @brief Saturn color struct
-	 */
-	struct SaturnColor
-	{
-		/** @brief Indicates whether color is pague or not
-		 */
-		Uint16 Opaque : 1;
+    /** @brief Color in ABGR1555 format
+     * @details 16-bit color format where each color channel is 5 bits (values range 0-31) and there is 1 bit for opacity
+     */
+    struct HighColor
+    {
+        /** @brief Indicates whether color is pague or not
+         */
+        Uint16 Opaque : 1;
 
-		/** @brief Blue color channel
-		 */
-		Uint16 Blue : 5;
-		
-		/** @brief Green color channel
-		 */
-		Uint16 Green : 5;
-		
-		/** @brief Red color channel
-		 */
-		Uint16 Red : 5;
+        /** @brief Blue color channel
+         */
+        Uint16 Blue : 5;
+        
+        /** @brief Green color channel
+         */
+        Uint16 Green : 5;
+        
+        /** @brief Red color channel
+         */
+        Uint16 Red : 5;
 
-		/** @brief Defines new transparent color
-		 */
-		constexpr SaturnColor() : Opaque(0), Blue(0), Green(0), Red(0)
-		{
-			// Do nothing
-		}
-		
-		/** @brief Defines new color from saturn ABGR555 value
-		 * @param value VAlue in ABGR555
-		 */
-		constexpr SaturnColor(const Uint16& value) :
-			Opaque((value >> 15) & 0x1),
-			Blue((value >> 10) & 0x1f),
-			Green((value >> 5) & 0x1f),
-			Red(value & 0x1f)
-		{
-			// Do nothing
-		}
-		
-		/** @brief Defines new color (components are in rage of 0-255 but are divided by 8)
-		 * @param r Red component
-		 * @param g Ggreen component
-		 * @param b Blue component
-		 */
-		constexpr SaturnColor(const Uint8& r, const Uint8& g, const Uint8& b) :
-			Opaque(1),
-			Red((r >> 3) & 0x1f),
-			Green((g >> 3) & 0x1f),
-			Blue((b >> 3) & 0x1f)
-		{
-			// Do nothing
-		}
+        /** @brief Defines new transparent color
+         */
+        constexpr HighColor() : Opaque(0), Blue(0), Green(0), Red(0)
+        {
+            // Do nothing
+        }
+        
+        /** @brief Defines new color from saturn ABGR555 value
+         * @param value VAlue in ABGR555
+         */
+        constexpr HighColor(const Uint16& value) :
+            Opaque((value >> 15) & 0x1),
+            Blue((value >> 10) & 0x1f),
+            Green((value >> 5) & 0x1f),
+            Red(value & 0x1f)
+        {
+            // Do nothing
+        }
+        
+        /** @brief Defines new color (components are in rage of 0-255 but are divided by 8)
+         * @param r Red component
+         * @param g Green component
+         * @param b Blue component
+         */
+        constexpr HighColor(const Uint8& r, const Uint8& g, const Uint8& b) :
+            Opaque(1),
+            Red((r >> 3) & 0x1f),
+            Green((g >> 3) & 0x1f),
+            Blue((b >> 3) & 0x1f)
+        {
+            // Do nothing
+        }
 
-		/** @brief Get color from RGB555 (components are in range o 0-31)
-		 * @param r Red component
-		 * @param g Ggreen component
-		 * @param b Blue component
-		 * @return constexpr SaturnColor 
-		 */
-		constexpr inline static SaturnColor FromRGB555(const Uint8& r, const Uint8& g, const Uint8& b)
-		{
-			return SaturnColor(0x8000 | ((b & 0x1f) << 10) | ((g & 0x1f) << 5) | ( r & 0x1f));
-		}
+        /** @brief Get color from RGB555 (components are in range o 0-31)
+         * @param r Red component
+         * @param g Green component
+         * @param b Blue component
+         * @return constexpr HighColor 
+         */
+        constexpr inline static HighColor FromRGB555(const Uint8& r, const Uint8& g, const Uint8& b)
+        {
+            return HighColor(0x8000 | ((b & 0x1f) << 10) | ((g & 0x1f) << 5) | ( r & 0x1f));
+        }
 
-		/** @brief Get from RGB555
-		 * @param value Value in ARGB555 format
-		 * @return SaturnColor color
-		 */
-		constexpr inline static SaturnColor FromARGB15(const Uint16& value)
-		{
-			return ((value >> 15) & 0x1) != 0 ? SaturnColor::FromRGB555((value >> 10) & 0x1f, (value >> 5) & 0x1f, value & 0x1f) : SaturnColor();
-		}
-		
-		/** @brief Get from RGB888
-		 * @param value Value in ARGB888 format
-		 * @return SaturnColor color
-		 */
-		constexpr inline static SaturnColor FromRGB24(const Uint32& value)
-		{
-			return SaturnColor::FromRGB555(
-				(((value >> 16) & 0xff) >> 3) & 0x1f,
-				(((value >> 8) & 0xff) >> 3) & 0x1f,
-				((value & 0xff) >> 3) & 0x1f);
-		}
-		
-		/** @brief Get from ARGB888
-		 * @param value Value in ARGB888 format
-		 * @return SaturnColor color
-		 */
-		constexpr inline static SaturnColor FromARGB32(const Uint32 value)
-		{
-			if (value & 0xff000000 > 0)
-			{
-				return SaturnColor::FromRGB555(
-					(((value >> 16) & 0xff) >> 3) & 0x1f,
-					(((value >> 8) & 0xff) >> 3) & 0x1f,
-					((value & 0xff) >> 3) & 0x1f);
-			}
+        /** @brief Get from RGB555
+         * @param value Value in ARGB555 format
+         * @return HighColor color
+         */
+        constexpr inline static HighColor FromARGB15(const Uint16& value)
+        {
+            return ((value >> 15) & 0x1) != 0 ? HighColor::FromRGB555((value >> 10) & 0x1f, (value >> 5) & 0x1f, value & 0x1f) : HighColor();
+        }
+        
+        /** @brief Get from RGB888
+         * @param value Value in ARGB888 format
+         * @return HighColor color
+         */
+        constexpr inline static HighColor FromRGB24(const Uint32& value)
+        {
+            return HighColor::FromRGB555(
+                (((value >> 16) & 0xff) >> 3) & 0x1f,
+                (((value >> 8) & 0xff) >> 3) & 0x1f,
+                ((value & 0xff) >> 3) & 0x1f);
+        }
+        
+        /** @brief Get from ARGB888
+         * @param value Value in ARGB888 format
+         * @return HighColor color
+         */
+        constexpr inline static HighColor FromARGB32(const Uint32 value)
+        {
+            if (value & 0xff000000 > 0)
+            {
+                return HighColor::FromRGB555(
+                    (((value >> 16) & 0xff) >> 3) & 0x1f,
+                    (((value >> 8) & 0xff) >> 3) & 0x1f,
+                    ((value & 0xff) >> 3) & 0x1f);
+            }
 
-			return SaturnColor();
-		}
-		
-		/** @brief Get color represented as ABGR555 value
-		 * @return Single ABGR555 value
-		 */
-		constexpr inline Uint16 GetABGR()
-		{
-			return *((Uint16*)this);
-		}
-		
-		// This is automatically called 
-		// when '=' operator is 
-		// used between C1 and C2. 
-	
-		constexpr inline void operator=(const Uint16& value) 
-		{ 
-			this->Opaque = (value >> 15) & 0x1;
-			this->Red = value & 0x1f;
-			this->Green = (value >> 5) & 0x1f;
-			this->Blue = (value >> 10) & 0x1f; 
-		} 
+            return HighColor();
+        }
+        
+        /** @brief Get color represented as ABGR555 value
+         * @return Single ABGR555 value
+         */
+        constexpr inline Uint16 GetABGR()
+        {
+            return *((Uint16*)this);
+        }
+        
+        // This is automatically called 
+        // when '=' operator is 
+        // used between C1 and C2. 
+    
+        constexpr inline void operator=(const Uint16& value) 
+        { 
+            this->Opaque = (value >> 15) & 0x1;
+            this->Red = value & 0x1f;
+            this->Green = (value >> 5) & 0x1f;
+            this->Blue = (value >> 10) & 0x1f; 
+        } 
   
-		/** @brief Cast to ABGR555
-		 * @return ABGR value
-		 */
-    	constexpr inline operator Uint16&() { return *((Uint16*)this); }
-		
-		/** @brief Cast to ABGR555
-		 * @return ABGR value
-		 */
-    	constexpr inline operator Uint16() const { return *((Uint16*)this); }
-	};
-		
-	/** @brief Predefined colors
-	 */
-	class Colors
-	{
-	public:
-		/** @brief White color
-		 */
-		static constexpr Types::SaturnColor White = Types::SaturnColor(0xffff);
-		
-		/** @brief White color
-		 */
-		static constexpr Types::SaturnColor Black = Types::SaturnColor(0x8000);
+        /** @brief Cast to ABGR555
+         * @return ABGR value
+         */
+        constexpr inline operator Uint16&() { return *((Uint16*)this); }
+        
+        /** @brief Cast to ABGR555
+         * @return ABGR value
+         */
+        constexpr inline operator Uint16() const { return *((Uint16*)this); }
 
-		/** @brief Red color
-		 */
-		static constexpr Types::SaturnColor Red = Types::SaturnColor(255, 0, 0);
-		
-		/** @brief Green color
-		 */
-		static constexpr Types::SaturnColor Green = Types::SaturnColor(0, 255, 0);
-		
-		/** @brief Blue color
-		 */
-		static constexpr Types::SaturnColor Blue = Types::SaturnColor(0, 0, 255);
-		
-		/** @brief Yellow color
-		 */
-		static constexpr Types::SaturnColor Yellow = Types::SaturnColor(255, 255, 0);
-		
-		/** @brief Magenta color
-		 */
-		static constexpr Types::SaturnColor Magenta = Types::SaturnColor(255, 0, 255);
-	};
-	
+        /** @brief Predefined colors
+         */
+        class Colors;
+    };
+
+    /** @brief Predefined colors
+     */
+    class HighColor::Colors
+    {
+    public:
+        /** @brief White color
+         */
+        static const constexpr Types::HighColor White = Types::HighColor(0xffff);
+        
+        /** @brief White color
+         */
+        static const constexpr Types::HighColor Black = Types::HighColor(0x8000);
+
+        /** @brief Red color
+         */
+        static const constexpr Types::HighColor Red = Types::HighColor(255, 0, 0);
+        
+        /** @brief Green color
+         */
+        static const constexpr Types::HighColor Green = Types::HighColor(0, 255, 0);
+        
+        /** @brief Blue color
+         */
+        static const constexpr Types::HighColor Blue = Types::HighColor(0, 0, 255);
+        
+        /** @brief Yellow color
+         */
+        static const constexpr Types::HighColor Yellow = Types::HighColor(255, 255, 0);
+        
+        /** @brief Magenta color
+         */
+        static const constexpr Types::HighColor Magenta = Types::HighColor(255, 0, 255);
+    };
+    /** @brief Color in ABGR1888 format
+     * @details 32-bit color format where each color channel is 8 bits (values range 0-31) and there is 1 bit for opacity. 7 bits are unused.
+     */
+    struct TrueColor
+    {
+        /** @brief Indicates whether color is pague or not
+         */
+        Uint8 Opaque : 1;
+
+        /** @brief Unused bits
+         */
+        Uint8 Unused : 7;
+
+        /** @brief Blue color channel
+         */
+        Uint8 Blue;
+        
+        /** @brief Green color channel
+         */
+        Uint8 Green;
+        
+        /** @brief Red color channel
+         */
+        Uint8 Red;
+
+        /** @brief Defines new transparent color
+         */
+        constexpr TrueColor() : Opaque(0), Blue(0), Green(0), Red(0), Unused(0)
+        {
+            // Do nothing
+        }
+        
+        /** @brief Defines new color from saturn ABGR1888 value
+         * @param value VAlue in ABGR1888
+         */
+        constexpr TrueColor(const Uint32& value) :
+            Opaque(value & 0x80000000 != 0),
+            Blue((value >> 16) & 0xff),
+            Green((value >> 8) & 0xff),
+            Red(value & 0xff),
+            Unused(0)
+        {
+            // Do nothing
+        }
+        
+        /** @brief Defines new color
+         * @param r Red component
+         * @param g Green component
+         * @param b Blue component
+         */
+        constexpr TrueColor(const Uint8& r, const Uint8& g, const Uint8& b) :
+            Opaque(1),
+            Red(r),
+            Green(g),
+            Blue(b),
+            Unused(0)
+        {
+            // Do nothing
+        }
+
+        /** @brief Get from ARGB1555
+         * @param value Value in ARGB1555 format
+         * @return HighColor color
+         */
+        constexpr inline static TrueColor FromARGB32(const Uint16& value)
+        {
+            return ((value & 0x80000000) != 0) ? TrueColor((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff) : TrueColor();
+        }
+        
+        /** @brief Get from RGB888
+         * @param value Value in ARGB888 format
+         * @return HighColor color
+         */
+        constexpr inline static TrueColor FromRGB24(const Uint32& value)
+        {
+            return TrueColor(
+                (value >> 16) & 0xff,
+                (value >> 8) & 0xff,
+                value & 0xff);
+        }
+        
+        /** @brief Get from ARGB888
+         * @param value Value in ARGB888 format
+         * @return HighColor color
+         */
+        constexpr inline static TrueColor FromARGB32(const Uint32 value)
+        {
+            if (value & 0xff000000 > 0)
+            {
+                return TrueColor(
+                    (value >> 16) & 0xff,
+                    (value >> 8) & 0xff,
+                    value & 0xff);
+            }
+
+            return TrueColor();
+        }
+        
+        /** @brief Get color represented as ABGR1888 value
+         * @return Single ABGR1888 value
+         */
+        constexpr inline Uint32 GetABGR()
+        {
+            return *((Uint32*)this);
+        }
+        
+        /** @brief Assign color value to color type
+         * @param value Color value
+         */
+        constexpr inline void operator=(const Uint32& value) 
+        { 
+            this->Opaque = value & 0x80000000 != 0;
+            this->Red = value & 0xff;
+            this->Green = (value >> 8) & 0xff;
+            this->Blue = (value >> 16) & 0xff; 
+        } 
+  
+        /** @brief Cast to ABGR1888
+         * @return ABGR value
+         */
+        constexpr inline operator Uint32&() { return *((Uint32*)this); }
+        
+        /** @brief Cast to ABGR1888
+         * @return ABGR value
+         */
+        constexpr inline operator Uint32() const { return *((Uint32*)this); }
+        
+        /** @brief Predefined colors
+         */
+        class Colors;
+    };
+    
+    /** @brief Predefined colors
+     */
+    class TrueColor::Colors
+    {
+    public:
+        /** @brief White color
+         */
+        static const constexpr Types::TrueColor White = Types::TrueColor(0xffff);
+        
+        /** @brief White color
+         */
+        static const constexpr Types::TrueColor Black = Types::TrueColor(0x8000);
+
+        /** @brief Red color
+         */
+        static const constexpr Types::TrueColor Red = Types::TrueColor(255, 0, 0);
+        
+        /** @brief Green color
+         */
+        static const constexpr Types::TrueColor Green = Types::TrueColor(0, 255, 0);
+        
+        /** @brief Blue color
+         */
+        static const constexpr Types::TrueColor Blue = Types::TrueColor(0, 0, 255);
+        
+        /** @brief Yellow color
+         */
+        static const constexpr Types::TrueColor Yellow = Types::TrueColor(255, 255, 0);
+        
+        /** @brief Magenta color
+         */
+        static const constexpr Types::TrueColor Magenta = Types::TrueColor(255, 0, 255);
+    };
 }

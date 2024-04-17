@@ -160,11 +160,11 @@ namespace SRL
 		}
 
         /** @brief Get the start location of the gouraud table
-         * @return SaturnColor* Start location of the gouraud table
+         * @return HighColor* Start location of the gouraud table
          */
-        inline static Types::SaturnColor* GetGouraudTable()
+        inline static Types::HighColor* GetGouraudTable()
         {
-            return (Types::SaturnColor*)(SpriteVRAM + 0x70000);
+            return (Types::HighColor*)(SpriteVRAM + 0x70000);
         }
 
 		/** @brief Try to load a texture

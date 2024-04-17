@@ -17,21 +17,21 @@ namespace SRL::Bitmap
 
 		/** @brief Palette colors
 		 */
-		SRL::Types::SaturnColor* Colors;
+		SRL::Types::HighColor* Colors;
 
 		/** @brief Construct a new Palette object
 		 * @param count Number of colors in the palette
 		 */
 		Palette(size_t count) : Colors(nullptr), Count(count)
 		{
-			this->Colors = new SRL::Types::SaturnColor[count];
+			this->Colors = new SRL::Types::HighColor[count];
 		}
 
 		/** @brief Construct a new Palette object
 		 * @param colors Palette colors
 		 * @param count Number of colors in the palette
 		 */
-		Palette(SRL::Types::SaturnColor* colors, size_t count) : Colors(colors), Count(count)
+		Palette(SRL::Types::HighColor* colors, size_t count) : Colors(colors), Count(count)
 		{
 			// Do nothing
 		}

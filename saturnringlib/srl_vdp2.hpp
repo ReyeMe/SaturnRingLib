@@ -15,7 +15,7 @@ namespace SRL
 		/** @brief Set the back color
 		 * @param color Color to use
 		 */
-		inline static  void SetBackColor(const Types::SaturnColor& color)
+		inline static  void SetBackColor(const Types::HighColor& color)
 		{
 			slBack1ColSet((void*)(VDP2_VRAM_A1 + 0x1fffe), (Uint16)color);
 		}
@@ -24,28 +24,28 @@ namespace SRL
 		 * @param index Color index
 		 * @param color Color to set
 		 */
-		inline static  void SetPrintPaletteColor(const Uint16 index, const Types::SaturnColor& color)
+		inline static  void SetPrintPaletteColor(const Uint16 index, const Types::HighColor& color)
 		{
-			*(((Types::SaturnColor*)VDP2_COLRAM) + (1 + (index << 8))) = (Uint16)color;
+			*(((Types::HighColor*)VDP2_COLRAM) + (1 + (index << 8))) = (Uint16)color;
 		}
 
 		/** @brief Initialize VDP2
 		 * @param backColor starting back color
 		 */
-		inline static void Initialize(const Types::SaturnColor& backColor)
+		inline static void Initialize(const Types::HighColor& backColor)
 		{
 			// Initialize color ram mode
 			slColRAMMode(CRM16_2048);
 
 			// Initialize printf
 			slCharNbg0(COL_TYPE_256, CHAR_SIZE_1x1);
-			VDP2::SetPrintPaletteColor(0, Types::Colors::White);
-			VDP2::SetPrintPaletteColor(1, Types::Colors::Black);
-			VDP2::SetPrintPaletteColor(2, Types::Colors::Red);
-			VDP2::SetPrintPaletteColor(3, Types::Colors::Green);
-			VDP2::SetPrintPaletteColor(4, Types::Colors::Blue);
-			VDP2::SetPrintPaletteColor(5, Types::Colors::Yellow);
-			VDP2::SetPrintPaletteColor(6, Types::Colors::Magenta);
+			VDP2::SetPrintPaletteColor(0, Types::HighColor::Colors::White);
+			VDP2::SetPrintPaletteColor(1, Types::HighColor::Colors::Black);
+			VDP2::SetPrintPaletteColor(2, Types::HighColor::Colors::Red);
+			VDP2::SetPrintPaletteColor(3, Types::HighColor::Colors::Green);
+			VDP2::SetPrintPaletteColor(4, Types::HighColor::Colors::Blue);
+			VDP2::SetPrintPaletteColor(5, Types::HighColor::Colors::Yellow);
+			VDP2::SetPrintPaletteColor(6, Types::HighColor::Colors::Magenta);
 
 			// Set default color to white
     		slCurColor(0);

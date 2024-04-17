@@ -4,7 +4,7 @@ using namespace SRL::Types;
 
 int main()
 {
-	SRL::Core::Initialize(SaturnColor(20,10,50));
+	SRL::Core::Initialize(HighColor(20,10,50));
     SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");   // Loads TGA file into main RAM
     Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
     delete tga;                                                 // Freems main RAM

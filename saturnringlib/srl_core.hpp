@@ -40,7 +40,7 @@ namespace SRL
 		/** @brief Initialize basic environment
 		 * @param backColor Color of the screen
 		 */
-		inline static void Initialize(const Types::SaturnColor& backColor)
+		inline static void Initialize(const Types::HighColor& backColor)
 		{
 			SRL::Memory::Initialize();
 

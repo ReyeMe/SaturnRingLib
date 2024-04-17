@@ -130,7 +130,7 @@ namespace SRL
 		* @param color color of the line
 		* @param sort Z order
 		*/
-		static bool DrawLine(const Types::Vector2D& start, const Types::Vector2D& end, const Types::SaturnColor& color, const Types::Fxp sort)
+		static bool DrawLine(const Types::Vector2D& start, const Types::Vector2D& end, const Types::HighColor& color, const Types::Fxp sort)
 		{
 			SPRITE line;
 			line.XA = start.X.ToInt();
@@ -150,7 +150,7 @@ namespace SRL
          * @param color Polygon color
 		 * @param sort Z order
          */
-        static void DrawPolygon(const Types::Vector2D points[4], const bool fill, const Types::SaturnColor& color, const Types::Fxp sort)
+        static void DrawPolygon(const Types::Vector2D points[4], const bool fill, const Types::HighColor& color, const Types::Fxp sort)
         {
             SPRITE line;
             line.COLR = color;

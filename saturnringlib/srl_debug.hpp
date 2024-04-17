@@ -202,7 +202,7 @@ namespace SRL
 				Debug::PrintClearScreen();
 
 				// Set background to red and fonr to white
-				SRL::VDP2::SetBackColor(SRL::Types::Colors::Red);
+				SRL::VDP2::SetBackColor(SRL::Types::HighColor::Colors::Red);
 				Debug::PrintColorSet(0);
 
 				Debug::Print(1,1, "Assert raised");
