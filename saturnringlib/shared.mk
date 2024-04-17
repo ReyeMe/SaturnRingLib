@@ -122,7 +122,7 @@ endif
 
 create_cue : create_iso
 	cp -r $(MUSIC_DIR)/. $(BUILD_DROP)/
-	cd $(BUILD_DROP); "$(CURDIR)/$(CMODIR)/JoEngineCueMaker.exe"; cd $(CURDIR)
+	cd "$(BUILD_DROP)"; "$(CURDIR)/$(CMODIR)/JoEngineCueMaker.exe"; cd "$(CURDIR)"
 	
 clean:
 	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
