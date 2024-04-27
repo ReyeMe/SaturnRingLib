@@ -32,15 +32,15 @@ namespace SRL::Types
 
             /** @brief Use the foremost point out of 4 points
              */
-            Minimum,
+            Minimum = 1,
 
             /** @brief Use the farthest of the four points
              */
-            Maximum,
+            Maximum = 2,
 
             /** @brief Use the average position of 4 points
              */
-            Center
+            Center = 3
         };
 
         /** @brief Construct a new empty Attribute
@@ -67,11 +67,11 @@ namespace SRL::Types
          */
         Attribute(const FaceVisibility visibility, const SortMode sort, const Uint16 texture, Uint16 color, Uint16 gouraud, Uint16 mode, Uint32 direction, Uint16 options) :
             Visibility(visibility),
+            Sort(sort | (((direction) >> 16) & 0x1c) | options),
             Texture(texture),
+            Display(mode | (((direction) >> 24) & 0xc0)),
             ColorMode(color),
             Gouraud(gouraud),
-            Sort(sort | (((direction) >> 16) & 0x1c) | options),
-            Display(mode | (((direction) >> 24) & 0xc0)),
             Direction(direction & 0x3f) { }
 
         /** @brief Inidcates whether face is visible at all times or only when its normal vector is pointing towards camera
@@ -176,7 +176,7 @@ namespace SRL::Types
             Vector3D* vertices,
             const size_t& faceCount,
             Polygon* faces,
-            Attribute* attributes)
+            Attribute* attributes) : FaceCount(faceCount), VertexCount(vertexCount)
         {
             this->Vertices = vertices;
             this->Faces = faces;
