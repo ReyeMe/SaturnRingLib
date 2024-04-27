@@ -11,12 +11,30 @@
             "presentation": {
                 "showReuseMessage": false,
                 "clear": true
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
             }
         },
         {
-            "label": "Compile",
+            "label": "Compile [DEBUG]",
             "type": "shell",
-            "command": "./compile.bat",
+            "command": "./compile.bat debug",
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Compile [RELEASE]",
+            "type": "shell",
+            "command": "./compile.bat release",
             "problemMatcher": [],
             "presentation": {
                 "showReuseMessage": false,
@@ -35,6 +53,10 @@
             "presentation": {
                 "showReuseMessage": false,
                 "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
             }
         },
     ]

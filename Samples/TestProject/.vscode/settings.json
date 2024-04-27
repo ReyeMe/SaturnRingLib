@@ -20,5 +20,7 @@
         "*.hpp": "cpp",
         "*.cxx": "cpp",
         "*.def": "c"
-    }
+    },
+    "cmake.configureOnOpen": false,
+    "makefile.makefilePath": "./makefile"
 }

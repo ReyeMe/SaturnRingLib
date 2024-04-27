@@ -13,9 +13,6 @@ SRL_CUSTOM_SGL_WORK_AREA = 0	# Set to 1 if you are using your own SGL work area
 SRL_USE_SGL_SOUND_DRIVER = 1	# Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
 SRL_ENABLE_FREQ_ANALYSIS = 0	# Set to 1 if you want to enable frequency analysis for CD audio, this will load a DSP program into effect slot 1, SGL sound driver must be enabled
 
-# Compilation parameters
-DEBUG = 1
-
 # Disk name
 CD_NAME = TestBuild
 
