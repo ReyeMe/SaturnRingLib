@@ -194,85 +194,77 @@ namespace SRL
 		 * @param args... Text arguments
 		 */
     	template <typename ...Args>
-		inline static void Assert(const char* message, const char* file, const char* function, Args...args)
+		inline static void AssertScreen(const char* message, const char* file, const char* function, Args...args)
 		{
-			if constexpr (Debug::Enabled)
+#ifdef DEBUG
+			// Clear screen
+			Debug::PrintClearScreen();
+
+			// Set background to red and fonr to white
+			SRL::VDP2::SetBackColor(SRL::Types::HighColor::Colors::Red);
+			Debug::PrintColorSet(0);
+
+			Debug::Print(1,1, "Assert raised");
+			Uint8 lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
+			
+			Debug::Print(1,lines + 4, "Message:");
+			Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
+			
+			//Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
+			Debug::Print(1,25, "Free memory: %d bytes", SRL::Memory::GetAvailableMemory());
+
+			// Small animation so we know it did not crash
+			Debug::Print(1,27, "[");
+			Debug::Print(38,27, "]");
+			Uint8 frame = 0;
+			Uint16 frameCountdown = 3;
+			bool breakOut = false;
+			
+			while (!breakOut)
 			{
-				// Clear screen
-				Debug::PrintClearScreen();
-
-				// Set background to red and fonr to white
-				SRL::VDP2::SetBackColor(SRL::Types::HighColor::Colors::Red);
-				Debug::PrintColorSet(0);
-
-				Debug::Print(1,1, "Assert raised");
-				Uint8 lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
-				
-				Debug::Print(1,lines + 4, "Message:");
-				Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
-				
-				//Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
-				Debug::Print(1,25, "Free memory: %d bytes", SRL::Memory::GetAvailableMemory());
-
-				// Small animation so we know it did not crash
-				Debug::Print(1,27, "[");
-				Debug::Print(38,27, "]");
-				Uint8 frame = 0;
-				Uint16 frameCountdown = 3;
-				bool breakOut = false;
-				
-				while (!breakOut)
+				if (frameCountdown == 0)
 				{
-					if (frameCountdown == 0)
+					frameCountdown = 3;
+					Sint16 clearFrame = (Sint16)frame - 5;
+					Sint16 backArrowFrame = (Sint16)frame - 4;
+
+					if (clearFrame < 0)
 					{
-						frameCountdown = 3;
-						Sint16 clearFrame = (Sint16)frame - 5;
-						Sint16 backArrowFrame = (Sint16)frame - 4;
-
-						if (clearFrame < 0)
-						{
-							clearFrame = 36 + clearFrame;
-						}
-
-						if (backArrowFrame < 0)
-						{
-							backArrowFrame = 36 + backArrowFrame;
-						}
-
-						Debug::Print(clearFrame + 2, 27, " ");
-						Debug::Print(backArrowFrame + 2, 27, "<");
-
-						Debug::Print(frame + 2, 27, "=");
-						frame++;
-
-						if (frame > 35)
-						{
-							frame = 0;
-							breakOut = true;
-						}
-
-						Debug::Print(frame + 2, 27, ">");
+						clearFrame = 36 + clearFrame;
 					}
 
-					frameCountdown--;
-					slSynch();
+					if (backArrowFrame < 0)
+					{
+						backArrowFrame = 36 + backArrowFrame;
+					}
+
+					Debug::Print(clearFrame + 2, 27, " ");
+					Debug::Print(backArrowFrame + 2, 27, "<");
+
+					Debug::Print(frame + 2, 27, "=");
+					frame++;
+
+					if (frame > 35)
+					{
+						frame = 0;
+						breakOut = true;
+					}
+
+					Debug::Print(frame + 2, 27, ">");
 				}
 
-				// Restore print color
-				Debug::PrintColorRestore();
+				frameCountdown--;
+				slSynch();
 			}
+
+			// Restore print color
+			Debug::PrintColorRestore();
+#endif
 		}
 
-#ifdef DEBUG
 		/** @brief Breaks any further execution and shows assert screen
 		 * @param message Custom message to show
 		 */
-		#define Assert(message, ...) Assert((char*)message, __FILE__, __FUNCTION__ __VA_OPT__(,) __VA_ARGS__);
-#else
-		/** @brief Breaks any further execution and shows assert screen
-		 * @param message Custom message to show
-		 */
-		#define Assert(message, ...) ()
-#endif
+		#define Assert(message, ...) AssertScreen((char*)message, __FILE__, __FUNCTION__ __VA_OPT__(,) __VA_ARGS__);
 	};
 }
