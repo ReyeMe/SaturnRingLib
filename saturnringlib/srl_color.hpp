@@ -66,7 +66,7 @@ namespace SRL::Types
          */
         constexpr inline static HighColor FromRGB555(const Uint8& r, const Uint8& g, const Uint8& b)
         {
-            return HighColor(0x8000 | ((b & 0x1f) << 10) | ((g & 0x1f) << 5) | ( r & 0x1f));
+            return HighColor(0x8000 | ((b & 0x1f) << 10) | ((g & 0x1f) << 5) | (r & 0x1f));
         }
 
         /** @brief Get from RGB555
@@ -96,7 +96,7 @@ namespace SRL::Types
          */
         constexpr inline static HighColor FromARGB32(const Uint32 value)
         {
-            if (value & 0xff000000 > 0)
+            if (((value >> 24) & 0xff) >= 128)
             {
                 return HighColor::FromRGB555(
                     (((value >> 16) & 0xff) >> 3) & 0x1f,
