@@ -130,6 +130,10 @@ namespace SRL::Types
 			}
 		}
 
+        /** @name Operators
+         * @{
+         */
+
 		/** @brief Indexer operator
 		 * @param index Component index
 		 * @return Component reference
@@ -261,6 +265,9 @@ namespace SRL::Types
 			this->Y -= vec.Y;
 			return *this;
 		}
+
+        /** @}
+         */
 	};
 
 	/** @brief 3D vector
@@ -327,6 +334,90 @@ namespace SRL::Types
 		 */
 		constexpr Vector3D(const Fxp& x, const Fxp& y, const Fxp& z = 0.0) : Vector2D(x, y), Z(z) { }
 		
+		/** @brief Get approximate length of the vector
+		 * @return Vector length
+		 */
+		constexpr Fxp ApproximateLength()
+		{
+			Fxp x = Math::Abs(this->X);
+			Fxp y = Math::Abs(this->Y);
+			Fxp z = Math::Abs(this->Z);
+		
+			Fxp max = Math::Max(Math::Max(x, y), z);
+			Fxp min = Math::Min(Math::Min(x, y), z);
+			Fxp mid = (y < x) ? ((y < z) ? ((z < x) ? z : x) : y) : ((x < z) ? ((z < y) ? z : y) : x);
+
+			constexpr Vector3D alphaBetaGama =
+				Vector3D
+				(
+					0.9398086351723256, // Alpha
+					0.38928148272372454, // Beta
+					0.2987061876143797 // Gama
+				);
+
+			return Vector3D(max, mid, min).Dot(alphaBetaGama);
+		}
+
+		/** @brief Normalize vector with approximate length
+		 */
+		constexpr void ApproximateNormalize()
+		{
+			Fxp length = this->ApproximateLength();
+
+			if (length != 0.0)
+			{
+				this->X /= length;
+				this->Y /= length;
+				this->Z /= length;
+			}
+		}
+
+		/** @brief Calculate the cross product of this object and another Vec3 object.
+		 * @param vec The Vec3 object to calculate the cross product with.
+		 * @return The cross product as an Vec3 object.
+		 */
+		constexpr Vector3D Cross(const Vector3D& vec) const
+		{
+			return Vector3D(this->Z * vec.Y - this->Y * vec.Z,
+				this->X * vec.Z - this->Z * vec.X,
+				this->Y * vec.X - this->X * vec.Y);
+		}
+
+		/** @brief Get dot product of two vectors
+		 * @return Vector length
+		 */
+		constexpr Fxp Dot(const Vector3D& other)
+		{
+			return (this->X * other.X) + (this->Y * other.Y) + (this->Z * other.Z);
+		}
+
+		/** @brief Find distance to other vector
+		 * @param vector Other vector
+		 * @return Distance to vector
+		 */
+		constexpr Fxp DistanceTo(const Vector3D& vector)
+		{
+			return (*this - vector).Length();
+		}
+		
+		/** @brief Normalize vector
+		 */
+		constexpr void Normalize()
+		{
+			Fxp length = this->Length();
+
+			if (length != 0.0)
+			{
+				this->X /= length;
+				this->Y /= length;
+				this->Z /= length;
+			}
+		}
+        
+        /** @name Operators
+         * @{
+         */
+
 		/** @brief Indexer operator
 		 * @param index Component index
 		 * @return Component reference
@@ -514,84 +605,8 @@ namespace SRL::Types
 			this->Z -= vec.Z;
 			return *this;
 		}
-		/** @brief Get approximate length of the vector
-		 * @return Vector length
-		 */
-		constexpr Fxp ApproximateLength()
-		{
-			Fxp x = Math::Abs(this->X);
-			Fxp y = Math::Abs(this->Y);
-			Fxp z = Math::Abs(this->Z);
-		
-			Fxp max = Math::Max(Math::Max(x, y), z);
-			Fxp min = Math::Min(Math::Min(x, y), z);
-			Fxp mid = (y < x) ? ((y < z) ? ((z < x) ? z : x) : y) : ((x < z) ? ((z < y) ? z : y) : x);
 
-			constexpr Vector3D alphaBetaGama =
-				Vector3D
-				(
-					0.9398086351723256, // Alpha
-					0.38928148272372454, // Beta
-					0.2987061876143797 // Gama
-				);
-
-			return Vector3D(max, mid, min).Dot(alphaBetaGama);
-		}
-
-		/** @brief Normalize vector with approximate length
-		 */
-		constexpr void ApproximateNormalize()
-		{
-			Fxp length = this->ApproximateLength();
-
-			if (length != 0.0)
-			{
-				this->X /= length;
-				this->Y /= length;
-				this->Z /= length;
-			}
-		}
-
-		/** @brief Calculate the cross product of this object and another Vec3 object.
-		 * @param vec The Vec3 object to calculate the cross product with.
-		 * @return The cross product as an Vec3 object.
-		 */
-		constexpr Vector3D Cross(const Vector3D& vec) const
-		{
-			return Vector3D(this->Z * vec.Y - this->Y * vec.Z,
-				this->X * vec.Z - this->Z * vec.X,
-				this->Y * vec.X - this->X * vec.Y);
-		}
-
-		/** @brief Get dot product of two vectors
-		 * @return Vector length
-		 */
-		constexpr Fxp Dot(const Vector3D& other)
-		{
-			return (this->X * other.X) + (this->Y * other.Y) + (this->Z * other.Z);
-		}
-
-		/** @brief Find distance to other vector
-		 * @param vector Other vector
-		 * @return Distance to vector
-		 */
-		constexpr Fxp DistanceTo(const Vector3D& vector)
-		{
-			return (*this - vector).Length();
-		}
-		
-		/** @brief Normalize vector
-		 */
-		constexpr void Normalize()
-		{
-			Fxp length = this->Length();
-
-			if (length != 0.0)
-			{
-				this->X /= length;
-				this->Y /= length;
-				this->Z /= length;
-			}
-		}
+        /** @}
+         */
 	};
 }

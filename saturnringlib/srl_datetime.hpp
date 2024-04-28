@@ -224,6 +224,10 @@ namespace SRL::Types
             };
         }
 
+        /** @name Operators
+         * @{
+         */
+
         /** @brief Check if current date comes after another date
          * @param date The date
          * @return true if comes after current date
@@ -288,5 +292,8 @@ namespace SRL::Types
 			return this->year != date.year ||
                 (this->year == date.year && DateTime::GetSecondsThisYear(*this) != DateTime::GetSecondsThisYear(date));
 		}
+
+        /** @}
+         */
     };
 }

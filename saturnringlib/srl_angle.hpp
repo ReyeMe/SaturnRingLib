@@ -89,6 +89,10 @@ namespace SRL::Types
 			return this->value;
 		}
 
+        /** @name Operators
+         * @{
+         */
+
         /** @brief Add two angles together
          * @param angle Other angle
          * @return Computation result 
@@ -194,5 +198,8 @@ namespace SRL::Types
 		{
 			return this->value != angle.value;
 		}
+        
+        /** @}
+         */
     };
 }

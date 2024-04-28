@@ -193,6 +193,10 @@ namespace SRL::Types
 			return this->value;
 		}
 
+        /** @name Operators
+         * @{
+         */
+
 		/** @brief Add and assign another Fxp object to this object.
 		 * @param fxp The Fxp object to add.
 		 * @return A reference to this object.
@@ -469,5 +473,8 @@ namespace SRL::Types
 			this->value <<= shiftAmount;
 			return *this;
 		}
+
+        /** @} 
+         */
 	};
 }
