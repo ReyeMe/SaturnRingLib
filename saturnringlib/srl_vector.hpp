@@ -248,7 +248,7 @@ namespace SRL::Types
 		 * @param vec Vector to add.
 		 * @return Reference to the modified vector.
 		 */
-		constexpr Vector2D operator+=(const Vector2D& vec)
+		constexpr Vector2D& operator+=(const Vector2D& vec)
 		{
 			this->X += vec.X;
 			this->Y += vec.Y;
@@ -259,12 +259,17 @@ namespace SRL::Types
 		 * @param vec Vector to subtract.
 		 * @return Reference to the modified vector.
 		 */
-		constexpr Vector2D operator-=(const Vector2D& vec)
+		constexpr Vector2D& operator-=(const Vector2D& vec)
 		{
 			this->X -= vec.X;
 			this->Y -= vec.Y;
 			return *this;
 		}
+
+        /** @brief Assign one instance to current one
+         * @return Assigned instance
+         */
+        constexpr Vector2D& operator=(const Vector2D&) = default;
 
         /** @}
          */
@@ -564,7 +569,7 @@ namespace SRL::Types
 		 * @param vec Vector to add.
 		 * @return Reference to the modified vector.
 		 */
-		constexpr Vector3D operator+=(const Vector2D& vec)
+		constexpr Vector3D& operator+=(const Vector2D& vec)
 		{
 			this->X += vec.X;
 			this->Y += vec.Y;
@@ -575,7 +580,7 @@ namespace SRL::Types
 		 * @param vec Vector to add.
 		 * @return Reference to the modified vector.
 		 */
-		constexpr Vector3D operator+=(const Vector3D& vec)
+		constexpr Vector3D& operator+=(const Vector3D& vec)
 		{
 			this->X += vec.X;
 			this->Y += vec.Y;
@@ -587,7 +592,7 @@ namespace SRL::Types
 		 * @param vec Vector to subtract.
 		 * @return Reference to the modified vector.
 		 */
-		constexpr Vector3D operator-=(const Vector2D& vec)
+		constexpr Vector3D& operator-=(const Vector2D& vec)
 		{
 			this->X -= vec.X;
 			this->Y -= vec.Y;
@@ -598,13 +603,18 @@ namespace SRL::Types
 		 * @param vec Vector to subtract.
 		 * @return Reference to the modified vector.
 		 */
-		constexpr Vector3D operator-=(const Vector3D& vec)
+		constexpr Vector3D& operator-=(const Vector3D& vec)
 		{
 			this->X -= vec.X;
 			this->Y -= vec.Y;
 			this->Z -= vec.Z;
 			return *this;
 		}
+
+        /** @brief Assign one instance to current one
+         * @return Assigned instance
+         */
+        constexpr Vector3D& operator=(const Vector3D&) = default;
 
         /** @}
          */
