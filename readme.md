@@ -9,17 +9,57 @@
 ## Code style
 This block describes general code style for this project. Following this style will ensure readability and ease of creating documentation.
 
-### Tab vs. Spaces
+### Sections
+- [Tab vs. Spaces](#tab-v-space)
+- [Empty lines](#empty-line)
+- [Curly braces](#curly-braces)
+- [Documentation](#docs)
+- [Variables & constants](#variables)
+- [Function naming](#functions)
+- [Referencing local variables](#references)
+    - [Instance variables](#references-instance)
+    - [Static/Constant variables](#references-static)
+
+### Tab vs. Spaces<a name="tab-v-space"></a>
 Tab characters should not be used, 4 spaces should be used instead of a single TAB.
 
-### Documentation
-Every member (eg: ``namespace``, ``class``, ``variable``, ``function``, ...) must have [doxygen documentation](https://www.doxygen.nl/manual/commands.html) comment above it. (example: see [Variables & Constants - valid case](#VariablesAndConstantsValid))
+### Empty lines<a name="empty-line"></a>
+Do not use multiple empty lines.
 
-### Variables & constants
+**Noncompliant:**
+```cpp
+void MyFunc()
+{
+    int i;
+
+
+
+    i = Compute();
+}
+```
+
+**Compliant:**
+```cpp
+void MyFunc() {
+    int i;
+
+    i = Compute();
+}
+```
+
+### Curly braces<a name="curly-braces"></a>
+1) Curly braces should always be on a new line.
+2) If there is an function call or variable definition/assignment before a starting curly bracket it must be preceded by a empty line, otherwise there should be no empty line before starting curly bracket.
+3) Ending curly bracket must never be preceded by a empty line,
+
+### Documentation<a name="docs"></a>
+Every member (eg: ``namespace``, ``class``, ``variable``, ``function``, ...) must have [doxygen documentation](https://www.doxygen.nl/manual/commands.html) comment above it. (example: see [Variables & Constants - compliant case](#VariablesAndConstantsValid))
+
+### Variables & constants<a name="variables"></a>
 1) Public variables and constants must be names with **PascalCase** and use of '_' or single letter names is forbidden in every case.
 2) Private variables must be named with **camelCase** and use of '_' or single letter names is forbidden in every case.
 
-**Inalid:**
+**Noncompliant:**
 ```cpp
 class MyClass
 {
@@ -34,7 +74,7 @@ public:
 };
 ```
 
-**Valid:**<a name="VariablesAndConstantsValid"></a>
+**Compliant:**<a name="VariablesAndConstantsValid"></a>
 ```cpp
 /** @brief My example class
  */
@@ -57,14 +97,14 @@ public:
     // ...
 };
 ```
-### Function naming
+### Function naming<a name="functions"></a>
 Function names are in **PascalCase** and use of '_' or single letter names is forbidden in every case.
 
-**Inalid:**
+**Noncompliant:**
 ```cpp
 void _myFunction(int _t);
 ```
-**Valid:**
+**Compliant:**
 ```cpp
 /** @brief My function that does stuff
  * @param test Current test value
@@ -72,15 +112,15 @@ void _myFunction(int _t);
 void MyFunction(int test);
 ```
 
-### Referencing local variables
-* **Instance variables:**<br/>
+### Referencing local variables<a name="references"></a>
+* **Instance variables:**<br/><a name="references-instance"></a>
     When referencing an instance variable within class be it public or private ``this->`` keyword must always be before it. This improves readability by showing which variable comes from within this class, which comes from within function or which comes from outside.
 
-* **Static/Constant variables:**<br/>
-    When referencing a constant or static variable we must put a name of class from where this variable came from before it always. This improves readability helping to distinguish between static/const and instance variables, it also helps to identifie where variable is defined by just a glance.
+* **Static/Constant variables:**<br/><a name="references-static"></a>
+    When referencing a constant or static variable we must put a name of class from where this variable came from before it always. This improves readability helping to distinguish between static/const and instance variables, it also helps to identify where variable is defined by just a glance.
     
 #### Example:
-> Documentation ommited to conserve space
+> Documentation omitted to conserve space
 ```cpp
 class MyClass
 {
@@ -94,7 +134,7 @@ public:
 
     // Constructors...
 
-    int TestFunct(int myParam)
+    int TestFunc(int myParam)
     {
         return this->YouCanSeeThis +
             this->myAmazingVariable +
