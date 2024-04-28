@@ -405,6 +405,14 @@ namespace SRL::Types
 			return (*this - vector).Length();
 		}
 		
+		/** @brief Get length of the vector
+		 * @return Vector length
+		 */
+		constexpr Fxp Length()
+		{
+			return this->Dot(*this).Sqrt();
+		}
+
 		/** @brief Normalize vector
 		 */
 		constexpr void Normalize()
