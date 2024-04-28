@@ -11,6 +11,18 @@ namespace SRL::Types
     {
     private:
 
+        /** @brief Single turn in degrees
+         */
+        inline static constexpr const Fxp SingleTurn = 360.0;
+
+        /** @brief Conversion constant from radians to degrees
+         */
+        inline static constexpr const Fxp ToDegreesConversion = 57.2958;
+
+        /** @brief Conversion constant from degrees to radians
+         */
+        inline static constexpr const Fxp ToRadiansConversion = 0.0174533;
+
         /** @brief Angle value
          */
         Sint16 value;
@@ -44,7 +56,7 @@ namespace SRL::Types
          */
 		static constexpr Angle FromDegrees(const Sint16& value)
 		{
-			return Angle((Sint16)(Fxp::FromInt(value) / 360.0).Value());
+			return Angle((Sint16)(Fxp::FromInt(value) / Angle::SingleTurn).Value());
 		}
 
         /** @brief Construct a new instance from degrees value
@@ -53,7 +65,7 @@ namespace SRL::Types
          */
 		static constexpr Angle FromDegrees(const Fxp& value)
 		{
-			return Angle((Sint16)(value / 360.0).Value());
+			return Angle((Sint16)(value / Angle::SingleTurn).Value());
 		}
 
         /** @brief Construct a new instance from radians value
@@ -62,7 +74,7 @@ namespace SRL::Types
          */
 		static constexpr Angle FromRadians(const Fxp& value)
 		{
-			return Angle((Sint16)((value * 57.2958) / 360.0).Value());
+			return Angle((Sint16)((value * Angle::ToDegreesConversion) / Angle::SingleTurn).Value());
 		}
 
         /** @brief Convert angle to degrees
@@ -70,7 +82,7 @@ namespace SRL::Types
          */
 		constexpr Fxp AsDegrees() const
 		{
-			return Fxp::FromRaw(this->value) * 360.0;
+			return Fxp::FromRaw(this->value) * Angle::SingleTurn;
 		}
 
         /** @brief Convert angle to radians
@@ -78,7 +90,7 @@ namespace SRL::Types
          */
 		constexpr Fxp AsRadians() const
 		{
-			return this->AsDegrees() * 0.0174533;
+			return this->AsDegrees() * Angle::ToRadiansConversion;
 		}
 
         /** @brief Get raw value
