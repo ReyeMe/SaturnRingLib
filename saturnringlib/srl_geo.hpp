@@ -2,15 +2,20 @@
 
 #include "srl_math.hpp"
 #include "srl_vector.hpp"
+#include "srl_angle.hpp"
 
 namespace SRL
 {
-	/** @brief Geometry functions
-	 */
-	class Geo
-	{
-	public:
-		
+    /** @brief Geometry functions
+     */
+    class Geo
+    {
+    public:
+
+        /** @brief PI value
+         */
+        static constexpr const SRL::Types::Fxp PI = 3.1415927;
+
         /** @brief Projects 3D point onto a screen from current transformation matrix
          * @param position Position in world space
          * @param result Position on screen
@@ -20,5 +25,32 @@ namespace SRL
         {
             return SRL::Types::Fxp::FromRaw(slConvert3Dto2DFX((FIXED*)&position, (FIXED*)result));
         }
-	};
+
+        /** @brief Sinus from angle
+         * @param angle Angle value
+         * @return Sinus value
+         */
+        static SRL::Types::Fxp Sin(const SRL::Types::Angle& angle)
+        {
+            return SRL::Types::Fxp::FromRaw(slSin(angle.Value()));
+        }
+        
+        /** @brief Cosines from angle
+         * @param angle Angle value
+         * @return Cosines value
+         */
+        static SRL::Types::Fxp Cos(const SRL::Types::Angle& angle)
+        {
+            return SRL::Types::Fxp::FromRaw(slCos(angle.Value()));
+        }
+        
+        /** @brief Tangent from angle
+         * @param angle Angle value
+         * @return Tangent value
+         */
+        static SRL::Types::Fxp Tan(const SRL::Types::Angle& angle)
+        {
+            return SRL::Types::Fxp::FromRaw(slTan(angle.Value()));
+        }
+    };
 }

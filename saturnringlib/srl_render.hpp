@@ -4,6 +4,7 @@
 #include "srl_vdp1.hpp"
 #include "srl_geo.hpp"
 #include "srl_mesh.hpp"
+#include "srl_angle.hpp"
 
 namespace SRL
 {
@@ -72,10 +73,11 @@ namespace SRL
 		/** @brief Draw simple sprite
 		 * @param texture Sprite texture
 		 * @param location Location of the sprite (Z coordinate is used for sorting)
+         * @param angle Sprite rotation angle
 		 * @param scale Scale of the sprite
 		 * @return True on success
 		 */
-		static bool DrawSprite(const Uint16 texture, const Types::Vector3D& location, const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
+		static bool DrawSprite(const Uint16 texture, const Types::Vector3D& location, const Types::Angle& angle = Types::Angle::FromRaw(0), const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
 		{
 			Uint8 colorMode = CL32KRGB;
 			Uint16 palette = No_Palet;
@@ -107,20 +109,20 @@ namespace SRL
                 sprVflip | FUNC_Sprite);
 			#pragma GCC diagnostic pop
 
-    		FIXED sgl_pos[XYZSS];
+    		FIXED sgl_pos[5];
 			sgl_pos[X] = location.X.Value();
 			sgl_pos[Y] = location.Y.Value();
 			sgl_pos[Z] = location.Z.Value();
-			sgl_pos[Sh] = scale.X.Value();
-			sgl_pos[Sv] = scale.Y.Value();
+			sgl_pos[3] = scale.X.Value();
+			sgl_pos[4] = scale.Y.Value();
 
 			if (scale.X != scale.Y)
 			{
-				return slDispSpriteHV(sgl_pos, &attr, 0) != 0;
+				return slDispSpriteHV(sgl_pos, &attr, angle.Value()) != 0;
 			}
 			else
 			{
-				return slDispSprite(sgl_pos, &attr, 0) != 0;
+				return slDispSprite(sgl_pos, &attr, angle.Value()) != 0;
 			}
 		}
 			

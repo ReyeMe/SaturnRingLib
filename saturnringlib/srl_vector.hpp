@@ -275,10 +275,11 @@ namespace SRL::Types
 		 */
 		constexpr Vector3D() : Vector2D(), Z() { }
 		
-		/** @brief Construct a new Vector3D object
+		/** @brief Construct a new Vector3D object from 2D vector
 		 * @param vector Other vector
+         * @param depth Z value
 		 */
-		constexpr Vector3D(const Vector2D& vector) : Vector2D(vector.X, vector.Y), Z() { }
+		constexpr Vector3D(const Vector2D& vector, const Fxp& depth = 0.0) : Vector2D(vector.X, vector.Y), Z(depth) { }
 		
 		/** @brief Construct a new Vector3D object
 		 * @param vector Other vector
