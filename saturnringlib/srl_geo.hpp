@@ -26,6 +26,16 @@ namespace SRL
             return SRL::Types::Fxp::FromRaw(slConvert3Dto2DFX((FIXED*)&position, (FIXED*)result));
         }
 
+        /** @brief Check if point is on screen
+         * @param point Point to test
+         * @param size Size of the point
+         * @return true if point is on screen
+         */
+        static bool IsOnScreen(const SRL::Types::Vector3D& point, const SRL::Types::Fxp size)
+        {
+            return slCheckOnScreen((FIXED*)&point, size.Value()) >= 0;
+        }
+
         /** @brief Sinus from angle
          * @param angle Angle value
          * @return Sinus value

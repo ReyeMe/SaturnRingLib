@@ -158,7 +158,7 @@ namespace SRL::Types
          * @param vertexCount Number of vertices in the mesh
          * @param polygonCount Number of polygons in the mesh
          */
-        Mesh(const size_t& vertexCount, const size_t& polygonCount) : FaceCount(0), VertexCount(0)
+        Mesh(const size_t& vertexCount, const size_t& polygonCount) : FaceCount(polygonCount), VertexCount(vertexCount)
         {
             this->Vertices = new Vector3D[vertexCount];
             this->Faces = new Polygon[polygonCount];
