@@ -4,7 +4,7 @@ using namespace SRL::Types;
 
 int main()
 {
-	SRL::Core::Initialize(HighColor(20,10,50));
+	SRL::Core::Initialize(HighColor(200,10,50));
 
     SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");
     Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);

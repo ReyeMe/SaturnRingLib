@@ -21,10 +21,6 @@ COBJECTS = $(SOURCES:.c=.o)
 OBJECTS = $(COBJECTS:.cxx=.o)
 
 # Handle defaults for user settings
-ifeq ($(strip ${SRL_CUSTOM_SGL_WORK_AREA}),)
-	SRL_CUSTOM_SGL_WORK_AREA = 0
-endif
-
 ifeq ($(strip ${SRL_MAX_CD_BACKGROUND_JOBS}),)
 	SRL_MAX_CD_BACKGROUND_JOBS=1
 endif
@@ -45,10 +41,6 @@ ifeq ($(strip ${SRL_FRAMERATE}),)
 	CCFLAGS += -DSRL_FRAMERATE=1
 endif
 
-ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}),1)
-	CCFLAGS += -DSRL_ENABLE_FREQ_ANALYSIS=1
-endif
-
 ifeq ($(strip ${SRL_MALLOC_MEMORY}),)
 	SRL_MALLOC_MEMORY=131072
 endif
@@ -59,6 +51,14 @@ endif
 
 ifeq ($(strip ${DEBUG}), 1)
 	CCFLAGS += -DDEBUG
+endif
+
+ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
+	CCFLAGS += -DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
+	
+	ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}),1)
+		CCFLAGS += -DSRL_ENABLE_FREQ_ANALYSIS=1
+	endif
 endif
 
 ifneq ($(strip ${SRL_MODE}),PAL)
@@ -78,21 +78,45 @@ CCFLAGS += -DSRL_MODE_$(strip ${SRL_MODE}) \
 	-DSRL_MAX_CD_FILES=$(strip ${SRL_MAX_CD_FILES}) \
 	-DSRL_MAX_CD_RETRIES=$(strip ${SRL_MAX_CD_RETRIES}) \
 	-DSRL_DEBUG_MAX_PRINT_LENGTH=$(strip ${SRL_DEBUG_MAX_PRINT_LENGTH}) \
-	-DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
-
-# Handle work area
-ifneq ($(strip ${SRL_CUSTOM_SGL_WORK_AREA}), 1)
-	SYSOBJECTS = $(SGLLDIR)/SGLAREA.O
-endif
-
-LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/LIBSND.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
-CCFLAGS += -W -m2 -c -O2 -Wno-strict-aliasing -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT)
-LDFLAGS = -T$(LDFILE) -Wl,-Map,$(BUILD_MAP),-e,___Start -nostartfiles
 
 # CD assets
 ASSETS_DIR = ./cd/data
 MUSIC_DIR = ./cd/music
 
+# Handle work area
+ifneq ($(strip ${SGL_MAX_VERTICES}),)
+	SYSFLAGS += -DSGL_MAX_VERTICES=$(strip ${SGL_MAX_VERTICES})
+else
+	SYSFLAGS += -DSGL_MAX_VERTICES=2500
+endif
+
+ifneq ($(strip ${SGL_MAX_POLYGONS}),)
+	SYSFLAGS += -DSGL_MAX_POLYGONS=$(strip ${SGL_MAX_POLYGONS})
+else
+	SYSFLAGS += -DSGL_MAX_POLYGONS=1700
+endif
+
+ifneq ($(strip ${SGL_MAX_EVENTS}),)
+	SYSFLAGS += -DSGL_MAX_EVENTS=$(strip ${SGL_MAX_EVENTS})
+else
+	SYSFLAGS += -DSGL_MAX_EVENTS=64
+endif
+
+ifneq ($(strip ${SGL_MAX_WORKS}),)
+	SYSFLAGS += -DSGL_MAX_WORKS=$(strip ${SGL_MAX_WORKS})
+else
+	SYSFLAGS += -DSGL_MAX_WORKS=256
+endif
+
+SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
+SYSOBJECTS = $(SYSSOURCES:.c=.o)
+
+# General compilation flags
+LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/LIBSND.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
+CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT)
+LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
+
+# Compilation tasks
 %.o : %.c 
 	sh2eb-elf-gcc.exe $< $(CCFLAGS) -std=c2x -o $@
 
@@ -103,6 +127,7 @@ compile_objects : $(OBJECTS)
 	mkdir -p $(MUSIC_DIR)
 	mkdir -p $(ASSETS_DIR)
 	mkdir -p $(BUILD_DROP)
+	sh2eb-elf-gcc.exe $(LDFLAGS) $(SYSFLAGS) -nostdlib -m2 -c -g -O2 -I$(SGLIDIR) -o $(SYSOBJECTS) $(SYSSOURCES)
 	sh2eb-elf-gcc.exe $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
 	
 convert_binary : compile_objects
@@ -121,10 +146,11 @@ endif
 	-full-iso9660-filenames -o $(BUILD_ISO) $(ASSETS_DIR) $(ENTRYPOINT)
 
 create_cue : create_iso
-	cp -r $(MUSIC_DIR)/. $(BUILD_DROP)/
+	cp $(MUSIC_DIR)/*.wav $(BUILD_DROP)/ 2>/dev/null || :
 	cd "$(BUILD_DROP)"; "$(CURDIR)/$(CMODIR)/JoEngineCueMaker.exe"; cd "$(CURDIR)"
 	
 clean:
+	rm -f $(SGLLDIR)/../SRC/*.o
 	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
 	rm -f $(ASSETS_DIR)/SDDRVS.DAT $(ASSETS_DIR)/SDDRVS.TSK $(ASSETS_DIR)/BOOTSND.MAP
