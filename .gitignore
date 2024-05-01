@@ -7,6 +7,8 @@
 /[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/*
 !/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/resources
 
+/[Mm]odules/[Ss][Gg][Ll]/[Ss][Rr][Cc]/*.o
+
 /[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
