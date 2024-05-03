@@ -95,7 +95,7 @@ namespace SRL::Bitmap
 		 * @param height Image height
 		 * @param palette Color palette
 		 */
-		BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), ColorMode(BitmapInfo::TextureColorMode::Paletted), Palette(palette)
+		BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), ColorMode(palette->Count <= 16 ? TextureColorMode::Paletted16 : TextureColorMode::Paletted), Palette(palette)
 		{
 			// Do nothing
 		}

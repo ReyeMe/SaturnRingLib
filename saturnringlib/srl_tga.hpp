@@ -253,12 +253,13 @@ namespace SRL::Bitmap
         {
             Uint8* buffer = (stream + TGA::ImagePaletteOffset(header));
             Bitmap::Palette* palette = new Bitmap::Palette(header->Palette.PaletteLength);
+            Uint8 depth = header->Palette.PaletteColorDepth >> 3;
 
             for (Sint32 index = 0; index < header->Palette.PaletteLength; index++)
             {
                 if (index != transparentColor)
                 {
-                    switch (header->Palette.PaletteColorDepth >> 3)
+                    switch (depth)
                     {
                     case 2:
                         palette->Colors[index] = SRL::Types::HighColor::FromARGB15(TGA::DeserializeUint16(&buffer[index << 1]));
@@ -294,14 +295,15 @@ namespace SRL::Bitmap
             Uint32 pixels = this->width * this->height;
             this->imageData = new Uint8[pixels];
             Uint8* buffer = (stream + TGA::ImageDataOffset(header));
+            SRL::Debug::Print(1,1,"%d", header->Palette.PaletteLength);
 
             // Read palette data
-            if (header->Palette.PaletteLength - 1 <= 16)
+            if (header->Palette.PaletteLength <= 16)
             {
                 // 16 color palette
-                for (Uint32 index = 0; index < pixels; index += 2)
+                for (Uint32 index = 0; index < pixels; index++)
                 {
-                    this->imageData[index] = ((buffer[index] && 0x0f) << 4) | (buffer[index + 1] && 0x0f);
+                    this->imageData[index] = ((buffer[index << 1] & 0x0f) << 4) | (buffer[(index << 1) + 1] & 0x0f);
                 }
             }
             else

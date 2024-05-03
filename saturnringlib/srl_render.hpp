@@ -86,12 +86,12 @@ namespace SRL
             {
             case SRL::VDP1::TextureColorMode::Paletted:
                 colorMode = CL256Bnk;
-                palette = SRL::VDP1::Metadata[texture].PaletteId;
+                palette = SRL::VDP1::Metadata[texture].PaletteId << 8;
                 break;
             
             case SRL::VDP1::TextureColorMode::Paletted16:
                 colorMode = CL16Bnk;
-                palette = SRL::VDP1::Metadata[texture].PaletteId;
+                palette = SRL::VDP1::Metadata[texture].PaletteId << 4;
                 break;
 
             default:
