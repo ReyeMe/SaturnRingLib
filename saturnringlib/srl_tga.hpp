@@ -295,7 +295,6 @@ namespace SRL::Bitmap
             Uint32 pixels = this->width * this->height;
             this->imageData = new Uint8[pixels];
             Uint8* buffer = (stream + TGA::ImageDataOffset(header));
-            SRL::Debug::Print(1,1,"%d", header->Palette.PaletteLength);
 
             // Read palette data
             if (header->Palette.PaletteLength <= 16)
