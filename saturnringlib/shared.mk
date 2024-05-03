@@ -123,11 +123,10 @@ LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_M
 %.o : %.cxx 
 	sh2eb-elf-g++.exe $< $(CCFLAGS) -std=c++23 -fpermissive -fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -o $@
 
-compile_objects : $(OBJECTS)
+compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	mkdir -p $(MUSIC_DIR)
 	mkdir -p $(ASSETS_DIR)
 	mkdir -p $(BUILD_DROP)
-	sh2eb-elf-gcc.exe $(LDFLAGS) $(SYSFLAGS) -nostdlib -m2 -c -g -O2 -I$(SGLIDIR) -o $(SYSOBJECTS) $(SYSSOURCES)
 	sh2eb-elf-gcc.exe $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
 	
 convert_binary : compile_objects
