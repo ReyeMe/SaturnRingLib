@@ -184,10 +184,6 @@ build_bin_cue: $(MUSIC_RAW)
 
 create_bin_cue: create_bin build_bin_cue
 
-create_cue : create_bin
-	cp $(MUSIC_DIR)/*.wav $(BUILD_DROP)/ 2>/dev/null || :
-	cd "$(BUILD_DROP)"; "$(CURDIR)/$(CMODIR)/JoEngineCueMaker.exe"; cd "$(CURDIR)"
-
 clean:
 	rm -f $(SGLLDIR)/../SRC/*.o
 	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
