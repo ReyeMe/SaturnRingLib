@@ -102,6 +102,12 @@ else
 	SYSFLAGS += -DSGL_MAX_WORKS=256
 endif
 
+BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
+BUILD_ISO = $(BUILD_ELF:.elf=.iso)
+BUILD_BIN = $(BUILD_ELF:.elf=.bin)
+BUILD_CUE = $(BUILD_ELF:.elf=.cue)
+BUILD_MAP = $(BUILD_ELF:.elf=.map)
+
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
@@ -125,13 +131,6 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	
 convert_binary : compile_objects
 	sh2eb-elf-objcopy.exe -O binary $(BUILD_ELF) ./cd/data/0.bin
-
-BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
-BUILD_ISO = $(BUILD_ELF:.elf=.iso)
-BUILD_BIN = $(BUILD_ELF:.elf=.bin)
-BUILD_CUE = $(BUILD_ELF:.elf=.cue)
-BUILD_RAW = $(BUILD_ELF:.elf=.raw)
-BUILD_MAP = $(BUILD_ELF:.elf=.map)
 
 create_iso : convert_binary
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
