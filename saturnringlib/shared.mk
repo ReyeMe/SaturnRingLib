@@ -5,6 +5,7 @@ CMODIR = $(COMPILER_DIR)/Other Utilities
 
 BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
 BUILD_ISO = $(BUILD_ELF:.elf=.iso)
+BUILD_BIN = $(BUILD_ELF:.elf=.bin)
 BUILD_CUE = $(BUILD_ELF:.elf=.cue)
 BUILD_RAW = $(BUILD_ELF:.elf=.raw)
 BUILD_MAP = $(BUILD_ELF:.elf=.map)
@@ -139,15 +140,54 @@ ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}), 1)
 	cp $(SGLDIR)/DSP/3BANDANA.EXB ./cd/data/
 endif
 endif
-	mkisofs -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" -sectype 2352 \
+	xorrisofs -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" \
 	-publisher "SEGA ENTERPRISES, LTD." -preparer "SEGA ENTERPRISES, LTD." -appid "SaturnApp" \
 	-abstract "$(ASSETS_DIR)/ABS.TXT" -copyright "$(ASSETS_DIR)/CPY.TXT" -biblio "$(ASSETS_DIR)/BIB.TXT" -generic-boot $(IPFILE) \
 	-full-iso9660-filenames -o $(BUILD_ISO) $(ASSETS_DIR) $(ENTRYPOINT)
 
-create_cue : create_iso
+# Convert ISO to BIN
+create_bin: create_iso
+	dd if=$(BUILD_ISO) of=$(BUILD_BIN) bs=2048
+
+# Convert MP3 to WAV
+%.wav: %.mp3
+	sox $< $@
+
+# Convert WAV to RAW
+%.raw: %.wav
+	sox $< -t raw -r 44100 -e signed-integer -b 16 -c 2 $@
+
+MUSIC_MP3 = $(patsubst ./%,%,$(shell find  $(MUSIC_DIR) -name '*.mp3'))
+MUSIC_WAV = $(patsubst ./%,%,$(shell find  $(MUSIC_DIR) -name '*.wav'))
+MUSIC_WAV += $(MUSIC_MP3:.mp3=.wav)
+MUSIC_RAW = $(MUSIC_WAV:.wav=.raw)
+
+# Create CUE sheet
+build_bin_cue: $(MUSIC_RAW)
+	echo 'FILE "$(CD_NAME).bin" BINARY' > $(BUILD_CUE)
+	echo '  TRACK 01 MODE1/2048' >> $(BUILD_CUE)
+	echo '    INDEX 01 00:00:00' >> $(BUILD_CUE)
+	track=2; \
+	total_size=$$(stat -c%s "$(BUILD_BIN)"); \
+	for i in $^; do \
+		sectors=$$((total_size / 2048)); \
+		minutes=$$((sectors / (60 * 75))); \
+		seconds=$$((sectors % (60 * 75) / 75)); \
+		frames=$$((sectors % 75)); \
+		echo '  TRACK' $$track 'AUDIO' >> $(BUILD_CUE); \
+		echo '    INDEX 01' $$(printf "%02d:%02d:%02d" $$minutes $$seconds $$frames) >> $(BUILD_CUE); \
+		cat "$$i" >> $(BUILD_BIN); \
+		track=$$((track + 1)); \
+		size=$$(stat -c%s "$$i"); \
+		total_size=$$((total_size + size)); \
+	done
+
+create_bin_cue: create_bin build_bin_cue
+
+create_cue : create_bin
 	cp $(MUSIC_DIR)/*.wav $(BUILD_DROP)/ 2>/dev/null || :
 	cd "$(BUILD_DROP)"; "$(CURDIR)/$(CMODIR)/JoEngineCueMaker.exe"; cd "$(CURDIR)"
-	
+
 clean:
 	rm -f $(SGLLDIR)/../SRC/*.o
 	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
@@ -159,6 +199,6 @@ endif
 endif
 	rm -rf $(BUILD_DROP)/
 
-build : create_cue
+build : create_bin_cue
 	
 all: clean build
