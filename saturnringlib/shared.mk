@@ -161,7 +161,7 @@ add_audio_to_bin_cue: $(AUDIO_FILES_RAW)
 	track=2; \
 	total_size=$$(stat -c%s "$(BUILD_BIN)"); \
 	for i in $^; do \
-		sectors=$$((total_size / 2048)); \
+		sectors=$$((total_size / 2352)); \
 		minutes=$$((sectors / (60 * 75))); \
 		seconds=$$((sectors % (60 * 75) / 75)); \
 		frames=$$((sectors % 75)); \
