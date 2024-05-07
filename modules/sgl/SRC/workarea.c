@@ -22,7 +22,7 @@ struct WorkArea_
 };
 
 struct WorkArea_ __attribute__((section("WORK_AREA_DUMMY"))) WORK_AREA_DUMMY;
-struct WorkArea_ __attribute__((aligned(0x10), used, section("WORK_AREA"))) WorkArea;
+struct WorkArea_ __attribute__((aligned(0x1000), used, section("WORK_AREA"))) WorkArea;
 
 const void* PCM_Work = (void*)SoundRAM + 0x78000; /* PCM Stream Address      */
 const Uint32 PCM_WkSize = 0x8000;                 /* PCM Stream Size         */
