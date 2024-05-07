@@ -21,8 +21,7 @@ struct WorkArea_
     char Pbuffer[(_LongWord_ * 4) * SGL_MAX_VERTICES];
     char CLOfstBuf[(_Byte_ * 32 * 3) * 32];
     char CommandBuf[(_LongWord_ * 8) * SGL_MAX_POLYGONS];
-    char TransList[4400];
-    char MasterStack[400];
+    char Padding[5000];
 };
 
 struct WorkArea_ __attribute__((aligned(0x1000), used, section("DUMMY"))) DUMMY;
