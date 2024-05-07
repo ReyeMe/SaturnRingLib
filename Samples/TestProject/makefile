@@ -1,5 +1,4 @@
 # Configuration
-SRL_MALLOC_MEMORY = 204800      # How much memory malloc can use (in bytes)
 SRL_MAX_TEXTURES = 100          # Number of VDP1 texture slots
 SRL_MODE = NTSC                 # Valid options are PAL or NTSC
 SRL_HIGH_RES = 0                # 480i mode

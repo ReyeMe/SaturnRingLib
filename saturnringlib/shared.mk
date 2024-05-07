@@ -3,12 +3,6 @@ COMPILER_DIR=$(SDK_ROOT)/../Compiler
 MODDIR = $(SDK_ROOT)/../modules
 CMODIR = $(COMPILER_DIR)/Other Utilities
 
-BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
-BUILD_ISO = $(BUILD_ELF:.elf=.iso)
-BUILD_CUE = $(BUILD_ELF:.elf=.cue)
-BUILD_RAW = $(BUILD_ELF:.elf=.raw)
-BUILD_MAP = $(BUILD_ELF:.elf=.map)
-
 STDDIR = $(MODDIR)/danny/INC
 
 SGLDIR = $(MODDIR)/sgl
@@ -41,9 +35,7 @@ ifeq ($(strip ${SRL_FRAMERATE}),)
 	CCFLAGS += -DSRL_FRAMERATE=1
 endif
 
-ifeq ($(strip ${SRL_MALLOC_MEMORY}),)
-	SRL_MALLOC_MEMORY=131072
-endif
+
 
 ifeq ($(strip ${SRL_MAX_TEXTURES}),)
 	SRL_MAX_TEXTURES=100
@@ -73,7 +65,6 @@ endif
 
 CCFLAGS += -DSRL_MODE_$(strip ${SRL_MODE}) \
 	-DSRL_MAX_TEXTURES=$(strip ${SRL_MAX_TEXTURES}) \
-	-DSRL_MALLOC_MEMORY=$(strip ${SRL_MALLOC_MEMORY}) \
 	-DSRL_MAX_CD_BACKGROUND_JOBS=$(strip ${SRL_MAX_CD_BACKGROUND_JOBS}) \
 	-DSRL_MAX_CD_FILES=$(strip ${SRL_MAX_CD_FILES}) \
 	-DSRL_MAX_CD_RETRIES=$(strip ${SRL_MAX_CD_RETRIES}) \
@@ -108,6 +99,12 @@ else
 	SYSFLAGS += -DSGL_MAX_WORKS=256
 endif
 
+BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
+BUILD_ISO = $(BUILD_ELF:.elf=.iso)
+BUILD_BIN = $(BUILD_ELF:.elf=.bin)
+BUILD_CUE = $(BUILD_ELF:.elf=.cue)
+BUILD_MAP = $(BUILD_ELF:.elf=.map)
+
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
@@ -139,18 +136,100 @@ ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}), 1)
 	cp $(SGLDIR)/DSP/3BANDANA.EXB ./cd/data/
 endif
 endif
-	mkisofs -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" -sectype 2352 \
+	xorrisofs -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" \
 	-publisher "SEGA ENTERPRISES, LTD." -preparer "SEGA ENTERPRISES, LTD." -appid "SaturnApp" \
 	-abstract "$(ASSETS_DIR)/ABS.TXT" -copyright "$(ASSETS_DIR)/CPY.TXT" -biblio "$(ASSETS_DIR)/BIB.TXT" -generic-boot $(IPFILE) \
 	-full-iso9660-filenames -o $(BUILD_ISO) $(ASSETS_DIR) $(ENTRYPOINT)
 
-create_cue : create_iso
-	cp $(MUSIC_DIR)/*.wav $(BUILD_DROP)/ 2>/dev/null || :
-	cd "$(BUILD_DROP)"; "$(CURDIR)/$(CMODIR)/JoEngineCueMaker.exe"; cd "$(CURDIR)"
-	
+# Create CUE sheet
+create_bin_cue: create_iso
+	dd if=$(BUILD_ISO) of=$(BUILD_BIN) bs=2048
+	echo 'FILE "$(CD_NAME).bin" BINARY' > $(BUILD_CUE)
+	echo '  TRACK 01 MODE1/2048' >> $(BUILD_CUE)
+	echo '    INDEX 01 00:00:00' >> $(BUILD_CUE)
+
+AUDIO_FILES = $(patsubst ./%,%,$(shell find $(MUSIC_DIR) \( -name '*.mp3' -o -name '*.wav' -o -name '*.ogg' -o -name '*.flac' -o -name '*.aac' -o -name '*.m4a' -o -name '*.wma' \)))
+AUDIO_FILES_RAW = $(patsubst %,%.raw,$(AUDIO_FILES))
+
+%.raw: %
+	sox $< -t raw -r 44100 -e signed-integer -b 16 -c 2 $@
+
+add_audio_to_bin_cue: $(AUDIO_FILES_RAW)
+	track=2; \
+	total_size=$$(stat -c%s "$(BUILD_BIN)"); \
+	for i in $^; do \
+		sectors=$$((total_size / 2352)); \
+		minutes=$$((sectors / (60 * 75))); \
+		seconds=$$((sectors % (60 * 75) / 75)); \
+		frames=$$((sectors % 75)); \
+		echo '  TRACK' $$(printf "%02d" $$track) 'AUDIO' >> $(BUILD_CUE); \
+		echo '    INDEX 01' $$(printf "%02d:%02d:%02d" $$minutes $$seconds $$frames) >> $(BUILD_CUE); \
+		cat "$$i" >> $(BUILD_BIN); \
+		track=$$((track + 1)); \
+		size=$$(stat -c%s "$$i"); \
+		total_size=$$((total_size + size)); \
+	done
+
+build_bin_cue: create_bin_cue add_audio_to_bin_cue
+
+# CLONE_CD_PATH = $(BUILD_DROP)/CloneCdFiles
+# CLONE_CD_CCD = $(CLONE_CD_PATH)/$(CD_NAME).ccd
+# CLONE_CD_SUB = $(CLONE_CD_PATH)/$(CD_NAME).sub
+# CLONE_CD_IMG = $(CLONE_CD_PATH)/$(CD_NAME).img
+
+# create_clone_cd_files: build_bin_cue
+# 	mkdir -p $(CLONE_CD_PATH)
+# 	cp $(BUILD_BIN) $(CLONE_CD_IMG)
+# 	touch $(CLONE_CD_SUB)
+# 	echo "[CloneCD]" > $(CLONE_CD_CCD)
+# 	echo "Version=3" >> $(CLONE_CD_CCD)
+# 	echo "DiscType=CD" >> $(CLONE_CD_CCD)
+# 	echo "Session=1" >> $(CLONE_CD_CCD)
+# 	trackno=1; \
+# 	while IFS= read -r line; do \
+# 		if [[ $$line == TRACK* ]]; then \
+# 			echo "[Session 1]" >> $(CLONE_CD_CCD); \
+# 			echo "PreGapMode=2" >> $(CLONE_CD_CCD); \
+# 			echo "PreGapSubC=0" >> $(CLONE_CD_CCD); \
+# 			((trackno++)); \
+# 		fi; \
+# 		if [[ $$line == *BINARY ]]; then \
+# 			echo "Point=0xA0" >> $(CLONE_CD_CCD); \
+# 			echo "ADR=0x01" >> $(CLONE_CD_CCD); \
+# 			echo "Control=0x04" >> $(CLONE_CD_CCD); \
+# 			echo "TrackNo=$$trackno" >> $(CLONE_CD_CCD); \
+# 			echo "AMin=0" >> $(CLONE_CD_CCD); \
+# 			echo "ASec=0" >> $(CLONE_CD_CCD); \
+# 			echo "AFrame=0" >> $(CLONE_CD_CCD); \
+# 			echo "ALBA=-150" >> $(CLONE_CD_CCD); \
+# 			echo "Zero=0" >> $(CLONE_CD_CCD); \
+# 			echo "PMin=1" >> $(CLONE_CD_CCD); \
+# 			echo "PSec=0" >> $(CLONE_CD_CCD); \
+# 			echo "PFrame=0" >> $(CLONE_CD_CCD); \
+# 			echo "PLBA=0" >> $(CLONE_CD_CCD); \
+# 		fi; \
+# 		if [[ $$line == *INDEX* ]]; then \
+# 			IFS=':' read -ra ADDR <<< "$${line##* }"; \
+# 			echo "Point=0x01" >> $(CLONE_CD_CCD); \
+# 			echo "ADR=0x01" >> $(CLONE_CD_CCD); \
+# 			echo "Control=0x04" >> $(CLONE_CD_CCD); \
+# 			echo "TrackNo=$$trackno" >> $(CLONE_CD_CCD); \
+# 			echo "AMin=$${ADDR[0]}" >> $(CLONE_CD_CCD); \
+# 			echo "ASec=$${ADDR[1]}" >> $(CLONE_CD_CCD); \
+# 			echo "AFrame=$${ADDR[2]}" >> $(CLONE_CD_CCD); \
+# 			echo "ALBA=-150" >> $(CLONE_CD_CCD); \
+# 			echo "Zero=0" >> $(CLONE_CD_CCD); \
+# 			echo "PMin=$${ADDR[0]}" >> $(CLONE_CD_CCD); \
+# 			echo "PSec=$${ADDR[1]}" >> $(CLONE_CD_CCD); \
+# 			echo "PFrame=$${ADDR[2]}" >> $(CLONE_CD_CCD); \
+# 			echo "PLBA=0" >> $(CLONE_CD_CCD); \
+# 		fi; \
+# 	done < $(BUILD_CUE)
+
 clean:
 	rm -f $(SGLLDIR)/../SRC/*.o
 	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
+	rm -f $(AUDIO_FILES_RAW)
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
 	rm -f $(ASSETS_DIR)/SDDRVS.DAT $(ASSETS_DIR)/SDDRVS.TSK $(ASSETS_DIR)/BOOTSND.MAP
 ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}), 1)
@@ -159,6 +238,6 @@ endif
 endif
 	rm -rf $(BUILD_DROP)/
 
-build : create_cue
+build : build_bin_cue
 	
 all: clean build
