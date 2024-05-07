@@ -1,5 +1,12 @@
 OUTPUT_FORMAT(coff-sh)
 SECTIONS {
+	
+	WORK_AREA_DUMMY 0x0000000(NOLOAD):
+	{
+		*(WORK_AREA_DUMMY)
+	}
+	
+	work_area_start = 0x060FFFF0 - SIZEOF(WORK_AREA_DUMMY);
 
 	SLSTART 0x06004000 : {
 		___Start = .;
@@ -51,15 +58,11 @@ SECTIONS {
 		* ( COMMON )
 		__bend = . ;
 		_end = .;
+	}
+	HEAP ALIGN(0x10)(NOLOAD):
+	{
 		__heap_start = .;
 	}
-
-	WORK_AREA_DUMMY 0x0000000(NOLOAD):
-	{
-		*(WORK_AREA_DUMMY)
-	}
-	
-	work_area_start = 0x060FFFF0 - SIZEOF(WORK_AREA_DUMMY);
 
 	WORK_AREA work_area_start (NOLOAD):
 	{
