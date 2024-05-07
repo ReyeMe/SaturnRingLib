@@ -10,6 +10,7 @@ IPFILE = $(SGLDIR)/IP.BIN
 LDFILE = $(SGLDIR)/sgl.linker
 SGLLDIR = $(SGLDIR)/LIB
 SGLIDIR = $(SGLDIR)/INC
+TLSFDIR = $(MODDIR)/tlsf
 
 COBJECTS = $(SOURCES:.c=.o)
 OBJECTS = $(COBJECTS:.cxx=.o)
@@ -106,6 +107,7 @@ BUILD_CUE = $(BUILD_ELF:.elf=.cue)
 BUILD_MAP = $(BUILD_ELF:.elf=.map)
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
+SYSSOURCES += $(TLSFDIR)/tlsf.c
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
