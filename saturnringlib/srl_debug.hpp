@@ -211,7 +211,7 @@ namespace SRL
 			Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
 			
 			//Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
-			Debug::Print(1,25, "Free memory: %d bytes", SRL::Memory::GetAvailableMemory());
+			Debug::Print(1,25, "Free HWRam: %d bytes", SRL::Memory::HighWorkRam::GetFreeSpace());
 
 			// Small animation so we know it did not crash
 			Debug::Print(1,27, "[");
