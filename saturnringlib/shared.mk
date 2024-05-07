@@ -112,7 +112,7 @@ SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
 LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/LIBSND.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
-CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT)
+CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
 # Compilation tasks
