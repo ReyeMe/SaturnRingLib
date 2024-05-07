@@ -2,6 +2,11 @@
 
 #include "srl_base.hpp"
 
+extern "C" {
+	extern char _heap_start;
+	extern char _heap_end;
+}
+
 namespace SRL
 {
 	/** @brief Dynamic memory management
@@ -29,20 +34,24 @@ namespace SRL
 		{
 			/** @brief Block state (0=Free, 1=Allocated)
 			 */
-			BlockState State:1;
+			BlockState State : 1;
 
 			/** @brief Block size (without header)
 			 */
-			size_t Size:31;
+			size_t Size : 31;
 		};
 
 		/** @brief Memory heap
 		 */
-		inline static Uint8 MemoryHeap[SRL_MALLOC_MEMORY];
+		inline static Uint8* MemoryHeap = (Uint8*)&_heap_start;
+
+		/** @brief Memory heap SIZE
+		 */
+		inline static size_t MemoryHeapSize = 0;
 
 		/** @brief Get location of the next block in memory
 		 * @param currentBlock Current block location
-		 * @return Location of the next block in memory 
+		 * @return Location of the next block in memory
 		 */
 		inline static size_t GetNextBlockLocation(size_t currentBlock)
 		{
@@ -57,7 +66,7 @@ namespace SRL
 			size_t next = startBlock;
 
 			// Check if we are inside the array
-			if (startBlock < SRL_MALLOC_MEMORY)
+			if (startBlock < MemoryHeapSize)
 			{
 				// Check if current block is free
 				Memory::Header* currentBlockHead = ((Memory::Header*)&Memory::MemoryHeap[startBlock]);
@@ -69,11 +78,11 @@ namespace SRL
 					size_t location = Memory::GetNextBlockLocation(startBlock);
 					size_t freeMem = 0;
 
-					while (location < SRL_MALLOC_MEMORY)
+					while (location < MemoryHeapSize)
 					{
 						// Gets header of the current block
 						Memory::Header* header = ((Memory::Header*)&Memory::MemoryHeap[location]);
-						
+
 						// Check if the block is free
 						if (header->State == Memory::BlockState::Free)
 						{
@@ -83,12 +92,12 @@ namespace SRL
 						{
 							break;
 						}
-						
+
 						// Move to next block
 						location = Memory::GetNextBlockLocation(location);
 					}
 
-					currentBlockHead->Size += freeMem; 
+					currentBlockHead->Size += freeMem;
 				}
 			}
 		}
@@ -96,7 +105,7 @@ namespace SRL
 		/** @brief Try to mark block as allocated and split it if not allocated fully
 		 * @param location Block location
 		 * @param size New block size
-		 * @return True if block was succesfully allocated 
+		 * @return True if block was succesfully allocated
 		 */
 		inline static bool SetBlockAllocation(size_t location, size_t size)
 		{
@@ -128,7 +137,7 @@ namespace SRL
 				if (oldBlockSize - newBlock > 0)
 				{
 					size_t nextBlock = Memory::GetNextBlockLocation(location);
-					((Memory::Header*)&Memory::MemoryHeap[nextBlock])->State = Memory::BlockState::Free; 
+					((Memory::Header*)&Memory::MemoryHeap[nextBlock])->State = Memory::BlockState::Free;
 					((Memory::Header*)&Memory::MemoryHeap[nextBlock])->Size = oldBlockSize - newBlock - sizeof(Memory::Header);
 				}
 
@@ -152,7 +161,7 @@ namespace SRL
 				size_t location = reinterpret_cast<Uint32>(address) - reinterpret_cast<Uint32>(Memory::MemoryHeap);
 
 				// Check of offset is valid, we do not need to check whether location is 0, since first 4 bytes are always header
-				if (location > 0 && location < SRL_MALLOC_MEMORY && (location & 3) == 0)
+				if (location > 0 && location < MemoryHeapSize && (location & 3) == 0)
 				{
 					// Flag area as free
 					((Memory::Header*)&Memory::MemoryHeap[location - sizeof(Memory::Header)])->State = Memory::BlockState::Free;
@@ -164,7 +173,7 @@ namespace SRL
 		}
 
 		/** @brief Gets all available free memory
-		 * @return Number of bytes free 
+		 * @return Number of bytes free
 		 */
 		inline static size_t GetAvailableMemory()
 		{
@@ -173,17 +182,17 @@ namespace SRL
 			// Search memory for free blocks
 			size_t location = 0;
 
-			while (location < SRL_MALLOC_MEMORY)
+			while (location < MemoryHeapSize)
 			{
 				// Gets header of the current block
 				Memory::Header* header = ((Memory::Header*)&Memory::MemoryHeap[location]);
-				
+
 				// Check if the block is free
 				if (header->State == Memory::BlockState::Free)
 				{
 					freeMemory += header->Size;
 				}
-				
+
 				// Move to next block
 				location = Memory::GetNextBlockLocation(location);
 			}
@@ -200,10 +209,10 @@ namespace SRL
 			size_t blocks = 0;
 			size_t location = 0;
 
-			while (location < SRL_MALLOC_MEMORY)
+			while (location < MemoryHeapSize)
 			{
 				blocks++;
-				
+
 				// Move to next block
 				location = Memory::GetNextBlockLocation(location);
 			}
@@ -220,17 +229,17 @@ namespace SRL
 			size_t freeBlocks = 0;
 			size_t location = 0;
 
-			while (location < SRL_MALLOC_MEMORY)
+			while (location < MemoryHeapSize)
 			{
 				// Gets header of the current block
 				Memory::Header* header = ((Memory::Header*)&Memory::MemoryHeap[location]);
-				
+
 				// Check if the block is free
 				if (header->State == Memory::BlockState::Free)
 				{
 					freeBlocks++;
 				}
-				
+
 				// Move to next block
 				location = Memory::GetNextBlockLocation(location);
 			}
@@ -242,7 +251,8 @@ namespace SRL
 		 */
 		inline static void Initialize()
 		{
-			((Memory::Header*)Memory::MemoryHeap)->Size = SRL_MALLOC_MEMORY - sizeof(Memory::Header);
+			MemoryHeapSize = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
+			((Memory::Header*)Memory::MemoryHeap)->Size = MemoryHeapSize - sizeof(Memory::Header);
 			((Memory::Header*)Memory::MemoryHeap)->State = Memory::BlockState::Free;
 		}
 
@@ -266,11 +276,11 @@ namespace SRL
 			size_t newBlock = length & 0x7fffffff;
 
 			// We try until we reach end of available space
-			while (location < SRL_MALLOC_MEMORY)
+			while (location < MemoryHeapSize)
 			{
 				// Gets header of the current block
 				Memory::Header* header = ((Memory::Header*)&Memory::MemoryHeap[location]);
-				
+
 				// Check if the block is free
 				if (header->State == Memory::BlockState::Free)
 				{
@@ -284,7 +294,7 @@ namespace SRL
 						return (void*)&Memory::MemoryHeap[location + sizeof(Memory::Header)];
 					}
 				}
-				
+
 				// Move to next block
 				location = Memory::GetNextBlockLocation(location);
 			}
@@ -298,7 +308,7 @@ namespace SRL
 		 * @param size New size of the allocated block
 		 * @return void* Pointer to resized or moved block
 		 */
-		inline static void * Realloc(void* address, size_t size)
+		inline static void* Realloc(void* address, size_t size)
 		{
 			// Validate pointer to not be null
 			if (address != nullptr)
@@ -309,7 +319,7 @@ namespace SRL
 
 				// We free the block first, this will also join it will all free blocks right after it
 				Memory::Free(address);
-			
+
 				// Now we check if we can fit inside the new created space
 				if (Memory::SetBlockAllocation(headerLocation, size))
 				{
@@ -319,7 +329,7 @@ namespace SRL
 				else
 				{
 					// We do not fit, try to find space elsewhere
-					void * newSpace = Memory::Malloc(size);
+					void* newSpace = Memory::Malloc(size);
 
 					// Copy data to the new location
 					slDMACopy(address, newSpace, ((Memory::Header*)&Memory::MemoryHeap[headerLocation])->Size);
@@ -336,44 +346,44 @@ namespace SRL
 
 inline void* operator new(size_t size)
 {
-    return SRL::Memory::Malloc(size);
+	return SRL::Memory::Malloc(size);
 }
 
 inline void operator delete(void* ptr)
 {
-    SRL::Memory::Free(ptr);
+	SRL::Memory::Free(ptr);
 }
 
 inline void operator delete(void* ptr, unsigned int)
 {
-    SRL::Memory::Free(ptr);
+	SRL::Memory::Free(ptr);
 }
 
 inline void* operator new(size_t, void* ptr)
 {
-    return ptr;
+	return ptr;
 }
 
 // Add overload for array form of new operator
 inline void* operator new[](size_t size)
 {
-    return SRL::Memory::Malloc(size);
+	return SRL::Memory::Malloc(size);
 }
 
 // Add overload for array form of delete operator
 inline void operator delete[](void* ptr)
 {
-    SRL::Memory::Free(ptr);
+	SRL::Memory::Free(ptr);
 }
 
 // Add overload for array form of delete operator with size parameter
 inline void operator delete[](void* ptr, size_t size)
 {
-    SRL::Memory::Free(ptr);
+	SRL::Memory::Free(ptr);
 }
 
 // Add overload for array form of placement new
 inline void* operator new[](size_t, void* ptr)
 {
-    return ptr;
+	return ptr;
 }

@@ -1,25 +1,26 @@
 OUTPUT_FORMAT(coff-sh)
-SECTIONS {		
-	SLSTART 0x06004000 : {	
-		___Start = .;	
-		*(SLSTART)	
+SECTIONS {
+
+	SLSTART 0x06004000 : {
+		___Start = .;
+		*(SLSTART)
 	}
 
 	.text ALIGN(0x20) :
 	{
 		* (.text)
 		*(.strings)
-		*("SEGA_P")		
-	
+		*("SEGA_P")
+
 		*(.eh_frame_hdr)
-		*(.eh_frame)		
-        __etext = .;    
+		*(.eh_frame)
+        __etext = .;
 	}
 
-	SLPROG ALIGN(0x20): {	
-		__slprog_start = .;	
-		*(SLPROG)	
-		__slprog_end = .;	
+	SLPROG ALIGN(0x20): {
+		__slprog_start = .;
+		*(SLPROG)
+		__slprog_end = .;
 	}
 
 	.tors  ALIGN(0x10) :
@@ -49,13 +50,21 @@ SECTIONS {
 		*(.bss)
 		* ( COMMON )
 		__bend = . ;
-	_end = .;
+		_end = .;
+		__heap_start = .;
 	}
-		
-	END_REGION (NOLOAD):
+
+	DUMMY 0x0000000(NOLOAD):
 	{
-		__end_region_start = .;
+		*(DUMMY)
+	}
+	
+	work_area_start = 0x060FF000 - SIZEOF(DUMMY);
+
+	END_REGION work_area_start (NOLOAD):
+	{
+		__heap_end = .;
 		*(END_REGION)
-		__end_region_end = .;
+		__work_area_end = .;
 	}
 }	
