@@ -54,17 +54,17 @@ SECTIONS {
 		__heap_start = .;
 	}
 
-	DUMMY 0x0000000(NOLOAD):
+	WORK_AREA_DUMMY 0x0000000(NOLOAD):
 	{
-		*(DUMMY)
+		*(WORK_AREA_DUMMY)
 	}
 	
-	work_area_start = 0x060FF000 - SIZEOF(DUMMY);
+	work_area_start = 0x060FFFF0 - SIZEOF(WORK_AREA_DUMMY);
 
-	END_REGION work_area_start (NOLOAD):
+	WORK_AREA work_area_start (NOLOAD):
 	{
 		__heap_end = .;
-		*(END_REGION)
+		*(WORK_AREA)
 		__work_area_end = .;
 	}
 }	

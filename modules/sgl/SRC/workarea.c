@@ -1,10 +1,6 @@
 #include "sl_def.h"
 
-const void* PCM_Work = (void*)SoundRAM + 0x78000; /* PCM Stream Address      */
-const Uint32 PCM_WkSize = 0x8000;                 /* PCM Stream Size         */
-const void* SlaveStack = (void*)0x06001e00;       /* SlaveSH2  StackPointer  */
-const void* TransList = (void*)0x060fb800;        /* DMA Transfer Table      */
-const void* MasterStack = (void*)0x060ffc00;     /* MasterSH2 StackPointer  */
+
 
 #define _Byte_ sizeof(Uint8)
 #define _LongWord_ sizeof(Uint32)
@@ -21,11 +17,18 @@ struct WorkArea_
     char Pbuffer[(_LongWord_ * 4) * SGL_MAX_VERTICES];
     char CLOfstBuf[(_Byte_ * 32 * 3) * 32];
     char CommandBuf[(_LongWord_ * 8) * SGL_MAX_POLYGONS];
-    char Padding[5000];
+    char TransList[0x4400];
+    char MasterStack[0x400];
 };
 
-struct WorkArea_ __attribute__((aligned(0x1000), used, section("DUMMY"))) DUMMY;
-struct WorkArea_ __attribute__((aligned(0x1000), used, section("END_REGION"))) WorkArea;
+struct WorkArea_ __attribute__((section("WORK_AREA_DUMMY"))) WORK_AREA_DUMMY;
+struct WorkArea_ __attribute__((aligned(0x10), used, section("WORK_AREA"))) WorkArea;
+
+const void* PCM_Work = (void*)SoundRAM + 0x78000; /* PCM Stream Address      */
+const Uint32 PCM_WkSize = 0x8000;                 /* PCM Stream Size         */
+const void* SlaveStack = (void*)0x06001e00;       /* SlaveSH2  StackPointer  */
+const void* TransList = (void*)0x060fb800;        /* DMA Transfer Table      */
+const void* MasterStack =  (void*)0x060ffc00;     /* MasterSH2 StackPointer  */
 
 const Uint16 MaxVertices = SGL_MAX_VERTICES;
 const Uint16 MaxPolygons = SGL_MAX_POLYGONS;
