@@ -107,7 +107,7 @@ BUILD_CUE = $(BUILD_ELF:.elf=.cue)
 BUILD_MAP = $(BUILD_ELF:.elf=.map)
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
-SYSSOURCES += $(TLSFDIR)/tlsf.c
+#SYSSOURCES += $(TLSFDIR)/tlsf.c
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
