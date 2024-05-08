@@ -10,7 +10,6 @@ IPFILE = $(SGLDIR)/IP.BIN
 LDFILE = $(SGLDIR)/sgl.linker
 SGLLDIR = $(SGLDIR)/LIB
 SGLIDIR = $(SGLDIR)/INC
-TLSFDIR = $(MODDIR)/tlsf
 
 COBJECTS = $(SOURCES:.c=.o)
 OBJECTS = $(COBJECTS:.cxx=.o)
@@ -107,12 +106,16 @@ BUILD_CUE = $(BUILD_ELF:.elf=.cue)
 BUILD_MAP = $(BUILD_ELF:.elf=.map)
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
+
+TLSFDIR = $(MODDIR)/tlsf
+DUMMYIDIR = $(MODDIR)/dummy
+
 SYSSOURCES += $(TLSFDIR)/tlsf.c
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
 LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/LIBSND.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
-CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT)
+CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
 # Compilation tasks
