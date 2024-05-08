@@ -130,7 +130,7 @@ namespace SRL
 
             /** @brief Memory zone
              */
-            inline static tlsf_t const zone = tlsf_pool_create((void*)LowWorkRam::Start, LowWorkRam::Size);
+            inline static tlsf_t const zone = tlsf_create_with_pool((void*)LowWorkRam::Start, LowWorkRam::Size);
 
         public:
 
@@ -267,7 +267,7 @@ namespace SRL
         inline static void Initialize()
         {
             Memory::mainWorkRamSize = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
-            Memory::mainWorkRam = tlsf_pool_create((void*)&_heap_start, Memory::mainWorkRamSize);
+            Memory::mainWorkRam = tlsf_create_with_pool((void*)&_heap_start, Memory::mainWorkRamSize);
 
             // TODO: Initialize Cart RAM here
         }
