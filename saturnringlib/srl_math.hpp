@@ -14,7 +14,7 @@ namespace SRL
 
 		/// @brief Get absolute value
 		/// @tparam ValueType Type of the value
-		/// @param value Numberic value
+		/// @param value Numeric value
 		/// @return Absolute value
 		template<typename ValueType>
 		constexpr static ValueType Abs(const ValueType& value)
@@ -57,58 +57,26 @@ namespace SRL
 		}
 
         /** @brief Pseudo-Random number generator
-         * @note This pseudo number generator is done by using LFSR (see https://en.wikipedia.org/wiki/Linear-feedback_shift_register)
+         * @note This generator uses Xorshift (see https://en.wikipedia.org/wiki/Xorshift)
          */
         class Random
         {
         private:
 
-            /** @brief Fallback number choosen by different random number generator I stumbled on online
-             */
-            inline static const Uint32 FallbackRandomNumber = 0x7c1ec949u;
-
             /** @brief Pseudo-Random number generator seed
              */
             Uint32 startState;
-
-            /** @brief Pseudo-Random number generator seed
-             */
-            Uint32 seed;
 
             /** @brief Get next pseudo-random number
              * @return Generated number
              */
             Uint32 GetNextPeriod()
             {
-                Uint32 lfsr = this->startState;
-
-                // Start state must not be 0
-                if (lfsr == 0)
-                {
-                    // Seed is 0, just fall back
-                    if (this->seed == 0)
-                    {
-                        lfsr = Random::FallbackRandomNumber;
-                    }
-                    else
-                    {
-                        lfsr = this->seed;
-                    }
-                }
-
-                Uint32 bit;
-                Uint32 period = 0;
-
-                do
-                {
-                    bit = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5) ^ (lfsr >> 16) ^ (lfsr >> 17) ^ (lfsr >> 18) ^ (lfsr >> 19)) & 1u;
-                    lfsr = (lfsr >> 1) | (bit << 31);
-                    ++period;
-                }
-                while (lfsr == this->startState);
-
-                this->startState = lfsr;
-                return lfsr;
+                // thx to thepuristofgreed from SX discord for showing this and comparing against my slower and less random version from last commit
+                this->startState ^= this->startState << 13;
+                this->startState ^= this->startState >> 17;
+                this->startState ^= this->startState << 5;
+                return this->startState;
             }
 
         public:
@@ -124,9 +92,6 @@ namespace SRL
                     time.Hour() +
                     time.Minute() +
                     time.Second();
-                
-                this->seed = this->startState;
-                this->startState = this->GetNextPeriod();
             }
 
             /** @brief Construct a new pseudo-random number generator
@@ -135,8 +100,6 @@ namespace SRL
             Random(Uint32 seed)
             {
                 this->startState = seed;
-                this->seed = seed;
-                this->startState = this->GetNextPeriod();
             }
 
             /** @brief Destroy the pseudo-random number generator object
