@@ -1,12 +1,16 @@
-# Saturn Ring Library
-<CENTER>![logo](https://github.com/ReyeMe/SaturnRingLib/tree/main/Documentation/resources/srl_logo.png)</CENTER>
-Easy to use SGL wrapper written in C++
-> **Work in progress**
+<h1 align="center" id="heading">Saturn Ring Library</h1>
+<p align="center">
+ Easy to use SGL wrapper written in C++</br>
+ <img src="https://github.com/ReyeMe/SaturnRingLib/blob/main/Documentation/resources/srl_logo.png"></br></br>
+</p>
 
 ## Big thanks to these folk:
  - [jae686](https://github.com/jae686)
  - [robertoduarte](https://github.com/robertoduarte)
  - [7shades](https://github.com/seven-shades)
+
+## Getting started
+> **Work in progress**
 
 ## Code style
 This block describes general code style for this project. Following this style will ensure readability and ease of creating documentation.
