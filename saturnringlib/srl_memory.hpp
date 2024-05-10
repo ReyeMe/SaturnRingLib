@@ -250,6 +250,11 @@ namespace SRL
 			return freeBlocks;
 		}
 
+        /** @brief Det memory to some value
+         * @param destination Destination to set
+         * @param value Value to set
+         * @param length Data length to set
+         */
         inline static void MemSet(void* destination, const Uint8 value, const size_t length)
         {
             for (size_t i = 0; i < length; i++)
