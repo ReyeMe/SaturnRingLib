@@ -1,4 +1,6 @@
 # Saturn Ring Library
+<CENTER>![logo](https://github.com/ReyeMe/SaturnRingLib/tree/main/Documentation/resources/srl_logo.png)</CENTER>
+Easy to use SGL wrapper written in C++
 > **Work in progress**
 
 ## Big thanks to these folk:
