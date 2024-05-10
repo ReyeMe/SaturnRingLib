@@ -50,15 +50,11 @@ namespace SRL
 			// Set default color to white
     		slCurColor(0);
 			
-			// Setup NBG1
-			slBitMapNbg1(COL_TYPE_32768, (Uint16)TV::Reslotution, (void*)VDP2_VRAM_A1);
-
 			// Set back color
 			VDP2::SetBackColor(backColor);
 
 			// Set default screens to show
-			slScrTransparent(RBG0ON);
-			slScrAutoDisp(NBG0ON | NBG1ON | SPRON);
+			slScrAutoDisp(NBG0ON | SPRON);
 		}
 	};
 }

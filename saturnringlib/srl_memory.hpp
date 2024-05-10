@@ -3,8 +3,11 @@
 #include "srl_base.hpp"
 
 extern "C" {
+    extern char _bstart;
+    extern char _bend;
 	extern char _heap_start;
 	extern char _heap_end;
+    extern char _work_area_end;
 }
 
 namespace SRL
@@ -247,10 +250,21 @@ namespace SRL
 			return freeBlocks;
 		}
 
+        inline static void MemSet(void* destination, const Uint8 value, const size_t length)
+        {
+            for (size_t i = 0; i < length; i++)
+            {
+                *(((Uint8*)destination) + i) = value;
+            }
+        }
+
 		/** @brief Initialize memory
 		 */
 		inline static void Initialize()
 		{
+            Memory::MemSet(&_bstart, 0, reinterpret_cast<Uint32>(&_bend) - reinterpret_cast<Uint32>(&_bstart));
+            Memory::MemSet(&_heap_end, 0, reinterpret_cast<Uint32>(&_work_area_end) - reinterpret_cast<Uint32>(&_heap_end));
+
 			MemoryHeapSize = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
 			((Memory::Header*)Memory::MemoryHeap)->Size = MemoryHeapSize - sizeof(Memory::Header);
 			((Memory::Header*)Memory::MemoryHeap)->State = Memory::BlockState::Free;

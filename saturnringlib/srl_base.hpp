@@ -6,6 +6,7 @@ extern "C" {
 	#include <SGL.H>
 	#include <SEGA_GFS.H>
     #include <SEGA_BUP.H>
+    #include <SEGA_INT.H>
 	#include "stddef.h"
 }
 
