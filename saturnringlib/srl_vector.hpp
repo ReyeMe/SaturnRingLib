@@ -23,7 +23,7 @@ namespace SRL::Types
 		/** @brief Construct a new Vector3D object
 		 * @param vector Other vector
 		 */
-		constexpr Vector2D(const Vector2D& vector) : Vector2D(vector.X, vector.Y) { }
+		constexpr Vector2D(const Vector2D& vector) : X(vector.X), Y(vector.Y) { }
 		
 		/** @brief Constructor to create a new 2D vector out of double values
 		 * @param data Vector data (byte array of two Sint32 values)
