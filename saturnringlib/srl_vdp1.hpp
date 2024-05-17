@@ -18,30 +18,13 @@ namespace SRL
 
 	public:
 
-		/** @brief VDP1 front bugffer address
+		/** @brief VDP1 front buffer address
 		 */
 		inline static const Uint32 FrontBuffer = 0x25C80000;
 
 		/** @brief End location of the user area
 		 */
 		inline static const Uint32 UserAreaEnd = 0x25C7FEF8;
-
-		/** @brief Texture color mode
-		 */
-		enum class TextureColorMode : Uint16
-		{
-			/** @brief 16 color image
-			 */
-			Paletted16 = 3,
-
-			/** @brief 256 color image
-			 */
-			Paletted = 2,
-
-			/** @brief 32k color image
-			 */
-			RGB555 = 1
-		};
 
 		/** @brief VDP1 texture
 		 */
@@ -59,7 +42,7 @@ namespace SRL
 			 */
 			Uint16 Address;
 
-			/** @brief Size of the texture for hardwarre
+			/** @brief Size of the texture for hardware
 			 * @note Width is divided by 8
 			 */
 			Uint16 Size;
@@ -101,7 +84,7 @@ namespace SRL
 
 			/** @brief Texture color mode
 			 */
-			VDP1::TextureColorMode ColorMode; 
+			CRAM::TextureColorMode ColorMode; 
 
 			/** @brief Identifier of the palette (not used in RGB555)
 			 */
@@ -109,7 +92,7 @@ namespace SRL
 
 			/** @brief Construct a new Texture Metadata object
 			 */
-			TextureMetadata() : ColorMode(VDP1::TextureColorMode::RGB555), Texture(nullptr)
+			TextureMetadata() : ColorMode(CRAM::TextureColorMode::RGB555), Texture(nullptr)
 			{
 				// Do nothing
 			}
@@ -118,7 +101,7 @@ namespace SRL
 			 * @param colorMode Texture color mode
 			 * @param palette Id of the pallet (not used in RGB555 mode)
 			 */
-			TextureMetadata(VDP1::Texture* texture, VDP1::TextureColorMode colorMode, Uint32 palette) : ColorMode(colorMode), Texture(texture), PaletteId(palette)
+			TextureMetadata(VDP1::Texture* texture, CRAM::TextureColorMode colorMode, Uint32 palette) : ColorMode(colorMode), Texture(texture), PaletteId(palette)
 			{
 				// Do nothing
 			}
@@ -145,7 +128,7 @@ namespace SRL
 		 */
 		inline static TextureMetadata Metadata[SRL_MAX_TEXTURES] = { TextureMetadata() };
 
-		/** @brief Get free avaialbe memory left for textures on VDP1
+		/** @brief Get free available memory left for textures on VDP1
 		 * @return Number of bytes left 
 		 */
 		inline static size_t GetAvailableMemory()
@@ -175,7 +158,7 @@ namespace SRL
 		 * @param data Texture data
 		 * @return Index of the loaded texture
 		 */
-		inline static Sint32 TryLoadTexture(const Uint16 width, const Uint16 height, const VDP1::TextureColorMode colorMode, const Uint16 palette, void* data)
+		inline static Sint32 TryLoadTexture(const Uint16 width, const Uint16 height, const CRAM::TextureColorMode colorMode, const Uint16 palette, void* data)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
@@ -231,7 +214,7 @@ namespace SRL
 					}
 				}
 
-				return VDP1::TryLoadTexture(info.Width, info.Height, (VDP1::TextureColorMode)info.ColorMode, palette, bitmap->GetData());
+				return VDP1::TryLoadTexture(info.Width, info.Height, (CRAM::TextureColorMode)info.ColorMode, palette, bitmap->GetData());
 			}
 
 			// There is no free space left
