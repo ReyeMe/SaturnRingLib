@@ -109,7 +109,13 @@ TLSFDIR = $(MODDIR)/tlsf
 DUMMYIDIR = $(MODDIR)/dummy
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
-SYSSOURCES += $(TLSFDIR)/tlsf.c
+
+ifdef SRL_MALLOC_METHOD
+	ifeq ($(SRL_MALLOC_METHOD), TLSF)
+		SYSSOURCES += $(TLSFDIR)/tlsf.c
+		USE_TLSF_ALLOCATOR := TRUE
+	endif
+endif
 
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
