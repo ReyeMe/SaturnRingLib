@@ -4,6 +4,7 @@
             "name": "Saturn",
             "includePath": [
                 "${workspaceFolder}/../../saturnringlib",
+                "${workspaceFolder}/../../modules/dummy",
                 "${workspaceFolder}/../../modules/sgl/INC",
                 "${workspaceFolder}/../../modules/tlsf",
                 "${workspaceFolder}/../../modules/danny/**",

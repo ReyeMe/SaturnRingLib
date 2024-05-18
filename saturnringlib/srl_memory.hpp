@@ -401,7 +401,7 @@ namespace SRL
             /** @brief Memory zone
              */
             inline static Memory::MemoryZone const Zone = { (void*)LowWorkRam::Start, LowWorkRam::Size };
-
+          
         public:
 
             /** @brief Check whether pointer is in range of the memory zone
