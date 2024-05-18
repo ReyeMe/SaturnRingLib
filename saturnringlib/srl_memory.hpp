@@ -7,26 +7,296 @@ extern "C" {
     extern char _heap_end;
 }
 
-#include <tlsf.h>
+//#include <tlsf.h>
 #include <stdlib.h>
 
 namespace SRL
 {
     /** @brief Dynamic memory management
-     * @details This class wraps implementation of TLSF by Matthew Conte http://tlsf.baisoku.org
      */
     class Memory
     {
     private:
-        /** @brief Main system memory region size
-         * @note This is assigned on system initialization
+        /** @brief Memory zone definition
          */
-        inline static size_t mainWorkRamSize;
+        struct MemoryZone
+        {
+            /** @brief Memory zone start address
+             * @note Address must be 4 byte aligned
+             */
+            void* Address;
 
-        /** @brief Main system memory region start address
+            /** @brief Memory zone size in number of bytes
+             * @note Size must be 4 byte aligned, if unaligned size will be specified, it will get rounded down to nearest alignment
+             */
+            size_t Size;
+
+        };
+
+        /** @brief Check if pointer is inside this memory zone
+         * @param ptr Pointer to check
+         * @return true if is inside the memory zone
+         */
+        inline static constexpr bool InZone(const MemoryZone& zone, void* ptr)
+        {
+            return (ptr >= (void*)zone.Address && ptr <= (char*)zone.Address + zone.Size);
+        }
+
+        /** @brief Reye's simple malloc
+         */
+        class SimpleMalloc
+        {
+        private:
+
+            /** @brief State of the block
+             */
+            enum class BlockState : size_t
+            {
+                /** @brief Block is not used
+                 */
+                Free = 0,
+
+                /** @brief Block is in use
+                 */
+                Used = 1
+            };
+
+            /** @brief Block header
+             */
+            struct Header
+            {
+                /** @brief Block state (0=Free, 1=Allocated)
+                 */
+                BlockState State : 1;
+
+                /** @brief Block size (without header)
+                 */
+                size_t Size : 31;
+            };
+
+            /** @brief Get location of the next block in memory
+             * @param zone Memory zone settings
+             * @param currentBlock Current block location
+             * @return Location of the next block in memory
+             */
+            inline static constexpr size_t GetNextBlockLocation(const Memory::MemoryZone& zone, size_t currentBlock)
+            {
+                return currentBlock + sizeof(SimpleMalloc::Header) + ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[currentBlock])->Size;
+            }
+
+            /** @brief Merges all free memory blocks until allocated block
+             * @param zone Memory zone settings
+             * @param startBlock Starting free block
+             */
+            inline static void MergeFreeMemoryBlocks(const Memory::MemoryZone& zone, size_t startBlock)
+            {
+                size_t next = startBlock;
+
+                // Check if we are inside the array
+                if (startBlock < zone.Size)
+                {
+                    // Check if current block is free
+                    SimpleMalloc::Header* currentBlockHead = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[startBlock]);
+
+                    // Check if the block is free
+                    if (currentBlockHead->State == SimpleMalloc::BlockState::Free)
+                    {
+                        // Search memory for free blocks
+                        size_t location = SimpleMalloc::GetNextBlockLocation(zone, startBlock);
+                        size_t freeMem = 0;
+
+                        while (location < zone.Size)
+                        {
+                            // Gets header of the current block
+                            SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location]);
+
+                            // Check if the block is free
+                            if (header->State == SimpleMalloc::BlockState::Free)
+                            {
+                                freeMem += header->Size + sizeof(SimpleMalloc::Header);
+                            }
+                            else
+                            {
+                                break;
+                            }
+
+                            // Move to next block
+                            location = SimpleMalloc::GetNextBlockLocation(zone, location);
+                        }
+
+                        currentBlockHead->Size += freeMem;
+                    }
+                }
+            }
+            
+            /** @brief Try to mark block as allocated and split it if not allocated fully
+             * @param zone Memory zone settings
+             * @param location Block location
+             * @param size New block size
+             * @return True if block was successfully allocated
+             */
+            inline static bool SetBlockAllocation(const Memory::MemoryZone& zone, size_t location, size_t size)
+            {
+                // Gets block header
+                SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location]);
+
+                // Store size of new block
+                size_t newBlock = size;
+
+                // If next block size is smaller than four bytes
+                if (header->Size - newBlock <= (sizeof(SimpleMalloc::Header) << 1) &&
+                    header->Size >= newBlock)
+                {
+                    newBlock = header->Size;
+                }
+
+                // Can we fit in this block?
+                if (header->Size == newBlock)
+                {
+                    header->State = SimpleMalloc::BlockState::Used;
+                }
+                else if (header->Size > newBlock)
+                {
+                    // Save old block size for later use
+                    size_t oldBlockSize = header->Size;
+
+                    // Set as allocated
+                    header->State = SimpleMalloc::BlockState::Used;
+                    header->Size = newBlock;
+
+                    // Set next block as free, this splits current bolc into two
+                    // First part is allocated meory, second part is left over free memory
+                    if (oldBlockSize - newBlock > 0)
+                    {
+                        size_t nextBlock = SimpleMalloc::GetNextBlockLocation(zone, location);
+                        ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[nextBlock])->State = SimpleMalloc::BlockState::Free;
+                        ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[nextBlock])->Size = oldBlockSize - newBlock - sizeof(SimpleMalloc::Header);
+                    }
+
+                    return true;
+                }
+
+                return false;
+            }
+        public:
+
+            /** @brief Free memory
+             * @param zone Memory zone settings
+             * @param ptr Allocated memory
+             */
+            inline static void Free(const MemoryZone& zone, void* ptr)
+            {
+                // Validate pointer to not be null and be in zone
+                if (ptr != nullptr && Memory::InZone(zone, ptr))
+                {
+                    // Gets offset to memory array
+                    size_t location = reinterpret_cast<Uint32>(ptr) - reinterpret_cast<Uint32>(zone.Address);
+
+                    // Check of offset is valid, we do not need to check whether location is 0, since first 4 bytes are always header
+                    if (location > 0 && location < zone.Size && (location & 3) == 0)
+                    {
+                        // Flag area as free
+                        ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location - sizeof(SimpleMalloc::Header)])->State = SimpleMalloc::BlockState::Free;
+
+                        // Merge areas
+                        SimpleMalloc::MergeFreeMemoryBlocks(zone, location - sizeof(SimpleMalloc::Header));
+                    }
+                }
+            }
+            
+            /** @brief Allocate memory
+             * @param zone Memory zone settings
+             * @param size Number of bytes to allocate
+             * @return Pointer to allocated space
+             */
+            inline static void* Malloc(const MemoryZone& zone, size_t size)
+            {
+                // Align to 4
+                size_t length = size;
+                size_t align = length & 3;
+
+                if (align != 0)
+                {
+                    length += 4 - align;
+                }
+
+                // Find free space
+                size_t location = 0;
+                size_t newBlock = length & 0x7fffffff;
+
+                // We try until we reach end of available space
+                while (location < zone.Size)
+                {
+                    // Gets header of the current block
+                    SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location]);
+
+                    // Check if the block is free
+                    if (header->State == SimpleMalloc::BlockState::Free)
+                    {
+                        // Merge free areas to create one big free space from many small neighboring ones
+                        SimpleMalloc::MergeFreeMemoryBlocks(zone, location);
+
+                        // Can we fit in this block?
+                        if (SimpleMalloc::SetBlockAllocation(zone, location, newBlock))
+                        {
+                            // Return pointer to allocated block
+                            return (void*)&((Uint8*)zone.Address)[location + sizeof(SimpleMalloc::Header)];
+                        }
+                    }
+
+                    // Move to next block
+                    location = SimpleMalloc::GetNextBlockLocation(zone, location);
+                }
+
+                // We could not allocate anything
+                return nullptr;
+            }
+
+            /** @brief Reallocate memory (can either shrink, enlarge or move)
+             * @param zone Memory zone settings
+             * @param ptr Allocated memory to resize
+             * @param size New size of the allocated block
+             * @return void* Pointer to resized or moved block
+             */
+            inline static void* Realloc(const MemoryZone& zone, void* ptr, size_t size)
+            {
+                // Validate pointer to not be null and be in zone
+                if (ptr != nullptr && Memory::InZone(zone, ptr))
+                {
+                    // This one is located in the free() function as well, but I do not want to repeat its insides here again 
+                    size_t location = reinterpret_cast<size_t>(ptr) - reinterpret_cast<size_t>(zone.Address);
+                    size_t headerLocation = location - sizeof(SimpleMalloc::Header);
+
+                    // We free the block first, this will also join it will all free blocks right after it
+                    SimpleMalloc::Free(zone, ptr);
+
+                    // Now we check if we can fit inside the new created space
+                    if (SimpleMalloc::SetBlockAllocation(zone, headerLocation, size))
+                    {
+                        // We fit inside
+                        return (void*)&((Uint8*)zone.Address)[location];
+                    }
+                    else
+                    {
+                        // We do not fit, try to find space elsewhere
+                        void* newSpace = SimpleMalloc::Malloc(zone, size);
+
+                        // Copy data to the new location
+                        slDMACopy(ptr, newSpace, ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[headerLocation])->Size);
+
+                        // Return address to new thing
+                        return newSpace;
+                    }
+                }
+
+                return nullptr;
+            }
+        };
+        
+        /** @brief Main system memory zone
          * @note This is assigned on system initialization
          */
-        inline static tlsf_t mainWorkRam;
+        inline static MemoryZone mainWorkRam;
 
     public:
 
@@ -59,7 +329,7 @@ namespace SRL
              */
             inline static bool InRange(void* ptr)
             {
-                return (ptr >= (void*)&_heap_start && ptr <= (char*)&_heap_end);
+                return Memory::InZone(Memory::mainWorkRam, ptr);
             }
 
             /** @brief Free allocated memory
@@ -67,7 +337,7 @@ namespace SRL
              */
             inline static void Free(void* ptr)
             {
-                tlsf_free(Memory::mainWorkRam, ptr);
+                Memory::SimpleMalloc::Free(Memory::mainWorkRam, ptr);
             }
 
             /** @brief Allocate some memory
@@ -76,7 +346,7 @@ namespace SRL
              */
             inline static void* Malloc(size_t size)
             {
-                return tlsf_malloc(Memory::mainWorkRam, size);
+                return Memory::SimpleMalloc::Malloc(Memory::mainWorkRam, size);
             }
 
             /** @brief Reallocate existing memory
@@ -86,7 +356,7 @@ namespace SRL
              */
             inline static void* Realloc(void* ptr, size_t size)
             {
-                return tlsf_realloc(Memory::mainWorkRam, ptr, size);
+                return Memory::SimpleMalloc::Realloc(Memory::mainWorkRam, ptr, size);
             }
             
             /** @brief Gets total size of the used space in the memory zone
@@ -110,7 +380,7 @@ namespace SRL
              */
             inline static size_t GetSize()
             {
-                return Memory::mainWorkRamSize;
+                return Memory::mainWorkRam.Size;
             }
         };
 
@@ -130,8 +400,8 @@ namespace SRL
 
             /** @brief Memory zone
              */
-            inline static tlsf_t const zone = tlsf_create_with_pool((void*)LowWorkRam::Start, LowWorkRam::Size);
-
+            inline static Memory::MemoryZone const Zone = { (void*)LowWorkRam::Start, LowWorkRam::Size };
+          
         public:
 
             /** @brief Check whether pointer is in range of the memory zone
@@ -140,7 +410,7 @@ namespace SRL
              */
             inline static bool InRange(void* ptr)
             {
-                return (ptr >= (void*)LowWorkRam::Start && ptr <= (char*)LowWorkRam::Start + LowWorkRam::Size);
+                return Memory::InZone(LowWorkRam::Zone, ptr);
             }
 
             /** @brief Free allocated memory
@@ -148,7 +418,7 @@ namespace SRL
              */
             inline static void Free(void* ptr)
             {
-                tlsf_free(LowWorkRam::zone, ptr);
+                Memory::SimpleMalloc::Free(LowWorkRam::Zone, ptr);
             }
 
             /** @brief Allocate some memory
@@ -157,7 +427,7 @@ namespace SRL
              */
             inline static void* Malloc(size_t size)
             {
-                return tlsf_malloc(LowWorkRam::zone, size);
+                return Memory::SimpleMalloc::Malloc(LowWorkRam::Zone, size);
             }
 
             /** @brief Reallocate existing memory
@@ -167,7 +437,7 @@ namespace SRL
              */
             inline static void* Realloc(void* ptr, size_t size)
             {
-                return tlsf_realloc(LowWorkRam::zone, ptr, size);
+                return Memory::SimpleMalloc::Realloc(LowWorkRam::Zone, ptr, size);
             }
             
             /** @brief Gets total size of the used space in the memory zone
@@ -266,8 +536,10 @@ namespace SRL
          */
         inline static void Initialize()
         {
-            Memory::mainWorkRamSize = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
-            Memory::mainWorkRam = tlsf_create_with_pool((void*)&_heap_start, Memory::mainWorkRamSize);
+            Memory::mainWorkRam = {
+                (void*)&_heap_start,
+                reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start)
+            };
 
             // TODO: Initialize Cart RAM here
         }
