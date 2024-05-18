@@ -8,6 +8,7 @@
 !/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/resources
 
 /[Mm]odules/[Ss][Gg][Ll]/[Ss][Rr][Cc]/*.o
+/[Mm]odules/[Tt][Ll][Ss][Ff]/*.o
 
 /[Ss]amples/**/*.o
 /[Ss]amples/**/[Bb]uild[Dd]rop/**

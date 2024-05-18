@@ -105,12 +105,23 @@ BUILD_BIN = $(BUILD_ELF:.elf=.bin)
 BUILD_CUE = $(BUILD_ELF:.elf=.cue)
 BUILD_MAP = $(BUILD_ELF:.elf=.map)
 
+TLSFDIR = $(MODDIR)/tlsf
+DUMMYIDIR = $(MODDIR)/dummy
+
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
+
+ifdef SRL_MALLOC_METHOD
+	ifeq ($(SRL_MALLOC_METHOD), TLSF)
+		SYSSOURCES += $(TLSFDIR)/tlsf.c
+		USE_TLSF_ALLOCATOR := TRUE
+	endif
+endif
+
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
 LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/LIBSND.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
-CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT)
+CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
 # Compilation tasks

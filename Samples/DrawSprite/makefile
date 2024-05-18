@@ -6,6 +6,7 @@ SRL_FRAMERATE = 1				# Framerate control (0=dynamic, 1=< 60/value)
 SRL_MAX_CD_BACKGROUND_JOBS = 1	# Maximum number of files GFS can open at once
 SRL_MAX_CD_FILES = 255			# Maximum number of files on a CD
 SRL_MAX_CD_RETRIES = 5			# Number of times to retry on unsuccessful read
+SRL_MALLOC_METHOD = TLSF		# Allocation method: TLSF or SIMPLE are supported.
 
 # SGL specific configuration
 SRL_CUSTOM_SGL_WORK_AREA = 0	# Set to 1 if you are using your own SGL work area
