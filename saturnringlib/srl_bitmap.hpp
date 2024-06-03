@@ -1,13 +1,13 @@
 #pragma once
 
 #include "srl_memory.hpp"
-#include "srl_color.hpp"
+#include "srl_cram.hpp"
 
 /** @brief Bitmap loading
  */
 namespace SRL::Bitmap
 {
-	/** @brief Color palette
+	/** @brief Color palette loaded from bitmap
 	 */
 	struct Palette
 	{
@@ -48,23 +48,6 @@ namespace SRL::Bitmap
 	 */
 	struct BitmapInfo
 	{
-		/** @brief Texture color mode
-		 */
-		enum class TextureColorMode : Uint16
-		{
-			/** @brief 16 color image
-			 */
-			Paletted16 = 3,
-
-			/** @brief 256 color image
-			 */
-			Paletted = 2,
-
-			/** @brief 32k color image
-			 */
-			RGB555 = 1
-		};
-
 		/** @brief Used palette (not in use for RGB555 images)
 		 */
 		Bitmap::Palette* Palette;
@@ -79,13 +62,13 @@ namespace SRL::Bitmap
 
 		/** @brief Image color mode
 		 */
-		BitmapInfo::TextureColorMode ColorMode;
+		CRAM::TextureColorMode ColorMode;
 
 		/** @brief Construct a new Bitmap info
 		 * @param width Image width
 		 * @param height Image height
 		 */
-		BitmapInfo(Uint16 width, Uint16 height) : Width(width), Height(height), ColorMode(BitmapInfo::TextureColorMode::RGB555), Palette(nullptr)
+		BitmapInfo(Uint16 width, Uint16 height) : Width(width), Height(height), ColorMode(CRAM::TextureColorMode::RGB555), Palette(nullptr)
 		{
 			// Do nothing
 		}
@@ -95,9 +78,31 @@ namespace SRL::Bitmap
 		 * @param height Image height
 		 * @param palette Color palette
 		 */
-		BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), ColorMode(palette->Count <= 16 ? TextureColorMode::Paletted16 : TextureColorMode::Paletted), Palette(palette)
+		BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), Palette(palette)
 		{
-			// Do nothing
+            if (palette != nullptr)
+            {
+                if (palette->Count <= 16)
+                {
+                    this->ColorMode = CRAM::TextureColorMode::Paletted16;
+                }
+                else if (palette->Count <= 16)
+                {
+                    this->ColorMode = CRAM::TextureColorMode::Paletted64;
+                }
+                else if (palette->Count <= 16)
+                {
+                    this->ColorMode = CRAM::TextureColorMode::Paletted128;
+                }
+                else
+                {
+                    this->ColorMode = CRAM::TextureColorMode::Paletted256;
+                }
+            }
+            else
+            {
+                this->ColorMode = CRAM::TextureColorMode::RGB555;
+            }
 		}
 	};
 

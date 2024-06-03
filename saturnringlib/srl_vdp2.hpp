@@ -1,7 +1,7 @@
 #pragma once
 
 #include "srl_tv.hpp"
-#include "srl_color.hpp"
+#include "srl_cram.hpp"
 
 namespace SRL
 {
@@ -26,7 +26,7 @@ namespace SRL
 		 */
 		inline static  void SetPrintPaletteColor(const Uint16 index, const Types::HighColor& color)
 		{
-			*(((Types::HighColor*)VDP2_COLRAM) + (1 + (index << 8))) = (Uint16)color;
+			*(((Types::HighColor*)CRAM::BaseAddress) + (1 + (index << 8))) = (Uint16)color;
 		}
 
 		/** @brief Initialize VDP2

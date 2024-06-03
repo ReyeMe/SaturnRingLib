@@ -9,7 +9,7 @@ namespace SRL::Types
      */
     struct HighColor
     {
-        /** @brief Indicates whether color is pague or not
+        /** @brief Indicates whether color is opaque or not
          */
         Uint16 Opaque : 1;
 
@@ -180,7 +180,7 @@ namespace SRL::Types
      */
     struct TrueColor
     {
-        /** @brief Indicates whether color is pague or not
+        /** @brief Indicates whether color is opaque or not
          */
         Uint8 Opaque : 1;
 
