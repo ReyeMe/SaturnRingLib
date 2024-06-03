@@ -111,7 +111,7 @@ namespace SRL
 
     public:
 
-        /** @brief Sets a value in bank indicating whether said color bank is being used or not
+        /** @brief Gets a value indicating whether said color bank is being used or not
          * @param bank Color bank index
          * @param size Color bank size
          * @return true if bank is being used
