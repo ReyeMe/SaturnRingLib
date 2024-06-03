@@ -84,22 +84,22 @@ namespace SRL
 
             switch (SRL::VDP1::Metadata[texture].ColorMode)
             {
-            case SRL::VDP1::TextureColorMode::Paletted256:
+            case SRL::CRAM::TextureColorMode::Paletted256:
                 colorMode = CL256Bnk;
                 palette = SRL::VDP1::Metadata[texture].PaletteId << 8;
                 break;
             
-            case SRL::VDP1::TextureColorMode::Paletted128:
+            case SRL::CRAM::TextureColorMode::Paletted128:
                 colorMode = CL128Bnk;
                 palette = SRL::VDP1::Metadata[texture].PaletteId << 7;
                 break;
             
-            case SRL::VDP1::TextureColorMode::Paletted64:
+            case SRL::CRAM::TextureColorMode::Paletted64:
                 colorMode = CL64Bnk;
                 palette = SRL::VDP1::Metadata[texture].PaletteId << 6;
                 break;
             
-            case SRL::VDP1::TextureColorMode::Paletted16:
+            case SRL::CRAM::TextureColorMode::Paletted16:
                 colorMode = CL16Bnk;
                 palette = SRL::VDP1::Metadata[texture].PaletteId << 4;
                 break;

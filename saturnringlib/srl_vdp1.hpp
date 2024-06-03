@@ -177,8 +177,26 @@ namespace SRL
 				VDP1::TextureMetadata metadata = VDP1::TextureMetadata(&VDP1::Textures[VDP1::HeapPointer], colorMode, palette);
 				VDP1::Metadata[VDP1::HeapPointer] = metadata;
 
+                Uint16 pixelSizeDivider = 0;
+
+                switch (colorMode)
+                {
+                case CRAM::TextureColorMode::Paletted256:
+                case CRAM::TextureColorMode::Paletted128:
+                case CRAM::TextureColorMode::Paletted64:
+                    pixelSizeDivider = 1;
+                    break;
+                
+                case CRAM::TextureColorMode::Paletted16:
+                    pixelSizeDivider = 2;
+                    break;
+
+                default:
+                    break;
+                }
+
 				// Copy data over to the VDP1
-				slDMACopy(data, metadata.GetData(), (Uint32)(((width * height) << 2) >> (Uint32)colorMode));
+				slDMACopy(data, metadata.GetData(), (Uint32)(((width * height) << 1) >> pixelSizeDivider));
 
 				// Increase heap pointer
 				return VDP1::HeapPointer++;
@@ -193,11 +211,11 @@ namespace SRL
 		 * @param paletteHandler Palette loader handling (expects index of the palette in CRAM as result, only needed for loading paletted image)
 		 * @return Index of the loaded texture
 		 */
-		inline static Sint32 TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, Uint16 (*paletteHandler)(SRL::Bitmap::Palette*) = nullptr)
+		inline static Sint32 TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, Sint16 (*paletteHandler)(SRL::Bitmap::BitmapInfo*) = nullptr)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
-				Uint16 palette = 0;
+				Sint16 palette = 0;
 				SRL::Bitmap::BitmapInfo info = bitmap->GetInfo();
 				Uint32 address = CGADDRESS;
 
@@ -205,7 +223,12 @@ namespace SRL
 				{
 					if (paletteHandler != nullptr)
 					{
-						palette = paletteHandler(info.Palette);
+						palette = paletteHandler(&info);
+
+                        if (palette == -1)
+                        {
+                            return -1;
+                        }
 					}
 					else
 					{
