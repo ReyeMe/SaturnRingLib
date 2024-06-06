@@ -46,7 +46,8 @@ void MyFunc()
 
 **Compliant:**
 ```cpp
-void MyFunc() {
+void MyFunc()
+{
     int i;
 
     i = Compute();

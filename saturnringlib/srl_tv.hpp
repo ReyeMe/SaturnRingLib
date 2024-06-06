@@ -12,7 +12,7 @@ namespace SRL
 			
 		/** @brief Available TV resolutions
 		 */
-		enum class Reslotutions
+		enum class Resolutions
 		{
 			Normal320x224 = 0,
 			Normal320x240 = 1,
@@ -44,7 +44,7 @@ namespace SRL
 
 		/** @brief Screen resolution mode
 		 */
-		inline static const TV::Reslotutions Reslotution = TV::Reslotutions::Normal320x256;
+		inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x256;
 #elif SRL_MODE_NTSC
 	#ifdef SRL_HIGH_RES
 		/** @brief Screen width
@@ -57,7 +57,7 @@ namespace SRL
 
 		/** @brief Screen resolution mode
 		 */
-		inline static const TV::Reslotutions Reslotution = TV::Reslotutions::Interlaced704x480;
+		inline static const TV::Resolutions Resolution = TV::Resolutions::Interlaced704x480;
 	#else
 		/** @brief Screen width
 		 */
@@ -69,7 +69,7 @@ namespace SRL
 
 		/** @brief Screen resolution mode
 		 */
-		inline static const TV::Reslotutions Reslotution = TV::Reslotutions::Normal320x240;
+		inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x240;
 	#endif
 #elif DOXYGEN
 		/** @brief Screen width
@@ -85,7 +85,7 @@ namespace SRL
 		/** @brief Screen resolution mode
 		 * @note Differs based on makefile setting SRL_MODE = (PAL | NTSC) and whether SRL_HIGH_RES is set
 		 */
-		inline static const TV::Reslotutions Reslotution;
+		inline static const TV::Resolutions Resolution;
 #endif
 
 	};

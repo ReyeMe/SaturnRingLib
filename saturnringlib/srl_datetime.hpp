@@ -66,14 +66,14 @@ namespace SRL::Types
          */
         static constexpr bool IsLeapYear(Uint16 year)
         {
-			return ((((year % 4) == 0) && ((year % 100) != 0)) || ((year % 400) == 0));
+            return ((((year % 4) == 0) && ((year % 100) != 0)) || ((year % 400) == 0));
         }
 
         /** @brief Construct a new time object
          */
         DateTime() : year(DateTime::BaseYear), month(1), week(0), day(1), hour(0), minute(0), second(0) { }
 
-        /** @brief Gets number of seconds ellapsed since start of the year
+        /** @brief Gets number of seconds elapsed since start of the year
          * @return Uint32 
          */
         static Uint32 GetSecondsThisYear(const DateTime& date)
@@ -232,66 +232,66 @@ namespace SRL::Types
          * @param date The date
          * @return true if comes after current date
          */
-		constexpr bool operator>(const DateTime& date) const
-		{
-			return this->year > date.year ||
+        constexpr bool operator>(const DateTime& date) const
+        {
+            return this->year > date.year ||
                 (this->year == date.year && DateTime::GetSecondsThisYear(*this) > DateTime::GetSecondsThisYear(date));
-		}
+        }
 
         /** @brief Check if current date comes after or is same as another date
          * @param date The date
          * @return true if comes after or is same as current date
          */
-		constexpr bool operator>=(const DateTime& date) const
-		{
-			return this->year > date.year ||
+        constexpr bool operator>=(const DateTime& date) const
+        {
+            return this->year > date.year ||
                 (this->year == date.year && DateTime::GetSecondsThisYear(*this) >= DateTime::GetSecondsThisYear(date));
-		}
+        }
 
         /** @brief Check if current date comes before another date
          * @param date The date
          * @return true if comes before current date
          */
-		constexpr bool operator<(const DateTime& date) const
-		{
-			return this->year < date.year ||
+        constexpr bool operator<(const DateTime& date) const
+        {
+            return this->year < date.year ||
                 (this->year == date.year && DateTime::GetSecondsThisYear(*this) < DateTime::GetSecondsThisYear(date));
-		}
+        }
 
         /** @brief Check if current date comes before or is same as another date
          * @param date The date
          * @return true if comes before or is same as current date
          */
-		constexpr bool operator<=(const DateTime& date) const
-		{
-			return this->year < date.year ||
+        constexpr bool operator<=(const DateTime& date) const
+        {
+            return this->year < date.year ||
                 (this->year == date.year && DateTime::GetSecondsThisYear(*this) <= DateTime::GetSecondsThisYear(date));
-		}
+        }
 
         /** @brief Check if current date is same as another date
          * @param date The date
          * @return true if current date is same as another date
          */
-		constexpr bool operator==(const DateTime& date) const
-		{
-			return this->year == date.year &&
+        constexpr bool operator==(const DateTime& date) const
+        {
+            return this->year == date.year &&
                 this->month == date.month &&
                 this->week == date.week &&
                 this->day == date.day &&
                 this->hour == date.hour &&
                 this->minute == date.minute &&
                 this->second == date.second;
-		}
+        }
 
         /** @brief Check if current date is not the same as another date
          * @param date The date
          * @return true if current date is not the same as another date
          */
-		constexpr bool operator!=(const DateTime& date) const
-		{
-			return this->year != date.year ||
+        constexpr bool operator!=(const DateTime& date) const
+        {
+            return this->year != date.year ||
                 (this->year == date.year && DateTime::GetSecondsThisYear(*this) != DateTime::GetSecondsThisYear(date));
-		}
+        }
 
         /** @}
          */

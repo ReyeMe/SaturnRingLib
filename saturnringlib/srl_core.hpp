@@ -15,71 +15,71 @@
 
 namespace SRL
 {
-	/** @brief Core functions of the library
-	 */
-	class Core
-	{
-	public:
-		/** @brief Event triggered every v-blank
-		 */
-		inline static SRL::Types::Event<> OnVblank;
+    /** @brief Core functions of the library
+     */
+    class Core
+    {
+    public:
+        /** @brief Event triggered every v-blank
+         */
+        inline static SRL::Types::Event<> OnVblank;
 
-	private:
-		
-		/** @brief Haandle V-Blank events
-		 */
-		inline static void VblankHandling()
-		{
+    private:
+        
+        /** @brief Handle V-Blank events
+         */
+        inline static void VblankHandling()
+        {
             slGetStatus();
-			SRL::Input::IPeripheral::RefreshPeripherals();
-			Core::OnVblank.Invoke();
-		}
+            SRL::Input::IPeripheral::RefreshPeripherals();
+            Core::OnVblank.Invoke();
+        }
 
-	public:
+    public:
 
-		/** @brief Initialize basic environment
-		 * @param backColor Color of the screen
-		 */
-		inline static void Initialize(const Types::HighColor& backColor)
-		{
-			SRL::Memory::Initialize();
+        /** @brief Initialize basic environment
+         * @param backColor Color of the screen
+         */
+        inline static void Initialize(const Types::HighColor& backColor)
+        {
+            SRL::Memory::Initialize();
 
 #if SRL_FRAMERATE > 0
-			slInitSystem((Uint16)SRL::TV::Reslotution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
+            slInitSystem((Uint16)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
 #else
-			slInitSystem((Uint16)SRL::TV::Reslotution, SRL::VDP1::Textures->SglPtr(), 1);
-			slDynamicFrame(1);
+            slInitSystem((Uint16)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), 1);
+            slDynamicFrame(1);
 #endif
-			// Initialize CD drive
-			SRL:Cd::Initialize();
+            // Initialize CD drive
+            SRL:Cd::Initialize();
 
-			// Initialize callbacks
-			slIntFunction(Core::VblankHandling);
+            // Initialize callbacks
+            slIntFunction(Core::VblankHandling);
 
-			// Start initializing stuff
-			slTVOff();
+            // Start initializing stuff
+            slTVOff();
 
-			// Initialize VDP2
-			VDP2::Initialize(backColor);
+            // Initialize VDP2
+            VDP2::Initialize(backColor);
 
-			// Set cull depth
-			slZdspLevel(3);
+            // Set cull depth
+            slZdspLevel(3);
 
             // Load sound driver
 #if SRL_USE_SGL_SOUND_DRIVER == 1
             SRL::Sound::Hardware::Initialize();
 #endif
 
-			// All was initialized
-			slTVOn();
-		}
+            // All was initialized
+            slTVOn();
+        }
 
-		/** @brief Wait until graphic processing time is reached
-		 *  @note Graphic processing time is set by 'SRL_FRAMERATE' in makefile
-		 */
-		inline static void Synchronize()
-		{
-			slSynch();
-		}
-	};
+        /** @brief Wait until graphic processing time is reached
+         *  @note Graphic processing time is set by 'SRL_FRAMERATE' in makefile
+         */
+        inline static void Synchronize()
+        {
+            slSynch();
+        }
+    };
 };
