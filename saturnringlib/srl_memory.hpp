@@ -3,11 +3,8 @@
 #include "srl_base.hpp"
 
 extern "C" {
-    extern char _bstart;
-    extern char _bend;
     extern char _heap_start;
     extern char _heap_end;
-    extern char _work_area_end;
 }
 
 #include <tlsf.h>
@@ -581,8 +578,8 @@ namespace SRL
          */
         inline static void Initialize()
         {
-            Memory::MemSet(&_bstart, 0, reinterpret_cast<Uint32>(&_bend) - reinterpret_cast<Uint32>(&_bstart));
-            Memory::MemSet(&_heap_end, 0, reinterpret_cast<Uint32>(&_work_area_end) - reinterpret_cast<Uint32>(&_heap_end));
+            // Memeset SGL workarea until the DMA transfer list location, if we go over it, it will corrupt the DMA transfer list
+            Memory::MemSet(&_heap_end, 0, reinterpret_cast<Uint32>(TransList) - reinterpret_cast<Uint32>(&_heap_end));
 
             #if defined(USE_TLSF_ALLOCATOR)
             Memory::mainWorkRam.Size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
