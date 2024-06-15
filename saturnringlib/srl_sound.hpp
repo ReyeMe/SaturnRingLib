@@ -4,7 +4,7 @@
 #include "srl_cd.hpp"
 
 extern "C" { 
-    #include <SEGA_SND.H>
+    #include <sega_snd.h>
 }
 
 /** @brief Sound handling

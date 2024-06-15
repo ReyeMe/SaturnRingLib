@@ -3,10 +3,10 @@
 /** @brief Main SGL namespace
  */
 extern "C" {
-    #include <SGL.H>
-    #include <SEGA_GFS.H>
-    #include <SEGA_BUP.H>
-    #include <SEGA_INT.H>
+    #include <sgl.h>
+    #include <sega_gfs.H>
+    #include <sega_bup.H>
+    #include <sega_int.H>
     #include "stddef.h"
 }
 

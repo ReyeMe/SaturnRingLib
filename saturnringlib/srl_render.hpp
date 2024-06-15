@@ -72,36 +72,50 @@ namespace SRL
 
         /** @brief Draw simple sprite
          * @param texture Sprite texture
+         * @param texturePalette Sprite texture color palette override
          * @param location Location of the sprite (Z coordinate is used for sorting)
          * @param angle Sprite rotation angle
          * @param scale Scale of the sprite
          * @return True on success
          */
-        static bool DrawSprite(const Uint16 texture, const Types::Vector3D& location, const Types::Angle& angle = Types::Angle::FromRaw(0), const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
+        static bool DrawSprite(
+            const Uint16 texture,
+            SRL::CRAM::Palette* texturePalette,
+            const Types::Vector3D& location,
+            const Types::Angle& angle = Types::Angle::FromRaw(0),
+            const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
         {
             Uint8 colorMode = CL32KRGB;
             Uint16 palette = No_Palet;
+            CRAM::TextureColorMode colorModeType = SRL::VDP1::Metadata[texture].ColorMode;
+            Uint16 paletteId = SRL::VDP1::Metadata[texture].PaletteId;
 
-            switch (SRL::VDP1::Metadata[texture].ColorMode)
+            if (texturePalette != nullptr)
+            {
+                colorModeType = texturePalette->GetMode();
+                paletteId = texturePalette->GetId();
+            }
+
+            switch (colorModeType)
             {
             case SRL::CRAM::TextureColorMode::Paletted256:
                 colorMode = CL256Bnk;
-                palette = SRL::VDP1::Metadata[texture].PaletteId << 8;
+                palette = paletteId << 8;
                 break;
             
             case SRL::CRAM::TextureColorMode::Paletted128:
                 colorMode = CL128Bnk;
-                palette = SRL::VDP1::Metadata[texture].PaletteId << 7;
+                palette = paletteId << 7;
                 break;
             
             case SRL::CRAM::TextureColorMode::Paletted64:
                 colorMode = CL64Bnk;
-                palette = SRL::VDP1::Metadata[texture].PaletteId << 6;
+                palette = paletteId << 6;
                 break;
             
             case SRL::CRAM::TextureColorMode::Paletted16:
                 colorMode = CL16Bnk;
-                palette = SRL::VDP1::Metadata[texture].PaletteId << 4;
+                palette = paletteId << 4;
                 break;
 
             default:
@@ -134,6 +148,18 @@ namespace SRL
             {
                 return slDispSprite(sgl_pos, &attr, angle.Value()) != 0;
             }
+        }
+
+        /** @brief Draw simple sprite
+         * @param texture Sprite texture
+         * @param location Location of the sprite (Z coordinate is used for sorting)
+         * @param angle Sprite rotation angle
+         * @param scale Scale of the sprite
+         * @return True on success
+         */
+        static bool DrawSprite(const Uint16 texture, const Types::Vector3D& location, const Types::Angle& angle = Types::Angle::FromRaw(0), const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
+        {
+            return Render::DrawSprite(texture, nullptr, location, angle, scale);
         }
         
         /** @brief Draws a Line

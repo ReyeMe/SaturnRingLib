@@ -1,4 +1,21 @@
-# SGL 3.0.2j
+# SGL
+
+SGL version: 3.0.2j
+
+> :warning: **Be very careful with these two:**
+#### Linker script
+The **sgl.linker** is really finicky, do NOT touch it unless you really know what you are doing.<br>
+The linker script was modified to be used with SGL-SRL combo, it might not behave correctly in other scenarios. Each change within it must be verified on real HW on as many code samples as possible.<br>
+
+**If linker script is configured wrong, symptoms might include:**
+1) Code crashes before even starting initialization or at any random moment, caused by stuff getting placed on top of each other (rearranging code sometimes makes it work)
+2) Code runs in emulator, but not on HW (this is most likely byte alignment issue)
+3) Code runs but stuff is getting corrupted (rearranging can lead to widely different issues, from crashing to corruptions)
+
+#### WorkArea
+**workarea.c** was modified for use in SGL-SRL combo and will not work outside of the environment without extensive modification. It also requires linker script to be setup correctly to prevent miss-alignment and collisions.
+
+# Changelog 3.0.0 -> 3.0.2j
 
 ## Additional SGL Functions and New Features
 SGL 3.00 adds new features to the current SGL. This document describes the updated SGL function specifications.

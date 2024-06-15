@@ -27,7 +27,7 @@ namespace SRL
              */
             Paletted128 = 5,
 
-            /** @brief 128 color image
+            /** @brief 64 color image
              */
             Paletted64 = 4,
 
@@ -59,6 +59,10 @@ namespace SRL
             Uint16 id;
 
         public:
+
+            /** @brief Construct a new empty palette
+             */
+            Palette() : paletteMode(CRAM::TextureColorMode::RGB555), id(0) { }
 
             /** @brief Construct a new Palette entry
              * @param data Color data pointer
@@ -99,6 +103,35 @@ namespace SRL
             SRL::Types::HighColor* GetData()
             {
                 return this->data;
+            }
+
+            /** @brief Load color data to palette
+             * @param data Color data
+             * @param count Number of color to load (-1 means full palette)
+             * @return Number of colors that have been loaded, -1 on error
+             */
+            Sint16 Load(Types::HighColor* data, const Sint16 count = -1)
+            {
+                Sint16 colorCount = count;
+
+                // Not valid in RGB555 color mode configuration
+                if (this->paletteMode != CRAM::TextureColorMode::RGB555)
+                {
+                    if (count < 0)
+                    {
+                        colorCount = (16 << (((Uint16)this->paletteMode) - 2));
+                    }
+
+                    // Copy colors to CRAM
+                    slDMACopy(
+                        data,
+                        this->GetData(),
+                        colorCount * sizeof(Types::HighColor));
+
+                    return colorCount;
+                }
+
+                return -1;
             }
         };
 
