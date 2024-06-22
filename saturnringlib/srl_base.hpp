@@ -4,9 +4,9 @@
  */
 extern "C" {
     #include <sgl.h>
-    #include <sega_gfs.H>
-    #include <sega_bup.H>
-    #include <sega_int.H>
+    #include <sega_gfs.h>
+    #include <sega_bup.h>
+    #include <sega_int.h>
     #include "stddef.h"
 }
 
