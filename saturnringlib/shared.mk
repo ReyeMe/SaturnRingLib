@@ -147,7 +147,7 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	mkdir -p $(MUSIC_DIR)
 	mkdir -p $(ASSETS_DIR)
 	mkdir -p $(BUILD_DROP)
-	$(LD) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
+	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
 
 convert_binary : compile_objects
 	$(OBJCOPY) -O binary $(BUILD_ELF) ./cd/data/0.bin
