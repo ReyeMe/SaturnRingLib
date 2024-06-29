@@ -14,6 +14,20 @@ SGLIDIR = $(SGLDIR)/INC
 COBJECTS = $(SOURCES:.c=.o)
 OBJECTS = $(COBJECTS:.cxx=.o)
 
+ifdef OS
+   CC = sh2eb-elf-gcc.exe
+   CXX = sh2eb-elf-g++.exe
+   LD = sh2eb-elf-gcc.exe
+   OBJCOPY = sh2eb-elf-objcopy.exe
+else
+	ifneq ($(strip $(YAUL_INSTALL_ROOT)),)
+		CC = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-gcc
+		CXX = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-g++
+		LD = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-gcc
+		OBJCOPY = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-objcopy
+  endif
+endif
+
 # Handle defaults for user settings
 ifeq ($(strip ${SRL_MAX_CD_BACKGROUND_JOBS}),)
 	SRL_MAX_CD_BACKGROUND_JOBS=1
@@ -35,8 +49,6 @@ ifeq ($(strip ${SRL_FRAMERATE}),)
 	CCFLAGS += -DSRL_FRAMERATE=1
 endif
 
-
-
 ifeq ($(strip ${SRL_MAX_TEXTURES}),)
 	SRL_MAX_TEXTURES=100
 endif
@@ -47,7 +59,7 @@ endif
 
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
 	CCFLAGS += -DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
-	
+
 	ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}),1)
 		CCFLAGS += -DSRL_ENABLE_FREQ_ANALYSIS=1
 	endif
@@ -125,20 +137,20 @@ CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(DUMMYIDI
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
 # Compilation tasks
-%.o : %.c 
-	sh2eb-elf-gcc.exe $< $(CCFLAGS) -std=c2x -o $@
+%.o : %.c
+	$(CC) $< $(CCFLAGS) -std=c2x -o $@
 
-%.o : %.cxx 
-	sh2eb-elf-g++.exe $< $(CCFLAGS) -std=c++23 -fpermissive -fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -o $@
+%.o : %.cxx
+	$(CXX) $< $(CCFLAGS) -std=c++23 -fpermissive -fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -o $@
 
 compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	mkdir -p $(MUSIC_DIR)
 	mkdir -p $(ASSETS_DIR)
 	mkdir -p $(BUILD_DROP)
-	sh2eb-elf-gcc.exe $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
-	
+	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
+
 convert_binary : compile_objects
-	sh2eb-elf-objcopy.exe -O binary $(BUILD_ELF) ./cd/data/0.bin
+	$(OBJCOPY) -O binary $(BUILD_ELF) ./cd/data/0.bin
 
 create_iso : convert_binary
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
@@ -250,5 +262,5 @@ endif
 	rm -rf $(BUILD_DROP)/
 
 build : build_bin_cue
-	
+
 all: clean build
