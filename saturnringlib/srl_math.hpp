@@ -2,6 +2,7 @@
 
 #include "srl_base.hpp"
 #include "srl_fxp.hpp"
+#include "srl_angle.hpp"
 #include "srl_datetime.hpp"
 
 namespace SRL
@@ -11,6 +12,24 @@ namespace SRL
 	class Math
 	{
 	public:
+
+        /** @brief Sinus operation
+         * @param angle Angle value 
+         * @return Sinus value
+         */
+        const static Types::Fxp Sin(Types::Angle angle)
+        {
+            return Types::Fxp::FromRaw(slSin(angle.Value()));
+        }
+
+        /** @brief Cosine operation
+         * @param angle Angle value 
+         * @return Cosine value
+         */
+        const static Types::Fxp Cos(Types::Angle angle)
+        {
+            return Types::Fxp::FromRaw(slCos(angle.Value()));
+        }
 
 		/// @brief Get absolute value
 		/// @tparam ValueType Type of the value

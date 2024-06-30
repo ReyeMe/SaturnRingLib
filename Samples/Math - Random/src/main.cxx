@@ -46,14 +46,14 @@ int main()
         // Draw graph
         for (int i = 0; i < 319; i++)
         {
-            SRL::Render::DrawLine(
+            SRL::Scene2D::DrawLine(
                 Vector2D(Fxp::FromInt(i- 160), Fxp::FromInt(data[i])),
                 Vector2D(Fxp::FromInt(i + 1 - 160), Fxp::FromInt(data[i + 1])),
                 HighColor::Colors::White,
                 500.0);
         }
         
-        SRL::Render::DrawLine(
+        SRL::Scene2D::DrawLine(
             Vector2D(Fxp::FromInt(pointer - 160), Fxp::FromInt(50)),
             Vector2D(Fxp::FromInt(pointer - 160), Fxp::FromInt(-50)),
             HighColor::Colors::Red,

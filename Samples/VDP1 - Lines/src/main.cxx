@@ -80,6 +80,8 @@ int main()
         }
     };
 
+    SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::ScreenDoors, true);
+
     // Main program loop
 	while(1)
 	{
@@ -100,14 +102,14 @@ int main()
                     HighColor color = HighColor(channel, channel, channel);
 
                     // Draw main line
-                    SRL::Render::DrawLine(
+                    SRL::Scene2D::DrawLine(
                         uniqueSegments[line].StartTrail[trail],
                         uniqueSegments[line].EndTrail[trail],
                         color,
                         500.0);
                     
                     // Draw connecting line
-                    SRL::Render::DrawLine(
+                    SRL::Scene2D::DrawLine(
                         uniqueSegments[line].StartTrail[trail],
                         uniqueSegments[(line + 1) % 2].EndTrail[trail],
                         color,
