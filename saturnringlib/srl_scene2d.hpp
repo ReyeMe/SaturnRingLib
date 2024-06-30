@@ -18,9 +18,21 @@ namespace SRL
         static const Uint16 GouraudTableBase = 0xe000;
 
         struct EffectStore {
+
+            /** @brief Gouraud table address
+             */
             Uint16 Gouraud;
+
+            /** @brief Screen doors effect state
+             */
             Uint16 ScreenDoors:1;
+
+            /** @brief Half-transparency effect state
+             */
             Uint16 HalfTransparency:1;
+
+            /** @brief Reserved for future use
+             */
             Uint16 Reserved: 14;
         };
 
@@ -133,7 +145,7 @@ namespace SRL
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud);
              * 
-             * // Enable shading, use 15th entry in the table
+             * // Enable shading, use 16th entry in the table
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, 15);
              * @endcode
              * 
