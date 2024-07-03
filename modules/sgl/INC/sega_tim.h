@@ -5,11 +5,11 @@
  *
  *  PURPOSE:
  *
- *      ƒ^ƒCƒ}ƒ‰ƒCƒuƒ‰ƒŠƒwƒbƒ_ƒtƒ@ƒCƒ‹B
+ *      ï¿½^ï¿½Cï¿½}ï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½ï¿½wï¿½bï¿½_ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½B
  *
  *  DESCRIPTION:
  *
- *      ƒ^ƒCƒ}ŠÇ—‚ðŽÀŒ»‚·‚éB
+ *      ï¿½^ï¿½Cï¿½}ï¿½Ç—ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½B
  *
  *  AUTHOR(S)
  *
@@ -17,7 +17,7 @@
  *      1995-11/14  H.O Ver.1.00a
  *
  *  MOD HISTORY:
- *      1995-11/14  ŠO•”ƒNƒƒbƒNŽw’è‚Ì‹ÖŽ~B
+ *      1995-11/14  ï¿½Oï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½wï¿½ï¿½Ì‹ÖŽ~ï¿½B
  *
  *-----------------------------------------------------------------------------
  */
@@ -40,156 +40,156 @@
  * GLOBAL DEFINES/MACROS DEFINES
  */
 /**** SCU ********************************************************************/
-/******** ƒŒƒWƒXƒ^ ***********************************************************/
-#define TIM_REG_T0C     ((volatile Uint32 *)0x25fe0090)          /* À²ÏºÝÍß±Ú¼Þ½À     */
-#define TIM_REG_T1S     ((volatile Uint32 *)0x25fe0094)          /* À²Ï1¾¯ÄÚ¼Þ½À@    */
-#define TIM_REG_T1MD    ((volatile Uint32 *)0x25fe0098)          /* À²Ï1Ó°ÄÞÚ¼Þ½À     */
-/******** ’è” ***************************************************************/
-/************ ƒrƒbƒgˆÊ’u *****************************************************/
-/**************** À²Ï1Ó°ÄÞ ***************************************************/
-#define TIM_B_TENB      (0)                             /* À²Ï²È°ÌÞÙÚ¼Þ½À@@*/
-#define TIM_B_T1MD      (8)                             /* À²Ï1Ó°ÄÞÚ¼Þ½À @@*/
-/************ ’l *************************************************************/
-/**************** À²Ï1Ó°ÄÞ ***************************************************/
-#define TIM_TENB_OFF    (0 << TIM_B_TENB)               /* À²Ïoff            */
-#define TIM_TENB_ON     (1 << TIM_B_TENB)               /* À²Ïon         @@*/
-#define TIM_T1MD_ALL_LINE   (0 << TIM_B_T1MD)           /* –ˆƒ‰ƒCƒ“Š„‚èž‚Ý  */
-#define TIM_T1MD_CST_LINE   (1 << TIM_B_T1MD)           /* Žw’èƒ‰ƒCƒ“Š„‚èž‚Ý*/
+/******** ï¿½ï¿½ï¿½Wï¿½Xï¿½^ ***********************************************************/
+#define TIM_REG_T0C     ((volatile uint32_t *)0x25fe0090)          /* ï¿½ï¿½Ïºï¿½ï¿½ß±Ú¼Þ½ï¿½     */
+#define TIM_REG_T1S     ((volatile uint32_t *)0x25fe0094)          /* ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½Ú¼Þ½ï¿½ï¿½@    */
+#define TIM_REG_T1MD    ((volatile uint32_t *)0x25fe0098)          /* ï¿½ï¿½ï¿½1Ó°ï¿½ï¿½Ú¼Þ½ï¿½     */
+/******** ï¿½è” ***************************************************************/
+/************ ï¿½rï¿½bï¿½gï¿½Ê’u *****************************************************/
+/**************** ï¿½ï¿½ï¿½1Ó°ï¿½ï¿½ ***************************************************/
+#define TIM_B_TENB      (0)                             /* ï¿½ï¿½Ï²È°ï¿½ï¿½ï¿½Ú¼Þ½ï¿½ï¿½@ï¿½@*/
+#define TIM_B_T1MD      (8)                             /* ï¿½ï¿½ï¿½1Ó°ï¿½ï¿½Ú¼Þ½ï¿½ ï¿½@ï¿½@*/
+/************ ï¿½l *************************************************************/
+/**************** ï¿½ï¿½ï¿½1Ó°ï¿½ï¿½ ***************************************************/
+#define TIM_TENB_OFF    (0 << TIM_B_TENB)               /* ï¿½ï¿½ï¿½off            */
+#define TIM_TENB_ON     (1 << TIM_B_TENB)               /* ï¿½ï¿½ï¿½on         ï¿½@ï¿½@*/
+#define TIM_T1MD_ALL_LINE   (0 << TIM_B_T1MD)           /* ï¿½ï¿½ï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½èžï¿½ï¿½  */
+#define TIM_T1MD_CST_LINE   (1 << TIM_B_T1MD)           /* ï¿½wï¿½èƒ‰ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½èžï¿½ï¿½*/
 
-/**** CPU (ÌØ°×ÝÆÝ¸ÞÀ²Ï) *****************************************************/
-/******** ƒŒƒWƒXƒ^ ***********************************************************/
-#define TIM_REG_TIER    ((volatile Uint8  *)0xfffffe10)          /* À²Ï²ÝÀ×ÌßÄ²È°ÌÞÙ  */
-#define TIM_REG_TCSR    ((volatile Uint8  *)0xfffffe11)          /* À²ÏºÝÄÛ°Ù¥½Ã°À½   */
-#define TIM_REG_FRC_H   ((volatile Uint8  *)0xfffffe12)          /* ÌØ°×ÝÆÝ¸Þ¶³ÝÀ H   */
-#define TIM_REG_FRC_L   ((volatile Uint8  *)0xfffffe13)          /* ÌØ°×ÝÆÝ¸Þ¶³ÝÀ L   */
-#define TIM_REG_OCRX_H  ((volatile Uint8  *)0xfffffe14)          /* ±³ÄÌß¯ÄºÝÍß±A,B H */
-#define TIM_REG_OCRX_L  ((volatile Uint8  *)0xfffffe15)          /* ±³ÄÌß¯ÄºÝÍß±A,B L */
-#define TIM_REG_TCR     ((volatile Uint8  *)0xfffffe16)          /* À²ÏºÝÄÛ°Ù@@@   */
-#define TIM_REG_TOCR    ((volatile Uint8  *)0xfffffe17)          /* À²Ï±³ÄÌß¯ÄºÝÍß±   */
-#define TIM_REG_ICRA_H  ((volatile Uint8  *)0xfffffe18)          /* ²ÝÌß¯Ä·¬ÌßÁ¬A H   */
-#define TIM_REG_ICRA_L  ((volatile Uint8  *)0xfffffe19)          /* ²ÝÌß¯Ä·¬ÌßÁ¬A L   */
-/******** ’è” ***************************************************************/
-/************ ƒrƒbƒgˆÊ’u *****************************************************/
-/**************** À²Ï²ÝÀ×ÌßÄ²È°ÌÞ  *******************************************/
+/**** CPU (ï¿½Ø°ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½ï¿½ï¿½) *****************************************************/
+/******** ï¿½ï¿½ï¿½Wï¿½Xï¿½^ ***********************************************************/
+#define TIM_REG_TIER    ((volatile uint8_t  *)0xfffffe10)          /* ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½Ä²È°ï¿½ï¿½ï¿½  */
+#define TIM_REG_TCSR    ((volatile uint8_t  *)0xfffffe11)          /* ï¿½ï¿½Ïºï¿½ï¿½Û°Ù¥ï¿½Ã°ï¿½ï¿½   */
+#define TIM_REG_FRC_H   ((volatile uint8_t  *)0xfffffe12)          /* ï¿½Ø°ï¿½ï¿½ï¿½Ý¸Þ¶ï¿½ï¿½ï¿½ H   */
+#define TIM_REG_FRC_L   ((volatile uint8_t  *)0xfffffe13)          /* ï¿½Ø°ï¿½ï¿½ï¿½Ý¸Þ¶ï¿½ï¿½ï¿½ L   */
+#define TIM_REG_OCRX_H  ((volatile uint8_t  *)0xfffffe14)          /* ï¿½ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±A,B H */
+#define TIM_REG_OCRX_L  ((volatile uint8_t  *)0xfffffe15)          /* ï¿½ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±A,B L */
+#define TIM_REG_TCR     ((volatile uint8_t  *)0xfffffe16)          /* ï¿½ï¿½Ïºï¿½ï¿½Û°Ù@ï¿½@ï¿½@   */
+#define TIM_REG_TOCR    ((volatile uint8_t  *)0xfffffe17)          /* ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±   */
+#define TIM_REG_ICRA_H  ((volatile uint8_t  *)0xfffffe18)          /* ï¿½ï¿½ï¿½ß¯Ä·ï¿½ï¿½ï¿½ï¿½ï¿½A H   */
+#define TIM_REG_ICRA_L  ((volatile uint8_t  *)0xfffffe19)          /* ï¿½ï¿½ï¿½ß¯Ä·ï¿½ï¿½ï¿½ï¿½ï¿½A L   */
+/******** ï¿½è” ***************************************************************/
+/************ ï¿½rï¿½bï¿½gï¿½Ê’u *****************************************************/
+/**************** ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½Ä²È°ï¿½ï¿½  *******************************************/
 #define TIM_B_ICIAE     (7)                             /* ICAE              */
 #define TIM_B_OCIAE     (3)                             /* OCIAE             */
 #define TIM_B_OCIBE     (2)                             /* OCIBE             */
 #define TIM_B_OVIE      (1)                             /* OVIE              */
-/**************** À²ÏºÝÄÛ°Ù¥½Ã°À *********************************************/
+/**************** ï¿½ï¿½Ïºï¿½ï¿½Û°Ù¥ï¿½Ã°ï¿½ *********************************************/
 #define TIM_B_ICFA      (7)                             /* ICFA              */
 #define TIM_B_OCFA      (3)                             /* OCFA              */
 #define TIM_B_OCFB      (2)                             /* OCFB              */
 #define TIM_B_OVI       (1)                             /* OVI               */
 #define TIM_B_CCLRA     (0)                             /* CCLRA             */
-/**************** À²ÏºÝÄÛ°Ù **************************************************/
+/**************** ï¿½ï¿½Ïºï¿½ï¿½Û°ï¿½ **************************************************/
 #define TIM_B_IEDGA     (7)                             /* IEDGA             */
 #define TIM_B_BUFEA     (3)                             /* BUFEA             */
 #define TIM_B_BUFEB     (2)                             /* BUFEB             */
 #define TIM_B_CKS1      (1)                             /* CKS1              */
 #define TIM_B_CKS0      (0)                             /* CKS0              */
-/**************** À²Ï±³ÄÌß¯ÄºÝÍß±*********************************************/
+/**************** ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±*********************************************/
 #define TIM_B_OCRS      (4)                             /* OCRS              */
 #define TIM_B_OEA       (3)                             /* OEA               */
 #define TIM_B_OEB       (2)                             /* OEB               */
 #define TIM_B_OLVLA     (1)                             /* OLVLA             */
 #define TIM_B_OLVLB     (0)                             /* OLVLB             */
-/************ ƒ}ƒXƒN *********************************************************/
-/**************** À²Ï²ÝÀ×ÌßÄ²È°ÌÞ  *******************************************/
+/************ ï¿½}ï¿½Xï¿½N *********************************************************/
+/**************** ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½Ä²È°ï¿½ï¿½  *******************************************/
 #define TIM_M_ICIAE     (1 << TIM_B_ICIAE)              /* ICAE              */
 #define TIM_M_OCIAE     (1 << TIM_B_OCIAE)              /* OCIAE             */
 #define TIM_M_OCIBE     (1 << TIM_B_OCIBE)              /* OCIBE             */
 #define TIM_M_OVIE      (1 << TIM_B_OVIE )              /* OVIE              */
-/**************** À²ÏºÝÄÛ°Ù¥½Ã°À *********************************************/
+/**************** ï¿½ï¿½Ïºï¿½ï¿½Û°Ù¥ï¿½Ã°ï¿½ *********************************************/
 #define TIM_M_ICFA      (1 << TIM_B_ICFA )              /* ICFA              */
 #define TIM_M_OCFA      (1 << TIM_B_OCFA )              /* OCFA              */
 #define TIM_M_OCFB      (1 << TIM_B_OCFB )              /* OCFB              */
 #define TIM_M_OVI       (1 << TIM_B_OVI  )              /* OVI               */
 #define TIM_M_CCLRA     (1 << TIM_B_CCLRA)              /* CCLRA             */
-/**************** À²ÏºÝÄÛ°Ù **************************************************/
+/**************** ï¿½ï¿½Ïºï¿½ï¿½Û°ï¿½ **************************************************/
 #define TIM_M_IEDGA     (1 << TIM_B_IEDGA)              /* IEDGA             */
 #define TIM_M_BUFEA     (1 << TIM_B_BUFEA)              /* BUFEA             */
 #define TIM_M_BUFEB     (1 << TIM_B_BUFEB)              /* BUFEB             */
 #define TIM_M_CKS       (3 << TIM_B_CKS0 )              /* CKS1,0            */
-/**************** À²Ï±³ÄÌß¯ÄºÝÍß±*********************************************/
+/**************** ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±*********************************************/
 #define TIM_M_OCRS      (1 << TIM_B_OCRS )              /* OCRS              */
 #define TIM_M_OEA       (1 << TIM_B_OEA  )              /* OEA               */
 #define TIM_M_OEB       (1 << TIM_B_OEB  )              /* OEB               */
 #define TIM_M_OLVLA     (1 << TIM_B_OLVLA)              /* OLVLA             */
 #define TIM_M_OLVLB     (1 << TIM_B_OLVLB)              /* OLVLB             */
-/************ ’l *************************************************************/
-/**************** À²Ï²ÝÀ×ÌßÄ²È°ÌÞ ********************************************/
-/******************** À²Ï²ÝÀ×ÌßÄ²È°ÌÞ ****************************************/
-#define TIM_ICIAE_DIS   (0 << TIM_B_ICIAE)              /* ICAE‹ÖŽ~          */
-#define TIM_ICIAE_ENA   (1 << TIM_B_ICIAE)              /* ICAE‹–‰Â          */
-/******************** ±³ÄÌß¯ÄºÝÍß±A ******************************************/
-#define TIM_OCIAE_DIS   (0 << TIM_B_OCIAE)              /* OCFAE‹ÖŽ~         */
-#define TIM_OCIAE_ENA   (1 << TIM_B_OCIAE)              /* OCFAE‹–‰Â         */
-/******************** ±³ÄÌß¯ÄºÝÍß±B ******************************************/
-#define TIM_OCIBE_DIS   (0 << TIM_B_OCIBE)              /* OCFAE‹ÖŽ~         */
-#define TIM_OCIBE_ENA   (1 << TIM_B_OCIBE)              /* OCFBE‹–‰Â         */
-/******************** À²Ïµ°ÊÞÌÛ°²ÝÀ×ÌßÄ²È°ÌÞÙ ********************************/
-#define TIM_OVIE_DIS    (0 << TIM_B_OVIE)               /* FOVI ‹ÖŽ~         */
-#define TIM_OVIE_ENA    (1 << TIM_B_OVIE)               /* FOVI ‹–‰Â         */
-/**************** À²ÏºÝÄÛ°Ù¥½Ã°À *********************************************/
+/************ ï¿½l *************************************************************/
+/**************** ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½Ä²È°ï¿½ï¿½ ********************************************/
+/******************** ï¿½ï¿½Ï²ï¿½ï¿½ï¿½ï¿½ï¿½Ä²È°ï¿½ï¿½ ****************************************/
+#define TIM_ICIAE_DIS   (0 << TIM_B_ICIAE)              /* ICAEï¿½ÖŽ~          */
+#define TIM_ICIAE_ENA   (1 << TIM_B_ICIAE)              /* ICAEï¿½ï¿½ï¿½ï¿½          */
+/******************** ï¿½ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±A ******************************************/
+#define TIM_OCIAE_DIS   (0 << TIM_B_OCIAE)              /* OCFAEï¿½ÖŽ~         */
+#define TIM_OCIAE_ENA   (1 << TIM_B_OCIAE)              /* OCFAEï¿½ï¿½ï¿½ï¿½         */
+/******************** ï¿½ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±B ******************************************/
+#define TIM_OCIBE_DIS   (0 << TIM_B_OCIBE)              /* OCFAEï¿½ÖŽ~         */
+#define TIM_OCIBE_ENA   (1 << TIM_B_OCIBE)              /* OCFBEï¿½ï¿½ï¿½ï¿½         */
+/******************** ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½Û°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²È°ï¿½ï¿½ï¿½ ********************************/
+#define TIM_OVIE_DIS    (0 << TIM_B_OVIE)               /* FOVI ï¿½ÖŽ~         */
+#define TIM_OVIE_ENA    (1 << TIM_B_OVIE)               /* FOVI ï¿½ï¿½ï¿½ï¿½         */
+/**************** ï¿½ï¿½Ïºï¿½ï¿½Û°Ù¥ï¿½Ã°ï¿½ *********************************************/
 /******************** ICFA ***************************************************/
-#define TIM_ICFA_CLR    (0 << TIM_B_ICFA)               /* ICFA ƒNƒŠƒA       */
-#define TIM_ICFA_SET    (1 << TIM_B_ICFA)               /* ICFA ƒZƒbƒg       */
+#define TIM_ICFA_CLR    (0 << TIM_B_ICFA)               /* ICFA ï¿½Nï¿½ï¿½ï¿½A       */
+#define TIM_ICFA_SET    (1 << TIM_B_ICFA)               /* ICFA ï¿½Zï¿½bï¿½g       */
 /******************** OCFA ***************************************************/
-#define TIM_OCFA_CLR    (0 << TIM_B_OCFA)               /* OCFA ƒNƒŠƒA       */
-#define TIM_OCFA_SET    (1 << TIM_B_OCFA)               /* OCFA ƒZƒbƒg       */
+#define TIM_OCFA_CLR    (0 << TIM_B_OCFA)               /* OCFA ï¿½Nï¿½ï¿½ï¿½A       */
+#define TIM_OCFA_SET    (1 << TIM_B_OCFA)               /* OCFA ï¿½Zï¿½bï¿½g       */
 /******************** OCFB ***************************************************/
-#define TIM_OCFB_CLR    (0 << TIM_B_OCFB)               /* OCFB ƒNƒŠƒA       */
-#define TIM_OCFB_SET    (1 << TIM_B_OCFB)               /* OCFB ƒZƒbƒg       */
+#define TIM_OCFB_CLR    (0 << TIM_B_OCFB)               /* OCFB ï¿½Nï¿½ï¿½ï¿½A       */
+#define TIM_OCFB_SET    (1 << TIM_B_OCFB)               /* OCFB ï¿½Zï¿½bï¿½g       */
 /******************** OVF ****************************************************/
-#define TIM_OVF_CLR     (0 << TIM_B_OVI)                /* OVI  ƒNƒŠƒA       */
-#define TIM_OVF_SET     (1 << TIM_B_OVI)                /* OVI  ƒZƒbƒg       */
+#define TIM_OVF_CLR     (0 << TIM_B_OVI)                /* OVI  ï¿½Nï¿½ï¿½ï¿½A       */
+#define TIM_OVF_SET     (1 << TIM_B_OVI)                /* OVI  ï¿½Zï¿½bï¿½g       */
 /******************** CCLRA **************************************************/
-#define TIM_CCLRA_CLR   (0 << TIM_B_CCLRA)              /* FRC  ƒNƒŠƒA‹ÖŽ~   */
-#define TIM_CCLRA_SET   (1 << TIM_B_CCLRA)              /* FRC‚ðƒNƒŠƒA       */
-/**************** À²ÏºÝÄÛ°Ù **************************************************/
+#define TIM_CCLRA_CLR   (0 << TIM_B_CCLRA)              /* FRC  ï¿½Nï¿½ï¿½ï¿½Aï¿½ÖŽ~   */
+#define TIM_CCLRA_SET   (1 << TIM_B_CCLRA)              /* FRCï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½A       */
+/**************** ï¿½ï¿½Ïºï¿½ï¿½Û°ï¿½ **************************************************/
 /******************** IEDGA **************************************************/
-#define TIM_IEDGA_UP_EG (1 << TIM_B_IEDGA)              /* UP EG ·¬ÌßÁ¬      */
-#define TIM_IEDGA_DW_EG (0 << TIM_B_IEDGA)              /* DW EG ·¬ÌßÁ¬      */
+#define TIM_IEDGA_UP_EG (1 << TIM_B_IEDGA)              /* UP EG ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½      */
+#define TIM_IEDGA_DW_EG (0 << TIM_B_IEDGA)              /* DW EG ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½      */
 /******************** BUFEA **************************************************/
-#define TIM_BUFEA_NO_US (0 << TIM_B_BUFEA)              /* ICRC‚ðÊÞ¯Ì§Žg—p   */
-#define TIM_BUFEA_US    (1 << TIM_B_BUFEA)              /* ICRC‚ðÊÞ¯Ì§Žg—p   */
+#define TIM_BUFEA_NO_US (0 << TIM_B_BUFEA)              /* ICRCï¿½ï¿½ï¿½Þ¯Ì§ï¿½gï¿½p   */
+#define TIM_BUFEA_US    (1 << TIM_B_BUFEA)              /* ICRCï¿½ï¿½ï¿½Þ¯Ì§ï¿½gï¿½p   */
 /******************** BUFEB **************************************************/
-#define TIM_BUFEB_NO_US (0 << TIM_B_BUFEB)              /* ICRD‚ðÊÞ¯Ì§Žg—p   */
-#define TIM_BUFEB_US    (1 << TIM_B_BUFEB)              /* ICRD‚ðÊÞ¯Ì§Žg—p   */
+#define TIM_BUFEB_NO_US (0 << TIM_B_BUFEB)              /* ICRDï¿½ï¿½ï¿½Þ¯Ì§ï¿½gï¿½p   */
+#define TIM_BUFEB_US    (1 << TIM_B_BUFEB)              /* ICRDï¿½ï¿½ï¿½Þ¯Ì§ï¿½gï¿½p   */
 /******************** CKS1,0 *************************************************/
-#define TIM_CKS_8       ( 0 << TIM_B_CKS0)              /* 8 ƒJƒEƒ“ƒg        */
-#define TIM_CKS_32      ( 1 << TIM_B_CKS0)              /* 32ƒJƒEƒ“ƒg        */
-#define TIM_CKS_128     ( 2 << TIM_B_CKS0)              /* 128ƒJƒEƒ“ƒg       */
-#define TIM_CKS_OUT     ( 3 << TIM_B_CKS0)              /* ŠO•”ƒJƒEƒ“ƒg      */
-/**************** À²Ï±³ÄÌß¯ÄºÝÍß±*********************************************/
+#define TIM_CKS_8       ( 0 << TIM_B_CKS0)              /* 8 ï¿½Jï¿½Eï¿½ï¿½ï¿½g        */
+#define TIM_CKS_32      ( 1 << TIM_B_CKS0)              /* 32ï¿½Jï¿½Eï¿½ï¿½ï¿½g        */
+#define TIM_CKS_128     ( 2 << TIM_B_CKS0)              /* 128ï¿½Jï¿½Eï¿½ï¿½ï¿½g       */
+#define TIM_CKS_OUT     ( 3 << TIM_B_CKS0)              /* ï¿½Oï¿½ï¿½ï¿½Jï¿½Eï¿½ï¿½ï¿½g      */
+/**************** ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ß¯Äºï¿½ï¿½ß±*********************************************/
 /******************** OCRS ***************************************************/
-#define TIM_OCRS_OCRA   ( 0 << TIM_B_OCRS)              /* OCRA‘I‘ð@        */
-#define TIM_OCRS_OCRB   ( 1 << TIM_B_OCRS)              /* OCRB‘I‘ð          */
+#define TIM_OCRS_OCRA   ( 0 << TIM_B_OCRS)              /* OCRAï¿½Iï¿½ï¿½ï¿½@        */
+#define TIM_OCRS_OCRB   ( 1 << TIM_B_OCRS)              /* OCRBï¿½Iï¿½ï¿½          */
 /******************** OEA ****************************************************/
-#define TIM_OEA_DIS     ( 0 << TIM_B_OEA)               /* OEA‹ÖŽ~ @        */
-#define TIM_OEA_ENA     ( 1 << TIM_B_OEA)               /* OEA‹–‰Â @        */
+#define TIM_OEA_DIS     ( 0 << TIM_B_OEA)               /* OEAï¿½ÖŽ~ ï¿½@        */
+#define TIM_OEA_ENA     ( 1 << TIM_B_OEA)               /* OEAï¿½ï¿½ï¿½ï¿½ ï¿½@        */
 /******************** OEB ****************************************************/
-#define TIM_OEB_DIS     ( 0 << TIM_B_OEB)               /* OEB‹ÖŽ~ @        */
-#define TIM_OEB_ENA     ( 1 << TIM_B_OEB)               /* OEB‹–‰Â @        */
+#define TIM_OEB_DIS     ( 0 << TIM_B_OEB)               /* OEBï¿½ÖŽ~ ï¿½@        */
+#define TIM_OEB_ENA     ( 1 << TIM_B_OEB)               /* OEBï¿½ï¿½ï¿½ï¿½ ï¿½@        */
 /******************** OLVLA **************************************************/
-#define TIM_OLVLA_0     ( 0 << TIM_B_OLVLA)             /* "0"o—Í @        */
-#define TIM_OLVLA_1     ( 1 << TIM_B_OLVLA)             /* "1"o—Í@         */
+#define TIM_OLVLA_0     ( 0 << TIM_B_OLVLA)             /* "0"ï¿½oï¿½ï¿½ ï¿½@        */
+#define TIM_OLVLA_1     ( 1 << TIM_B_OLVLA)             /* "1"ï¿½oï¿½Í@         */
 /******************** OLVLB **************************************************/
-#define TIM_OLVLB_0     ( 0 << TIM_B_OLVLB)             /* "0"o—Í @        */
-#define TIM_OLVLB_1     ( 1 << TIM_B_OLVLB)             /* "1"o—Í@         */
-/**** ˆ—ƒ}ƒNƒ *************************************************************/
-/**** ƒƒ‚ƒŠƒ‰ƒCƒg ***********************************************************/
-#define TIM_POKE_B(adr, data)   (*((volatile Uint8 *)(adr)) = ((Uint8)(data)))  /*ÊÞ²Ä*/
-#define TIM_POKE_W(adr, data)   (*((volatile Uint16 *)(adr)) = ((Uint16)(data)))/*Ü°ÄÞ*/
-#define TIM_POKE_L(adr, data)   (*((volatile Uint32 *)(adr)) = ((Uint32)(data)))/*ÛÝ¸Þ*/
-/**** ƒƒ‚ƒŠƒŠ[ƒh ***********************************************************/
-#define TIM_PEEK_B(adr)         (*((volatile Uint8 *)(adr)))                    /*ÊÞ²Ä*/
-#define TIM_PEEK_W(adr)         (*((volatile Uint16 *)(adr)))                   /*Ü°ÄÞ*/
-#define TIM_PEEK_L(adr)         (*((volatile Uint32 *)(adr)))                   /*ÛÝ¸Þ*/
+#define TIM_OLVLB_0     ( 0 << TIM_B_OLVLB)             /* "0"ï¿½oï¿½ï¿½ ï¿½@        */
+#define TIM_OLVLB_1     ( 1 << TIM_B_OLVLB)             /* "1"ï¿½oï¿½Í@         */
+/**** ï¿½ï¿½ï¿½ï¿½ï¿½}ï¿½Nï¿½ï¿½ *************************************************************/
+/**** ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Cï¿½g ***********************************************************/
+#define TIM_POKE_B(adr, data)   (*((volatile uint8_t *)(adr)) = ((uint8_t)(data)))  /*ï¿½Þ²ï¿½*/
+#define TIM_POKE_W(adr, data)   (*((volatile uint16_t *)(adr)) = ((uint16_t)(data)))/*Ü°ï¿½ï¿½*/
+#define TIM_POKE_L(adr, data)   (*((volatile uint32_t *)(adr)) = ((uint32_t)(data)))/*ï¿½Ý¸ï¿½*/
+/**** ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½h ***********************************************************/
+#define TIM_PEEK_B(adr)         (*((volatile uint8_t *)(adr)))                    /*ï¿½Þ²ï¿½*/
+#define TIM_PEEK_W(adr)         (*((volatile uint16_t *)(adr)))                   /*Ü°ï¿½ï¿½*/
+#define TIM_PEEK_L(adr)         (*((volatile uint32_t *)(adr)))                   /*ï¿½Ý¸ï¿½*/
 
 /*****************************************************************************/
 /*****************************************************************************/
-/**** ŠÖ”Œ`Ž®ƒ}ƒNƒ *********************************************************/
+/**** ï¿½Öï¿½ï¿½`ï¿½ï¿½ï¿½}ï¿½Nï¿½ï¿½ *********************************************************/
 /*****************************************************************************/
 /*****************************************************************************/
 
@@ -199,13 +199,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T0_ENABLE           - ƒ^ƒCƒ}0Š„‚èž‚ÝƒCƒl[ƒuƒ‹
+ * NAME:    TIM_T0_ENABLE           - ï¿½^ï¿½Cï¿½}0ï¿½ï¿½ï¿½èžï¿½ÝƒCï¿½lï¿½[ï¿½uï¿½ï¿½
  *
  * PARAMETERS :
- *      ‚È‚µB
+ *      ï¿½È‚ï¿½ï¿½B
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -216,13 +216,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T0_DISABLE          - ƒ^ƒCƒ}0Š„‚èž‚ÝƒfƒBƒZ[ƒuƒ‹
+ * NAME:    TIM_T0_DISABLE          - ï¿½^ï¿½Cï¿½}0ï¿½ï¿½ï¿½èžï¿½Ýƒfï¿½Bï¿½Zï¿½[ï¿½uï¿½ï¿½
  *
  * PARAMETERS :
- *      ‚È‚µB
+ *      ï¿½È‚ï¿½ï¿½B
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -233,13 +233,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T1_ENABLE           - ƒ^ƒCƒ}1Š„‚èž‚ÝƒCƒl[ƒuƒ‹
+ * NAME:    TIM_T1_ENABLE           - ï¿½^ï¿½Cï¿½}1ï¿½ï¿½ï¿½èžï¿½ÝƒCï¿½lï¿½[ï¿½uï¿½ï¿½
  *
  * PARAMETERS :
- *      ‚È‚µB
+ *      ï¿½È‚ï¿½ï¿½B
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -250,13 +250,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T1_DISABLE          - ƒ^ƒCƒ}1Š„‚èž‚ÝƒfƒBƒZ[ƒuƒ‹
+ * NAME:    TIM_T1_DISABLE          - ï¿½^ï¿½Cï¿½}1ï¿½ï¿½ï¿½èžï¿½Ýƒfï¿½Bï¿½Zï¿½[ï¿½uï¿½ï¿½
  *
  * PARAMETERS :
- *      ‚È‚µB
+ *      ï¿½È‚ï¿½ï¿½B
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -267,13 +267,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T0_SET_CMP          - ƒ^ƒCƒ}0ƒRƒ“ƒyƒAƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_T0_SET_CMP          - ï¿½^ï¿½Cï¿½}0ï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint32 time_cmp         - <i>   ƒ^ƒCƒ}0ƒRƒ“ƒyƒAƒŒƒWƒXƒ^Ý’è’l
+ *      (1) uint32_t time_cmp         - <i>   ï¿½^ï¿½Cï¿½}0ï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -282,13 +282,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T1_SET_DATA         - ƒ^ƒCƒ}1ƒZƒbƒgƒf[ƒ^ƒŒƒWƒXƒ^
+ * NAME:    TIM_T1_SET_DATA         - ï¿½^ï¿½Cï¿½}1ï¿½Zï¿½bï¿½gï¿½fï¿½[ï¿½^ï¿½ï¿½ï¿½Wï¿½Xï¿½^
  *
  * PARAMETERS :
- *      (1) Uint32 time_data        - <i>   ƒ^ƒCƒ}1ƒZƒbƒgƒf[ƒ^ƒŒƒWƒXƒ^Ý’è’l
+ *      (1) uint32_t time_data        - <i>   ï¿½^ï¿½Cï¿½}1ï¿½Zï¿½bï¿½gï¿½fï¿½[ï¿½^ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -297,13 +297,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T1_SET_MODE         - ƒ^ƒCƒ}1ƒ‚[ƒhƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_T1_SET_MODE         - ï¿½^ï¿½Cï¿½}1ï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint32 time_mode        - <i>   ƒ^ƒCƒ}1ƒ‚[ƒhƒŒƒWƒXƒ^Ý’è’l
+ *      (1) uint32_t time_mode        - <i>   ï¿½^ï¿½Cï¿½}1ï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -312,13 +312,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_T1_SET_MODE         - ƒ^ƒCƒ}1ƒ‚[ƒhƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_T1_SET_MODE         - ï¿½^ï¿½Cï¿½}1ï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint32 time_mode        - <i>   ƒ^ƒCƒ}1ƒ‚[ƒhƒŒƒWƒXƒ^Ý’è’l
+ *      (1) uint32_t time_mode        - <i>   ï¿½^ï¿½Cï¿½}1ï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -330,15 +330,15 @@
 /*****************************************************************************/
 /******************************************************************************
  *
- * NAME:    TIM_FRT_INIT            - FRT‰Šú‰»
+ * NAME:    TIM_FRT_INIT            - FRTï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  *
  * PARAMETERS :
- *      (1) Uint32 mode             - <i>   •ªŽü”
+ *      (1) uint32_t mode             - <i>   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  * NOTICE:
- *      ŠO•”ƒNƒƒbƒN‘I‘ð‚Ì‹ÖŽ~‘Îô”ÅB
+ *      ï¿½Oï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½Iï¿½ï¿½ï¿½Ì‹ÖŽ~ï¿½Îï¿½ï¿½ÅB
  *
  ******************************************************************************
  */
@@ -359,13 +359,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_16          - ƒJƒEƒ“ƒ^’lÝ’è(16ƒrƒbƒg)
+ * NAME:    TIM_FRT_SET_16          - ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½lï¿½Ý’ï¿½(16ï¿½rï¿½bï¿½g)
  *
  * PARAMETERS :
- *      (1) Uint16 cnt              - <i>   ƒJƒEƒ“ƒ^’l
+ *      (1) uint16_t cnt              - <i>   ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -376,13 +376,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_16          - ƒJƒEƒ“ƒ^’lŽæ“¾(16ƒrƒbƒg)
+ * NAME:    TIM_FRT_GET_16          - ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½lï¿½æ“¾(16ï¿½rï¿½bï¿½g)
  *
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint16 cnt              - <o>   ƒJƒEƒ“ƒ^’l
+ *      (1) uint16_t cnt              - <o>   ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½l
  *
  ******************************************************************************
  */
@@ -391,13 +391,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_DELAY_16        - ŽžŠÔ‘Ò‚¿(16ƒrƒbƒg)
+ * NAME:    TIM_FRT_DELAY_16        - ï¿½ï¿½ï¿½Ô‘Ò‚ï¿½(16ï¿½rï¿½bï¿½g)
  *
  * PARAMETERS :
- *      (1) Uint16 cnt              - <i>   ŽžŠÔ‘Ò‚¿ƒJƒEƒ“ƒ^’l
+ *      (1) uint16_t cnt              - <i>   ï¿½ï¿½ï¿½Ô‘Ò‚ï¿½ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -409,50 +409,50 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_CNT_TO_MCR      -   ƒJƒEƒ“ƒ^’l->ƒ}ƒCƒNƒ•b•ÏŠ·
+ * NAME:    TIM_FRT_CNT_TO_MCR      -   ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½l->ï¿½}ï¿½Cï¿½Nï¿½ï¿½ï¿½bï¿½ÏŠï¿½
  *
  * PARAMETERS :
- *      (1) Uint32 count            - <i>   ƒJƒEƒ“ƒ^’l
+ *      (1) uint32_t count            - <i>   ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
 #define TIM_FRT_CNT_TO_MCR(count)\
     (\
-    (((*(Uint16 *)0x25f80004 & 0x1) == 0x1) ?   /* PAL ‚©? */\
-     ((SYS_GETSYSCK == 0) ? (Float32)0.037470726 : (Float32)0.035164835 ) :/*PAL 26,28*/\
-     ((SYS_GETSYSCK == 0) ? (Float32)0.037210548 : (Float32)0.03492059 )) /*NT 26,28*/\
+    (((*(uint16_t *)0x25f80004 & 0x1) == 0x1) ?   /* PAL ï¿½ï¿½? */\
+     ((SYS_GETSYSCK == 0) ? (float)0.037470726 : (float)0.035164835 ) :/*PAL 26,28*/\
+     ((SYS_GETSYSCK == 0) ? (float)0.037210548 : (float)0.03492059 )) /*NT 26,28*/\
      * (count) * (8 << ((TIM_PEEK_B(TIM_REG_TCR) & TIM_M_CKS) << 1)))
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_MCR_TO_CNT      -   ƒ}ƒCƒNƒ•b->ƒJƒEƒ“ƒ^’l•ÏŠ·
+ * NAME:    TIM_FRT_MCR_TO_CNT      -   ï¿½}ï¿½Cï¿½Nï¿½ï¿½ï¿½b->ï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½lï¿½ÏŠï¿½
  *
  * PARAMETERS :
- *      (1) Uint32 mcr              - <i>   ƒ}ƒCƒNƒ•b’l
+ *      (1) uint32_t mcr              - <i>   ï¿½}ï¿½Cï¿½Nï¿½ï¿½ï¿½bï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
 #define TIM_FRT_MCR_TO_CNT(mcr)\
     ((mcr) /\
-    (((*(volatile Uint16 *)0x25f80004 & 0x1) == 0x1) ?   /* PAL ‚©? */\
-     ((SYS_GETSYSCK == 0) ? (Float32)0.037470726 : (Float32)0.035164835 ) :/*PAL 26,28*/\
-     ((SYS_GETSYSCK == 0) ? (Float32)0.037210548 : (Float32)0.03492059 )) /*NT 26,28*/\
+    (((*(volatile uint16_t *)0x25f80004 & 0x1) == 0x1) ?   /* PAL ï¿½ï¿½? */\
+     ((SYS_GETSYSCK == 0) ? (float)0.037470726 : (float)0.035164835 ) :/*PAL 26,28*/\
+     ((SYS_GETSYSCK == 0) ? (float)0.037210548 : (float)0.03492059 )) /*NT 26,28*/\
     / (8 << ((TIM_PEEK_B(TIM_REG_TCR) & TIM_M_CKS) << 1)))
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_TIER        - ƒ^ƒCƒ}ƒCƒ“ƒ^ƒ‰ƒvƒgƒCƒl[ƒuƒ‹ƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_FRT_SET_TIER        - ï¿½^ï¿½Cï¿½}ï¿½Cï¿½ï¿½ï¿½^ï¿½ï¿½ï¿½vï¿½gï¿½Cï¿½lï¿½[ï¿½uï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint8 reg               - <i>   Ý’è’l
+ *      (1) uint8_t reg               - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -461,13 +461,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_TCSR        - ƒ^ƒCƒ}ƒRƒ“ƒgƒ[ƒ‹ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_FRT_SET_TCSR        - ï¿½^ï¿½Cï¿½}ï¿½Rï¿½ï¿½ï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Xï¿½eï¿½[ï¿½^ï¿½Xï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint8 reg               - <i>   Ý’è’l
+ *      (1) uint8_t reg               - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -476,13 +476,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_FRC         - ƒtƒŠ[ƒ‰ƒ“ƒjƒ“ƒOƒJƒEƒ“ƒ^Ý’è
+ * NAME:    TIM_FRT_SET_FRC         - ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½jï¿½ï¿½ï¿½Oï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint16 reg              - <i>   Ý’è’l
+ *      (1) uint16_t reg              - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -494,13 +494,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_OCRA        - ƒAƒEƒgƒvƒbƒgƒRƒ“ƒyƒAƒŒƒWƒXƒ^AÝ’è
+ * NAME:    TIM_FRT_SET_OCRA        - ï¿½Aï¿½Eï¿½gï¿½vï¿½bï¿½gï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½ï¿½ï¿½Wï¿½Xï¿½^Aï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint16 reg              - <i>   Ý’è’l
+ *      (1) uint16_t reg              - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -514,13 +514,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_OCRB        - ƒAƒEƒgƒvƒbƒgƒRƒ“ƒyƒAƒŒƒWƒXƒ^BÝ’è
+ * NAME:    TIM_FRT_SET_OCRB        - ï¿½Aï¿½Eï¿½gï¿½vï¿½bï¿½gï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½ï¿½ï¿½Wï¿½Xï¿½^Bï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint16 reg              - <i>   Ý’è’l
+ *      (1) uint16_t reg              - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -534,15 +534,15 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_TCR         - ƒ^ƒCƒ}ƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_FRT_SET_TCR         - ï¿½^ï¿½Cï¿½}ï¿½Rï¿½ï¿½ï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  *
  * PARAMETERS :
- *      (1) Uint8 reg               - <i>   Ý’è’l
+ *      (1) uint8_t reg               - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  * NOTICE:
- *      ŠO•”ƒNƒƒbƒN‘I‘ð‚Ì‹ÖŽ~‘Îô”ÅB
+ *      ï¿½Oï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½Iï¿½ï¿½ï¿½Ì‹ÖŽ~ï¿½Îï¿½ï¿½ÅB
  *
  ******************************************************************************
  */
@@ -565,13 +565,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_SET_TOCR        - ƒ^ƒCƒ}ƒAƒEƒgƒvƒbƒgƒRƒ“ƒyƒAƒRƒ“ƒgƒ[ƒ‹
- *                                    ƒŒƒWƒXƒ^Ý’è
+ * NAME:    TIM_FRT_SET_TOCR        - ï¿½^ï¿½Cï¿½}ï¿½Aï¿½Eï¿½gï¿½vï¿½bï¿½gï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½Rï¿½ï¿½ï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½
+ *                                    ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½Ý’ï¿½
  * PARAMETERS :
- *      (1) Uint8 reg               - <i>   Ý’è’l
+ *      (1) uint8_t reg               - <i>   ï¿½Ý’ï¿½l
  *
  * POSTCONDITIONS:
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  ******************************************************************************
  */
@@ -580,13 +580,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_TIER        - ƒ^ƒCƒ}ƒCƒ“ƒ^ƒ‰ƒvƒgƒCƒl[ƒuƒ‹ƒŒƒWƒXƒ^Žæ“¾
+ * NAME:    TIM_FRT_GET_TIER        - ï¿½^ï¿½Cï¿½}ï¿½Cï¿½ï¿½ï¿½^ï¿½ï¿½ï¿½vï¿½gï¿½Cï¿½lï¿½[ï¿½uï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½æ“¾
  *
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint8 reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint8_t reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  ******************************************************************************
  */
@@ -595,13 +595,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_TCSR        - ƒ^ƒCƒ}ƒRƒ“ƒgƒ[ƒ‹ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^Žæ“¾
+ * NAME:    TIM_FRT_GET_TCSR        - ï¿½^ï¿½Cï¿½}ï¿½Rï¿½ï¿½ï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Xï¿½eï¿½[ï¿½^ï¿½Xï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½æ“¾
  *
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint8 reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint8_t reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  ******************************************************************************
  */
@@ -610,13 +610,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_FRC          - ƒtƒŠ[ƒ‰ƒ“ƒjƒ“ƒOƒJƒEƒ“ƒgŽæ“¾
+ * NAME:    TIM_FRT_GET_FRC          - ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½jï¿½ï¿½ï¿½Oï¿½Jï¿½Eï¿½ï¿½ï¿½gï¿½æ“¾
  *
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint16 reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint16_t reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  ******************************************************************************
  */
@@ -625,10 +625,10 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_OCRA         - ƒAƒEƒgƒvƒbƒgƒRƒ“ƒyƒAƒŒƒWƒXƒ^AŽæ“¾
+ * NAME:    TIM_FRT_GET_OCRA         - ï¿½Aï¿½Eï¿½gï¿½vï¿½bï¿½gï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½ï¿½ï¿½Wï¿½Xï¿½^Aï¿½æ“¾
  *
  * PARAMETERS :
- *      (1) Uint16 reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint16_t reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  * POSTCONDITIONS:
  *
@@ -644,10 +644,10 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_OCRB         - ƒAƒEƒgƒvƒbƒgƒRƒ“ƒyƒAƒŒƒWƒXƒ^BŽæ“¾
+ * NAME:    TIM_FRT_GET_OCRB         - ï¿½Aï¿½Eï¿½gï¿½vï¿½bï¿½gï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½ï¿½ï¿½Wï¿½Xï¿½^Bï¿½æ“¾
  *
  * PARAMETERS :
- *      (1) Uint16 reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint16_t reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  * POSTCONDITIONS:
  *
@@ -663,13 +663,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_TCR          - ƒ^ƒCƒ}ƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^Žæ“¾
+ * NAME:    TIM_FRT_GET_TCR          - ï¿½^ï¿½Cï¿½}ï¿½Rï¿½ï¿½ï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½æ“¾
  *
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint8  reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint8_t  reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  ******************************************************************************
  */
@@ -678,13 +678,13 @@
                                                               
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_TOCR         - ƒ^ƒCƒ}ƒAƒEƒgƒvƒbƒgƒRƒ“ƒyƒAƒRƒ“ƒgƒ[ƒ‹
- *                                     ƒŒƒWƒXƒ^Žæ“¾
+ * NAME:    TIM_FRT_GET_TOCR         - ï¿½^ï¿½Cï¿½}ï¿½Aï¿½Eï¿½gï¿½vï¿½bï¿½gï¿½Rï¿½ï¿½ï¿½yï¿½Aï¿½Rï¿½ï¿½ï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½
+ *                                     ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½æ“¾
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint8 reg                - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint8_t reg                - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  ******************************************************************************
  */
@@ -693,13 +693,13 @@
 
 /******************************************************************************
  *
- * NAME:    TIM_FRT_GET_ICRA         - ƒCƒ“ƒvƒbƒgƒLƒƒƒvƒ`ƒƒƒŒƒWƒXƒ^AŽæ“¾
+ * NAME:    TIM_FRT_GET_ICRA         - ï¿½Cï¿½ï¿½ï¿½vï¿½bï¿½gï¿½Lï¿½ï¿½ï¿½vï¿½`ï¿½ï¿½ï¿½ï¿½ï¿½Wï¿½Xï¿½^Aï¿½æ“¾
  *
  * PARAMETERS :
- *      ‚È‚µ
+ *      ï¿½È‚ï¿½
  *
  * POSTCONDITIONS:
- *      (1) Uint16 reg               - <o>   ƒŒƒWƒXƒ^’l
+ *      (1) uint16_t reg               - <o>   ï¿½ï¿½ï¿½Wï¿½Xï¿½^ï¿½l
  *
  ******************************************************************************
  */

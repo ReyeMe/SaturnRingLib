@@ -36,11 +36,11 @@ namespace SRL
 #ifdef SRL_MODE_PAL
 		/** @brief Screen width
 		 */
-		inline static const Uint16 Width = 320;
+		inline static const uint16_t Width = 320;
 
 		/** @brief Screen height
 		 */
-		inline static const Uint16 Height = 256;
+		inline static const uint16_t Height = 256;
 
 		/** @brief Screen resolution mode
 		 */
@@ -49,11 +49,11 @@ namespace SRL
 	#ifdef SRL_HIGH_RES
 		/** @brief Screen width
 		 */
-		inline static const Uint16 Width = 704;
+		inline static const uint16_t Width = 704;
 
 		/** @brief Screen height
 		 */
-		inline static const Uint16 Height = 480;
+		inline static const uint16_t Height = 480;
 
 		/** @brief Screen resolution mode
 		 */
@@ -61,11 +61,11 @@ namespace SRL
 	#else
 		/** @brief Screen width
 		 */
-		inline static const Uint16 Width = 320;
+		inline static const uint16_t Width = 320;
 
 		/** @brief Screen height
 		 */
-		inline static const Uint16 Height = 240;
+		inline static const uint16_t Height = 240;
 
 		/** @brief Screen resolution mode
 		 */
@@ -75,12 +75,12 @@ namespace SRL
 		/** @brief Screen width
 		 * @note Differs based on makefile setting SRL_MODE = (PAL | NTSC) and whether SRL_HIGH_RES is set
 		 */
-		inline static const Uint16 Width;
+		inline static const uint16_t Width;
 
 		/** @brief Screen height
 		 * @note Differs based on makefile setting SRL_MODE = (PAL | NTSC) and whether SRL_HIGH_RES is set
 		 */
-		inline static const Uint16 Height;
+		inline static const uint16_t Height;
 
 		/** @brief Screen resolution mode
 		 * @note Differs based on makefile setting SRL_MODE = (PAL | NTSC) and whether SRL_HIGH_RES is set

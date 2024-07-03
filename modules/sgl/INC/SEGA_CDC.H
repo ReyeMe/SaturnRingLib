@@ -267,33 +267,33 @@ enum CdcCopyErr {
 
 /* ＣＤステータス情報（ステータス＋ＣＤレポート） */
 typedef struct {
-    Uint8   status;         /* ステータス */
+    uint8_t   status;         /* ステータス */
     struct {                /* ＣＤレポート */
-        Uint8   flgrep;     /* ＣＤフラグとリピート回数 */
-        Uint8   ctladr;     /* CONTROL/ADRバイト */
-        Uint8   tno;        /* トラック番号 */
-        Uint8   idx;        /* インデックス番号 */
-        Sint32  fad;        /* フレームアドレス */
+        uint8_t   flgrep;     /* ＣＤフラグとリピート回数 */
+        uint8_t   ctladr;     /* CONTROL/ADRバイト */
+        uint8_t   tno;        /* トラック番号 */
+        uint8_t   idx;        /* インデックス番号 */
+        int32_t  fad;        /* フレームアドレス */
     } report;
 } CdcStat;
 
 /* ハードウェア情報 */
 typedef struct {
-    Uint8   hflag;          /* ハードウェアフラグ */
-    Uint8   ver;            /* ＣＤブロックのバージョン情報 */
-    Uint8   mpver;          /* MPEGのバージョン情報 */
-    Uint8   drv;            /* ＣＤドライブ情報 */
-    Uint8   rev;            /* ＣＤブロックのリビジョン情報 */
+    uint8_t   hflag;          /* ハードウェアフラグ */
+    uint8_t   ver;            /* ＣＤブロックのバージョン情報 */
+    uint8_t   mpver;          /* MPEGのバージョン情報 */
+    uint8_t   drv;            /* ＣＤドライブ情報 */
+    uint8_t   rev;            /* ＣＤブロックのリビジョン情報 */
 } CdcHw;
 
 /* ＣＤ位置パラメータ */
 typedef struct {
-    Sint32 ptype;           /* 位置タイプ（位置パラメータの種類の指定）*/
+    int32_t ptype;           /* 位置タイプ（位置パラメータの種類の指定）*/
     union {
-        Sint32 fad;         /* フレームアドレス、セクタ数 */
+        int32_t fad;         /* フレームアドレス、セクタ数 */
         struct {
-            Uint8 tno;      /* トラック番号 */
-            Uint8 idx;      /* インデックス番号 */
+            uint8_t tno;      /* トラック番号 */
+            uint8_t idx;      /* インデックス番号 */
         } trkidx;
     } pbody;
 } CdcPos;
@@ -302,36 +302,36 @@ typedef struct {
 typedef struct {
     CdcPos  start;          /* 開始位置 */
     CdcPos  end;            /* 終了位置 */
-    Uint8   pmode;          /* 再生モード（ﾋﾟｯｸｱｯﾌﾟ移動、繰り返し回数）*/
+    uint8_t   pmode;          /* 再生モード（ﾋﾟｯｸｱｯﾌﾟ移動、繰り返し回数）*/
 } CdcPly;
 
 /* サブヘッダ条件 */
 typedef struct {
-    Uint8   fn;             /* ファイル番号 */
-    Uint8   cn;             /* チャネル番号 */
-    Uint8   smmsk;          /* サブモードのマスクパターン */
-    Uint8   smval;          /* サブモードの比較値 */
-    Uint8   cimsk;          /* コーディング情報のマスクパターン */
-    Uint8   cival;          /* コーディング情報の比較値 */
+    uint8_t   fn;             /* ファイル番号 */
+    uint8_t   cn;             /* チャネル番号 */
+    uint8_t   smmsk;          /* サブモードのマスクパターン */
+    uint8_t   smval;          /* サブモードの比較値 */
+    uint8_t   cimsk;          /* コーディング情報のマスクパターン */
+    uint8_t   cival;          /* コーディング情報の比較値 */
 } CdcSubh;
 
 /* セクタ情報 */
 typedef struct {
-    Sint32  fad;            /* フレームアドレス */
-    Uint8   fn;             /* ファイル番号 */
-    Uint8   cn;             /* チャネル番号 */
-    Uint8   sm;             /* サブモード */
-    Uint8   ci;             /* コーディング情報 */
+    int32_t  fad;            /* フレームアドレス */
+    uint8_t   fn;             /* ファイル番号 */
+    uint8_t   cn;             /* チャネル番号 */
+    uint8_t   sm;             /* サブモード */
+    uint8_t   ci;             /* コーディング情報 */
 } CdcSct;
 
 /* ファイル情報 */
 typedef struct {
-    Sint32  fad;            /* ファイル先頭フレームアドレス */
-    Sint32  size;           /* ファイルサイズ（バイト数） */
-    Uint8   unit;           /* ファイルユニットサイズ */
-    Uint8   gap;            /* ギャップサイズ */
-    Uint8   fn;             /* ファイル番号 */
-    Uint8   atr;            /* ファイルアトリビュート */
+    int32_t  fad;            /* ファイル先頭フレームアドレス */
+    int32_t  size;           /* ファイルサイズ（バイト数） */
+    uint8_t   unit;           /* ファイルユニットサイズ */
+    uint8_t   gap;            /* ギャップサイズ */
+    uint8_t   fn;             /* ファイル番号 */
+    uint8_t   atr;            /* ファイルアトリビュート */
 } CdcFile;
 
 /*******************************************************************
@@ -343,79 +343,79 @@ typedef struct {
 *******************************************************************/
 
 /* cdc_cmn.c */
-Sint32  CDC_GetCurStat(CdcStat *stat);
-Sint32  CDC_GetLastStat(CdcStat *stat);
-Sint32  CDC_GetHwInfo(CdcHw *hw);
-Sint32  CDC_TgetToc(Uint32 *toc);
-Sint32  CDC_GetSes(Sint32 sesno, Uint32 *ses);
-Sint32  CDC_CdInit(Sint32 iflag, Sint32 stnby, Sint32 ecc, Sint32 retry);
-Sint32  CDC_CdOpen(void);
-Sint32  CDC_DataReady(Sint32 dtype);
-Sint32  CDC_DataEnd(Sint32 *cdwnum);
-Sint32  CDC_GetPeriStat(CdcStat *stat);
+int32_t  CDC_GetCurStat(CdcStat *stat);
+int32_t  CDC_GetLastStat(CdcStat *stat);
+int32_t  CDC_GetHwInfo(CdcHw *hw);
+int32_t  CDC_TgetToc(uint32_t *toc);
+int32_t  CDC_GetSes(int32_t sesno, uint32_t *ses);
+int32_t  CDC_CdInit(int32_t iflag, int32_t stnby, int32_t ecc, int32_t retry);
+int32_t  CDC_CdOpen(void);
+int32_t  CDC_DataReady(int32_t dtype);
+int32_t  CDC_DataEnd(int32_t *cdwnum);
+int32_t  CDC_GetPeriStat(CdcStat *stat);
 
 /* cdc_drv.c */
-Sint32  CDC_CdPlay(CdcPly *ply);
-Sint32  CDC_CdSeek(CdcPos *pos);
-Sint32  CDC_CdScan(Sint32 scandir);
+int32_t  CDC_CdPlay(CdcPly *ply);
+int32_t  CDC_CdSeek(CdcPos *pos);
+int32_t  CDC_CdScan(int32_t scandir);
 
 /* cdc_scd.c */
-Sint32  CDC_TgetScdQch(Uint16 *qcode);
-Sint32  CDC_TgetScdRwch(Uint16 *rwcode, Sint32 *scdflag);
+int32_t  CDC_TgetScdQch(uint16_t *qcode);
+int32_t  CDC_TgetScdRwch(uint16_t *rwcode, int32_t *scdflag);
 
 /* cdc_dev.c */
-Sint32  CDC_CdSetCon(Sint32 filtno);
-Sint32  CDC_CdGetCon(Sint32 *filtno);
-Sint32  CDC_CdGetLastBuf(Sint32 *bufno);
+int32_t  CDC_CdSetCon(int32_t filtno);
+int32_t  CDC_CdGetCon(int32_t *filtno);
+int32_t  CDC_CdGetLastBuf(int32_t *bufno);
 
 /* cdc_sel.c */
-Sint32  CDC_SetFiltRange(Sint32 filtno, Sint32 fad, Sint32 fasnum);
-Sint32  CDC_GetFiltRange(Sint32 filtno, Sint32 *fad, Sint32 *fasnum);
-Sint32  CDC_SetFiltSubh(Sint32 filtno, CdcSubh *subh);
-Sint32  CDC_GetFiltSubh(Sint32 filtno, CdcSubh *subh);
-Sint32  CDC_SetFiltMode(Sint32 filtno, Sint32 fmode);
-Sint32  CDC_GetFiltMode(Sint32 filtno, Sint32 *fmode);
-Sint32  CDC_SetFiltCon(Sint32 filtno, Sint32 cflag, Sint32 bufno,
-                       Sint32 flnout);
-Sint32  CDC_GetFiltCon(Sint32 filtno, Sint32 *bufno, Sint32 *flnout);
-Sint32  CDC_ResetSelector(Sint32 rflag, Sint32 bufno);
+int32_t  CDC_SetFiltRange(int32_t filtno, int32_t fad, int32_t fasnum);
+int32_t  CDC_GetFiltRange(int32_t filtno, int32_t *fad, int32_t *fasnum);
+int32_t  CDC_SetFiltSubh(int32_t filtno, CdcSubh *subh);
+int32_t  CDC_GetFiltSubh(int32_t filtno, CdcSubh *subh);
+int32_t  CDC_SetFiltMode(int32_t filtno, int32_t fmode);
+int32_t  CDC_GetFiltMode(int32_t filtno, int32_t *fmode);
+int32_t  CDC_SetFiltCon(int32_t filtno, int32_t cflag, int32_t bufno,
+                       int32_t flnout);
+int32_t  CDC_GetFiltCon(int32_t filtno, int32_t *bufno, int32_t *flnout);
+int32_t  CDC_ResetSelector(int32_t rflag, int32_t bufno);
 
 /* cdc_bif.c */
-Sint32  CDC_GetBufSiz(Sint32 *totalsiz, Sint32 *bufnum, Sint32 *freesiz);
-Sint32  CDC_GetSctNum(Sint32 bufno, Sint32 *snum);
-Sint32  CDC_CalActSiz(Sint32 bufno, Sint32 spos, Sint32 snum);
-Sint32  CDC_GetActSiz(Sint32 *actwnum);
-Sint32  CDC_GetSctInfo(Sint32 bufno, Sint32 spos, CdcSct *sct);
-Sint32  CDC_ExeFadSearch(Sint32 bufno, Sint32 spos, Sint32 fad);
-Sint32  CDC_GetFadSearch(Sint32 *bufno, Sint32 *spos, Sint32 *fad);
+int32_t  CDC_GetBufSiz(int32_t *totalsiz, int32_t *bufnum, int32_t *freesiz);
+int32_t  CDC_GetSctNum(int32_t bufno, int32_t *snum);
+int32_t  CDC_CalActSiz(int32_t bufno, int32_t spos, int32_t snum);
+int32_t  CDC_GetActSiz(int32_t *actwnum);
+int32_t  CDC_GetSctInfo(int32_t bufno, int32_t spos, CdcSct *sct);
+int32_t  CDC_ExeFadSearch(int32_t bufno, int32_t spos, int32_t fad);
+int32_t  CDC_GetFadSearch(int32_t *bufno, int32_t *spos, int32_t *fad);
 
 /* cdc_bio.c */
-Sint32  CDC_SetSctLen(Sint32 getslen, Sint32 putslen);
-Sint32  CDC_GetSctData(Sint32 bufno, Sint32 spos, Sint32 snum);
-Sint32  CDC_DelSctData(Sint32 bufno, Sint32 spos, Sint32 snum);
-Sint32  CDC_GetdelSctData(Sint32 bufno, Sint32 spos, Sint32 snum);
-Sint32  CDC_PutSctData(Sint32 filtno, Sint32 snum);
-Sint32  CDC_CopySctData(Sint32 srcbn, Sint32 spos, Sint32 snum,
-                        Sint32 dstfln);
-Sint32  CDC_MoveSctData(Sint32 srcbn, Sint32 spos, Sint32 snum,
-                        Sint32 dstfln);
-Sint32  CDC_GetCopyErr(Sint32 *cpyerr);
+int32_t  CDC_SetSctLen(int32_t getslen, int32_t putslen);
+int32_t  CDC_GetSctData(int32_t bufno, int32_t spos, int32_t snum);
+int32_t  CDC_DelSctData(int32_t bufno, int32_t spos, int32_t snum);
+int32_t  CDC_GetdelSctData(int32_t bufno, int32_t spos, int32_t snum);
+int32_t  CDC_PutSctData(int32_t filtno, int32_t snum);
+int32_t  CDC_CopySctData(int32_t srcbn, int32_t spos, int32_t snum,
+                        int32_t dstfln);
+int32_t  CDC_MoveSctData(int32_t srcbn, int32_t spos, int32_t snum,
+                        int32_t dstfln);
+int32_t  CDC_GetCopyErr(int32_t *cpyerr);
 
 /* cdc_cfs.c */
-Sint32  CDC_ChgDir(Sint32 filtno, Sint32 fid);
-Sint32  CDC_ReadDir(Sint32 filtno, Sint32 fid);
-Sint32  CDC_GetFileScope(Sint32 *fid, Sint32 *infnum, Bool *drend);
-Sint32  CDC_TgetFileInfo(Sint32 fid, CdcFile *file);
-Sint32  CDC_ReadFile(Sint32 filtno, Sint32 fid, Sint32 offset);
-Sint32  CDC_AbortFile(void);
+int32_t  CDC_ChgDir(int32_t filtno, int32_t fid);
+int32_t  CDC_ReadDir(int32_t filtno, int32_t fid);
+int32_t  CDC_GetFileScope(int32_t *fid, int32_t *infnum, bool *drend);
+int32_t  CDC_TgetFileInfo(int32_t fid, CdcFile *file);
+int32_t  CDC_ReadFile(int32_t filtno, int32_t fid, int32_t offset);
+int32_t  CDC_AbortFile(void);
 
 /* cdc_reg.c */
-Uint32  *CDC_GetDataPtr(void);
-Sint32  CDC_GetHirqReq(void);
-void    CDC_ClrHirqReq(Sint32 bitpat);
-Sint32  CDC_GetHirqMsk(void);
-void    CDC_SetHirqMsk(Sint32 bitpat);
-Uint32  *CDC_GetMpegPtr(void);
+uint32_t  *CDC_GetDataPtr(void);
+int32_t  CDC_GetHirqReq(void);
+void    CDC_ClrHirqReq(int32_t bitpat);
+int32_t  CDC_GetHirqMsk(void);
+void    CDC_SetHirqMsk(int32_t bitpat);
+uint32_t  *CDC_GetMpegPtr(void);
 
 
 
@@ -697,46 +697,46 @@ enum CdcMpClv {
 
 /* MPEGステータス情報（ステータス＋MPEGレポート） */
 typedef struct {
-    Uint8   status;         /* ステータス */
+    uint8_t   status;         /* ステータス */
     struct {                /* MPEGレポート */
-        Uint8   actst;      /* MPEG動作ステータス */
-        Uint8   pict;       /* ピクチャ情報 */
-        Uint8   stat_a;     /* MPEG/Audioステータス */
-        Uint16  stat_v;     /* MPEG/Videoステータス */
-        Uint16  vcnt;       /* 動作区間（VSYNC）カウンタ */
+        uint8_t   actst;      /* MPEG動作ステータス */
+        uint8_t   pict;       /* ピクチャ情報 */
+        uint8_t   stat_a;     /* MPEG/Audioステータス */
+        uint16_t  stat_v;     /* MPEG/Videoステータス */
+        uint16_t  vcnt;       /* 動作区間（VSYNC）カウンタ */
     } report;
 } CdcMpStat;
 
 /* タイムコード */
 typedef struct {
-    Uint8   hour;           /* 時間 */
-    Uint8   min;            /* 分 */
-    Uint8   sec;            /* 秒 */
-    Uint8   pic;            /* ピクチャ */
+    uint8_t   hour;           /* 時間 */
+    uint8_t   min;            /* 分 */
+    uint8_t   sec;            /* 秒 */
+    uint8_t   pic;            /* ピクチャ */
 } CdcMpTc;
 
 /* MPEGデコーダ接続先パラメータ */
 typedef struct {
-    Uint8   cmod;           /* 接続モード */
-    Uint8   lay;            /* レイヤ指定とピクチャサーチ指定 */
-    Uint8   bn;             /* バッファ区画番号 */
+    uint8_t   cmod;           /* 接続モード */
+    uint8_t   lay;            /* レイヤ指定とピクチャサーチ指定 */
+    uint8_t   bn;             /* バッファ区画番号 */
 } CdcMpCon;
 
 /* MPEGストリームパラメータ */
 typedef struct {
-    Uint8   smod;           /* ストリームモード */
-    Uint8   id;             /* ストリーム番号 */
-    Uint8   cn;             /* チャネル番号 */
+    uint8_t   smod;           /* ストリームモード */
+    uint8_t   id;             /* ストリーム番号 */
+    uint8_t   cn;             /* チャネル番号 */
 } CdcMpStm;
 
 /* 画面特殊効果パラメータ */
 typedef struct {
-    Uint8   itp;            /* 補間モード */
-    Uint8   trp;            /* 透明ビットモード */
-    Uint8   moz_h;          /* 水平方向モザイクモード */
-    Uint8   moz_v;          /* 垂直方向モザイクモード */
-    Uint8   soft_h;         /* 水平方向ぼかしモード */
-    Uint8   soft_v;         /* 垂直方向ぼかしモード */
+    uint8_t   itp;            /* 補間モード */
+    uint8_t   trp;            /* 透明ビットモード */
+    uint8_t   moz_h;          /* 水平方向モザイクモード */
+    uint8_t   moz_v;          /* 垂直方向モザイクモード */
+    uint8_t   soft_h;         /* 水平方向ぼかしモード */
+    uint8_t   soft_v;         /* 垂直方向ぼかしモード */
 } CdcMpVef;
 
 /*******************************************************************
@@ -748,59 +748,59 @@ typedef struct {
 *******************************************************************/
 
 /* cdc_mdc.c */
-Sint32  CDC_MpGetCurStat(CdcMpStat *mpstat);
-Sint32  CDC_MpGetLastStat(CdcMpStat *mpstat);
-Sint32  CDC_MpGetInt(Sint32 *intreq);
-Sint32  CDC_MpSetIntMsk(Sint32 intmsk);
-Sint32  CDC_MpInit(Bool sw);
-Sint32  CDC_MpSetMode(Sint32 actmod, Sint32 dectim, Sint32 out,
-                      Sint32 scnmod);
-Sint32  CDC_MpPlay(Sint32 plymod, Sint32 tmod_a, Sint32 tmod_v,
-                   Sint32 dec_v);
-Sint32  CDC_MpSetDec(Sint32 mute, Sint32 pautim, Sint32 frztim);
-Sint32  CDC_MpOutDsync(Sint32 fbn);
-Sint32  CDC_MpGetTc(Sint32 *bnk, Sint32 *pictyp, Sint32 *tr, CdcMpTc *mptc);
-Sint32  CDC_MpGetPts(Sint32 *pts_a);
+int32_t  CDC_MpGetCurStat(CdcMpStat *mpstat);
+int32_t  CDC_MpGetLastStat(CdcMpStat *mpstat);
+int32_t  CDC_MpGetInt(int32_t *intreq);
+int32_t  CDC_MpSetIntMsk(int32_t intmsk);
+int32_t  CDC_MpInit(bool sw);
+int32_t  CDC_MpSetMode(int32_t actmod, int32_t dectim, int32_t out,
+                      int32_t scnmod);
+int32_t  CDC_MpPlay(int32_t plymod, int32_t tmod_a, int32_t tmod_v,
+                   int32_t dec_v);
+int32_t  CDC_MpSetDec(int32_t mute, int32_t pautim, int32_t frztim);
+int32_t  CDC_MpOutDsync(int32_t fbn);
+int32_t  CDC_MpGetTc(int32_t *bnk, int32_t *pictyp, int32_t *tr, CdcMpTc *mptc);
+int32_t  CDC_MpGetPts(int32_t *pts_a);
 
 /* cdc_mst.c */
-Sint32  CDC_MpSetCon(Sint32 next, CdcMpCon *mpcon_a, CdcMpCon *mpcon_v);
-Sint32  CDC_MpGetCon(Sint32 next, CdcMpCon *mpcon_a, CdcMpCon *mpcon_v);
-Sint32  CDC_MpChgCon(Sint32 chg_a, Sint32 chg_v,
-                     Sint32 clr_a, Sint32 clr_v);
-Sint32  CDC_MpSetStm(Sint32 next, CdcMpStm *mpstm_a, CdcMpStm *mpstm_v);
-Sint32  CDC_MpGetStm(Sint32 next, CdcMpStm *mpstm_a, CdcMpStm *mpstm_v);
-Sint32  CDC_MpGetPictSiz(Sint32 *siz_h, Sint32 *siz_v);
+int32_t  CDC_MpSetCon(int32_t next, CdcMpCon *mpcon_a, CdcMpCon *mpcon_v);
+int32_t  CDC_MpGetCon(int32_t next, CdcMpCon *mpcon_a, CdcMpCon *mpcon_v);
+int32_t  CDC_MpChgCon(int32_t chg_a, int32_t chg_v,
+                     int32_t clr_a, int32_t clr_v);
+int32_t  CDC_MpSetStm(int32_t next, CdcMpStm *mpstm_a, CdcMpStm *mpstm_v);
+int32_t  CDC_MpGetStm(int32_t next, CdcMpStm *mpstm_a, CdcMpStm *mpstm_v);
+int32_t  CDC_MpGetPictSiz(int32_t *siz_h, int32_t *siz_v);
 
 /* cdc_mwn.c */
-Sint32  CDC_MpDisp(Bool dspsw, Sint32 fbn);
-Sint32  CDC_MpSetWinFpos(Bool chgflg, Sint32 fpx, Sint32 fpy);
-Sint32  CDC_MpSetWinFrat(Bool chgflg, Sint32 frx, Sint32 fry);
-Sint32  CDC_MpSetWinDpos(Bool chgflg, Sint32 dpx, Sint32 dpy);
-Sint32  CDC_MpSetWinDsiz(Bool chgflg, Sint32 dsx, Sint32 dsy);
-Sint32  CDC_MpSetWinDofs(Bool chgflg, Sint32 dox, Sint32 doy);
-Sint32  CDC_MpSetBcolor(Sint32 bcolor);
-Sint32  CDC_MpSetFade(Sint32 gain_y, Sint32 gain_c);
-Sint32  CDC_MpSetVeff(CdcMpVef *mpvef);
+int32_t  CDC_MpDisp(bool dspsw, int32_t fbn);
+int32_t  CDC_MpSetWinFpos(bool chgflg, int32_t fpx, int32_t fpy);
+int32_t  CDC_MpSetWinFrat(bool chgflg, int32_t frx, int32_t fry);
+int32_t  CDC_MpSetWinDpos(bool chgflg, int32_t dpx, int32_t dpy);
+int32_t  CDC_MpSetWinDsiz(bool chgflg, int32_t dsx, int32_t dsy);
+int32_t  CDC_MpSetWinDofs(bool chgflg, int32_t dox, int32_t doy);
+int32_t  CDC_MpSetBcolor(int32_t bcolor);
+int32_t  CDC_MpSetFade(int32_t gain_y, int32_t gain_c);
+int32_t  CDC_MpSetVeff(CdcMpVef *mpvef);
 
 /* cdc_mfb.c */
-Sint32  CDC_MpGetImg(Sint32 *dwnum);
-Sint32  CDC_MpSetImgPos(Sint32 fbn, Sint32 ipx, Sint32 ipy);
-Sint32  CDC_MpSetImgSiz(Sint32 fbn, Sint32 isx, Sint32 isy);
-Sint32  CDC_MpReadImg(Sint32 srcfbn,
-                      Sint32 fln_y, Sint32 fln_cr, Sint32 fln_cb);
-Sint32  CDC_MpWriteImg(Sint32 bn_y, Sint32 bn_cr, Sint32 bn_cb,
-                       Sint32 dstfbn, Sint32 clrmod);
+int32_t  CDC_MpGetImg(int32_t *dwnum);
+int32_t  CDC_MpSetImgPos(int32_t fbn, int32_t ipx, int32_t ipy);
+int32_t  CDC_MpSetImgSiz(int32_t fbn, int32_t isx, int32_t isy);
+int32_t  CDC_MpReadImg(int32_t srcfbn,
+                      int32_t fln_y, int32_t fln_cr, int32_t fln_cb);
+int32_t  CDC_MpWriteImg(int32_t bn_y, int32_t bn_cr, int32_t bn_cb,
+                       int32_t dstfbn, int32_t clrmod);
 
 /* cdc_mbu.c */
-Sint32  CDC_MpReadSct(Sint32 srcmsp, Sint32 snum, Sint32 dstfln);
-Sint32  CDC_MpWriteSct(Sint32 srcbn, Sint32 sp, Sint32 snum,
-                       Sint32 dstmsp);
+int32_t  CDC_MpReadSct(int32_t srcmsp, int32_t snum, int32_t dstfln);
+int32_t  CDC_MpWriteSct(int32_t srcbn, int32_t sp, int32_t snum,
+                       int32_t dstmsp);
 
 /* cdc_mls.c */
 /* 注意：以下の関数は非公開とする */
-Sint32  CDC_MpGetLsi(Sint32 r_sw, Sint32 reg_no, Sint32 *rdata);
-Sint32  CDC_MpSetLsi(Sint32 rwsw, Sint32 reg_no, Sint32 wdata,
-                     Sint32 *rdata);
+int32_t  CDC_MpGetLsi(int32_t r_sw, int32_t reg_no, int32_t *rdata);
+int32_t  CDC_MpSetLsi(int32_t rwsw, int32_t reg_no, int32_t wdata,
+                     int32_t *rdata);
 
 #endif  /* ifndef SEGA_CDC_H */
 

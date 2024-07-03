@@ -10,7 +10,7 @@ int main()
 
     // Load texture
     SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");
-    Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);
+    int32_t textureIndex = SRL::VDP1::TryLoadTexture(tga);
     delete tga;
 
     // Define test polygons

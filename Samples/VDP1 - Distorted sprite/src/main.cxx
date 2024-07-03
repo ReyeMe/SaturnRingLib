@@ -24,15 +24,15 @@ int main()
     
     // Load texture
     SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");   // Loads TGA file into main RAM
-    Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
+    int32_t textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
     delete tga;                                                 // Frees main RAM
 
     // Get screen size
-    Uint16 halfWidth = SRL::TV::Width >> 1;
+    uint16_t halfWidth = SRL::TV::Width >> 1;
     Fxp minimumWidth = -Fxp::FromInt(halfWidth);
     Fxp maximumWidth = Fxp::FromInt(halfWidth);
 
-    Uint16 halfHeight = SRL::TV::Height >> 1;
+    uint16_t halfHeight = SRL::TV::Height >> 1;
     Fxp minimumHeight = -Fxp::FromInt(halfHeight);
     Fxp maximumHeight = Fxp::FromInt(halfHeight);
 
@@ -75,7 +75,7 @@ int main()
         Vector2D spritePoints[4];
 
         // Move points
-        for (int point = 0; point < 4; point++)
+        for (uint8_t point = 0; point < 4; point++)
         {
             // Move line
             points[point].Point += points[point].Velocity;

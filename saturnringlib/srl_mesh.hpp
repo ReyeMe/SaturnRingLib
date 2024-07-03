@@ -11,7 +11,7 @@ namespace SRL::Types
     {
         /** @brief Face visibility type
          */
-        enum FaceVisibility : Uint8
+        enum FaceVisibility : uint8_t
         {
             /** @brief Normal vector is used to determine whether face is visible or not
              */
@@ -24,7 +24,7 @@ namespace SRL::Types
 
         /** @brief Sorting mode for the face
          */
-        enum SortMode : Uint8
+        enum SortMode : uint8_t
         {
             /** @brief Use the position of the polygon displayed immediately before
              */
@@ -65,7 +65,7 @@ namespace SRL::Types
          *  @param direction 
          *  @param options 
          */
-        Attribute(const FaceVisibility visibility, const SortMode sort, const Uint16 texture, Uint16 color, Uint16 gouraud, Uint16 mode, Uint32 direction, Uint16 options) :
+        Attribute(const FaceVisibility visibility, const SortMode sort, const uint16_t texture, uint16_t color, uint16_t gouraud, uint16_t mode, uint32_t direction, uint16_t options) :
             Visibility(visibility),
             Sort(sort | (((direction) >> 16) & 0x1c) | options),
             Texture(texture),
@@ -80,27 +80,27 @@ namespace SRL::Types
 
         /** @brief Sort reference position and optional settings
          */
-        Uint8 Sort;
+        uint8_t Sort;
 
         /** @brief Texture number
          */
-        Uint16 Texture;
+        uint16_t Texture;
 
         /** @brief Display mode
          */
-        Uint16 Display;
+        uint16_t Display;
 
         /** @brief Color mode
          */
-        Uint16 ColorMode;
+        uint16_t ColorMode;
 
         /** @brief Gouraud shading table
          */
-        Uint16 Gouraud;
+        uint16_t Gouraud;
 
         /** @brief Texture inversion and function number
          */
-        Uint16 Direction;
+        uint16_t Direction;
     };
 
     /** @brief Mesh polygon
@@ -115,7 +115,7 @@ namespace SRL::Types
          * @param normal Normal vector
          * @param vertices Polygon vertex indicies
          */
-        Polygon(const Vector3D& normal, const Uint16 vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
+        Polygon(const Vector3D& normal, const uint16_t vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
 
         /** @brief Normal vector of the polygon
          */
@@ -123,7 +123,7 @@ namespace SRL::Types
 
         /** @brief Vertices of the polygon
          */
-        Uint16 Vertices[4];
+        uint16_t Vertices[4];
     };
 
     /** @brief 3D mesh

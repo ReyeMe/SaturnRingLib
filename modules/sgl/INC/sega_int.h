@@ -31,8 +31,8 @@
 
 /* 定数 */
 /**** 割り込みアドレスレジスタ ***********************************************/
-#define INT_REG_IST     ((Uint32 *)0x25fe00a4)  /* 割り込みステータスレジスタ*/
-#define INT_REG_IACK    ((Uint32 *)0x25fe00bc)  /* A-Bus割り込みアクノリッジ */
+#define INT_REG_IST     ((uint32_t *)0x25fe00a4)  /* 割り込みステータスレジスタ*/
+#define INT_REG_IACK    ((uint32_t *)0x25fe00bc)  /* A-Bus割り込みアクノリッジ */
 /***** 割り込みマスクビット値定数 ********************************************/
 #define INT_MSK_NULL      0             /* 指定なし                          */
 #define INT_MSK_ALL      (INT_MSK_ABUS     |    /* 全指定　                 */\
@@ -178,7 +178,7 @@
  *      なし。
  *
  * POSTCONDITIONS:
- *      (1) Uint32  割り込みマスクビット値
+ *      (1) uint32_t  割り込みマスクビット値
  *
  * CAVEATS:
  *      なし。
@@ -193,7 +193,7 @@
  * NAME:    INT_SetMsk()    -   割り込みマスクレジスタ設定
  *
  * PARAMETERS :
- *      (1) Uint32 msk_bit      <i>   割り込みマスクビット値
+ *      (1) uint32_t msk_bit      <i>   割り込みマスクビット値
  *
  * DESCRIPTION:
  *
@@ -216,8 +216,8 @@
  * NAME:   INT_ChgMsk()     -   割り込みマスクレジスタ変更
  *
  * PARAMETERS :
- *      (1) Uint32 ena_msk_bit  <i>   割り込みマスクビット（イネーブル)
- *      (2) Uint32 dis_msk_bit  <i>   割り込みマスクビット（ディセーブル)
+ *      (1) uint32_t ena_msk_bit  <i>   割り込みマスクビット（イネーブル)
+ *      (2) uint32_t dis_msk_bit  <i>   割り込みマスクビット（ディセーブル)
  *
  * DESCRIPTION:
  *
@@ -249,7 +249,7 @@
  *      なし。
  *
  * POSTCONDITIONS:
- *      (1) Uint32  割り込みステータスレジスタ値
+ *      (1) uint32_t  割り込みステータスレジスタ値
  *
  * CAVEATS:
  *      なし。
@@ -264,7 +264,7 @@
  * NAME:    INT_ResStat()       -   割り込みステータスレジスタリセット
  *
  * PARAMETERS :
- *      (1) Uint32 status_bit   <i>   割り込みステータスビット値
+ *      (1) uint32_t status_bit   <i>   割り込みステータスビット値
  *
  * DESCRIPTION:
  *
@@ -290,7 +290,7 @@
  * NAME:    INT_SetAck()            -   A-Bus割り込みアクノリッジ設定
  *
  * PARAMETERS :
- *      (1) Uint32 ack                  <i>   アクノリッジ値
+ *      (1) uint32_t ack                  <i>   アクノリッジ値
  *
  * DESCRIPTION:
  *
@@ -324,7 +324,7 @@
  *      なし。
  *
  * POSTCONDITIONS:
- *      (1) Uint32  アクノリッジ値
+ *      (1) uint32_t  アクノリッジ値
  *
  * CAVEATS:
  *      なし。
@@ -339,7 +339,7 @@
  * NAME:    INT_SetFunc()       -   割り込み関数登録 
  *
  * PARAMETERS :
- *      (1) Uint32 num      <i>   ベクタ番号
+ *      (1) uint32_t num      <i>   ベクタ番号
  *      (2) void *hdr       <i>   割り込み関数アドレス
  *
  * DESCRIPTION:
@@ -362,7 +362,7 @@
  * NAME:    INT_SetScuFunc()    -   SCU関数登録 
  *
  * PARAMETERS :
- *      (1) Uint32 num      <i>   ベクタ番号(SCUベクタ番号)
+ *      (1) uint32_t num      <i>   ベクタ番号(SCUベクタ番号)
  *      (2) void *hdr       <i>   SCU関数アドレス
  *
  * DESCRIPTION:
@@ -385,7 +385,7 @@
  * NAME:    INT_GetFunc()       -   割り込み関数アドレス取得
  *
  * PARAMETERS :
- *      (1) Uint32 num      <i>   ベクタ番号
+ *      (1) uint32_t num      <i>   ベクタ番号
  *
  * DESCRIPTION:
  *
@@ -408,7 +408,7 @@
  * NAME:    INT_GetScuFunc()       -   SCU関数アドレス取得
  *
  * PARAMETERS :
- *      (1) Uint32 num      <i>   ベクタ番号(SCUベクタ番号)
+ *      (1) uint32_t num      <i>   ベクタ番号(SCUベクタ番号)
  *
  * DESCRIPTION:
  *

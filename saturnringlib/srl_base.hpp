@@ -7,6 +7,7 @@ extern "C" {
     #include <sega_gfs.h>
     #include <sega_bup.h>
     #include <sega_int.h>
+    #include "stdint-gcc.h"
     #include "stddef.h"
 }
 

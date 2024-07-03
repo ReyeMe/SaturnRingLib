@@ -84,12 +84,12 @@ namespace SRL
 
             /** @brief Pseudo-Random number generator seed
              */
-            Uint32 startState;
+            uint32_t startState;
 
             /** @brief Get next pseudo-random number
              * @return Generated number
              */
-            Uint32 GetNextPeriod()
+            uint32_t GetNextPeriod()
             {
                 // thx to thepuristofgreed from SX discord for showing this and comparing against my slower and less random version from last commit
                 this->startState ^= this->startState << 13;
@@ -116,7 +116,7 @@ namespace SRL
             /** @brief Construct a new pseudo-random number generator
              * @param seed Starting seed
              */
-            Random(Uint32 seed)
+            Random(uint32_t seed)
             {
                 this->startState = seed;
             }
@@ -128,7 +128,7 @@ namespace SRL
             /** @brief Get next pseudo-random number
              * @return Generated number in a full range
              */
-            Uint32 GetNumber()
+            uint32_t GetNumber()
             {
                 return this->GetNextPeriod();
             }
@@ -138,9 +138,9 @@ namespace SRL
              * @param to Inclusive end of the range
              * @return Generated number in a range
              */
-            Sint32 GetNumber(Sint32 from, Sint32 to)
+            int32_t GetNumber(int32_t from, int32_t to)
             {
-                Uint32 number = this->GetNumber();
+                uint32_t number = this->GetNumber();
                 return from + (number % Math::Abs(to - from));
             }
         };

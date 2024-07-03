@@ -30,7 +30,6 @@ namespace SRL
              * @note Size must be 4 byte aligned, if unaligned size will be specified, it will get rounded down to nearest alignment
              */
             size_t Size;
-
         };
 
         /** @brief Check if pointer is inside this memory zone
@@ -81,7 +80,7 @@ namespace SRL
              */
             inline static constexpr size_t GetNextBlockLocation(const Memory::MemoryZone& zone, size_t currentBlock)
             {
-                return currentBlock + sizeof(SimpleMalloc::Header) + ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[currentBlock])->Size;
+                return currentBlock + sizeof(SimpleMalloc::Header) + ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[currentBlock])->Size;
             }
 
             /** @brief Merges all free memory blocks until allocated block
@@ -96,7 +95,7 @@ namespace SRL
                 if (startBlock < zone.Size)
                 {
                     // Check if current block is free
-                    SimpleMalloc::Header* currentBlockHead = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[startBlock]);
+                    SimpleMalloc::Header* currentBlockHead = ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[startBlock]);
 
                     // Check if the block is free
                     if (currentBlockHead->State == SimpleMalloc::BlockState::Free)
@@ -108,7 +107,7 @@ namespace SRL
                         while (location < zone.Size)
                         {
                             // Gets header of the current block
-                            SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location]);
+                            SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[location]);
 
                             // Check if the block is free
                             if (header->State == SimpleMalloc::BlockState::Free)
@@ -138,7 +137,7 @@ namespace SRL
             inline static bool SetBlockAllocation(const Memory::MemoryZone& zone, size_t location, size_t size)
             {
                 // Gets block header
-                SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location]);
+                SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[location]);
 
                 // Store size of new block
                 size_t newBlock = size;
@@ -169,8 +168,8 @@ namespace SRL
                     if (oldBlockSize - newBlock > 0)
                     {
                         size_t nextBlock = SimpleMalloc::GetNextBlockLocation(zone, location);
-                        ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[nextBlock])->State = SimpleMalloc::BlockState::Free;
-                        ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[nextBlock])->Size = oldBlockSize - newBlock - sizeof(SimpleMalloc::Header);
+                        ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[nextBlock])->State = SimpleMalloc::BlockState::Free;
+                        ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[nextBlock])->Size = oldBlockSize - newBlock - sizeof(SimpleMalloc::Header);
                     }
 
                     return true;
@@ -190,13 +189,13 @@ namespace SRL
                 if (ptr != nullptr && Memory::InZone(zone, ptr))
                 {
                     // Gets offset to memory array
-                    size_t location = reinterpret_cast<Uint32>(ptr) - reinterpret_cast<Uint32>(zone.Address);
+                    size_t location = reinterpret_cast<uint32_t>(ptr) - reinterpret_cast<uint32_t>(zone.Address);
 
                     // Check of offset is valid, we do not need to check whether location is 0, since first 4 bytes are always header
                     if (location > 0 && location < zone.Size && (location & 3) == 0)
                     {
                         // Flag area as free
-                        ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location - sizeof(SimpleMalloc::Header)])->State = SimpleMalloc::BlockState::Free;
+                        ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[location - sizeof(SimpleMalloc::Header)])->State = SimpleMalloc::BlockState::Free;
 
                         // Merge areas
                         SimpleMalloc::MergeFreeMemoryBlocks(zone, location - sizeof(SimpleMalloc::Header));
@@ -228,7 +227,7 @@ namespace SRL
                 while (location < zone.Size)
                 {
                     // Gets header of the current block
-                    SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[location]);
+                    SimpleMalloc::Header* header = ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[location]);
 
                     // Check if the block is free
                     if (header->State == SimpleMalloc::BlockState::Free)
@@ -240,7 +239,7 @@ namespace SRL
                         if (SimpleMalloc::SetBlockAllocation(zone, location, newBlock))
                         {
                             // Return pointer to allocated block
-                            return (void*)&((Uint8*)zone.Address)[location + sizeof(SimpleMalloc::Header)];
+                            return (void*)&((uint8_t*)zone.Address)[location + sizeof(SimpleMalloc::Header)];
                         }
                     }
 
@@ -274,7 +273,7 @@ namespace SRL
                     if (SimpleMalloc::SetBlockAllocation(zone, headerLocation, size))
                     {
                         // We fit inside
-                        return (void*)&((Uint8*)zone.Address)[location];
+                        return (void*)&((uint8_t*)zone.Address)[location];
                     }
                     else
                     {
@@ -282,7 +281,7 @@ namespace SRL
                         void* newSpace = SimpleMalloc::Malloc(zone, size);
 
                         // Copy data to the new location
-                        slDMACopy(ptr, newSpace, ((SimpleMalloc::Header*)&((Uint8*)zone.Address)[headerLocation])->Size);
+                        slDMACopy(ptr, newSpace, ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[headerLocation])->Size);
 
                         // Return address to new thing
                         return newSpace;
@@ -566,11 +565,11 @@ namespace SRL
          * @param length Data length to set
          * @return Pointer to the allocated space in memory
          */
-        inline static void MemSet(void* destination, const Uint8 value, const size_t length)
+        inline static void MemSet(void* destination, const uint8_t value, const size_t length)
         {
             for (size_t i = 0; i < length; i++)
             {
-                *(((Uint8*)destination) + i) = value;
+                *(((uint8_t*)destination) + i) = value;
             }
         }
 
@@ -579,7 +578,7 @@ namespace SRL
         inline static void Initialize()
         {
             // Memeset SGL workarea until the DMA transfer list location, if we go over it, it will corrupt the DMA transfer list
-            Memory::MemSet(&_heap_end, 0, reinterpret_cast<Uint32>(TransList) - reinterpret_cast<Uint32>(&_heap_end));
+            Memory::MemSet(&_heap_end, 0, reinterpret_cast<uint32_t>(TransList) - reinterpret_cast<uint32_t>(&_heap_end));
 
             #if defined(USE_TLSF_ALLOCATOR)
             Memory::mainWorkRam.Size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);

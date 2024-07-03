@@ -54,11 +54,11 @@ namespace SRL::Bitmap
 
         /** @brief Image width
          */
-        Uint16 Width;
+        uint16_t Width;
 
         /** @brief Image height
          */
-        Uint16 Height;
+        uint16_t Height;
 
         /** @brief Image color mode
          */
@@ -68,7 +68,7 @@ namespace SRL::Bitmap
          * @param width Image width
          * @param height Image height
          */
-        BitmapInfo(Uint16 width, Uint16 height) : Width(width), Height(height), ColorMode(CRAM::TextureColorMode::RGB555), Palette(nullptr)
+        BitmapInfo(uint16_t width, uint16_t height) : Width(width), Height(height), ColorMode(CRAM::TextureColorMode::RGB555), Palette(nullptr)
         {
             // Do nothing
         }
@@ -78,7 +78,7 @@ namespace SRL::Bitmap
          * @param height Image height
          * @param palette Color palette
          */
-        BitmapInfo(Uint16 width, Uint16 height, Bitmap::Palette* palette) : Width(width), Height(height), Palette(palette)
+        BitmapInfo(uint16_t width, uint16_t height, Bitmap::Palette* palette) : Width(width), Height(height), Palette(palette)
         {
             if (palette != nullptr)
             {
@@ -113,7 +113,7 @@ namespace SRL::Bitmap
         /** @brief Get image data
          * @return Pointer to image data
          */
-        virtual Uint8* GetData()
+        virtual uint8_t* GetData()
         {
             return nullptr;
         }

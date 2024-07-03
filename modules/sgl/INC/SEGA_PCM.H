@@ -1,10 +1,10 @@
 /******************************************************************************
- *	ƒ\ƒtƒgƒEƒFƒAƒ‰ƒCƒuƒ‰ƒŠ
+ *	ï¿½\ï¿½tï¿½gï¿½Eï¿½Fï¿½Aï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½
  *
  *	Copyright (c) 1994,1995 SEGA
  *
- * Library	:‚o‚b‚lE‚`‚c‚o‚b‚lÄ¶ƒ‰ƒCƒuƒ‰ƒŠ
- * Module 	:ƒ‰ƒCƒuƒ‰ƒŠƒwƒbƒ_
+ * Library	:ï¿½oï¿½bï¿½lï¿½Eï¿½`ï¿½cï¿½oï¿½bï¿½lï¿½Äï¿½ï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½
+ * Module 	:ï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½ï¿½wï¿½bï¿½_
  * File		:sega_pcm.h
  * Date		:1995-03-31
  * Version	:1.16
@@ -17,21 +17,21 @@
 /* from Ver1.10, adpcm function support */
 #define ADPCM_FUNCTION
 
-/*-------------------- sƒCƒ“ƒNƒ‹[ƒhƒtƒ@ƒCƒ‹t --------------------*/
+/*-------------------- ï¿½sï¿½Cï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½[ï¿½hï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½t --------------------*/
 #include "sega_xpt.h"
 #include "sega_gfs.h"
 #include "sega_stm.h"
 
-/*------------------------- sƒ}ƒNƒ’è”t -------------------------*/
+/*------------------------- ï¿½sï¿½}ï¿½Nï¿½ï¿½ï¿½è”ï¿½t -------------------------*/
 
-/* ƒo[ƒWƒ‡ƒ“ */
+/* ï¿½oï¿½[ï¿½Wï¿½ï¿½ï¿½ï¿½ */
 #define PCM_VERSION				("PCM Version 1.16 1995-03-31")
 							/*	           1         2         3         4	*/
 							/*	  1234567890123456789012345678901234567890	*/
 							/*	  ++++++++++++++++++++++++++++++++			*/
 #define PCM_VERSION_LEN			(32)
 
-/* ƒnƒ“ƒhƒ‹‘” */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 #define PCM_HN_MAX				(32)
 
 /* 1024, 2048, 4096,... */
@@ -41,149 +41,149 @@
 #define PCM_SIZE_4K				(4 * PCM_SIZE_1K)
 #define PCM_SIZE_8K				(8 * PCM_SIZE_1K)
 
-/* ƒtƒ‰ƒO */
+/* ï¿½tï¿½ï¿½ï¿½O */
 typedef enum {
     PCM_OFF = 0,
     PCM_ON  = 1
 } PcmFlag;
 
-/* ƒGƒ‰[ƒR[ƒh	*/
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½Rï¿½[ï¿½h	*/
 typedef enum {
-	PCM_ERR_OK					= 0x00000000,/* ƒGƒ‰[‚Í”­¶‚µ‚Ä‚¢‚È‚¢		*/
+	PCM_ERR_OK					= 0x00000000,/* ï¿½Gï¿½ï¿½ï¿½[ï¿½Í”ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½È‚ï¿½		*/
 
-	/* PCM_Create ‚ÌƒGƒ‰[ */
-	PCM_ERR_OUT_OF_HANDLE		= 0x00000101,/* ƒnƒ“ƒhƒ‹”„‚èØ‚ê 			*/
-	PCM_ERR_NO_INIT				= 0x00000103,/* ‰Šú‰»ŠÖ”‚ªº°Ù‚³‚ê‚Ä‚È‚¢ 	*/
+	/* PCM_Create ï¿½ÌƒGï¿½ï¿½ï¿½[ */
+	PCM_ERR_OUT_OF_HANDLE		= 0x00000101,/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø‚ï¿½ 			*/
+	PCM_ERR_NO_INIT				= 0x00000103,/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öï¿½ï¿½ï¿½ï¿½ï¿½Ù‚ï¿½ï¿½ï¿½Ä‚È‚ï¿½ 	*/
 
-	/* PCM_Destroy ‚ÌƒGƒ‰[ */
-	PCM_ERR_INVALID_HN			= 0x00000201,/* •s³‚Èƒnƒ“ƒhƒ‹‚ÅÁ‹Ž		*/
-	PCM_ERR_ILL_CREATE_MODE		= 0x00000202,/* Create Žž‚Ìƒ‚[ƒh‚Æˆá‚¤		*/
+	/* PCM_Destroy ï¿½ÌƒGï¿½ï¿½ï¿½[ */
+	PCM_ERR_INVALID_HN			= 0x00000201,/* ï¿½sï¿½ï¿½ï¿½Èƒnï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Åï¿½ï¿½ï¿½		*/
+	PCM_ERR_ILL_CREATE_MODE		= 0x00000202,/* Create ï¿½ï¿½ï¿½Ìƒï¿½ï¿½[ï¿½hï¿½Æˆá‚¤		*/
 
-	/* pcm_HeaderProcess ‚ÌƒGƒ‰[ */
-	PCM_ERR_TOO_LARGE_HEADER	= 0x00000302,/* ƒwƒbƒ_‚ª‚«‘å‚·‚¬‚é			*/
-											/* (ƒoƒbƒtƒ@ƒTƒCƒY‚ª¬‚³‚·‚¬‚é)	*/
-	PCM_ERR_HEADER_DATA			= 0x00000303,/* ƒwƒbƒ_ƒf[ƒ^ƒGƒ‰[ 			*/
-	PCM_ERR_TOO_SMALL_PCMBUF	= 0x00000304,/* PCMÊÞ¯Ì§»²½Þ‚ª¬‚³‚·‚¬‚é	*/
-	PCM_ERR_ILL_SIZE_PCMBUF		= 0x00000305,/* PCMÊÞ¯Ì§»²½Þ•s³ 4096*2`16	*/
-	PCM_ERR_AFI_NO_COMMON		= 0x00000306,/* CommonChunk ‚ª–³‚¢ 			*/
-	PCM_ERR_AFI_COMMPRESS		= 0x00000307,/* –¢‘Î‰žˆ³kƒ^ƒCƒv			*/
-	PCM_ERR_NOT_DECLARE_ADPCM	= 0x00000308,/* ADPCMŽg—péŒ¾‚ª‚È‚¢			*/
+	/* pcm_HeaderProcess ï¿½ÌƒGï¿½ï¿½ï¿½[ */
+	PCM_ERR_TOO_LARGE_HEADER	= 0x00000302,/* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½å‚·ï¿½ï¿½ï¿½ï¿½			*/
+											/* (ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)	*/
+	PCM_ERR_HEADER_DATA			= 0x00000303,/* ï¿½wï¿½bï¿½_ï¿½fï¿½[ï¿½^ï¿½Gï¿½ï¿½ï¿½[ 			*/
+	PCM_ERR_TOO_SMALL_PCMBUF	= 0x00000304,/* PCMï¿½Þ¯Ì§ï¿½ï¿½ï¿½Þ‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	*/
+	PCM_ERR_ILL_SIZE_PCMBUF		= 0x00000305,/* PCMï¿½Þ¯Ì§ï¿½ï¿½ï¿½Þ•sï¿½ï¿½ 4096*2ï¿½`16	*/
+	PCM_ERR_AFI_NO_COMMON		= 0x00000306,/* CommonChunk ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 			*/
+	PCM_ERR_AFI_COMMPRESS		= 0x00000307,/* ï¿½ï¿½ï¿½Î‰ï¿½ï¿½ï¿½ï¿½kï¿½^ï¿½Cï¿½v			*/
+	PCM_ERR_NOT_DECLARE_ADPCM	= 0x00000308,/* ADPCMï¿½gï¿½pï¿½éŒ¾ï¿½ï¿½ï¿½È‚ï¿½			*/
 
 	/*  */
-	PCM_ERR_ILLEGAL_PARA		= 0x00000503,/* ˆø‚«”‚ÌŽw’è‚ªŠÔˆá‚Á‚Ä‚¢‚é 	*/
-	PCM_ERR_ILLEGAL_HANDLE		= 0x00000504,/* ƒnƒ“ƒhƒ‹‚ªˆÙí 				*/
+	PCM_ERR_ILLEGAL_PARA		= 0x00000503,/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌŽwï¿½è‚ªï¿½Ôˆï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½ 	*/
+	PCM_ERR_ILLEGAL_HANDLE		= 0x00000504,/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½Ùï¿½ 				*/
 
-	/* ˜A‘±Ä¶‚ÉŠÖ‚·‚éƒGƒ‰[ */
-	PCM_ERR_NEXT_HN_STATUS		= 0x00000601,/* ˜A‘±Ä¶ƒnƒ“ƒhƒ‹‚Ìó‘ÔˆÙí 	*/
-	PCM_ERR_NEXT_HN_AUDIO		= 0x00000602,/* ƒI[ƒfƒBƒI‚ÌðŒ‚ªˆê’v‚µ‚È‚¢ */
-	PCM_ERR_CHANGE_NO_ENTRY		= 0x00000605,/* ƒGƒ“ƒgƒŠ‚ª‚È‚¢ó‘Ô‚Åƒ`ƒFƒ“ƒW */
+	/* ï¿½Aï¿½ï¿½ï¿½Äï¿½ï¿½ÉŠÖ‚ï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½[ */
+	PCM_ERR_NEXT_HN_STATUS		= 0x00000601,/* ï¿½Aï¿½ï¿½ï¿½Äï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìï¿½ÔˆÙï¿½ 	*/
+	PCM_ERR_NEXT_HN_AUDIO		= 0x00000602,/* ï¿½Iï¿½[ï¿½fï¿½Bï¿½Iï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½vï¿½ï¿½ï¿½È‚ï¿½ */
+	PCM_ERR_CHANGE_NO_ENTRY		= 0x00000605,/* ï¿½Gï¿½ï¿½ï¿½gï¿½ï¿½ï¿½ï¿½ï¿½È‚ï¿½ï¿½ï¿½Ô‚Åƒ`ï¿½Fï¿½ï¿½ï¿½W */
 
-	/* ƒ|[ƒY‚ÉŠÖ‚·‚éƒGƒ‰[ */
-	PCM_ERR_PAUSE_STATUS		= 0x00000701,/* PCM_STAT_PLAY_TIME, ‚Ü‚½‚ÍA
-											 * PCM_STAT_PLAY_PAUSE ˆÈŠO‚Ì
-											 * ó‘Ô‚Åƒ|[ƒYŠÖ”‚ðƒR[ƒ‹‚µ‚½B
+	/* ï¿½|ï¿½[ï¿½Yï¿½ÉŠÖ‚ï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½[ */
+	PCM_ERR_PAUSE_STATUS		= 0x00000701,/* PCM_STAT_PLAY_TIME, ï¿½Ü‚ï¿½ï¿½ÍA
+											 * PCM_STAT_PLAY_PAUSE ï¿½ÈŠOï¿½ï¿½
+											 * ï¿½ï¿½Ô‚Åƒ|ï¿½[ï¿½Yï¿½Öï¿½ï¿½ï¿½ï¿½Rï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½B
 											 */
-	PCM_ERR_PAUSE_WORK_NULL		= 0x00000702,/* ƒ|[ƒYˆ——pƒ[ƒNˆÙí		*/
-	PCM_ERR_PAUSE_WORK_SIZE		= 0x00000703,/* ƒ|[ƒYˆ——pƒ[ƒNˆÙí		*/
-	PCM_ERR_PAUSE_WORK_SET		= 0x00000704,/* ƒ|[ƒYˆ——pƒ[ƒNŽw’è‚ª•s³*/
+	PCM_ERR_PAUSE_WORK_NULL		= 0x00000702,/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½pï¿½ï¿½ï¿½[ï¿½Nï¿½Ùï¿½		*/
+	PCM_ERR_PAUSE_WORK_SIZE		= 0x00000703,/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½pï¿½ï¿½ï¿½[ï¿½Nï¿½Ùï¿½		*/
+	PCM_ERR_PAUSE_WORK_SET		= 0x00000704,/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½pï¿½ï¿½ï¿½[ï¿½Nï¿½wï¿½è‚ªï¿½sï¿½ï¿½*/
 
-	/* DMA“]‘—‚ÉŠÖ‚·‚éƒGƒ‰[ */
-	PCM_ERR_DMA_MODE			= 0x00000801,/* –¢‘Î‰ž‚Ì“]‘—•ûŽ® 			*/
-	PCM_ERR_DMA_CPU_PCM			= 0x00000802,/* ‚c‚l‚`‚ªˆÙíI—¹ 			*/
+	/* DMAï¿½]ï¿½ï¿½ï¿½ÉŠÖ‚ï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½[ */
+	PCM_ERR_DMA_MODE			= 0x00000801,/* ï¿½ï¿½ï¿½Î‰ï¿½ï¿½Ì“]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 			*/
+	PCM_ERR_DMA_CPU_PCM			= 0x00000802,/* ï¿½cï¿½lï¿½`ï¿½ï¿½ï¿½Ùï¿½Iï¿½ï¿½ 			*/
 
-	/* ƒtƒ@ƒCƒ‹“Ç‚Ýž‚ÝƒGƒ‰[ */
-	PCM_ERR_GFS_READ			= 0x00000901,/* ‚f‚e‚r‚Ì“Ç‚Ýž‚Ý‚ÅŽ¸”s 		*/
+	/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Ç‚Ýï¿½ï¿½ÝƒGï¿½ï¿½ï¿½[ */
+	PCM_ERR_GFS_READ			= 0x00000901,/* ï¿½fï¿½eï¿½rï¿½Ì“Ç‚Ýï¿½ï¿½Ý‚ÅŽï¿½ï¿½s 		*/
 
-	/* ƒŠƒ“ƒOƒoƒbƒtƒ@‚Ö‚Ìƒf[ƒ^‹Ÿ‹‹‚ÉŠÖ‚·‚éƒGƒ‰[ */
-	PCM_ERR_RING_SUPPLY			= 0x00000a01,/* Ä¶Š®—¹Œã‚É‹Ÿ‹‹‚ª‚ ‚Á‚½    */
-											 /* i‹Ÿ‹‹‚ªŠÔ‚É‡‚í‚·’†’f‚µ‚½j*/
+	/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½Ö‚Ìƒfï¿½[ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½ÉŠÖ‚ï¿½ï¿½ï¿½Gï¿½ï¿½ï¿½[ */
+	PCM_ERR_RING_SUPPLY			= 0x00000a01,/* ï¿½Äï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É‹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½    */
+											 /* ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô‚Éï¿½ï¿½í‚·ï¿½ï¿½ï¿½fï¿½ï¿½ï¿½ï¿½ï¿½j*/
 
 	PCM_ERR_END
 } PcmErrCode;
 
-/* Ä¶ƒXƒe[ƒ^ƒX */
+/* ï¿½Äï¿½ï¿½Xï¿½eï¿½[ï¿½^ï¿½X */
 typedef enum {
-	PCM_STAT_PLAY_ERR_STOP		= -1,		/* ˆÙí’âŽ~					*/
-	PCM_STAT_PLAY_CREATE		= 0,		/* ‰Šúó‘Ô					*/
-	PCM_STAT_PLAY_PAUSE			= 1,		/* ˆêŽž’âŽ~		 			*/
-	PCM_STAT_PLAY_START			= 2,		/* ŠJŽn						*/
-	PCM_STAT_PLAY_HEADER		= 3,		/* ƒwƒbƒ_Ý’è@				*/
-	PCM_STAT_PLAY_TIME			= 4,		/* Ä¶(ƒ^ƒCƒ}ƒXƒ^[ƒg)		*/
-	PCM_STAT_PLAY_END			= 5			/* Ä¶Š®—¹ 				*/
+	PCM_STAT_PLAY_ERR_STOP		= -1,		/* ï¿½Ùï¿½ï¿½~					*/
+	PCM_STAT_PLAY_CREATE		= 0,		/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½					*/
+	PCM_STAT_PLAY_PAUSE			= 1,		/* ï¿½êŽžï¿½ï¿½~		 			*/
+	PCM_STAT_PLAY_START			= 2,		/* ï¿½Jï¿½n						*/
+	PCM_STAT_PLAY_HEADER		= 3,		/* ï¿½wï¿½bï¿½_ï¿½Ý’ï¿½@				*/
+	PCM_STAT_PLAY_TIME			= 4,		/* ï¿½Äï¿½(ï¿½^ï¿½Cï¿½}ï¿½Xï¿½^ï¿½[ï¿½g)		*/
+	PCM_STAT_PLAY_END			= 5			/* ï¿½Äï¿½ï¿½ï¿½ï¿½ï¿½ 				*/
 } PcmPlayStatus;
 
-/* ƒtƒ@ƒCƒ‹ƒ^ƒCƒv */
+/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½^ï¿½Cï¿½v */
 typedef enum {
-	PCM_FILE_TYPE_NO_HEADER		= 1,	/* ƒwƒbƒ_‚È‚µB
-										 * (PCM×²ÌÞ×Ø‚ª–¢‘Î‰ž‚ÌÌ§²ÙŒ`Ž®
-										 *  ‚ðÒÓØÄ¶‚³‚¹‚éê‡‚àŠÜ‚Þ)
+	PCM_FILE_TYPE_NO_HEADER		= 1,	/* ï¿½wï¿½bï¿½_ï¿½È‚ï¿½ï¿½B
+										 * (PCM×²ï¿½ï¿½ï¿½Ø‚ï¿½ï¿½ï¿½ï¿½Î‰ï¿½ï¿½ï¿½Ì§ï¿½ÙŒ`ï¿½ï¿½
+										 *  ï¿½ï¿½ï¿½ï¿½ØÄï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê‡ï¿½ï¿½ï¿½Ü‚ï¿½)
 										 */
 	PCM_FILE_TYPE_AIFF			= 2,	/* AIFF							*/
 	PCM_FILE_TYPE_AIFC			= 3 	/* AIFC							*/
 } PcmFileType;
-/* [’ˆÓ] AIFC‚ÍŽg—p‚Å‚«‚Ü‚¹‚ñB*/
+/* [ï¿½ï¿½ï¿½ï¿½] AIFCï¿½ÍŽgï¿½pï¿½Å‚ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½B*/
 
-/* ƒf[ƒ^ƒ^ƒCƒv */
+/* ï¿½fï¿½[ï¿½^ï¿½^ï¿½Cï¿½v */
 typedef enum {
-	PCM_DATA_TYPE_LRLRLR		= 1,	/* ‚PƒTƒ“ƒvƒ‹‚Ã‚Â¶‰E¶‰E¥¥¥¥	*/
-	PCM_DATA_TYPE_RLRLRL		= 2,	/* ‚PƒTƒ“ƒvƒ‹‚Ã‚Â‰E¶‰E¶¥¥¥¥	*/
-	PCM_DATA_TYPE_LLLRRR		= 3,	/* ƒuƒƒbƒN’PˆÊ‚Å¶¶‰E‰E¥¥¥¥	*/
-	PCM_DATA_TYPE_RRRLLL		= 4, 	/* ƒuƒƒbƒN’PˆÊ‚Å‰E‰E¶¶¥¥¥¥	*/
-	PCM_DATA_TYPE_ADPCM_SG		= 5, 	/* ADPCM,»³ÝÄÞ¸ÞÙ°Ìß‚Ì˜A‘±ƒf[ƒ^*/
-	PCM_DATA_TYPE_ADPCM_SCT		= 6 	/* ADPCM,1¾¸À18»³ÝÄÞ¸ÞÙ°Ìß		*/
+	PCM_DATA_TYPE_LRLRLR		= 1,	/* ï¿½Pï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½Ã‚Âï¿½ï¿½Eï¿½ï¿½ï¿½Eï¿½ï¿½ï¿½ï¿½	*/
+	PCM_DATA_TYPE_RLRLRL		= 2,	/* ï¿½Pï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½Ã‚Â‰Eï¿½ï¿½ï¿½Eï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	*/
+	PCM_DATA_TYPE_LLLRRR		= 3,	/* ï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½Pï¿½Ê‚Åï¿½ï¿½ï¿½ï¿½Eï¿½Eï¿½ï¿½ï¿½ï¿½	*/
+	PCM_DATA_TYPE_RRRLLL		= 4, 	/* ï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½Pï¿½Ê‚Å‰Eï¿½Eï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	*/
+	PCM_DATA_TYPE_ADPCM_SG		= 5, 	/* ADPCM,ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½Ù°ï¿½ß‚Ì˜Aï¿½ï¿½ï¿½fï¿½[ï¿½^*/
+	PCM_DATA_TYPE_ADPCM_SCT		= 6 	/* ADPCM,1ï¿½ï¿½ï¿½18ï¿½ï¿½ï¿½ï¿½Þ¸ï¿½Ù°ï¿½ï¿½		*/
 } PcmDataType;
 
-/* ˆêŽž’âŽ~‚Ì§ŒäƒRƒ}ƒ“ƒh */
+/* ï¿½êŽžï¿½ï¿½~ï¿½Ìï¿½ï¿½ï¿½Rï¿½}ï¿½ï¿½ï¿½h */
 typedef enum {
-	PCM_PAUSE_ON_AT_ONCE,				/* ‘¦ŽžˆêŽž’âŽ~ 			*/
-	PCM_PAUSE_OFF						/* ˆêŽž’âŽ~‰ðœ 			*/
+	PCM_PAUSE_ON_AT_ONCE,				/* ï¿½ï¿½ï¿½ï¿½ï¿½êŽžï¿½ï¿½~ 			*/
+	PCM_PAUSE_OFF						/* ï¿½êŽžï¿½ï¿½~ï¿½ï¿½ï¿½ï¿½ 			*/
 } PcmPauseCmd;
 
-/* ‹­§Ø‚è‘Ö‚¦‰Â”\«ƒ`ƒFƒbƒN’l */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½Ø‚ï¿½Ö‚ï¿½ï¿½Â”\ï¿½ï¿½ï¿½`ï¿½Fï¿½bï¿½Nï¿½l */
 typedef enum {
-	PCM_CHANGE_OK_AT_ONCE		= 0,	/* ‘¦ŽžØ‚è‘Ö‚¦‰Â”\B			*/
-	PCM_CHANGE_NO_DATA			= 1,	/* ƒf[ƒ^‹Ÿ‹‹•s‘«B				*/
-	PCM_CHANGE_NO_ENTRY			= 2,	/* ƒGƒ“ƒgƒŠ‚ª–³‚¢B				*/
-	PCM_CHANGE_TOO_LARGE_HEADER	= 3		/* ƒwƒbƒ_‚ª‚«‘å‚·‚¬‚éB			*/
-										/* (ƒoƒbƒtƒ@ƒTƒCƒY‚ª¬‚³‚·‚¬‚é)	*/
+	PCM_CHANGE_OK_AT_ONCE		= 0,	/* ï¿½ï¿½ï¿½ï¿½ï¿½Ø‚ï¿½Ö‚ï¿½ï¿½Â”\ï¿½B			*/
+	PCM_CHANGE_NO_DATA			= 1,	/* ï¿½fï¿½[ï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½sï¿½ï¿½ï¿½B				*/
+	PCM_CHANGE_NO_ENTRY			= 2,	/* ï¿½Gï¿½ï¿½ï¿½gï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½B				*/
+	PCM_CHANGE_TOO_LARGE_HEADER	= 3		/* ï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½ï¿½ï¿½å‚·ï¿½ï¿½ï¿½ï¿½B			*/
+										/* (ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)	*/
 } PcmChangeStatus;
 
-/* ƒf[ƒ^‚Ì“]‘—•ûŽ® */
+/* ï¿½fï¿½[ï¿½^ï¿½Ì“]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 typedef enum {
-	PCM_TRMODE_CPU = 0,					/* ƒ\ƒtƒgƒEƒFƒA“]‘— 			*/
-	PCM_TRMODE_SDMA,					/* ‚c‚l‚`ƒTƒCƒNƒ‹ƒXƒ`[ƒ‹ 		*/
-	PCM_TRMODE_SCU						/* ‚r‚b‚t‚Ì‚c‚l‚`				*/
+	PCM_TRMODE_CPU = 0,					/* ï¿½\ï¿½tï¿½gï¿½Eï¿½Fï¿½Aï¿½]ï¿½ï¿½ 			*/
+	PCM_TRMODE_SDMA,					/* ï¿½cï¿½lï¿½`ï¿½Tï¿½Cï¿½Nï¿½ï¿½ï¿½Xï¿½`ï¿½[ï¿½ï¿½ 		*/
+	PCM_TRMODE_SCU						/* ï¿½rï¿½bï¿½tï¿½Ì‚cï¿½lï¿½`				*/
 } PcmTrMode;
 
-/* [’ˆÓ] 
-	ƒŠƒ“ƒOƒoƒbƒtƒ@¨‚o‚b‚lƒoƒbƒtƒ@‚Ì“]‘—‚ÍAƒ\ƒtƒgƒEƒFƒA“]‘—‚ÉŒÅ’è‚Å‚·B
+/* [ï¿½ï¿½ï¿½ï¿½] 
+	ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½oï¿½bï¿½lï¿½oï¿½bï¿½tï¿½@ï¿½Ì“]ï¿½ï¿½ï¿½ÍAï¿½\ï¿½tï¿½gï¿½Eï¿½Fï¿½Aï¿½]ï¿½ï¿½ï¿½ÉŒÅ’ï¿½Å‚ï¿½ï¿½B
 */
 
-/*------------------------- sƒfƒtƒHƒ‹ƒg’lt -------------------------*/
+/*------------------------- ï¿½sï¿½fï¿½tï¿½Hï¿½ï¿½ï¿½gï¿½lï¿½t -------------------------*/
 
-/* ‚P‰ñ‚Ìƒ^ƒXƒN‚Åˆ—‚·‚é—Ê‚ÌãŒÀ [sample/1ch] */
+/* ï¿½Pï¿½ï¿½Ìƒ^ï¿½Xï¿½Nï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê‚Ìï¿½ï¿½ [sample/1ch] */
 #define PCM_DEFAULT_SAMPLE_1TASK		(PCM_SIZE_1K)
 
-/* Ä¶ŠJŽnƒgƒŠƒKƒTƒCƒY[byte] */
+/* ï¿½Äï¿½ï¿½Jï¿½nï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½Cï¿½Y[byte] */
 #define PCM_DEFAULT_SIZE_START_TRG		(0)
 
-/* Ä¶ŠJŽnƒgƒŠƒKƒTƒ“ƒvƒ‹[sample/1ch] */
+/* ï¿½Äï¿½ï¿½Jï¿½nï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½[sample/1ch] */
 #define PCM_DEFAULT_SAMPLE_START_TRG	(PCM_SIZE_4K)
 
-/* Ä¶’âŽ~ƒgƒŠƒKƒTƒ“ƒvƒ‹[sample/1ch] */
+/* ï¿½Äï¿½ï¿½ï¿½~ï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½[sample/1ch] */
 #define PCM_DEFAULT_SAMPLE_STOP_TRG		(PCM_SIZE_2K)
 
 
-/*------------------------- sˆ—ƒ}ƒNƒt -------------------------*/
+/*------------------------- ï¿½sï¿½ï¿½ï¿½ï¿½ï¿½}ï¿½Nï¿½ï¿½ï¿½t -------------------------*/
 
-/* ‚S‚a‚x‚s‚d•¶ŽšƒR[ƒh‚ð Uint32 Œ^‚Å•\Œ»‚·‚éB
- *   ('cvid'‚È‚Ç‚Æ‘‚­‚ÆÜ°ÆÝ¸Þ‚ªo‚Ä‚µ‚Ü‚¤‚Ì‚ÅA‚±‚ê‚ð‰ñ”ð‚·‚é‚½‚ß‚É)
+/* ï¿½Sï¿½aï¿½xï¿½sï¿½dï¿½ï¿½ï¿½ï¿½ï¿½Rï¿½[ï¿½hï¿½ï¿½ uint32_t ï¿½^ï¿½Å•\ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½B
+ *   ('cvid'ï¿½È‚Ç‚Æï¿½ï¿½ï¿½ï¿½ï¿½Ü°ï¿½Ý¸Þ‚ï¿½ï¿½oï¿½Ä‚ï¿½ï¿½Ü‚ï¿½ï¿½Ì‚ÅAï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é‚½ï¿½ß‚ï¿½)
  */
 #define PCM_4BYTE_CHAR(a,b,c,d)					\
-	(	((Uint32)((a) & 0x000000FF) << 24) | 	\
-		((Uint32)((b) & 0x000000FF) << 16) | 	\
-		((Uint32)((c) & 0x000000FF) <<  8) | 	\
-		 (Uint32)((d) & 0x000000FF)				\
+	(	((uint32_t)((a) & 0x000000FF) << 24) | 	\
+		((uint32_t)((b) & 0x000000FF) << 16) | 	\
+		((uint32_t)((c) & 0x000000FF) <<  8) | 	\
+		 (uint32_t)((d) & 0x000000FF)				\
 	)
 
 /* SEGA_PCM conpatible */
@@ -193,16 +193,16 @@ typedef enum {
 #define PCM_CreateMemMovie			PCM_CreateMemHandle
 #define PCM_DestroyMemMovie			PCM_DestroyMemHandle
 
-/*-------------------- s\‘¢‘ÌƒAƒNƒZƒXƒ}ƒNƒt --------------------*/
+/*-------------------- ï¿½sï¿½\ï¿½ï¿½ï¿½ÌƒAï¿½Nï¿½Zï¿½Xï¿½}ï¿½Nï¿½ï¿½ï¿½t --------------------*/
 
-/* ì¬ƒpƒ‰ƒ[ƒ^‚Ö‚ÌƒAƒNƒZƒXƒ}ƒNƒ */
+/* ï¿½ì¬ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ï¿½Ö‚ÌƒAï¿½Nï¿½Zï¿½Xï¿½}ï¿½Nï¿½ï¿½ */
 #define PCM_PARA_WORK(para)			((para)->work)
 #define PCM_PARA_RING_ADDR(para)	((para)->ring_addr)
 #define PCM_PARA_RING_SIZE(para)	((para)->ring_size)
 #define PCM_PARA_PCM_ADDR(para)		((para)->pcm_addr)
 #define PCM_PARA_PCM_SIZE(para)		((para)->pcm_size)
 
-/* Ä¶î•ñ‚ÌÝ’èƒpƒ‰ƒ[ƒ^‚Ö‚ÌƒAƒNƒZƒXƒ}ƒNƒ */
+/* ï¿½Äï¿½ï¿½ï¿½ï¿½ÌÝ’ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ï¿½Ö‚ÌƒAï¿½Nï¿½Zï¿½Xï¿½}ï¿½Nï¿½ï¿½ */
 #define PCM_INFO_FILE_TYPE(info)		((info)->file_type)
 #define PCM_INFO_DATA_TYPE(info)		((info)->data_type)
 #define PCM_INFO_FILE_SIZE(info)		((info)->file_size)
@@ -212,95 +212,95 @@ typedef enum {
 #define PCM_INFO_SAMPLE_FILE(info)		((info)->sample_file)
 #define PCM_INFO_COMPRESSION_TYPE(info)	((info)->compression_type)
 
-/* ƒnƒ“ƒhƒ‹(ƒ[ƒN)‚ÌƒAƒNƒZƒX */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½(ï¿½ï¿½ï¿½[ï¿½N)ï¿½ÌƒAï¿½Nï¿½Zï¿½X */
 #define PCM_HN_START_TRG_SIZE(hn)	(((*(PcmWork **)hn))->para.start_trg_size)
 #define PCM_HN_START_TRG_SAMPLE(hn)	(((*(PcmWork **)hn))->para.start_trg_sample)
 #define PCM_HN_STOP_TRG_SAMPLE(hn)	(((*(PcmWork **)hn))->para.stop_trg_sample)
 #define PCM_HN_CNT_LOOP(hn)			(((*(PcmWork **)hn))->status.cnt_loop)
 
 
-/*-------------------------- sƒf[ƒ^Œ^t --------------------------*/
-/* ƒnƒ“ƒhƒ‹ */
+/*-------------------------- ï¿½sï¿½fï¿½[ï¿½^ï¿½^ï¿½t --------------------------*/
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ */
 typedef void *PcmHn;
 
-/* ƒGƒ‰[“o˜^ŠÖ” */
-typedef void (*PcmErrFunc)(void *obj, Sint32 err_code);
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½oï¿½^ï¿½Öï¿½ */
+typedef void (*PcmErrFunc)(void *obj, int32_t err_code);
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Uint8		pad[14];				/* P1-14	*/
+	int8_t		command;
+	int8_t		resered;
+	uint8_t		pad[14];				/* P1-14	*/
 } PcmCmdBlk;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		channel_bit_stm_no;		/* P1 		*/
-	Sint8		level_pan;				/* P2 		*/
-	Sint16		buf_addr;				/* P3-4 	*/
-	Sint16		buf_size;				/* P5-6 	*/
-	Sint16		pitch_word;				/* P7-8 	*/
-	Uint8		effect_r_mono;			/* P9 		*/
-	Uint8		effect_l;				/* P10 		*/
-	Uint8		pad[4];					/* P11-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		channel_bit_stm_no;		/* P1 		*/
+	int8_t		level_pan;				/* P2 		*/
+	int16_t		buf_addr;				/* P3-4 	*/
+	int16_t		buf_size;				/* P5-6 	*/
+	int16_t		pitch_word;				/* P7-8 	*/
+	uint8_t		effect_r_mono;			/* P9 		*/
+	uint8_t		effect_l;				/* P10 		*/
+	uint8_t		pad[4];					/* P11-14 	*/
 } PcmStartPcm;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		stm_no;					/* P1 		*/
-	Uint8		pad[13];				/* P2-14	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		stm_no;					/* P1 		*/
+	uint8_t		pad[13];				/* P2-14	*/
 } PcmStopPcm;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		stm_no;					/* P1 		*/
-	Sint8		level_pan;				/* P2 		*/
-	Sint16		pitch_word;				/* P3-4 	*/
-	Uint8		effect_r_mono;			/* P5 		*/
-	Uint8		effect_l;				/* P6 		*/
-	Uint8		pad[8];					/* P7-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		stm_no;					/* P1 		*/
+	int8_t		level_pan;				/* P2 		*/
+	int16_t		pitch_word;				/* P3-4 	*/
+	uint8_t		effect_r_mono;			/* P5 		*/
+	uint8_t		effect_l;				/* P6 		*/
+	uint8_t		pad[8];					/* P7-14 	*/
 } PcmChangePcmPara;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		area_no;				/* P1 		*/
-	Uint8		pad[13];				/* P2-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		area_no;				/* P1 		*/
+	uint8_t		pad[13];				/* P2-14 	*/
 } PcmChangeMap;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		total_volume;			/* P1 		*/
-	Uint8		pad[13];				/* P2-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		total_volume;			/* P1 		*/
+	uint8_t		pad[13];				/* P2-14 	*/
 } PcmTotalVolume;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		effect_bank_no;			/* P1 		*/
-	Uint8		pad[13];				/* P2-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		effect_bank_no;			/* P1 		*/
+	uint8_t		pad[13];				/* P2-14 	*/
 } PcmChangeEffect;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		neiro_bank_no;			/* P1 		*/
-	Sint8		mixer_no;				/* P2 		*/
-	Uint8		pad[12];				/* P3-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		neiro_bank_no;			/* P1 		*/
+	int8_t		mixer_no;				/* P2 		*/
+	uint8_t		pad[12];				/* P3-14 	*/
 } PcmChangeMixer;
 
 typedef struct {
-	Sint8		command;
-	Sint8		resered;
-	Sint8		effect_out_select;		/* P1 		*/
-	Sint8		effect_level_pan;		/* P2 		*/
-	Uint8		pad[12];				/* P3-14 	*/
+	int8_t		command;
+	int8_t		resered;
+	int8_t		effect_out_select;		/* P1 		*/
+	int8_t		effect_level_pan;		/* P2 		*/
+	uint8_t		pad[12];				/* P3-14 	*/
 } PcmChangeMixerPara;
 
-/* ÅŒã‚É”­s‚µ‚½ŠeƒRƒ}ƒ“ƒh‚Ì“à—e */
+/* ï¿½ÅŒï¿½É”ï¿½ï¿½sï¿½ï¿½ï¿½ï¿½ï¿½eï¿½Rï¿½}ï¿½ï¿½ï¿½hï¿½Ì“ï¿½ï¿½e */
 typedef struct {
 	PcmStartPcm			start_pcm;
 	PcmStopPcm			stop_pcm;
@@ -314,337 +314,337 @@ typedef struct {
 */
 } PcmCommand;
 
-/* Ä¶î•ñ */
+/* ï¿½Äï¿½ï¿½ï¿½ï¿½ */
 typedef struct {
-	PcmFileType		file_type;			/* ƒtƒ@ƒCƒ‹ƒ^ƒCƒv 					*/
-	PcmDataType		data_type;			/* ƒf[ƒ^ƒ^ƒCƒv 					*/
-	Sint32			file_size;			/* ƒtƒ@ƒCƒ‹ƒTƒCƒY[byte]
-										 * ‚±‚êˆÈã‚ÌØÝ¸ÞÊÞ¯Ì§‚Ö‚Ì‹Ÿ‹‹‚ð‹–‚·
-										 * ‚ªA‚»‚Ì•”•ª‚Íˆ—‚µ‚È‚¢B
+	PcmFileType		file_type;			/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½^ï¿½Cï¿½v 					*/
+	PcmDataType		data_type;			/* ï¿½fï¿½[ï¿½^ï¿½^ï¿½Cï¿½v 					*/
+	int32_t			file_size;			/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Tï¿½Cï¿½Y[byte]
+										 * ï¿½ï¿½ï¿½ï¿½Èï¿½ï¿½ï¿½Ý¸ï¿½ï¿½Þ¯Ì§ï¿½Ö‚Ì‹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+										 * ï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½Ì•ï¿½ï¿½ï¿½ï¿½Íï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È‚ï¿½ï¿½B
 										 */
-	Sint32			channel;			/* ƒ`ƒƒƒlƒ‹” 						*/
-	Sint32			sampling_bit;		/* ƒTƒ“ƒvƒŠƒ“ƒOƒrƒbƒg” 			*/
-	Sint32			sampling_rate;		/* ƒTƒ“ƒvƒŠƒ“ƒOƒŒ[ƒg[Hz] 			*/
-	Sint32			sample_file;		/* ƒtƒ@ƒCƒ‹‚ÌƒTƒ“ƒvƒ‹”[sample/1ch]	*/
-	Sint32			compression_type;	/* ˆ³kƒ^ƒCƒv 						*/
+	int32_t			channel;			/* ï¿½`ï¿½ï¿½ï¿½lï¿½ï¿½ï¿½ï¿½ 						*/
+	int32_t			sampling_bit;		/* ï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½rï¿½bï¿½gï¿½ï¿½ 			*/
+	int32_t			sampling_rate;		/* ï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½g[Hz] 			*/
+	int32_t			sample_file;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ÌƒTï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½[sample/1ch]	*/
+	int32_t			compression_type;	/* ï¿½ï¿½ï¿½kï¿½^ï¿½Cï¿½v 						*/
 } PcmInfo;
 
-/* PCM“]‘—î•ñ */
+/* PCMï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½ */
 typedef struct {
-	Sint8		*dst1;				/* “]‘—æƒAƒhƒŒƒX1 						*/
-	Sint8		*dst2;				/* “]‘—æƒAƒhƒŒƒX2 						*/
-	Sint8		*src;				/* “]‘—Œ³ƒAƒhƒŒƒX 						*/
-	Sint32		size;				/* “]‘—ƒoƒCƒg” 						*/
+	int8_t		*dst1;				/* ï¿½]ï¿½ï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X1 						*/
+	int8_t		*dst2;				/* ï¿½]ï¿½ï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X2 						*/
+	int8_t		*src;				/* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X 						*/
+	int32_t		size;				/* ï¿½]ï¿½ï¿½ï¿½oï¿½Cï¿½gï¿½ï¿½ 						*/
 } PcmCopyTbl;
 
-/* ŠeŽí§Œäî•ñ */
+/* ï¿½eï¿½í§ï¿½ï¿½ï¿½ï¿½ */
 typedef struct {
-	/* ‘S‘Ì§Œäî•ñ */
-	Sint32			stat_start;		/* 'STAT' ƒXƒe[ƒ^ƒX‚ÌŠJŽn 				*/
-	PcmPlayStatus	play;			/* Ä¶ó‘Ô 							*/
-	PcmFlag			ignore_header;	/* 1:ƒwƒbƒ_î•ñ–³Ž‹ 					*/
-	PcmFlag			need_ci;		/* 1:ƒTƒuƒwƒbƒ_‚©‚çci‚ð“Ç‚Þ 			*/
-	Sint32			cnt_loop;		/* ƒ‹[ƒv‰ñ”(ƒJƒEƒ“ƒgƒ_ƒEƒ“) 			*/
+	/* ï¿½Sï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½ */
+	int32_t			stat_start;		/* 'STAT' ï¿½Xï¿½eï¿½[ï¿½^ï¿½Xï¿½ÌŠJï¿½n 				*/
+	PcmPlayStatus	play;			/* ï¿½Äï¿½ï¿½ï¿½ï¿½ 							*/
+	PcmFlag			ignore_header;	/* 1:ï¿½wï¿½bï¿½_ï¿½ï¿½ñ–³Žï¿½ 					*/
+	PcmFlag			need_ci;		/* 1:ï¿½Tï¿½uï¿½wï¿½bï¿½_ï¿½ï¿½ï¿½ï¿½ciï¿½ï¿½Ç‚ï¿½ 			*/
+	int32_t			cnt_loop;		/* ï¿½ï¿½ï¿½[ï¿½vï¿½ï¿½(ï¿½Jï¿½Eï¿½ï¿½ï¿½gï¿½_ï¿½Eï¿½ï¿½) 			*/
 
-	/* Ä¶î•ñ */
-	Sint32		info_start;			/* 'INFO' Ä¶î•ñ‚ÌŠJŽn 				*/
-	PcmInfo		info;				/* Ä¶î•ñ 							*/
+	/* ï¿½Äï¿½ï¿½ï¿½ï¿½ */
+	int32_t		info_start;			/* 'INFO' ï¿½Äï¿½ï¿½ï¿½ï¿½ÌŠJï¿½n 				*/
+	PcmInfo		info;				/* ï¿½Äï¿½ï¿½ï¿½ï¿½ 							*/
 
-	/* ƒŠƒ“ƒOƒoƒbƒtƒ@§Œäî•ñ */
-	Sint32		ring_start;			/* 'RING' ƒŠƒ“ƒOƒoƒbƒtƒ@§Œäî•ñ‚ÌŠJŽn 	*/
-	Sint32		ring_write_offset;	/* ƒŠƒ“ƒOƒoƒbƒtƒ@‘‚«ž‚ÝˆÊ’u[byte] 	*/
-									/*	(Ì§²Ùæ“ª‚©‚ç‚ÌƒIƒtƒZƒbƒg)			*/
-	Sint32		ring_read_offset;	/* ƒŠƒ“ƒOƒoƒbƒtƒ@“Ç‚Ýž‚ÝƒIƒtƒZƒbƒg 	*/
-									/*	(Ì§²Ùæ“ª‚©‚ç‚ÌƒIƒtƒZƒbƒg)			*/
-	Sint8		*ring_end_addr;		/* ƒŠƒ“ƒOƒoƒbƒtƒ@I—¹ƒAƒhƒŒƒX 			*/
-	Sint8		*ring_write_addr;	/* ƒŠƒ“ƒOƒoƒbƒtƒ@‘‚«ž‚ÝƒAƒhƒŒƒX 		*/
-	Sint8		*ring_read_addr;	/* ƒŠƒ“ƒOƒoƒbƒtƒ@“Ç‚ÝŽæ‚èƒAƒhƒŒƒX 		*/
-	Sint32		media_offset;		/* ƒtƒ@ƒCƒ‹æ“ª‚©‚çƒf[ƒ^‚Ü‚Å‚ÌµÌ¾¯Ä 	*/
+	/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+	int32_t		ring_start;			/* 'RING' ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌŠJï¿½n 	*/
+	int32_t		ring_write_offset;	/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝˆÊ’u[byte] 	*/
+									/*	(Ì§ï¿½Ùæ“ªï¿½ï¿½ï¿½ï¿½ÌƒIï¿½tï¿½Zï¿½bï¿½g)			*/
+	int32_t		ring_read_offset;	/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½Ç‚Ýï¿½ï¿½ÝƒIï¿½tï¿½Zï¿½bï¿½g 	*/
+									/*	(Ì§ï¿½Ùæ“ªï¿½ï¿½ï¿½ï¿½ÌƒIï¿½tï¿½Zï¿½bï¿½g)			*/
+	int8_t		*ring_end_addr;		/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½Iï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X 			*/
+	int8_t		*ring_write_addr;	/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝƒAï¿½hï¿½ï¿½ï¿½X 		*/
+	int8_t		*ring_read_addr;	/* ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½Ç‚ÝŽï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X 		*/
+	int32_t		media_offset;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½æ“ªï¿½ï¿½ï¿½ï¿½fï¿½[ï¿½^ï¿½Ü‚Å‚ÌµÌ¾ï¿½ï¿½ 	*/
 
-	/* PCMÄ¶î•ñ */
-	Sint32		pcm_start;			/* 'PCM ' PCMÄ¶î•ñ‚ÌŠJŽn 			*/
-	Sint8		*pcm2_addr;			/* PCM‘æ‚QÁ¬ÝÈÙƒoƒbƒtƒ@ŠJŽnƒAƒhƒŒƒX 	*/
-	Sint32		pcm_bsize;			/* »³ÝÄÞÒÓØ‚ÌPCMƒoƒbƒtƒ@ƒTƒCƒY[byte/1ch]*/
-	Sint32		pcm_write_offset;	/* PCMƒoƒbƒtƒ@‘‚«ž‚ÝˆÊ’u[byte]		*/
-									/*  (PCMƒoƒbƒtƒ@‚Ìæ“ª‚©‚ç‚ÌƒIƒtƒZƒbƒg)	*/
-	Sint32		cnt_4ksample;		/* PCM play address 4k»ÝÌßÙ’PˆÊXV¶³ÝÀ */
-	Sint32		sample_write_file;	/* “–ƒtƒ@ƒCƒ‹‚Ì‹Ÿ‹‹ƒTƒ“ƒvƒ‹”[sample/1ch]*/
-									/* (“–ƒtƒ@ƒCƒ‹‚ÌŒ»Ý‚Ü‚Å‚Ì‘‹Ÿ‹‹—Ê)		*/
-	Sint32		sample_write;		/* ‹Ÿ‹‹ƒTƒ“ƒvƒ‹”[sample/1ch]			*/
-									/* (æ“ªÌ¨ÙÑ‚©‚ç‚ÌŒ»Ý‚Ü‚Å‚Ì‘‹Ÿ‹‹—Ê)	*/
-	Sint32		sample_film_start;	/* ƒtƒBƒ‹ƒ€ŠJŽnŽžƒTƒ“ƒvƒ‹”[sample/1ch]	*/
-									/* (æ“ªÌ¨ÙÑ‚©‚çŒ»ÝÌ¨ÙÑŠJŽnŽž“_‚Ü‚Å‚Ì)	*/
-	Sint32		sample_pause;		/* ƒ|[ƒYŽžƒTƒ“ƒvƒ‹”[sample/1ch]		*/
-									/* (æ“ªÌ¨ÙÑ‚©‚çÅ‹ß‚Ìƒ|[ƒYŽž“_‚Ü‚Å‚Ì)	*/
-	Sint32		count_start;		/* ‚b‚o‚tƒNƒƒbƒNƒ^ƒCƒ}ŠJŽnŽž 		*/
-									/* 						[CPU¸Û¯¸>>15] 	*/
-	Sint32		clock_scale;		/* ‚b‚o‚tƒNƒƒbƒNƒ^ƒCƒ}‚ÌƒXƒP[ƒ‹ 		*/
-	PcmFlag		fill_silence;		/* –³‰¹Ý’èÏ‚Ýƒtƒ‰ƒO					*/
-	Sint32		*pwork_addr;		/* ƒ|[ƒYˆ——pƒ[ƒN					*/
-	Sint32		pwork_size;			/* ƒ|[ƒYˆ——pƒ[ƒNƒTƒCƒY[byte] 		*/
-									/*  (ƒ|[ƒY‹@”\‚ðŽg—p‚·‚éê‡‚É•K—v)	*/
-	Sint32		cnt_sg;				/* ƒTƒEƒ“ƒhƒOƒ‹[ƒvƒJƒEƒ“ƒ^				*/
-	Sint32		onetask_sample;		/* ‚P‰ñ‚Ìƒ^ƒXƒN‚Åˆ—‚·‚é—Ê[sample/1ch]	*/
-	Sint32		onetask_size;		/* ‚P‰ñ‚Ìƒ^ƒXƒN‚Åˆ—‚·‚é—Ê[byte/1ch]	*/
-	Sint32		onetask_sg;			/* ‚P‰ñ‚Ìƒ^ƒXƒN‚Åˆ—‚·‚é—Ê[sg/1ch]		*/
+	/* PCMï¿½Äï¿½ï¿½ï¿½ï¿½ */
+	int32_t		pcm_start;			/* 'PCM ' PCMï¿½Äï¿½ï¿½ï¿½ï¿½ÌŠJï¿½n 			*/
+	int8_t		*pcm2_addr;			/* PCMï¿½ï¿½Qï¿½ï¿½ï¿½ï¿½Ùƒoï¿½bï¿½tï¿½@ï¿½Jï¿½nï¿½Aï¿½hï¿½ï¿½ï¿½X 	*/
+	int32_t		pcm_bsize;			/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø‚ï¿½PCMï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Y[byte/1ch]*/
+	int32_t		pcm_write_offset;	/* PCMï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝˆÊ’u[byte]		*/
+									/*  (PCMï¿½oï¿½bï¿½tï¿½@ï¿½Ìæ“ªï¿½ï¿½ï¿½ï¿½ÌƒIï¿½tï¿½Zï¿½bï¿½g)	*/
+	int32_t		cnt_4ksample;		/* PCM play address 4kï¿½ï¿½ï¿½ï¿½Ù’Pï¿½ÊXï¿½Vï¿½ï¿½ï¿½ï¿½ */
+	int32_t		sample_write_file;	/* ï¿½ï¿½ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Ì‹ï¿½ï¿½ï¿½ï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½[sample/1ch]*/
+									/* (ï¿½ï¿½ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŒï¿½ï¿½Ý‚Ü‚Å‚Ì‘ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)		*/
+	int32_t		sample_write;		/* ï¿½ï¿½ï¿½ï¿½ï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½[sample/1ch]			*/
+									/* (ï¿½æ“ªÌ¨ï¿½Ñ‚ï¿½ï¿½ï¿½ÌŒï¿½ï¿½Ý‚Ü‚Å‚Ì‘ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)	*/
+	int32_t		sample_film_start;	/* ï¿½tï¿½Bï¿½ï¿½ï¿½ï¿½ï¿½Jï¿½nï¿½ï¿½ï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½[sample/1ch]	*/
+									/* (ï¿½æ“ªÌ¨ï¿½Ñ‚ï¿½ï¿½çŒ»ï¿½ï¿½Ì¨ï¿½ÑŠJï¿½nï¿½ï¿½ï¿½_ï¿½Ü‚Å‚ï¿½)	*/
+	int32_t		sample_pause;		/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½[sample/1ch]		*/
+									/* (ï¿½æ“ªÌ¨ï¿½Ñ‚ï¿½ï¿½ï¿½Å‹ß‚Ìƒ|ï¿½[ï¿½Yï¿½ï¿½ï¿½_ï¿½Ü‚Å‚ï¿½)	*/
+	int32_t		count_start;		/* ï¿½bï¿½oï¿½tï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½^ï¿½Cï¿½}ï¿½Jï¿½nï¿½ï¿½ï¿½ï¿½ 		*/
+									/* 						[CPUï¿½Û¯ï¿½>>15] 	*/
+	int32_t		clock_scale;		/* ï¿½bï¿½oï¿½tï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½^ï¿½Cï¿½}ï¿½ÌƒXï¿½Pï¿½[ï¿½ï¿½ 		*/
+	PcmFlag		fill_silence;		/* ï¿½ï¿½ï¿½ï¿½ï¿½Ý’ï¿½Ï‚Ýƒtï¿½ï¿½ï¿½O					*/
+	int32_t		*pwork_addr;		/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½pï¿½ï¿½ï¿½[ï¿½N					*/
+	int32_t		pwork_size;			/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½pï¿½ï¿½ï¿½[ï¿½Nï¿½Tï¿½Cï¿½Y[byte] 		*/
+									/*  (ï¿½|ï¿½[ï¿½Yï¿½@ï¿½\ï¿½ï¿½ï¿½gï¿½pï¿½ï¿½ï¿½ï¿½ê‡ï¿½É•Kï¿½v)	*/
+	int32_t		cnt_sg;				/* ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½Jï¿½Eï¿½ï¿½ï¿½^				*/
+	int32_t		onetask_sample;		/* ï¿½Pï¿½ï¿½Ìƒ^ï¿½Xï¿½Nï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½[sample/1ch]	*/
+	int32_t		onetask_size;		/* ï¿½Pï¿½ï¿½Ìƒ^ï¿½Xï¿½Nï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½[byte/1ch]	*/
+	int32_t		onetask_sg;			/* ï¿½Pï¿½ï¿½Ìƒ^ï¿½Xï¿½Nï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½[sg/1ch]		*/
 
-	/* ƒTƒEƒ“ƒhƒhƒ‰ƒCƒoŠÖ˜A */
-	Sint32		sddrv_start;		/* 'SDRV' ƒTƒEƒ“ƒhƒhƒ‰ƒCƒoŠÖ˜A‚ÌŠJŽn 	*/
-	PcmCommand	command;			/* ÅŒã‚É”­s‚µ‚½ŠeƒRƒ}ƒ“ƒh‚Ì“à—e 		*/
+	/* ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½hï¿½ï¿½ï¿½Cï¿½oï¿½Ö˜A */
+	int32_t		sddrv_start;		/* 'SDRV' ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½hï¿½ï¿½ï¿½Cï¿½oï¿½Ö˜Aï¿½ÌŠJï¿½n 	*/
+	PcmCommand	command;			/* ï¿½ÅŒï¿½É”ï¿½ï¿½sï¿½ï¿½ï¿½ï¿½ï¿½eï¿½Rï¿½}ï¿½ï¿½ï¿½hï¿½Ì“ï¿½ï¿½e 		*/
 
-	/* PCMƒf[ƒ^“]‘—‚ÉŠÖ‚·‚éî•ñ */
-	Sint32		copy_start;			/* 'COPY' PCMƒf[ƒ^“]‘—ŠÖ˜A‚ÌŠJŽn 		*/
-	PcmTrMode	copy_mode_pcm;		/* ƒf[ƒ^‚Ì“]‘—•ûŽ® 					*/
-	PcmFlag		dma_hold;			/* 1:‚±‚Ìƒnƒ“ƒhƒ‹‚ªDMAŽ‘Œ¹‚ð•ÛŽ‚µ‚Ä‚¢‚é*/
-	Uint32		pcm_renew_size;		/* DMAI—¹ŽžpcmÊÞ¯Ì§‘‚«ž‚ÝÎß²ÝÀXV»²½Þ*/
-	Uint32		buf_renew_size;		/* DMAI—¹ŽžÊÞ¯Ì§“Ç‚ÝŽæ‚èÎß²ÝÀXV»²½Þ 	*/
-	Sint32		copy_idx;			/* PCM“]‘—î•ñƒe[ƒuƒ‹‚ÌƒCƒ“ƒfƒbƒNƒX 	*/
-	PcmCopyTbl 	copy_tbl[4];		/* PCM“]‘—î•ñƒe[ƒuƒ‹ 					*/
+	/* PCMï¿½fï¿½[ï¿½^ï¿½]ï¿½ï¿½ï¿½ÉŠÖ‚ï¿½ï¿½ï¿½ï¿½ï¿½ */
+	int32_t		copy_start;			/* 'COPY' PCMï¿½fï¿½[ï¿½^ï¿½]ï¿½ï¿½ï¿½Ö˜Aï¿½ÌŠJï¿½n 		*/
+	PcmTrMode	copy_mode_pcm;		/* ï¿½fï¿½[ï¿½^ï¿½Ì“]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 					*/
+	PcmFlag		dma_hold;			/* 1:ï¿½ï¿½ï¿½Ìƒnï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½DMAï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÛŽï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½*/
+	uint32_t		pcm_renew_size;		/* DMAï¿½Iï¿½ï¿½ï¿½ï¿½pcmï¿½Þ¯Ì§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß²ï¿½ï¿½ï¿½Xï¿½Vï¿½ï¿½ï¿½ï¿½*/
+	uint32_t		buf_renew_size;		/* DMAï¿½Iï¿½ï¿½ï¿½ï¿½ï¿½Þ¯Ì§ï¿½Ç‚ÝŽï¿½ï¿½ï¿½ß²ï¿½ï¿½ï¿½Xï¿½Vï¿½ï¿½ï¿½ï¿½ 	*/
+	int32_t		copy_idx;			/* PCMï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½eï¿½[ï¿½uï¿½ï¿½ï¿½ÌƒCï¿½ï¿½ï¿½fï¿½bï¿½Nï¿½X 	*/
+	PcmCopyTbl 	copy_tbl[4];		/* PCMï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½eï¿½[ï¿½uï¿½ï¿½ 					*/
 
-	/* ŽžŠÔŠÇ—î•ñ */
-	Sint32		vbl_start;			/* 'VBL ' ŽžŠÔŠÇ—î•ñ‚ÌŠJŽn 			*/
-	Sint32		vbl_film_start;		/* ƒtƒBƒ‹ƒ€ŠJŽnŽž[vbl] 				*/
-	Sint32		vbl_pause;			/* ƒ|[ƒYŠJŽnŽž[vbl] 					*/
-	Sint32		vbl_pcm_start;		/* PCMŠJŽnŽž[vbl]
-									 * Å‰‚Ì ‚É cnt_4ksample ‚ðŒë‚Á‚Ä¶³ÝÄ
-									 * ±¯Ìß‚µ‚È‚¢‚æ‚¤‚ÉB
+	/* ï¿½ï¿½ï¿½ÔŠÇ—ï¿½ï¿½ï¿½ï¿½ */
+	int32_t		vbl_start;			/* 'VBL ' ï¿½ï¿½ï¿½ÔŠÇ—ï¿½ï¿½ï¿½ï¿½ÌŠJï¿½n 			*/
+	int32_t		vbl_film_start;		/* ï¿½tï¿½Bï¿½ï¿½ï¿½ï¿½ï¿½Jï¿½nï¿½ï¿½ï¿½ï¿½[vbl] 				*/
+	int32_t		vbl_pause;			/* ï¿½|ï¿½[ï¿½Yï¿½Jï¿½nï¿½ï¿½ï¿½ï¿½[vbl] 					*/
+	int32_t		vbl_pcm_start;		/* PCMï¿½Jï¿½nï¿½ï¿½ï¿½ï¿½[vbl]
+									 * ï¿½Åï¿½ï¿½Ìï¿½ï¿½ï¿½ cnt_4ksample ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½
+									 * ï¿½ï¿½ï¿½ß‚ï¿½ï¿½È‚ï¿½ï¿½æ‚¤ï¿½ÉB
 									 */
 
-	/* ADPCMØ‚è•ª‚¯—pŠÖ”ƒ|ƒCƒ“ƒ^ */
+	/* ADPCMï¿½Ø‚è•ªï¿½ï¿½ï¿½pï¿½Öï¿½ï¿½|ï¿½Cï¿½ï¿½ï¿½^ */
 	void (*audio_process_fp)(PcmHn hn);
-									/* ‚PƒI[ƒfƒBƒIƒTƒ“ƒvƒ‹ˆ—
-									 * pcm_AudioProcess      ‚Ü‚½‚ÍA
-									 * pcm_AudioProcessAdpcm ‚ª“o˜^
-									 * ‚³‚ê‚é
+									/* ï¿½Pï¿½Iï¿½[ï¿½fï¿½Bï¿½Iï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+									 * pcm_AudioProcess      ï¿½Ü‚ï¿½ï¿½ÍA
+									 * pcm_AudioProcessAdpcm ï¿½ï¿½ï¿½oï¿½^
+									 * ï¿½ï¿½ï¿½ï¿½ï¿½
 									 */
 
-	/* ƒGƒ‰[î•ñ */
-	Uint32		err_start;			/* 'ERR ' ƒGƒ‰[î•ñ‚ÌŠJŽn 				*/
-	Uint32		cnt_load_miss;		/* PCMƒ[ƒhƒ~ƒXƒJƒEƒ“ƒ^ 				*/
-	Uint32		cnt_task_call;		/* ƒ^ƒXƒNƒR[ƒ‹ƒJƒEƒ“ƒ^ 				*/
-	Uint32		cnt_over_task_call;	/* ‰ßèƒ^ƒXƒNƒR[ƒ‹ƒJƒEƒ“ƒ^ 			*/
-	Uint32		cnt_buf_empty;		/* ƒoƒbƒtƒ@‹óƒ^ƒXƒNƒJƒEƒ“ƒ^ 			*/
-	Uint32		max_late_time;		/* Å‘å’x‚êŽž[sample] 				*/
-	Uint32		max_late_sample;	/* Å‘å’x‚êŽžŠÔ[sample] 				*/
-	Sint32		cnt_fill_silence;	/* –³‰¹Ý’èƒJƒEƒ“ƒ^						*/
+	/* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ */
+	uint32_t		err_start;			/* 'ERR ' ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌŠJï¿½n 				*/
+	uint32_t		cnt_load_miss;		/* PCMï¿½ï¿½ï¿½[ï¿½hï¿½~ï¿½Xï¿½Jï¿½Eï¿½ï¿½ï¿½^ 				*/
+	uint32_t		cnt_task_call;		/* ï¿½^ï¿½Xï¿½Nï¿½Rï¿½[ï¿½ï¿½ï¿½Jï¿½Eï¿½ï¿½ï¿½^ 				*/
+	uint32_t		cnt_over_task_call;	/* ï¿½ßï¿½^ï¿½Xï¿½Nï¿½Rï¿½[ï¿½ï¿½ï¿½Jï¿½Eï¿½ï¿½ï¿½^ 			*/
+	uint32_t		cnt_buf_empty;		/* ï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½^ï¿½Xï¿½Nï¿½Jï¿½Eï¿½ï¿½ï¿½^ 			*/
+	uint32_t		max_late_time;		/* ï¿½Å‘ï¿½xï¿½êŽžï¿½ï¿½[sample] 				*/
+	uint32_t		max_late_sample;	/* ï¿½Å‘ï¿½xï¿½êŽžï¿½ï¿½[sample] 				*/
+	int32_t		cnt_fill_silence;	/* ï¿½ï¿½ï¿½ï¿½ï¿½Ý’ï¿½Jï¿½Eï¿½ï¿½ï¿½^						*/
 } PcmStatus;
 
-/* ƒtƒ@ƒCƒ‹ƒAƒNƒZƒXŠÖŒW */
+/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Aï¿½Nï¿½Zï¿½Xï¿½ÖŒW */
 typedef struct {
-	GfsHn		gfs;			/* ƒtƒ@ƒCƒ‹ƒnƒ“ƒhƒ‹ */
-	Sint32		load_sect;		/* “]‘—Å‘åƒZƒNƒ^” */
-	Bool		called_cdread;	/* GFS_NwCdRead ‚ðƒR[ƒ‹‚µ‚½‚ç TRUE */
-	Bool		exec_one_state;	/* ExecOne ŽÀs’†‚È‚ç TRUE */
-	Sint32		exec_load_size;	/* ExecOne ‚Å“Ç‚Ýž‚ÞƒoƒCƒg” */
-	Sint32		now_load_size;	/* ExecOne ‚Å“Ç‚Ýž‚ñ‚Å‚¢‚éƒoƒCƒg” */
-	Sint32		load_total_sect;/* “Ç‚Ýž‚Ý‘ƒZƒNƒ^” */
-	Sint32		file_sect;		/* ƒtƒ@ƒCƒ‹‚ÌƒZƒNƒ^” */
-	PcmTrMode	tr_mode;		/* “]‘—ƒ‚[ƒh */
+	GfsHn		gfs;			/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ */
+	int32_t		load_sect;		/* ï¿½]ï¿½ï¿½ï¿½Å‘ï¿½Zï¿½Nï¿½^ï¿½ï¿½ */
+	bool		called_cdread;	/* GFS_NwCdRead ï¿½ï¿½ï¿½Rï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ TRUE */
+	bool		exec_one_state;	/* ExecOne ï¿½ï¿½ï¿½sï¿½ï¿½ï¿½È‚ï¿½ TRUE */
+	int32_t		exec_load_size;	/* ExecOne ï¿½Å“Ç‚Ýï¿½ï¿½Þƒoï¿½Cï¿½gï¿½ï¿½ */
+	int32_t		now_load_size;	/* ExecOne ï¿½Å“Ç‚Ýï¿½ï¿½ï¿½Å‚ï¿½ï¿½ï¿½oï¿½Cï¿½gï¿½ï¿½ */
+	int32_t		load_total_sect;/* ï¿½Ç‚Ýï¿½ï¿½Ý‘ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ */
+	int32_t		file_sect;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ÌƒZï¿½Nï¿½^ï¿½ï¿½ */
+	PcmTrMode	tr_mode;		/* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½h */
 } PcmFileGfsPara;
 
 typedef struct {
-	StmHn		stm;			/* ƒXƒgƒŠ[ƒ€ƒnƒ“ƒhƒ‹ */
-	Sint32		load_sect;		/* “]‘—Å‘åƒZƒNƒ^” */
-	Sint32		old_cd_buf_num;	/* ‘O‰ñ‚Ì‚b‚cƒoƒbƒtƒ@‚Ì” */
-	Bool		dma_state;		/* ‚c‚l‚`“]‘—‚µ‚Ä‚¢‚é‚È‚ç TRUE */
-	Sint32		dma_sect;		/* ‚c‚l‚`“]‘—‚·‚éƒZƒNƒ^” */
-	Uint32		*write_addr;	/* ‘‚«ž‚ÞƒAƒhƒŒƒX */
-	Sint32		buf_bsize;		/* ‹ó‚«ƒoƒbƒtƒ@‚ÌƒoƒCƒg” */
-	Sint32		write_bsize;	/* “]‘—‚µ‚½ƒoƒCƒg” */
-	Sint32		sect_bsize;		/* ‚PƒZƒNƒ^‚ÌƒoƒCƒg” */
-	Sint32		audio_1st_sect;	/* æ“ªƒI[ƒfƒBƒIƒZƒNƒ^ */
-	StmTrFunc	load_func;		/* “]‘—ŠÖ” */
+	StmHn		stm;			/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ */
+	int32_t		load_sect;		/* ï¿½]ï¿½ï¿½ï¿½Å‘ï¿½Zï¿½Nï¿½^ï¿½ï¿½ */
+	int32_t		old_cd_buf_num;	/* ï¿½Oï¿½ï¿½Ì‚bï¿½cï¿½oï¿½bï¿½tï¿½@ï¿½Ìï¿½ */
+	bool		dma_state;		/* ï¿½cï¿½lï¿½`ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½È‚ï¿½ TRUE */
+	int32_t		dma_sect;		/* ï¿½cï¿½lï¿½`ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ */
+	uint32_t		*write_addr;	/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÞƒAï¿½hï¿½ï¿½ï¿½X */
+	int32_t		buf_bsize;		/* ï¿½ó‚«ƒoï¿½bï¿½tï¿½@ï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
+	int32_t		write_bsize;	/* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½oï¿½Cï¿½gï¿½ï¿½ */
+	int32_t		sect_bsize;		/* ï¿½Pï¿½Zï¿½Nï¿½^ï¿½Ìƒoï¿½Cï¿½gï¿½ï¿½ */
+	int32_t		audio_1st_sect;	/* ï¿½æ“ªï¿½Iï¿½[ï¿½fï¿½Bï¿½Iï¿½Zï¿½Nï¿½^ */
+	StmTrFunc	load_func;		/* ï¿½]ï¿½ï¿½ï¿½Öï¿½ */
 } PcmFileStmPara;
 
 typedef struct {
-	Sint32		faccess_type;		/* ƒtƒ@ƒCƒ‹ƒAƒNƒZƒXƒ^ƒCƒv */
-	/* ƒtƒ@ƒCƒ‹ƒ[ƒJƒ‹ƒf[ƒ^ */
+	int32_t		faccess_type;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Aï¿½Nï¿½Zï¿½Xï¿½^ï¿½Cï¿½v */
+	/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½Jï¿½ï¿½ï¿½fï¿½[ï¿½^ */
 	union	{
 		PcmFileGfsPara	gfs;
 		PcmFileStmPara	stm;
 	} data;
 } PcmFilePara;
 
-/* ŽÀsŠÖ” */
+/* ï¿½ï¿½ï¿½sï¿½Öï¿½ */
 typedef struct {
 	void	(*start)(PcmHn pcm);
 	void	(*task)(PcmHn pcm);
-	Sint32	(*preload_file)(PcmHn pcm, Sint32 size);
-	void	(*set_load_num)(PcmHn pcm, Sint32 load_sct);
+	int32_t	(*preload_file)(PcmHn pcm, int32_t size);
+	void	(*set_load_num)(PcmHn pcm, int32_t load_sct);
 	void	(*set_trmode)(PcmHn pcm, PcmTrMode mode);
 } PcmExecFunc;
 
-/* ‘ŠŒÝŽQÆ‚Ì‚½‚ß‚Ì‹óéŒ¾ */
+/* ï¿½ï¿½ï¿½ÝŽQï¿½Æ‚Ì‚ï¿½ï¿½ß‚Ì‹ï¿½éŒ¾ */
 struct PcmWork;
 
-/* ì¬ƒpƒ‰ƒ[ƒ^ */
+/* ï¿½ì¬ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ */
 typedef struct {
-	struct PcmWork *work;		/* ƒ[ƒN‚ÌƒAƒhƒŒƒX 						*/
-								/*  (ƒ‰ƒCƒuƒ‰ƒŠ‚ªŽg—p‚·‚éÊÝÄÞÙ–ˆ‚Ìì‹Æ—Ìˆæ) */
-	Sint8		*ring_addr;		/* ƒtƒ@ƒCƒ‹‚ðŠi”[‚·‚éƒoƒbƒtƒ@‚Ìæ“ªƒAƒhƒŒƒX */
-								/*  (ƒƒ‚ƒŠ‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚Í‚»‚ÌƒAƒhƒŒƒX) 	*/
-								/*  (CD‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚ÍØÝ¸ÞÊÞ¯Ì§‚Ì±ÄÞÚ½) 	*/
-	Sint32		ring_size;		/* ƒoƒbƒtƒ@ƒTƒCƒY[byte] 					*/
-								/*  (ƒƒ‚ƒŠ‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚Íƒtƒ@ƒCƒ‹ƒTƒCƒY) 	*/
-								/*  (CD‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚ÍØÝ¸ÞÊÞ¯Ì§‚ÌƒTƒCƒY 	*/
-	Sint8		*pcm_addr;		/* ƒTƒEƒ“ƒhƒƒ‚ƒŠ‚ÌPCMƒoƒbƒtƒ@ƒAƒhƒŒƒX 		*/
-	Sint32		pcm_size;		/* ƒTƒEƒ“ƒhƒƒ‚ƒŠ‚ÌPCMƒoƒbƒtƒ@ƒTƒCƒY[sample]*/
-								/*  (1ch•ª‚ÌƒTƒ“ƒvƒ‹” 4096*1..4096*16) 	*/
+	struct PcmWork *work;		/* ï¿½ï¿½ï¿½[ï¿½Nï¿½ÌƒAï¿½hï¿½ï¿½ï¿½X 						*/
+								/*  (ï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½gï¿½pï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù–ï¿½ï¿½Ìï¿½Æ—Ìˆï¿½) */
+	int8_t		*ring_addr;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½iï¿½[ï¿½ï¿½ï¿½ï¿½oï¿½bï¿½tï¿½@ï¿½Ìæ“ªï¿½Aï¿½hï¿½ï¿½ï¿½X */
+								/*  (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½Í‚ï¿½ï¿½ÌƒAï¿½hï¿½ï¿½ï¿½X) 	*/
+								/*  (CDï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½Þ¯Ì§ï¿½Ì±ï¿½ï¿½Ú½) 	*/
+	int32_t		ring_size;		/* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Y[byte] 					*/
+								/*  (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½Íƒtï¿½@ï¿½Cï¿½ï¿½ï¿½Tï¿½Cï¿½Y) 	*/
+								/*  (CDï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½Þ¯Ì§ï¿½ÌƒTï¿½Cï¿½Y 	*/
+	int8_t		*pcm_addr;		/* ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PCMï¿½oï¿½bï¿½tï¿½@ï¿½Aï¿½hï¿½ï¿½ï¿½X 		*/
+	int32_t		pcm_size;		/* ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PCMï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Y[sample]*/
+								/*  (1chï¿½ï¿½ï¿½ÌƒTï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½ 4096*1..4096*16) 	*/
 } PcmCreatePara;
 
-/* ì¬ƒpƒ‰ƒ[ƒ^ */
+/* ï¿½ì¬ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ */
 typedef struct {
-	Sint8		*ring_addr;		/* ƒtƒ@ƒCƒ‹‚ðŠi”[‚·‚éƒoƒbƒtƒ@‚Ìæ“ªƒAƒhƒŒƒX */
-								/*  (ƒƒ‚ƒŠ‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚Í‚»‚ÌƒAƒhƒŒƒX) 	*/
-								/*  (CD‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚ÍØÝ¸ÞÊÞ¯Ì§‚Ì±ÄÞÚ½) 	*/
-	Sint32		ring_size;		/* ƒoƒbƒtƒ@ƒTƒCƒY[byte] 					*/
-								/*  (ƒƒ‚ƒŠ‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚Íƒtƒ@ƒCƒ‹ƒTƒCƒY) 	*/
-								/*  (CD‚Ìƒtƒ@ƒCƒ‹‚ÌŽž‚ÍØÝ¸ÞÊÞ¯Ì§‚ÌƒTƒCƒY 	*/
-	Sint8		*pcm_addr;		/* ƒTƒEƒ“ƒhƒƒ‚ƒŠ‚ÌPCMƒoƒbƒtƒ@ƒAƒhƒŒƒX 		*/
-	Sint32		pcm_size;		/* ƒTƒEƒ“ƒhƒƒ‚ƒŠ‚ÌPCMƒoƒbƒtƒ@ƒTƒCƒY 		*/
-								/*  (1ch•ª‚ÌƒTƒ“ƒvƒ‹” 4096*1..4096*16) 	*/
+	int8_t		*ring_addr;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½iï¿½[ï¿½ï¿½ï¿½ï¿½oï¿½bï¿½tï¿½@ï¿½Ìæ“ªï¿½Aï¿½hï¿½ï¿½ï¿½X */
+								/*  (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½Í‚ï¿½ï¿½ÌƒAï¿½hï¿½ï¿½ï¿½X) 	*/
+								/*  (CDï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½Þ¯Ì§ï¿½Ì±ï¿½ï¿½Ú½) 	*/
+	int32_t		ring_size;		/* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Y[byte] 					*/
+								/*  (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½Íƒtï¿½@ï¿½Cï¿½ï¿½ï¿½Tï¿½Cï¿½Y) 	*/
+								/*  (CDï¿½Ìƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ÌŽï¿½ï¿½ï¿½ï¿½Ý¸ï¿½ï¿½Þ¯Ì§ï¿½ÌƒTï¿½Cï¿½Y 	*/
+	int8_t		*pcm_addr;		/* ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PCMï¿½oï¿½bï¿½tï¿½@ï¿½Aï¿½hï¿½ï¿½ï¿½X 		*/
+	int32_t		pcm_size;		/* ï¿½Tï¿½Eï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PCMï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Y 		*/
+								/*  (1chï¿½ï¿½ï¿½ÌƒTï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ï¿½ 4096*1..4096*16) 	*/
 
-	Sint32		command_blk_no;		/* ƒRƒ}ƒ“ƒhƒuƒƒbƒN”Ô† 				*/
-	Sint32		pcm_stream_no;		/* ‚o‚b‚lƒXƒgƒŠ[ƒ€Ä¶”Ô† 			*/
-	Sint32		pcm_pan;			/* ‚o‚`‚m     [0..31] 					*/
-	Sint32		pcm_level;			/* ‚k‚d‚u‚d‚k [0..7] 					*/
+	int32_t		command_blk_no;		/* ï¿½Rï¿½}ï¿½ï¿½ï¿½hï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½Ôï¿½ 				*/
+	int32_t		pcm_stream_no;		/* ï¿½oï¿½bï¿½lï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Äï¿½ï¿½Ôï¿½ 			*/
+	int32_t		pcm_pan;			/* ï¿½oï¿½`ï¿½m     [0..31] 					*/
+	int32_t		pcm_level;			/* ï¿½kï¿½dï¿½uï¿½dï¿½k [0..7] 					*/
 
-	Sint32		start_trg_size;		/* Ä¶ŠJŽnƒgƒŠƒKƒTƒCƒY[byte] 			*/
-	Sint32		start_trg_sample;	/* Ä¶ŠJŽnƒgƒŠƒKƒTƒ“ƒvƒ‹[sample/1ch] 	*/
-	Sint32		stop_trg_sample;	/* Ä¶’âŽ~ƒgƒŠƒKƒTƒ“ƒvƒ‹[sample/1ch] 	*/
+	int32_t		start_trg_size;		/* ï¿½Äï¿½ï¿½Jï¿½nï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½Cï¿½Y[byte] 			*/
+	int32_t		start_trg_sample;	/* ï¿½Äï¿½ï¿½Jï¿½nï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½[sample/1ch] 	*/
+	int32_t		stop_trg_sample;	/* ï¿½Äï¿½ï¿½ï¿½~ï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½[sample/1ch] 	*/
 } PcmPara;
 
-/* ‚o‚b‚lƒ[ƒN */
+/* ï¿½oï¿½bï¿½lï¿½ï¿½ï¿½[ï¿½N */
 typedef struct {
-	Sint32			work_start;		/* 'WORK' ƒ[ƒN‚ÌŠJŽn 			*/
-	PcmPara 		para;			/* ƒpƒ‰ƒ[ƒ^ 					*/
-	PcmStatus 		status;			/* ŠeŽí§Œäî•ñ 				*/
-	PcmFilePara 	filepara;		/* ƒtƒ@ƒCƒ‹ƒAƒNƒZƒXƒpƒ‰ƒ[ƒ^ 	*/
-	PcmExecFunc 	execfunc;		/* ŽÀsŠÖ” 					*/
+	int32_t			work_start;		/* 'WORK' ï¿½ï¿½ï¿½[ï¿½Nï¿½ÌŠJï¿½n 			*/
+	PcmPara 		para;			/* ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ 					*/
+	PcmStatus 		status;			/* ï¿½eï¿½í§ï¿½ï¿½ï¿½ï¿½ 				*/
+	PcmFilePara 	filepara;		/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Aï¿½Nï¿½Zï¿½Xï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ 	*/
+	PcmExecFunc 	execfunc;		/* ï¿½ï¿½ï¿½sï¿½Öï¿½ 					*/
 } PcmWork;
 
-/*-------------------------- sŠÖ”éŒ¾t --------------------------*/
-/* ƒ‰ƒCƒuƒ‰ƒŠ‚Ì‰Šú‰» */
-Bool PCM_Init(void);
+/*-------------------------- ï¿½sï¿½Öï¿½ï¿½éŒ¾ï¿½t --------------------------*/
+/* ï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½ï¿½ */
+bool PCM_Init(void);
 
-/* ƒ‰ƒCƒuƒ‰ƒŠ‚ÌI—¹ˆ— */
+/* ï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½ï¿½ÌIï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 void PCM_Finish(void);
 
-/* ‚`‚c‚o‚b‚lŽg—péŒ¾ */
+/* ï¿½`ï¿½cï¿½oï¿½bï¿½lï¿½gï¿½pï¿½éŒ¾ */
 void PCM_DeclareUseAdpcm(void);
 
-/* ƒnƒ“ƒhƒ‹‚Ìì¬iƒƒ‚ƒŠj */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìì¬ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½j */
 PcmHn PCM_CreateMemHandle(PcmCreatePara *para);
 
-/* ƒnƒ“ƒhƒ‹‚ÌÁ‹Žiƒƒ‚ƒŠj */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½j */
 void PCM_DestroyMemHandle(PcmHn pcm);
 
-/* ƒnƒ“ƒhƒ‹‚Ìì¬iƒtƒ@ƒCƒ‹ƒVƒXƒeƒ€j */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìì¬ï¿½iï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½j */
 PcmHn PCM_CreateGfsHandle(PcmCreatePara *para, GfsHn gfs);
 
-/* ƒnƒ“ƒhƒ‹‚ÌÁ‹Žiƒtƒ@ƒCƒ‹ƒVƒXƒeƒ€j */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½iï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½j */
 void PCM_DestroyGfsHandle(PcmHn pcm);
 
-/* ƒnƒ“ƒhƒ‹‚Ìì¬iƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€j */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìì¬ï¿½iï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½j */
 PcmHn PCM_CreateStmHandle(PcmCreatePara *para, StmHn stm);
 
-/* ƒnƒ“ƒhƒ‹‚ÌÁ‹ŽiƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€j */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìï¿½ï¿½ï¿½ï¿½iï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½j */
 void PCM_DestroyStmHandle(PcmHn pcm);
 
-/* Ä¶ƒ^ƒXƒN */
+/* ï¿½Äï¿½ï¿½^ï¿½Xï¿½N */
 void PCM_Task(PcmHn pcm);
 
-/* ‚uƒuƒ‰ƒ“ƒN‚h‚mˆ—ŠÖ” */
+/* ï¿½uï¿½uï¿½ï¿½ï¿½ï¿½ï¿½Nï¿½hï¿½mï¿½ï¿½ï¿½ï¿½ï¿½Öï¿½ */
 void PCM_VblIn(void);
 
-/* Ä¶ŠJŽn */
+/* ï¿½Äï¿½ï¿½Jï¿½n */
 void PCM_Start(PcmHn pcm);
 
-/* Ä¶’âŽ~ */
+/* ï¿½Äï¿½ï¿½ï¿½~ */
 void PCM_Stop(PcmHn pcm);
 
-/* ˆêŽž’âŽ~ */
+/* ï¿½êŽžï¿½ï¿½~ */
 void PCM_Pause(PcmHn pcm, PcmPauseCmd cmd);
 
-/* ƒ‹[ƒv‰ñ”‚ÌŽw’è */
-void PCM_SetLoop(PcmHn pcm, Sint32 cnt_loop);
+/* ï¿½ï¿½ï¿½[ï¿½vï¿½ñ”‚ÌŽwï¿½ï¿½ */
+void PCM_SetLoop(PcmHn pcm, int32_t cnt_loop);
 
-/* ŽŸ‚ÉÄ¶‚·‚éƒnƒ“ƒhƒ‹‚Ì“o˜^ */
+/* ï¿½ï¿½ï¿½ÉÄï¿½ï¿½ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ì“oï¿½^ */
 void PCM_EntryNext(PcmHn pcm);
 
-/* ƒnƒ“ƒhƒ‹‚Ì‹­§Ø‚è‘Ö‚¦ */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ì‹ï¿½ï¿½ï¿½ï¿½Ø‚ï¿½Ö‚ï¿½ */
 void PCM_Change(void);
 
-/* ƒnƒ“ƒhƒ‹‚ÌØ‚è‘Ö‚¦ó‘Ô‚ÌŽæ“¾ */
+/* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ÌØ‚ï¿½Ö‚ï¿½ï¿½ï¿½Ô‚ÌŽæ“¾ */
 PcmChangeStatus PCM_CheckChange(void);
 
-/* ƒ|[ƒYˆ——pƒ[ƒNƒAƒhƒŒƒXAƒTƒCƒY‚ÌÝ’è */
-void PCM_SetPauseWork(Sint32 *addr, Sint32 size);
+/* ï¿½|ï¿½[ï¿½Yï¿½ï¿½ï¿½ï¿½ï¿½pï¿½ï¿½ï¿½[ï¿½Nï¿½Aï¿½hï¿½ï¿½ï¿½Xï¿½Aï¿½Tï¿½Cï¿½Yï¿½ÌÝ’ï¿½ */
+void PCM_SetPauseWork(int32_t *addr, int32_t size);
 
-/* Å‘å“]‘—ƒZƒNƒ^”‚ÌÝ’è */
-void PCM_SetLoadNum(PcmHn pcm, Sint32 read_sct);
+/* ï¿½Å‘ï¿½]ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½ÌÝ’ï¿½ */
+void PCM_SetLoadNum(PcmHn pcm, int32_t read_sct);
 
-/* Ä¶‚o‚`‚m‚ÌÝ’è */
-void PCM_SetPan(PcmHn pcm, Sint32 pan);
+/* ï¿½Äï¿½ï¿½oï¿½`ï¿½mï¿½ÌÝ’ï¿½ */
+void PCM_SetPan(PcmHn pcm, int32_t pan);
 
-/* Ä¶ƒ{ƒŠƒ…[ƒ€‚ÌÝ’è */
-void PCM_SetVolume(PcmHn pcm, Sint32 volume);
+/* ï¿½Äï¿½ï¿½{ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌÝ’ï¿½ */
+void PCM_SetVolume(PcmHn pcm, int32_t volume);
 
-/* ‚o‚b‚lÄ¶ƒpƒ‰ƒ[ƒ^‚Ì•ÏX */
+/* ï¿½oï¿½bï¿½lï¿½Äï¿½ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ï¿½Ì•ÏX */
 void PCM_ChangePcmPara(PcmHn pcm);
 
-/* ‚o‚b‚lÄ¶î•ñ‚ÌÝ’è */
+/* ï¿½oï¿½bï¿½lï¿½Äï¿½ï¿½ï¿½ï¿½ÌÝ’ï¿½ */
 void PCM_SetInfo(PcmHn hn, PcmInfo *info);
 
-/* ‚P‰ñ‚Ìƒ^ƒXƒN‚Åˆ—‚·‚é—Ê‚ÌãŒÀ‚ÌÝ’è [sample/1ch] */
-void PCM_Set1TaskSample(PcmHn pcm, Sint32 sample);
+/* ï¿½Pï¿½ï¿½Ìƒ^ï¿½Xï¿½Nï¿½Åï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê‚Ìï¿½ï¿½ï¿½ÌÝ’ï¿½ [sample/1ch] */
+void PCM_Set1TaskSample(PcmHn pcm, int32_t sample);
 
-/* Ä¶ŠJŽnƒgƒŠƒKƒTƒCƒY‚ÌÝ’è [byte] */
-void PCM_SetStartTrgSize(PcmHn pcm, Sint32 size);
+/* ï¿½Äï¿½ï¿½Jï¿½nï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½Cï¿½Yï¿½ÌÝ’ï¿½ [byte] */
+void PCM_SetStartTrgSize(PcmHn pcm, int32_t size);
 
-/* Ä¶ŠJŽnƒgƒŠƒKƒTƒ“ƒvƒ‹‚ÌÝ’è [sample/1ch] */
-void PCM_SetStartTrgSample(PcmHn pcm, Sint32 sample);
+/* ï¿½Äï¿½ï¿½Jï¿½nï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ÌÝ’ï¿½ [sample/1ch] */
+void PCM_SetStartTrgSample(PcmHn pcm, int32_t sample);
 
-/* Ä¶’âŽ~ƒgƒŠƒKƒTƒ“ƒvƒ‹‚ÌÝ’è [sample/1ch] */
-void PCM_SetStopTrgSample(PcmHn pcm, Sint32 sample);
+/* ï¿½Äï¿½ï¿½ï¿½~ï¿½gï¿½ï¿½ï¿½Kï¿½Tï¿½ï¿½ï¿½vï¿½ï¿½ï¿½ÌÝ’ï¿½ [sample/1ch] */
+void PCM_SetStopTrgSample(PcmHn pcm, int32_t sample);
 
-/* ‚o‚b‚lƒRƒ}ƒ“ƒhƒuƒƒbƒN”Ô†‚ÌÝ’è */
-/* void PCM_SetPcmCmdBlockNo(PcmHn pcm, Sint32 blk_no); */
+/* ï¿½oï¿½bï¿½lï¿½Rï¿½}ï¿½ï¿½ï¿½hï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½Ôï¿½ï¿½ÌÝ’ï¿½ */
+/* void PCM_SetPcmCmdBlockNo(PcmHn pcm, int32_t blk_no); */
 
-/* ‚o‚b‚lƒXƒgƒŠ[ƒ€”Ô†‚ÌÝ’è */
-void PCM_SetPcmStreamNo(PcmHn pcm, Sint32 stream_no);
+/* ï¿½oï¿½bï¿½lï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ôï¿½ï¿½ÌÝ’ï¿½ */
+void PCM_SetPcmStreamNo(PcmHn pcm, int32_t stream_no);
 
-/* ƒf[ƒ^‚Ì“]‘—•ûŽ®‚ÌÝ’èi‚b‚cƒuƒƒbƒN¨ƒŠƒ“ƒOƒoƒbƒtƒ@j */
+/* ï¿½fï¿½[ï¿½^ï¿½Ì“]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌÝ’ï¿½iï¿½bï¿½cï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½j */
 void PCM_SetTrModeCd(PcmHn pcm, PcmTrMode mode);
 
-/* ƒf[ƒ^‚Ì“]‘—•ûŽ®‚ÌÝ’èiƒŠƒ“ƒOƒoƒbƒtƒ@¨‚o‚b‚lƒoƒbƒtƒ@j */
+/* ï¿½fï¿½[ï¿½^ï¿½Ì“]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌÝ’ï¿½iï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½oï¿½bï¿½lï¿½oï¿½bï¿½tï¿½@ï¿½j */
 /* void PCM_SetTrModePcm(PcmHn pcm, PcmTrMode mode); */
 
-/* Ä¶Žž‚ÌŽæ“¾ */
-Sint32 PCM_GetTime(PcmHn pcm);
+/* ï¿½Äï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌŽæ“¾ */
+int32_t PCM_GetTime(PcmHn pcm);
 
-/* Ä¶ƒXƒe[ƒ^ƒX‚ÌŽæ“¾ */
+/* ï¿½Äï¿½ï¿½Xï¿½eï¿½[ï¿½^ï¿½Xï¿½ÌŽæ“¾ */
 PcmPlayStatus PCM_GetPlayStatus(PcmHn pcm);
 
-/* ‘‚«ž‚Ýƒoƒbƒtƒ@ƒAƒhƒŒƒX‚ÌŽæ“¾ */
-Uint32 *PCM_GetWriteBuf(PcmHn pcm, Sint32 *free_size, Sint32 *free_total);
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýƒoï¿½bï¿½tï¿½@ï¿½Aï¿½hï¿½ï¿½ï¿½Xï¿½ÌŽæ“¾ */
+uint32_t *PCM_GetWriteBuf(PcmHn pcm, int32_t *free_size, int32_t *free_total);
 
-/* ƒoƒbƒtƒ@‚Ö‚Ì‘‚«ž‚ÝƒTƒCƒY‚Ì’Ê’m */
-void PCM_NotifyWriteSize(PcmHn pcm, Sint32 write_size);
+/* ï¿½oï¿½bï¿½tï¿½@ï¿½Ö‚Ìï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝƒTï¿½Cï¿½Yï¿½Ì’Ê’m */
+void PCM_NotifyWriteSize(PcmHn pcm, int32_t write_size);
 
-/* ƒƒ‚ƒŠ‚Éƒtƒ@ƒCƒ‹‚ð“Ç‚Ýž‚Þ */
-Sint32 PCM_PreloadFile(PcmHn pcm, Sint32 size);
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éƒtï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½Ç‚Ýï¿½ï¿½ï¿½ */
+int32_t PCM_PreloadFile(PcmHn pcm, int32_t size);
 
-/* ƒƒ‚ƒŠ‚Éƒtƒ@ƒCƒ‹ƒwƒbƒ_‚ð“Ç‚Ýž‚Þ */
-/* Sint32 PCM_PreloadHeader(PcmHn pcm); */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éƒtï¿½@ï¿½Cï¿½ï¿½ï¿½wï¿½bï¿½_ï¿½ï¿½Ç‚Ýï¿½ï¿½ï¿½ */
+/* int32_t PCM_PreloadHeader(PcmHn pcm); */
 
-/* ƒGƒ‰[ŠÖ”‚Ì“o˜^ */
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½Öï¿½ï¿½Ì“oï¿½^ */
 void PCM_SetErrFunc(PcmErrFunc func, void *obj);
 
-/* ƒGƒ‰[î•ñ‚ÌŽæ“¾ */
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌŽæ“¾ */
 PcmErrCode PCM_GetErr(void);
 
-/* ”ñŒöŠJ */
-Bool PCM_IsDeath(PcmHn pcm);
+/* ï¿½ï¿½ï¿½ï¿½J */
+bool PCM_IsDeath(PcmHn pcm);
 
 #endif	/* SEGA_PCM_H */

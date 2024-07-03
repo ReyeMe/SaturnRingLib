@@ -15,9 +15,9 @@ typedef	StmGrpHn	CDHN;
 
 /*--- ストリームデータを分類するためのキー -----------------------------*/
 typedef struct {
-    Sint16	cn;			/* チャネル番号			*/
-    Sint16	sm;			/* サブモード			*/
-    Sint16	ci;			/* コーディング情報		*/
+    int16_t	cn;			/* チャネル番号			*/
+    int16_t	sm;			/* サブモード			*/
+    int16_t	ci;			/* コーディング情報		*/
 } CDKEY;
 
 #define	CDKEY_NONE	STM_KEY_NONE	/* ストリームキーの選択をしない	*/
@@ -27,18 +27,18 @@ typedef struct {
 /*--- 読み込み領域情報 -------------------------------------------------*/
 typedef struct {			/* ワークRAMへのコピー		*/
     void	*addr;			/* 転送先領域(転送しない:NULL)	*/
-    Sint32	unit;			/* 転送領域のユニットサイズ	*/
-    Sint32	size;			/* 転送領域のユニット数		*/
+    int32_t	unit;			/* 転送領域のユニットサイズ	*/
+    int32_t	size;			/* 転送領域のユニット数		*/
 } TRANS_COPY;
 
 typedef struct {			/* 転送関数を使用する場合	*/
-    Sint32	(*func )(void *obj, Uint32 *addr, 
-                        Sint32 adinc, Sint32 nsct);	/* 転送関数	*/
+    int32_t	(*func )(void *obj, uint32_t *addr, 
+                        int32_t adinc, int32_t nsct);	/* 転送関数	*/
     void	*obj;			/* オブジェクト			*/
 } TRANS_FUNC;
 
 typedef struct {
-    Sint32	type;			/* 転送方法			*/
+    int32_t	type;			/* 転送方法			*/
     union {
 	TRANS_COPY	copy;		/* ワークRAMへのコピー		*/
 	TRANS_FUNC	func;		/* 転送関数を使用する場合	*/
@@ -114,31 +114,31 @@ enum CDERR {
 /*--- プロトタイプ -----------------------------------------------------*/
 
 /* 初期化				*/
-Sint32	slCdInit(Sint32 nfile, void *work);
+int32_t	slCdInit(int32_t nfile, void *work);
 
 /* ディレクトリ移動			*/
-Sint32	slCdChgDir(Sint8 *pathname);
+int32_t	slCdChgDir(int8_t *pathname);
 
 /* ファイルオープン			*/
-CDHN	slCdOpen(Sint8 *pathname, CDKEY key[]);
+CDHN	slCdOpen(int8_t *pathname, CDKEY key[]);
 
 /* ファイルの読み込み			*/
-Sint32	slCdLoadFile(CDHN cdhn, CDBUF buf[]);
+int32_t	slCdLoadFile(CDHN cdhn, CDBUF buf[]);
 
 /* ストリームの転送			*/
-Sint32	slCdTrans(CDHN cdhn, CDBUF buf[], Sint32 ndata[]);
+int32_t	slCdTrans(CDHN cdhn, CDBUF buf[], int32_t ndata[]);
 
 /* 転送領域のリセット			*/
-Bool	slCdResetBuf(CDHN cdhn, CDKEY *key);
+bool	slCdResetBuf(CDHN cdhn, CDKEY *key);
 
 /* 読み込み中断				*/
-Sint32	slCdAbort(CDHN cdhn);
+int32_t	slCdAbort(CDHN cdhn);
 
 /* 読み込み一時停止			*/
-Sint32	slCdPause(CDHN cdhn);
+int32_t	slCdPause(CDHN cdhn);
 
 /* ステータス取得			*/
-Sint32	slCdGetStatus(CDHN cdhn, Sint32 ndata[]);
+int32_t	slCdGetStatus(CDHN cdhn, int32_t ndata[]);
 
 /* ＣＤ用イベント関数			*/
 void	slCdEvent(void);

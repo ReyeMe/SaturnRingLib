@@ -6,7 +6,7 @@ int main()
 {
 	SRL::Core::Initialize(HighColor(20,10,50));
     SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");   // Loads TGA file into main RAM
-    Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
+    int32_t textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
     delete tga;                                                 // Frees main RAM
 
     HighColor * table = SRL::VDP1::GetGouraudTable();
@@ -20,7 +20,7 @@ int main()
     table[10] = HighColor::Colors::Green;
     table[11] = HighColor::Colors::Green;
 
-    Uint16 angle = 0;
+    uint16_t angle = 0;
 
 	while(1)
 	{

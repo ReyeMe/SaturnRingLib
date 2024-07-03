@@ -15,11 +15,11 @@ namespace SRL
     private:
         /** @brief Current print text color
          */
-        inline static  Uint8 printColor = 0;
+        inline static  uint8_t printColor = 0;
 
         /** @brief previous print text color
          */
-        inline static  Uint8 oldPrintColor = 0;
+        inline static  uint8_t oldPrintColor = 0;
 
         /** @brief Default print text buffer
          */
@@ -42,7 +42,7 @@ namespace SRL
          * @param y Offset from top of the screen
          * @param text Text to print
          */
-        inline static void Print(Uint8 x, Uint8 y, const char* text)
+        inline static void Print(uint8_t x, uint8_t y, const char* text)
         {
             slPrint((char*)text, slLocate(x, y));
         }
@@ -55,14 +55,14 @@ namespace SRL
          * @param text Text to print
          * @return Number of lines printed
          */
-        inline static Uint8 PrintWithWrap(Uint8 x, Uint8 y, const Uint8 fromLeft, const Uint8 fromRight, const char* text)
+        inline static uint8_t PrintWithWrap(uint8_t x, uint8_t y, const uint8_t fromLeft, const uint8_t fromRight, const char* text)
         {
             if (fromLeft < fromRight && x < fromRight && text != nullptr)
             {
                 char wrapBuffer[2] = { ' ', '\0' };
-                Uint16 character = 0;
-                Uint8 line = 1;
-                Uint16 screenX = x;
+                uint16_t character = 0;
+                uint8_t line = 1;
+                uint16_t screenX = x;
 
                 while (text[character] != '\0')
                 {
@@ -96,9 +96,9 @@ namespace SRL
          * @param args... Text arguments
          */
         template <typename ...Args>
-        inline static void Print(Uint8 x, Uint8 y, const char* text, Args...args)
+        inline static void Print(uint8_t x, uint8_t y, const char* text, Args...args)
         {
-            Sint32 leftOver = snprintf(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
+            int32_t leftOver = snprintf(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
 
             if (leftOver >= SRL_DEBUG_MAX_PRINT_LENGTH)
             {
@@ -125,11 +125,11 @@ namespace SRL
          * @return Number of lines printed
          */
         template <typename ...Args>
-        inline static Uint8 PrintWithWrap(Uint8 x, Uint8 y, const Uint8 fromLeft, const Uint8 fromRight, const char* text, Args...args)
+        inline static uint8_t PrintWithWrap(uint8_t x, uint8_t y, const uint8_t fromLeft, const uint8_t fromRight, const char* text, Args...args)
         {
             if (fromLeft < fromRight && x < fromRight && text != nullptr)
             {
-                Sint32 leftOver = snprintf(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
+                int32_t leftOver = snprintf(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
 
                 if (leftOver >= SRL_DEBUG_MAX_PRINT_LENGTH)
                 {
@@ -152,7 +152,7 @@ namespace SRL
         /** @brief Color of the cursor
          * @param color Cursor color index
          */
-        inline static void PrintColorSet(Uint8 color)
+        inline static void PrintColorSet(uint8_t color)
         {
             Debug::oldPrintColor = Debug::printColor;
             Debug::printColor = color;
@@ -169,7 +169,7 @@ namespace SRL
         /** @brief Clear screen line
          * @param line Line number
          */
-        inline static void PrintClearLine(const Uint8 line)
+        inline static void PrintClearLine(const uint8_t line)
         {
             for (int x = 0; x < 40; x++)
             {
@@ -205,7 +205,7 @@ namespace SRL
             Debug::PrintColorSet(0);
 
             Debug::Print(1,1, "Assert raised");
-            Uint8 lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
+            uint8_t lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
             
             Debug::Print(1,lines + 4, "Message:");
             Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
@@ -216,8 +216,8 @@ namespace SRL
             // Small animation so we know it did not crash
             Debug::Print(1,27, "[");
             Debug::Print(38,27, "]");
-            Uint8 frame = 0;
-            Uint16 frameCountdown = 3;
+            uint8_t frame = 0;
+            uint16_t frameCountdown = 3;
             bool breakOut = false;
             
             while (!breakOut)
@@ -225,8 +225,8 @@ namespace SRL
                 if (frameCountdown == 0)
                 {
                     frameCountdown = 3;
-                    Sint16 clearFrame = (Sint16)frame - 5;
-                    Sint16 backArrowFrame = (Sint16)frame - 4;
+                    int16_t clearFrame = (int16_t)frame - 5;
+                    int16_t backArrowFrame = (int16_t)frame - 4;
 
                     if (clearFrame < 0)
                     {

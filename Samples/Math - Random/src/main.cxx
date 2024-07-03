@@ -13,11 +13,11 @@ int main()
     SRL::Math::Random rnd = SRL::Math::Random(15);
 
     // Define variables to keep track of random data
-    Sint32 data[320];
-    Uint32 pointer = 0;
+    int32_t data[320];
+    uint32_t pointer = 0;
 
     // Update delay counter
-    Uint32 tm = 0;
+    uint32_t tm = 0;
     
     // Main program loo
 	while(1)
@@ -44,7 +44,7 @@ int main()
         }
 
         // Draw graph
-        for (int i = 0; i < 319; i++)
+        for (uint16_t i = 0; i < 319; i++)
         {
             SRL::Scene2D::DrawLine(
                 Vector2D(Fxp::FromInt(i- 160), Fxp::FromInt(data[i])),

@@ -45,9 +45,9 @@ namespace SRL
             SRL::Memory::Initialize();
 
 #if SRL_FRAMERATE > 0
-            slInitSystem((Uint16)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
+            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
 #else
-            slInitSystem((Uint16)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), 1);
+            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), 1);
             slDynamicFrame(1);
 #endif
             // Initialize CD drive

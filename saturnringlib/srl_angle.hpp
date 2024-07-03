@@ -25,11 +25,11 @@ namespace SRL::Types
 
         /** @brief Angle value
          */
-        Sint16 value;
+        int16_t value;
 
         /** @brief Construct a new instance from raw value
          */
-        constexpr Angle(const Sint16& inValue) : value(inValue) {}
+        constexpr Angle(const int16_t& inValue) : value(inValue) {}
         
         /** @brief Construct a new empty instance
          */
@@ -45,7 +45,7 @@ namespace SRL::Types
          * @param value Raw value
          * @return new Angle instance
          */
-        static constexpr Angle FromRaw(const Sint16& value)
+        static constexpr Angle FromRaw(const int16_t& value)
         {
             return Angle(value);
         }
@@ -54,9 +54,9 @@ namespace SRL::Types
          * @param value Angle in degrees
          * @return new Angle instance
          */
-        static constexpr Angle FromDegrees(const Sint16& value)
+        static constexpr Angle FromDegrees(const int16_t& value)
         {
-            return Angle((Sint16)(Fxp::FromInt(value) / Angle::SingleTurn).Value());
+            return Angle((int16_t)(Fxp::FromInt(value) / Angle::SingleTurn).Value());
         }
 
         /** @brief Construct a new instance from degrees value
@@ -65,7 +65,7 @@ namespace SRL::Types
          */
         static constexpr Angle FromDegrees(const Fxp& value)
         {
-            return Angle((Sint16)(value / Angle::SingleTurn).Value());
+            return Angle((int16_t)(value / Angle::SingleTurn).Value());
         }
 
         /** @brief Construct a new instance from radians value
@@ -74,7 +74,7 @@ namespace SRL::Types
          */
         static constexpr Angle FromRadians(const Fxp& value)
         {
-            return Angle((Sint16)((value * Angle::ToDegreesConversion) / Angle::SingleTurn).Value());
+            return Angle((int16_t)((value * Angle::ToDegreesConversion) / Angle::SingleTurn).Value());
         }
 
         /** @brief Convert angle to degrees
@@ -96,7 +96,7 @@ namespace SRL::Types
         /** @brief Get raw value
          * @return Raw value 
          */
-        constexpr Sint16 Value() const
+        constexpr int16_t Value() const
         {
             return this->value;
         }
@@ -111,7 +111,7 @@ namespace SRL::Types
          */
         constexpr Angle operator+(const Angle& angle) const
         {
-            return Angle((Sint16)(this->value + angle.value));
+            return Angle((int16_t)(this->value + angle.value));
         }
 
         /** @brief Subtract two angles from each other
@@ -120,7 +120,7 @@ namespace SRL::Types
          */
         constexpr Angle operator-(const Angle& angle) const
         {
-            return Angle((Sint16)(this->value - angle.value));
+            return Angle((int16_t)(this->value - angle.value));
         }
 
         /** @brief Add two angles together and set the result to current instance
@@ -154,7 +154,7 @@ namespace SRL::Types
          */
         constexpr Angle operator-() const
         {
-            return (Sint16)-this->value;
+            return (int16_t)-this->value;
         }
 
         /** @brief Compare whether current angle is bigger than other angle

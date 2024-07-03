@@ -31,45 +31,7 @@
 /****************************** Basic declaration *****************************/
 /*****************************************************************************/
 
-/** @brief Unsigned 1-byte integer
- */
-typedef unsigned char Uint8;
-
-/** @brief Signed 1-byte integer
- */
-typedef signed char Sint8;
-
-/** @brief Unsigned 2-byte integer
- */
-typedef unsigned short Uint16;
-
-/** @brief Signed 2-byte integer
- */
-typedef signed short Sint16;
-
-/** @brief Unsigned 4-byte integer
- */
-typedef unsigned long Uint32;
-
-/** @brief Signed 4-byte integer
- */
-typedef signed long Sint32;
-
-/** @brief 4-byte real number
- */
-typedef float Float32;
-
-/** @brief 8-byte real number
- */
-typedef double Float64;
-
-/** @brief INT type (for tools)
- */
-typedef int Int;
-
-/** @brief Logical type (takes logical constant as value)
- */
-typedef int Bool;
+#include <stdint-gcc.h>
 
 /*****************************************************************************/
 /********************************* Constant macro ********************************/
@@ -88,7 +50,7 @@ typedef int Bool;
 
 /** @brief Logical constant 1 (false, true)
  */
-enum BooleanLogic
+enum booleanLogic
 {
     FALSE = 0,
     TRUE = 1
@@ -96,7 +58,7 @@ enum BooleanLogic
 
 /** @brief Logical constant 2 (switch)
  */
-enum BooleanSwitch
+enum booleanSwitch
 {
     OFF = 0,
     ON = 1
@@ -160,11 +122,11 @@ enum Judgement
 
 /** @brief 360 degree angle is represented by 16 bits
  */
-typedef Sint16 ANGLE;
+typedef int16_t ANGLE;
 
 /** @brief Fixed-point type that represents the integer part in the upper 16 bits and the decimal part in the lower 16 bits
  */
-typedef Sint32 FIXED;
+typedef int32_t FIXED;
 
 /** @brief Point component and array size
  */
@@ -185,7 +147,7 @@ enum ps
 typedef struct work
 {
     struct work *next;
-    Uint8 user[WORK_SIZE - sizeof(struct work *)];
+    uint8_t user[WORK_SIZE - sizeof(struct work *)];
 } WORK;
 
 typedef struct evnt
@@ -194,7 +156,7 @@ typedef struct evnt
     struct evnt *next;
     struct evnt *before;
     void (*exad)();
-    Uint8 user[EVENT_SIZE - (sizeof(WORK *) + sizeof(struct evnt *) * 2 + sizeof(void (*)()))];
+    uint8_t user[EVENT_SIZE - (sizeof(WORK *) + sizeof(struct evnt *) * 2 + sizeof(void (*)()))];
 } EVENT;
 
 /** @brief Matrix data
@@ -510,7 +472,7 @@ typedef struct
 
     /** @brief Vertex numbers that make up the polygon
      */
-    Uint16 Vertices[4];
+    uint16_t Vertices[4];
 } POLYGON;
 
 /** @brief Mesh face attributes
@@ -519,31 +481,31 @@ typedef struct
 {
     /** @brief Single-sided or double-sided flag
      */
-    Uint8 flag;
+    uint8_t flag;
 
     /** @brief Sort reference position and optional settings
      */
-    Uint8 sort;
+    uint8_t sort;
 
     /** @brief Texture number
      */
-    Uint16 texno;
+    uint16_t texno;
 
     /** @brief Attribute data (display mode)
      */
-    Uint16 atrb;
+    uint16_t atrb;
 
     /** @brief Color number
      */
-    Uint16 colno;
+    uint16_t colno;
 
     /** @brief Gouraud shading table
      */
-    Uint16 gstb;
+    uint16_t gstb;
 
     /** @brief Texture inversion and function number
      */
-    Uint16 dir;
+    uint16_t dir;
 } ATTR;
 
 /** @brief Sprite attributes
@@ -552,23 +514,23 @@ typedef struct
 {
     /** @brief Texture number
      */
-    Uint16 texno;
+    uint16_t texno;
 
     /** @brief Attribute data (display mode)
      */
-    Uint16 atrb;
+    uint16_t atrb;
 
     /** @brief Color number
      */
-    Uint16 colno;
+    uint16_t colno;
 
     /** @brief Gouraud shading table
      */
-    Uint16 gstb;
+    uint16_t gstb;
 
     /** @brief Texture inversion and function number
      */
-    Uint16 dir;
+    uint16_t dir;
 } SPR_ATTR;
 
 /** @brief Flat shaded model data
@@ -581,7 +543,7 @@ typedef struct
 
     /** @brief Number of vertices
      */
-    Uint32 nbPoint;
+    uint32_t nbPoint;
 
     /** @brief Polygon definition table
      */
@@ -589,7 +551,7 @@ typedef struct
 
     /** @brief Number of polygons
      */
-    Uint32 nbPolygon;
+    uint32_t nbPolygon;
 
     /** @brief Polygon attribute table
      */
@@ -606,7 +568,7 @@ typedef struct
 
     /** @brief Number of vertices
      */
-    Uint32 nbPoint;   /*  */
+    uint32_t nbPoint;   /*  */
 
     /** @brief Polygon definition table
      */
@@ -614,7 +576,7 @@ typedef struct
 
     /** @brief Number of polygons
      */
-    Uint32 nbPolygon; /*  */
+    uint32_t nbPolygon; /*  */
 
     /** @brief Polygon attribute table
      */
@@ -629,73 +591,73 @@ typedef struct
 
 typedef struct
 {
-    Uint16 pmod;   /* Sprite display mode */
-    Uint16 colno;  /* Color number */
-    Uint16 CGadr;  /* Sprite CG address / 8 */
-    Uint16 HVsize; /* H size / 8, V size (for hardware) */
+    uint16_t pmod;   /* Sprite display mode */
+    uint16_t colno;  /* Color number */
+    uint16_t CGadr;  /* Sprite CG address / 8 */
+    uint16_t HVsize; /* H size / 8, V size (for hardware) */
 } gxATTR_VDP1;
 
 typedef struct
 {
-    Uint32 texcel;  /*Texture cell address */
-    Uint16 dspmode; /*Display mode flag */
-    Uint16 colno;   /*Color data */
-    Uint8 TXA, TYA; /*Texture point */
-    Uint8 TXB, TYB;
-    Uint8 TXC, TYC;
-    Uint8 TXD, TYD;
+    uint32_t texcel;  /*Texture cell address */
+    uint16_t dspmode; /*Display mode flag */
+    uint16_t colno;   /*Color data */
+    uint8_t TXA, TYA; /*Texture point */
+    uint8_t TXB, TYB;
+    uint8_t TXC, TYC;
+    uint8_t TXD, TYD;
 } gxATTR_ENHC;
 
 typedef struct
 {
-    Uint16 texno; /* Texture number */
-    Uint16 atrb;  /* Attribute data (display mode) */
-    Uint16 colno; /* Color number */
-    Uint16 gstb;  /* Gouraud shading table */
-    Uint16 dir;   /* Texture inversion and function number */
+    uint16_t texno; /* Texture number */
+    uint16_t atrb;  /* Attribute data (display mode) */
+    uint16_t colno; /* Color number */
+    uint16_t gstb;  /* Gouraud shading table */
+    uint16_t dir;   /* Texture inversion and function number */
 } gxSPR_ATTR;
 
 typedef struct
 {
-    Uint16 texno;      /* Texture offset address */
-    Uint8 attr;        /* Material code, sorting mode, etc.*/
-    Uint8 nvface;      /* Surface normal vector number */
-    Uint8 nvnum[4];    /* Vertex normal vector number */
-    Uint8 Vertices[4]; /* Vertex number constituting the polygon */
+    uint16_t texno;      /* Texture offset address */
+    uint8_t attr;        /* Material code, sorting mode, etc.*/
+    uint8_t nvface;      /* Surface normal vector number */
+    uint8_t nvnum[4];    /* Vertex normal vector number */
+    uint8_t Vertices[4]; /* Vertex number constituting the polygon */
 } gxPOLYGON;
 
 typedef struct
 {
     POINT *pntbl;       /*Vertex position data table */
-    Uint16 nbPoint;     /*Number of vertices */
-    Uint16 nbNVector;   /*Number of normal vectors */
+    uint16_t nbPoint;     /*Number of vertices */
+    uint16_t nbNVector;   /*Number of normal vectors */
     VECTOR *nvtbl;      /*Normal vector data table */
     gxPOLYGON *pltbl;   /*Polygon definition table */
-    Uint32 nbPolygon;   /*Number of polygons */
+    uint32_t nbPolygon;   /*Number of polygons */
     gxATTR_VDP1 *attbl; /*Polygon attribute table */
 } gxPDATA;
 
 typedef struct
 {
-    Uint32 texadr; /* Texture data table */
-    Uint8 BD;      /* Luminance of each vertex */
-    Uint8 BC;
-    Uint8 BB;
-    Uint8 BA;
-    Sint16 XA; /*Position of each vertex */
-    Sint16 YA;
-    Sint16 XB;
-    Sint16 YB;
-    Sint16 XC;
-    Sint16 YC;
-    Sint16 XD;
-    Sint16 YD;
-    Uint16 ZA; /* Z value of each vertex */
-    Uint16 ZB;
-    Uint16 ZC;
-    Uint16 ZD;
-    Uint16 winno; /* Window number */
-    Uint16 ZF;    /* On behalf of Z value */
+    uint32_t texadr; /* Texture data table */
+    uint8_t BD;      /* Luminance of each vertex */
+    uint8_t BC;
+    uint8_t BB;
+    uint8_t BA;
+    int16_t XA; /*Position of each vertex */
+    int16_t YA;
+    int16_t XB;
+    int16_t YB;
+    int16_t XC;
+    int16_t YC;
+    int16_t XD;
+    int16_t YD;
+    uint16_t ZA; /* Z value of each vertex */
+    uint16_t ZB;
+    uint16_t ZC;
+    uint16_t ZD;
+    uint16_t winno; /* Window number */
+    uint16_t ZF;    /* On behalf of Z value */
 } gxDIRECT;
 
 #define winEXn 0 /* Enhancer side (near) */
@@ -757,21 +719,21 @@ typedef struct
 {
     /** @brief Texture height
      */
-    Uint16 Hsize;
+    uint16_t Hsize;
 
     /** @brief Texture width
      */
-    Uint16 Vsize;
+    uint16_t Vsize;
 
     /** @brief Texture address
      *  @note Address is divided by 8
      */
-    Uint16 CGadr;
+    uint16_t CGadr;
 
     /** @brief Texture data size
      *  @note H size / 8, V size (for hardware)
      */
-    Uint16 HVsize;
+    uint16_t HVsize;
 } TEXTURE;
 
 /** @brief Texture metadata
@@ -780,11 +742,11 @@ typedef struct
 {
     /** @brief Texture number
      */
-    Uint16 texno;
+    uint16_t texno;
 
     /** @brief Color mode
      */
-    Uint16 cmode;
+    uint16_t cmode;
 
     /** @brief Location of original data
      */
@@ -851,67 +813,67 @@ typedef struct
 {
     /** @brief Control function
      */
-    Uint16 CTRL;
+    uint16_t CTRL;
 
     /** @brief Link address
      */
-    Uint16 LINK;
+    uint16_t LINK;
 
     /** @brief Put mode
      */
-    Uint16 PMOD;
+    uint16_t PMOD;
 
     /** @brief Color data
      */
-    Uint16 COLR;
+    uint16_t COLR;
 
     /** @brief CG address
      */
-    Uint16 SRCA;
+    uint16_t SRCA;
 
     /** @brief Character size
      */
-    Uint16 SIZE;
+    uint16_t SIZE;
 
     /** @brief Indicates X position A
      */
-    Sint16 XA;
+    int16_t XA;
     
     /** @brief Indicates Y position A
      */
-    Sint16 YA;
+    int16_t YA;
     
     /** @brief Indicates X position B
      */
-    Sint16 XB;
+    int16_t XB;
     
     /** @brief Indicates Y position B
      */
-    Sint16 YB;
+    int16_t YB;
     
     /** @brief Indicates X position C
      */
-    Sint16 XC;
+    int16_t XC;
     
     /** @brief Indicates Y position C
      */
-    Sint16 YC;
+    int16_t YC;
     
     /** @brief Indicates X position D
      */
-    Sint16 XD;
+    int16_t XD;
     
     /** @brief Indicates Y position D
      */
-    Sint16 YD;
+    int16_t YD;
 
     /** @brief Gouraud shading table
      */
-    Uint16 GRDA;
+    uint16_t GRDA;
 
     /** @brief Dummy data for size adjustment
      */
-    Uint16 DMMY;
+    uint16_t DMMY;
 } SPRITE;
 
 /** @brief Start address of VDP1 texture ram
@@ -1034,7 +996,7 @@ typedef struct
 
 /** @brief 1 cell size (Pattern name)
  */
-typedef Uint16 CELL;
+typedef uint16_t CELL;
 
 /** @brief 1 line size
  */
@@ -1103,29 +1065,29 @@ typedef struct rdat
 
     /** @brief Viewpoint coordinates Px
      */
-    Sint16 PX;
+    int16_t PX;
 
     /** @brief Viewpoint coordinates Py
      */
-    Sint16 PY;
+    int16_t PY;
 
     /** @brief Viewpoint coordinates Pz
      */
-    Sint16 PZ;
-    Sint16 dummy0;
+    int16_t PZ;
+    int16_t dummy0;
 
     /** @brief Center coordinates Cx
      */
-    Sint16 CX;
+    int16_t CX;
 
     /** @brief Center coordinates Cy
      */
-    Sint16 CY;
+    int16_t CY;
 
     /** @brief Center coordinates Cz
      */
-    Sint16 CZ;
-    Sint16 dummy1;
+    int16_t CZ;
+    int16_t dummy1;
 
     /** @brief  Parallel movement amount Mx
      */
@@ -1145,15 +1107,15 @@ typedef struct rdat
 
     /** @brief Coefficient table start address KAst
      */
-    Uint32 KAST;
+    uint32_t KAST;
 
     /** @brief Coefficient table vertical address increment KAst
      */
-    Sint32 DKAST;
+    int32_t DKAST;
 
     /** @brief Coefficient table horizontal address increment KA
      */
-    Sint32 DKA;
+    int32_t DKA;
 } ROTSCROLL;
 
 /** \defgroup slExtSignal slExtSignal
@@ -1430,15 +1392,15 @@ enum color_rate
 
 typedef struct
 {
-    Uint8 mode;    /* Mode */
-    Uint8 channel; /* PCM Channel Number */
-    Uint8 level;   /* 0 ~ 127 */
-    Sint8 pan;     /* -128 ~ +127 */
-    Uint16 pitch;
-    Uint8 eflevelR;  /* Effect level for Right(mono) 0 ~ 7 */
-    Uint8 efselectR; /* Effect select for Right(mono) 0 ~ 15 */
-    Uint8 eflevelL;  /* Effect level for Left 0 ~ 7 */
-    Uint8 efselectL; /* Effect select for Left 0 ~ 15 */
+    uint8_t mode;    /* Mode */
+    uint8_t channel; /* PCM Channel Number */
+    uint8_t level;   /* 0 ~ 127 */
+    int8_t pan;     /* -128 ~ +127 */
+    uint16_t pitch;
+    uint8_t eflevelR;  /* Effect level for Right(mono) 0 ~ 7 */
+    uint8_t efselectR; /* Effect select for Right(mono) 0 ~ 15 */
+    uint8_t eflevelL;  /* Effect level for Left 0 ~ 7 */
+    uint8_t efselectL; /* Effect select for Left 0 ~ 15 */
 } PCM;
 
 #define _Stereo 0x80
@@ -1481,27 +1443,27 @@ extern const void *MasterStack;
 
 /** @brief Calculatable vertice numbers
  */
-extern const Uint16 MaxVertices;
+extern const uint16_t MaxVertices;
 
 /** @brief Calculatable polygon numbers
  */
-extern const Uint16 MaxPolygons;
+extern const uint16_t MaxPolygons;
 
 /** @brief sizeof(EVENT)
  */
-extern const Uint16 EventSize;
+extern const uint16_t EventSize;
 
 /** @brief sizeof(WORK)
  */
-extern const Uint16 WorkSize;
+extern const uint16_t WorkSize;
 
 /** @brief Useful Event count
  */
-extern const Uint16 MaxEvents;
+extern const uint16_t MaxEvents;
 
 /** @brief Useful Work count
  */
-extern const Uint16 MaxWorks;
+extern const uint16_t MaxWorks;
 
 /** @brief SCU D.M.A. Table
  */
@@ -1509,7 +1471,7 @@ extern const void *SortList;
 
 /** @brief Sprite transfer request table size
  */
-extern const Uint32 SortListSize;
+extern const uint32_t SortListSize;
 
 /** @brief SCU D.M.A. Table
  */
@@ -1526,7 +1488,7 @@ extern const void *SpriteBuf;
 
 /** @brief Sprite control data buffer size
  */
-extern const Uint32 SpriteBufSize;
+extern const uint32_t SpriteBufSize;
 
 /** @brief Point calculate buffer
  */
@@ -1547,7 +1509,7 @@ extern const void *PCM_Work;
 
 /** @brief PCM data buffer size
  */
-extern const Uint32 PCM_WkSize;
+extern const uint32_t PCM_WkSize;
 
 /** @brief Buffer for Event use
  */
@@ -1573,7 +1535,7 @@ extern FIXED slSin(ANGLE);
 extern FIXED slCos(ANGLE);
 extern FIXED slTan(ANGLE);
 extern ANGLE slAtan(FIXED, FIXED);
-extern Uint32 slSquart(Uint32);
+extern uint32_t slSquart(uint32_t);
 extern FIXED slSquartFX(FIXED);
 extern FIXED slMulFX(FIXED, FIXED);
 extern FIXED slDivFX(FIXED, FIXED);
@@ -1586,14 +1548,14 @@ extern void slRevNormalVector(VECTOR, VECTOR, VECTOR, VECTOR);
 
 extern void slInitMatrix(void);
 extern void slUnitMatrix(MATRIX);
-extern Bool slPushMatrix(void);
-extern Bool slPopMatrix(void);
-extern Bool slPushUnitMatrix(void);
-extern Bool slIncMatrixPtr(void);
-extern Bool slDecMatrixPtr(void);
+extern bool slPushMatrix(void);
+extern bool slPopMatrix(void);
+extern bool slPushUnitMatrix(void);
+extern bool slIncMatrixPtr(void);
+extern bool slDecMatrixPtr(void);
 extern void slLoadMatrix(MATRIX);
 extern void slGetMatrix(MATRIX);
-extern Bool slCopyMatrix();
+extern bool slCopyMatrix();
 extern void slGetTranslate(FIXED *);
 extern void slLoadTranslate(FIXED, FIXED, FIXED);
 extern void slRegistMatrix(MATRIX);
@@ -1618,57 +1580,57 @@ extern FIXED slBallCollision(FIXED *pos1, FIXED size1, FIXED *pos2, FIXED size2)
 extern FIXED slCheckOnScreen(FIXED *pos, FIXED size);
 extern FIXED slCheckOnScreen0(FIXED size);
 extern void slBezier(VECTOR p1, VECTOR p2, VECTOR p3, VECTOR p4, FIXED time, VECTOR ans);
-extern FIXED slConvert3Dto2D(FIXED pos[XYZ], Sint32 ans[XY]);
+extern FIXED slConvert3Dto2D(FIXED pos[XYZ], int32_t ans[XY]);
 extern FIXED slConvert3Dto2DFX(FIXED pos[XYZ], FIXED ans[XY]);
 
 /* Text display library	*/
 
-extern void *slLocate(Uint16, Uint16);
-extern void slCurScrn(Uint16);
-extern void slCurColor(Uint16);
-extern void slDispHex(Uint32, void *);
-extern void slPrintHex(Uint32, void *);
+extern void *slLocate(uint16_t, uint16_t);
+extern void slCurScrn(uint16_t);
+extern void slCurColor(uint16_t);
+extern void slDispHex(uint32_t, void *);
+extern void slPrintHex(uint32_t, void *);
 extern void slPrintMatrix(MATRIX, void *);
 extern void slPrintFX(FIXED, void *);
-extern Uint32 slHex2Dec(Uint32);
-extern Uint32 slDec2Hex(Uint32);
-extern Uint16 slAng2Hex(ANGLE);
-extern Uint16 slAng2Dec(ANGLE);
+extern uint32_t slHex2Dec(uint32_t);
+extern uint32_t slDec2Hex(uint32_t);
+extern uint16_t slAng2Hex(ANGLE);
+extern uint16_t slAng2Dec(ANGLE);
 extern FIXED slAng2FX(ANGLE);
 extern void slPrint(char *, void *);
-extern void set_vbar(Uint16);
-extern void reset_vbar(Uint16);
-extern void slExtendScroll(Uint8 *, void *);
-extern void *slLocateNbg(Uint16, Uint16, Uint16);
+extern void set_vbar(uint16_t);
+extern void reset_vbar(uint16_t);
+extern void slExtendScroll(uint8_t *, void *);
+extern void *slLocateNbg(uint16_t, uint16_t, uint16_t);
 #define slLocateNbg0(x, y) slLocateNbg(x, y, scnNBG0)
 #define slLocateNbg1(x, y) slLocateNbg(x, y, scnNBG1)
 #define slLocateNbg2(x, y) slLocateNbg(x, y, scnNBG2)
 #define slLocateNbg3(x, y) slLocateNbg(x, y, scnNBG3)
-extern void *slLocatePage(Uint16, Uint16, Uint16);
+extern void *slLocatePage(uint16_t, uint16_t, uint16_t);
 
 /* Sprite library	*/
 
-extern Bool slPutPolygon(PDATA *);
-extern Bool slPutPolygonS(PDATA *);
-extern Bool slDispPolygon(PDATA *, Uint16);
-extern Bool slPutSprite(FIXED *, SPR_ATTR *attr, ANGLE);
-extern Bool slDispSprite(FIXED *, SPR_ATTR *attr, ANGLE);
-extern Bool slDispSpriteHV(FIXED *, SPR_ATTR *attr, ANGLE);
-extern Bool slDispSpriteSZ(FIXED *, SPR_ATTR *attr, ANGLE);
-extern Bool slDispSprite4P(FIXED *, FIXED, SPR_ATTR *attr);
+extern bool slPutPolygon(PDATA *);
+extern bool slPutPolygonS(PDATA *);
+extern bool slDispPolygon(PDATA *, uint16_t);
+extern bool slPutSprite(FIXED *, SPR_ATTR *attr, ANGLE);
+extern bool slDispSprite(FIXED *, SPR_ATTR *attr, ANGLE);
+extern bool slDispSpriteHV(FIXED *, SPR_ATTR *attr, ANGLE);
+extern bool slDispSpriteSZ(FIXED *, SPR_ATTR *attr, ANGLE);
+extern bool slDispSprite4P(FIXED *, FIXED, SPR_ATTR *attr);
 extern void slPerspective(ANGLE);
 extern void slSetScreenDist(FIXED);
-extern Bool slWindow(Sint16, Sint16, Sint16, Sint16, Sint16, Sint16, Sint16);
+extern bool slWindow(int16_t, int16_t, int16_t, int16_t, int16_t, int16_t, int16_t);
 extern void slLight(VECTOR);
-extern Bool slSetSprite(SPRITE *, FIXED);
+extern bool slSetSprite(SPRITE *, FIXED);
 
 /** @brief This function specifies how far in front of the projection surface to actually project (the front boundary surface)
  * @image html slZdspLevel.png
  */
-extern void slZdspLevel(Uint16);
+extern void slZdspLevel(uint16_t);
 
-extern Bool slPutObject(OBJECT *);
-extern void slCurWindow(Uint8);
+extern bool slPutObject(OBJECT *);
+extern void slCurWindow(uint8_t);
 enum
 {
     /** @brief Far side Window 
@@ -1679,10 +1641,10 @@ enum
      */
     winNear
 };
-extern Uint8 slSprWinNum();
-extern void slFrameClipSize(Sint16, Sint16);
+extern uint8_t slSprWinNum();
+extern void slFrameClipSize(int16_t, int16_t);
 extern void slSetScreenDist(FIXED);
-extern void slGetFrameData(void *, Uint16, Uint16);
+extern void slGetFrameData(void *, uint16_t, uint16_t);
 
 /** \addtogroup scroll_control
  *  @{
@@ -1690,13 +1652,13 @@ extern void slGetFrameData(void *, Uint16, Uint16);
 
 extern void slTVOn(void);
 extern void slTVOff(void);
-extern Uint16 slGetHCount(void);
-extern Uint16 slGetVCount(void);
+extern uint16_t slGetHCount(void);
+extern uint16_t slGetVCount(void);
 
 /** \addtogroup slExtSignal
  *  @{
  */
-extern void slExtSignal(Uint16, Uint16);
+extern void slExtSignal(uint16_t, uint16_t);
 /** @}*/
 
 /** \addtogroup slColRAMMode
@@ -1712,25 +1674,25 @@ extern void slExtSignal(Uint16, Uint16);
  * | Mode 2         | 8 bits for each of R, G and B; total 24bits | 2 words   | 1024 colors out of 16,77 million colors |
  * @note In color mode 0, color RAM is divided into two partitions, each storing the same color data.
  */
-extern void slColRAMMode(Uint16);
+extern void slColRAMMode(uint16_t);
 /** @}*/
 
-extern void slVRAMMode(Uint16);
-extern void slScrCycleSet(Uint32, Uint32, Uint32, Uint32);
-extern void slScrDisp(Uint32);
-extern Bool slScrAutoDisp(Uint32);
-extern void slScrTransparent(Uint16);
+extern void slVRAMMode(uint16_t);
+extern void slScrCycleSet(uint32_t, uint32_t, uint32_t, uint32_t);
+extern void slScrDisp(uint32_t);
+extern bool slScrAutoDisp(uint32_t);
+extern void slScrTransparent(uint16_t);
 extern void slZrotR(ANGLE);
 extern void slScrMatSet(void);
 extern void slBackColTable(void *);
-extern void slBack1ColSet(void *, Uint16);
+extern void slBack1ColSet(void *, uint16_t);
 extern void slLineColTable(void *);
-extern void slLine1ColSet(void *, Uint16);
-extern void slLineColDisp(Uint16);
-extern void slColorCalc(Uint16);
-extern void slColorCalcMode(Uint16);
-extern void slColorCalcOn(Uint16);
-extern void slColRate(Sint16, Uint16);
+extern void slLine1ColSet(void *, uint16_t);
+extern void slLineColDisp(uint16_t);
+extern void slColorCalc(uint16_t);
+extern void slColorCalcMode(uint16_t);
+extern void slColorCalcOn(uint16_t);
+extern void slColRate(int16_t, uint16_t);
 #define slColRateNbg0(rate) slColRate(scnNBG0, rate)
 #define slColRateNbg1(rate) slColRate(scnNBG1, rate)
 #define slColRateNbg2(rate) slColRate(scnNBG2, rate)
@@ -1746,46 +1708,46 @@ extern void slColRate(Sint16, Uint16);
 #define slColRateSpr5(rate) slColRate(scnSPR5, rate)
 #define slColRateSpr6(rate) slColRate(scnSPR6, rate)
 #define slColRateSpr7(rate) slColRate(scnSPR7, rate)
-extern void slColOffsetOn(Uint16);
-extern void slColOffsetOff(Uint16);
-extern void slColOffsetAUse(Uint16);
-extern void slColOffsetBUse(Uint16);
-extern void slColOffsetScrn(Uint16, Uint16);
-extern void slColOffsetA(Sint16 r, Sint16 g, Sint16 b);
-extern void slColOffsetB(Sint16 r, Sint16 g, Sint16 b);
-extern void slCharNbg0(Uint16 type, Uint16 size);
-extern void slCharNbg1(Uint16 type, Uint16 size);
-extern void slCharNbg2(Uint16 type, Uint16 size);
-extern void slCharNbg3(Uint16 type, Uint16 size);
-extern void slCharRbg0(Uint16 type, Uint16 size);
-extern void slPageNbg0(void *, void *, Uint16);
-extern void slPageNbg1(void *, void *, Uint16);
-extern void slPageNbg2(void *, void *, Uint16);
-extern void slPageNbg3(void *, void *, Uint16);
-extern void slPageRbg0(void *, void *, Uint16);
-extern void slPlaneNbg0(Uint16);
-extern void slPlaneNbg1(Uint16);
-extern void slPlaneNbg2(Uint16);
-extern void slPlaneNbg3(Uint16);
-extern void slPlaneRA(Uint16);
-extern void slPlaneRB(Uint16);
-extern void slOverRA(Uint16);
-extern void slOverRB(Uint16);
+extern void slColOffsetOn(uint16_t);
+extern void slColOffsetOff(uint16_t);
+extern void slColOffsetAUse(uint16_t);
+extern void slColOffsetBUse(uint16_t);
+extern void slColOffsetScrn(uint16_t, uint16_t);
+extern void slColOffsetA(int16_t r, int16_t g, int16_t b);
+extern void slColOffsetB(int16_t r, int16_t g, int16_t b);
+extern void slCharNbg0(uint16_t type, uint16_t size);
+extern void slCharNbg1(uint16_t type, uint16_t size);
+extern void slCharNbg2(uint16_t type, uint16_t size);
+extern void slCharNbg3(uint16_t type, uint16_t size);
+extern void slCharRbg0(uint16_t type, uint16_t size);
+extern void slPageNbg0(void *, void *, uint16_t);
+extern void slPageNbg1(void *, void *, uint16_t);
+extern void slPageNbg2(void *, void *, uint16_t);
+extern void slPageNbg3(void *, void *, uint16_t);
+extern void slPageRbg0(void *, void *, uint16_t);
+extern void slPlaneNbg0(uint16_t);
+extern void slPlaneNbg1(uint16_t);
+extern void slPlaneNbg2(uint16_t);
+extern void slPlaneNbg3(uint16_t);
+extern void slPlaneRA(uint16_t);
+extern void slPlaneRB(uint16_t);
+extern void slOverRA(uint16_t);
+extern void slOverRB(uint16_t);
 extern void slMapNbg0(void *, void *, void *, void *);
 extern void slMapNbg1(void *, void *, void *, void *);
 extern void slMapNbg2(void *, void *, void *, void *);
 extern void slMapNbg3(void *, void *, void *, void *);
 extern void sl1MapRA(void *);
 extern void sl1MapRB(void *);
-extern void sl16MapRA(Uint8 *);
-extern void sl16MapRB(Uint8 *);
+extern void sl16MapRA(uint8_t *);
+extern void sl16MapRB(uint8_t *);
 extern void slRparaInitSet(ROTSCROLL *);
-extern void slCurRpara(Uint16);
-extern void slRparaMode(Uint16);
+extern void slCurRpara(uint16_t);
+extern void slRparaMode(uint16_t);
 extern void slMakeKtable(void *);
-extern void slKtableRA(void *, Uint16);
-extern void slKtableRB(void *, Uint16);
-extern void slPriority(Sint16, Uint16);
+extern void slKtableRA(void *, uint16_t);
+extern void slKtableRB(void *, uint16_t);
+extern void slPriority(int16_t, uint16_t);
 #define slPriorityNbg0(num) slPriority(scnNBG0, num)
 #define slPriorityNbg1(num) slPriority(scnNBG1, num)
 #define slPriorityNbg2(num) slPriority(scnNBG2, num)
@@ -1815,23 +1777,23 @@ extern void slZoomR(FIXED x, FIXED y);
 extern void slScrScaleNbg0(FIXED x, FIXED y);
 extern void slScrScaleNbg1(FIXED x, FIXED y);
 extern void slScrScaleR(FIXED x, FIXED y);
-extern void slZoomMode(Uint16, Uint16);
+extern void slZoomMode(uint16_t, uint16_t);
 #define slZoomModeNbg0(mode) slZoomMode(scnNBG0, mode)
 #define slZoomModeNbg1(mode) slZoomMode(scnNBG1, mode)
 extern void slScrAscSet(void *);
 extern void slScrMatConv(void);
-extern void slSpriteCCalcCond(Uint16);
-extern void slSpriteCCalcNum(Uint16);
-extern void slSpriteColMode(Uint16);
-extern void slSpriteWinMode(Uint16);
-extern void slSpriteType(Uint16);
-extern void slScrMosaicOn(Uint16);
-extern void slScrMosSize(Uint16, Uint16);
-extern void slScrWindow0(Uint16, Uint16, Uint16, Uint16);
-extern void slScrWindow1(Uint16, Uint16, Uint16, Uint16);
+extern void slSpriteCCalcCond(uint16_t);
+extern void slSpriteCCalcNum(uint16_t);
+extern void slSpriteColMode(uint16_t);
+extern void slSpriteWinMode(uint16_t);
+extern void slSpriteType(uint16_t);
+extern void slScrMosaicOn(uint16_t);
+extern void slScrMosSize(uint16_t, uint16_t);
+extern void slScrWindow0(uint16_t, uint16_t, uint16_t, uint16_t);
+extern void slScrWindow1(uint16_t, uint16_t, uint16_t, uint16_t);
 extern void slScrLineWindow0(void *);
 extern void slScrLineWindow1(void *);
-extern void slScrWindowMode(Uint16, Uint16);
+extern void slScrWindowMode(uint16_t, uint16_t);
 #define slScrWindowModeNbg0(mode) slScrWindowMode(scnNBG0, mode)
 #define slScrWindowModeNbg1(mode) slScrWindowMode(scnNBG1, mode)
 #define slScrWindowModeNbg2(mode) slScrWindowMode(scnNBG2, mode)
@@ -1840,49 +1802,49 @@ extern void slScrWindowMode(Uint16, Uint16);
 #define slScrWindowModeSPR(mode) slScrWindowMode(scnSPR, mode)
 #define slScrWindowModeROT(mode) slScrWindowMode(scnROT, mode)
 #define slScrWindowModeCCAL(mode) slScrWindowMode(scnCCAL, mode)
-extern void slLineScrollMode(Uint16, Uint16);
+extern void slLineScrollMode(uint16_t, uint16_t);
 #define slLineScrollModeNbg0(mode) slLineScrollMode(scnNBG0, mode)
 #define slLineScrollModeNbg1(mode) slLineScrollMode(scnNBG1, mode)
 extern void slLineScrollTable0(void *);
 extern void slLineScrollTable1(void *);
 extern void slVCellTable(void *);
-extern void slGradationOn(Uint16);
+extern void slGradationOn(uint16_t);
 #define slGradationOff() slGradationOn(OFF)
-extern void slShadowOn(Uint16);
-extern void slTpShadowMode(Uint16);
-extern void slOverPatRA(Uint16 pat);
-extern void slOverPatRB(Uint16 pat);
-extern void slColRAMOffsetNbg0(Uint16 offset);
-extern void slColRAMOffsetNbg1(Uint16 offset);
-extern void slColRAMOffsetNbg2(Uint16 offset);
-extern void slColRAMOffsetNbg3(Uint16 offset);
-extern void slColRAMOffsetRbg0(Uint16 offset);
-extern void slColRAMOffsetSpr(Uint16 offset);
-extern void slBitMapNbg0(Uint16, Uint16, void *);
-extern void slBitMapNbg1(Uint16, Uint16, void *);
-extern void slBitMapRbg0(Uint16, Uint16, void *);
-extern void slBMPalette(Uint16, Uint16);
+extern void slShadowOn(uint16_t);
+extern void slTpShadowMode(uint16_t);
+extern void slOverPatRA(uint16_t pat);
+extern void slOverPatRB(uint16_t pat);
+extern void slColRAMOffsetNbg0(uint16_t offset);
+extern void slColRAMOffsetNbg1(uint16_t offset);
+extern void slColRAMOffsetNbg2(uint16_t offset);
+extern void slColRAMOffsetNbg3(uint16_t offset);
+extern void slColRAMOffsetRbg0(uint16_t offset);
+extern void slColRAMOffsetSpr(uint16_t offset);
+extern void slBitMapNbg0(uint16_t, uint16_t, void *);
+extern void slBitMapNbg1(uint16_t, uint16_t, void *);
+extern void slBitMapRbg0(uint16_t, uint16_t, void *);
+extern void slBMPalette(uint16_t, uint16_t);
 #define slBMPaletteNbg0(pal) slBMPalette(bmNBG0, pal)
 #define slBMPaletteNbg1(pal) slBMPalette(bmNBG1, pal)
 #define slBMPaletteRbg0(pal) slBMPalette(bmRBG0, pal)
-extern void slSpecialPrioModeNbg0(Uint16);
-extern void slSpecialPrioModeNbg1(Uint16);
-extern void slSpecialPrioModeNbg2(Uint16);
-extern void slSpecialPrioModeNbg3(Uint16);
-extern void slSpecialPrioModeRbg0(Uint16);
-extern void slSpecialCCalcModeNbg0(Uint16);
-extern void slSpecialCCalcModeNbg1(Uint16);
-extern void slSpecialCCalcModeNbg2(Uint16);
-extern void slSpecialCCalcModeNbg3(Uint16);
-extern void slSpecialCCalcModeRbg0(Uint16);
-extern void slSpecialFuncCodeA(Uint16);
-extern void slSpecialFuncCodeB(Uint16);
-extern void slSpecialFuncSelectB(Uint16);
-extern void slRparaReadCtrlRA(Uint16);
-extern void slRparaReadCtrlRB(Uint16);
-extern void slSpecialPrioBitN01(Uint16, Uint16);
-extern void slSpecialPrioBitScr(Uint16, Uint16);
-extern void slSpecialPrioBitRbg0(Uint16);
+extern void slSpecialPrioModeNbg0(uint16_t);
+extern void slSpecialPrioModeNbg1(uint16_t);
+extern void slSpecialPrioModeNbg2(uint16_t);
+extern void slSpecialPrioModeNbg3(uint16_t);
+extern void slSpecialPrioModeRbg0(uint16_t);
+extern void slSpecialCCalcModeNbg0(uint16_t);
+extern void slSpecialCCalcModeNbg1(uint16_t);
+extern void slSpecialCCalcModeNbg2(uint16_t);
+extern void slSpecialCCalcModeNbg3(uint16_t);
+extern void slSpecialCCalcModeRbg0(uint16_t);
+extern void slSpecialFuncCodeA(uint16_t);
+extern void slSpecialFuncCodeB(uint16_t);
+extern void slSpecialFuncSelectB(uint16_t);
+extern void slRparaReadCtrlRA(uint16_t);
+extern void slRparaReadCtrlRB(uint16_t);
+extern void slSpecialPrioBitN01(uint16_t, uint16_t);
+extern void slSpecialPrioBitScr(uint16_t, uint16_t);
+extern void slSpecialPrioBitRbg0(uint16_t);
 #define slSpecialPrioBitNbg0(flag) slSpecialPrioBitN01(scnNBG0, flag)
 #define slSpecialPrioBitNbg1(flag) slSpecialPrioBitN01(scnNBG1, flag)
 #define slSpecialPrioBitNbg2(flag) slSpecialPrioBitScr(scnNBG2, flag)
@@ -1890,9 +1852,9 @@ extern void slSpecialPrioBitRbg0(Uint16);
 #define slSpecialPrioBitBMN0(flag) slSpecialPrioBitN01(scnNBG0, flag)
 #define slSpecialPrioBitBMN1(flag) slSpecialPrioBitN01(scnNBG1, flag)
 #define slSpecialPrioBitBMR0(flag) slSpecialPrioBitRbg0(flag)
-extern void slSpecialCCalcBitN01(Uint16, Uint16);
-extern void slSpecialCCalcBitScr(Uint16, Uint16);
-extern void slSpecialCCalcBitRbg0(Uint16);
+extern void slSpecialCCalcBitN01(uint16_t, uint16_t);
+extern void slSpecialCCalcBitScr(uint16_t, uint16_t);
+extern void slSpecialCCalcBitRbg0(uint16_t);
 #define slSpecialCCalcBitNbg0(flag) slSpecialCCalcBitN01(scnNBG0, flag)
 #define slSpecialCCalcBitNbg1(flag) slSpecialCCalcBitN01(scnNBG1, flag)
 #define slSpecialCCalcBitNbg2(flag) slSpecialCCalcBitScr(scnNBG2, flag)
@@ -1900,36 +1862,36 @@ extern void slSpecialCCalcBitRbg0(Uint16);
 #define slSpecialCCalcBitBMN0(flag) slSpecialCCalcBitN01(scnNBG0, flag)
 #define slSpecialCCalcBitBMN1(flag) slSpecialCCalcBitN01(scnNBG1, flag)
 #define slSpecialCCalcBitBMR0(flag) slSpecialCCalcBitRbg0(flag)
-extern void setASC_1to8(Uint8 *, void *, Uint32, Uint8);
-extern void setASC_4to8(Uint8 *, void *, Uint32, Uint8);
-extern void setASC_1to4(Uint8 *, void *, Uint32, Uint8, Sint32);
-extern Uint8 SGL_ASCII_CG[];
+extern void setASC_1to8(uint8_t *, void *, uint32_t, uint8_t);
+extern void setASC_4to8(uint8_t *, void *, uint32_t, uint8_t);
+extern void setASC_1to4(uint8_t *, void *, uint32_t, uint8_t, int32_t);
+extern uint8_t SGL_ASCII_CG[];
 
 /** @}*/
 
 /* BitMap graphics library */
 
-extern Bool slInitBitMap(Uint16, Uint16, void *);
+extern bool slInitBitMap(uint16_t, uint16_t, void *);
 #define slInitBitMapNbg0(sz, adr) slInitBitMap(bmNBG0, sz, adr)
 #define slInitBitMapNbg1(sz, adr) slInitBitMap(bmNBG1, sz, adr)
 #define slInitBitMapRbg0(sz, adr) slInitBitMap(bmRBG0, sz, adr)
-extern void slBitMapBase(Sint16, Sint16);
-extern Sint8 *slLocateBitMap(Sint16, Sint16);
-extern void slClearBitMap(Sint8);
-extern Bool slBMPset(Sint16, Sint16, Sint8);
-extern Sint8 slBMPoint(Sint16, Sint16);
-extern void slBMCircle(Sint16, Sint16, Sint16, Sint8);
-extern Bool slBMLine(Sint16, Sint16, Sint16, Sint16, Sint8);
-extern Bool slBMBox(Sint16, Sint16, Sint16, Sint16, Sint8);
-extern Bool slBMBoxFill(Sint16, Sint16, Sint16, Sint16, Sint8);
-extern Bool slBMGet(Sint16, Sint16, Sint16, Sint16, Sint8 *);
-extern Bool slBMPut(Sint16, Sint16, Sint16, Sint16, Sint8 *);
-extern Bool slBMSprPut(Sint16, Sint16, Sint16, Sint16, Sint8 *);
+extern void slBitMapBase(int16_t, int16_t);
+extern int8_t *slLocateBitMap(int16_t, int16_t);
+extern void slClearBitMap(int8_t);
+extern bool slBMPset(int16_t, int16_t, int8_t);
+extern int8_t slBMPoint(int16_t, int16_t);
+extern void slBMCircle(int16_t, int16_t, int16_t, int8_t);
+extern bool slBMLine(int16_t, int16_t, int16_t, int16_t, int8_t);
+extern bool slBMBox(int16_t, int16_t, int16_t, int16_t, int8_t);
+extern bool slBMBoxFill(int16_t, int16_t, int16_t, int16_t, int8_t);
+extern bool slBMGet(int16_t, int16_t, int16_t, int16_t, int8_t *);
+extern bool slBMPut(int16_t, int16_t, int16_t, int16_t, int8_t *);
+extern bool slBMSprPut(int16_t, int16_t, int16_t, int16_t, int8_t *);
 
 #ifdef ST_VE
 /* Graphics enhancer control */
 
-extern Bool gxInitEnhancer(Uint16, Uint16, Uint16);
+extern bool gxInitEnhancer(uint16_t, uint16_t, uint16_t);
 #define EGX_IMMPAL 0    /* Pallet direct */
 #define EGX_PAL15 1     /* Pallet indirect 15-bit color */
 #define EGX_PAL24 2     /* Pallet indirect 24-bit color */
@@ -1940,7 +1902,7 @@ extern Bool gxInitEnhancer(Uint16, Uint16, Uint16);
 #define USE_DSPDMA 1
 
 extern void gxFocus(FIXED, FIXED);
-extern void gxCalcMode(Uint16);
+extern void gxCalcMode(uint16_t);
 #define CALCNVECTOR 1 /* Normal recalculation */
 #define USENVECTOR 0  /* Normal use */
 
@@ -1948,7 +1910,7 @@ extern void gxCalcMode(Uint16);
 #define FLAT 4    /* Flat shading */
 #define GOURAUD 8 /* Gouraud shading */
 
-extern void gxSetMaterial(Uint16, Uint16, Uint16, Uint16, Uint16);
+extern void gxSetMaterial(uint16_t, uint16_t, uint16_t, uint16_t, uint16_t);
 
 #define EFUNC_LoadTrans 0x0c0c0c0c
 #define EFUNC_FlashMatrix 0x10101010
@@ -1963,9 +1925,9 @@ extern void gxSetMaterial(Uint16, Uint16, Uint16, Uint16, Uint16);
 #define EFUNE_MultiMatrix 0x19191919
 #define EFUNC_RotLight 0x1a1a1a1a
 
-extern void gxFuncOut(Uint32);
-extern void gxFuncOut2(Uint32, Uint32);
-extern void gxFuncOut3(Uint32, Uint32, Uint32, Uint32);
+extern void gxFuncOut(uint32_t);
+extern void gxFuncOut2(uint32_t, uint32_t);
+extern void gxFuncOut3(uint32_t, uint32_t, uint32_t, uint32_t);
 #define gxFlashMatrix() gxFuncOut(EFUNC_FlashMatrix)
 #define gxBaseMatrix() gxFuncOut(EFUNC_BaseMatrix)
 #define gxPushMatrix() gxFuncOut(EFUNC_PushMatrix)
@@ -1979,7 +1941,7 @@ extern void gxFuncOut3(Uint32, Uint32, Uint32, Uint32);
 #define gxRotY(ay) gxFuncOut2(EFUNC_RotY, ay)
 #define gxRotZ(az) gxFuncOut2(EFUNC_RotZ, az)
 
-extern void gxMatrixOut(Uint32, MATRIX);
+extern void gxMatrixOut(uint32_t, MATRIX);
 #define gxLoadMatrix(mtrx) gxMatrixOut(EFUNC_LoadMatrix, mtrx)
 #define gxMultiMatrix(mtrx) gxMatrixOut(EFUNC_MultiMatrix, mtrx)
 
@@ -2175,136 +2137,136 @@ enum SmpcWaitMode
 
 typedef struct
 {                 /* RTC moment */
-    Uint16 year;  /* West Day Year */
-    Uint8 month;  /* Day of the week and month */
-    Uint8 date;   /* Day */
-    Uint8 hour;   /* Time 	*/
-    Uint8 minute; /* Minute 	*/
-    Uint8 second; /* second 	*/
-    Uint8 dummy;  /* Dummy */
+    uint16_t year;  /* West Day Year */
+    uint8_t month;  /* Day of the week and month */
+    uint8_t date;   /* Day */
+    uint8_t hour;   /* Time 	*/
+    uint8_t minute; /* Minute 	*/
+    uint8_t second; /* second 	*/
+    uint8_t dummy;  /* Dummy */
 } SmpcDateTime;
 
 typedef struct
 {                     /* SMPC status */
-    Uint8 cond;       /* State status */
-    Uint8 dummy1;     /* Dummy 1 */
-    Uint16 dummy2;    /* Dummy 2 */
+    uint8_t cond;       /* State status */
+    uint8_t dummy1;     /* Dummy 1 */
+    uint16_t dummy2;    /* Dummy 2 */
     SmpcDateTime rtc; /* RTC moment */
-    Uint8 ctg;        /* Cartridge code */
-    Uint8 area;       /* Area code */
-    Uint16 system;    /* System status */
-    Uint32 smem;      /* SMPC memory holding data */
+    uint8_t ctg;        /* Cartridge code */
+    uint8_t area;       /* Area code */
+    uint16_t system;    /* System status */
+    uint32_t smem;      /* SMPC memory holding data */
 } SmpcStatus;
 
 typedef struct
 {                     /* Digital device */
-    Uint8 id;         /* Peripheral ID */
-    Uint8 ext;        /* Extended data size */
-    Uint16 data;      /* Button current data */
-    Uint16 push;      /* Button press data */
-    Uint16 pull;      /* Button pull-up data */
-    Uint32 dummy2[4]; /* Dummy 2 */
+    uint8_t id;         /* Peripheral ID */
+    uint8_t ext;        /* Extended data size */
+    uint16_t data;      /* Button current data */
+    uint16_t push;      /* Button press data */
+    uint16_t pull;      /* Button pull-up data */
+    uint32_t dummy2[4]; /* Dummy 2 */
 } PerDigital;
 
 typedef struct
 {                     /* Analog device */
-    Uint8 id;         /* Peripheral ID */
-    Uint8 ext;        /* Extended data size */
-    Uint16 data;      /* Button current data */
-    Uint16 push;      /* Button press data */
-    Uint16 pull;      /* Button pull-up data */
-    Uint8 x;          /* X-axis data absolute value */
-    Uint8 y;          /* Y-axis data absolute value */
-    Uint8 z;          /* Z-axis data absolute value */
-    Uint8 dummy1;     /* Dummy 1 */
-    Uint32 dummy2[3]; /* Dummy 2 */
+    uint8_t id;         /* Peripheral ID */
+    uint8_t ext;        /* Extended data size */
+    uint16_t data;      /* Button current data */
+    uint16_t push;      /* Button press data */
+    uint16_t pull;      /* Button pull-up data */
+    uint8_t x;          /* X-axis data absolute value */
+    uint8_t y;          /* Y-axis data absolute value */
+    uint8_t z;          /* Z-axis data absolute value */
+    uint8_t dummy1;     /* Dummy 1 */
+    uint32_t dummy2[3]; /* Dummy 2 */
 } PerAnalog;
 
 typedef struct
 {                     /* pointing device		*/
-    Uint8 id;         /* Peripheral ID */
-    Uint8 ext;        /* Extended data size */
-    Uint16 data;      /* Button current data */
-    Uint16 push;      /* Button press data */
-    Uint16 pull;      /* Button pull-up data */
-    Uint16 x;         /* X coordinate */
-    Uint16 y;         /* Ｙ Coordinates */
-    Uint32 dummy2[3]; /* Dummy 2 */
+    uint8_t id;         /* Peripheral ID */
+    uint8_t ext;        /* Extended data size */
+    uint16_t data;      /* Button current data */
+    uint16_t push;      /* Button press data */
+    uint16_t pull;      /* Button pull-up data */
+    uint16_t x;         /* X coordinate */
+    uint16_t y;         /* Ｙ Coordinates */
+    uint32_t dummy2[3]; /* Dummy 2 */
 } PerPoint;
 
 typedef struct
 {                     /* Keyboard device */
-    Uint8 id;         /* Peripheral ID */
-    Uint8 ext;        /* Extended data size */
-    Uint16 data;      /* Button current data */
-    Uint16 push;      /* Button press data */
-    Uint16 pull;      /* Button pull-up data */
-    Uint8 cond;       /* Status data */
-    Uint8 code;       /* Key code */
-    Uint16 dummy1;    /* Dummy 1 */
-    Uint32 dummy2[3]; /* Dummy 2 */
+    uint8_t id;         /* Peripheral ID */
+    uint8_t ext;        /* Extended data size */
+    uint16_t data;      /* Button current data */
+    uint16_t push;      /* Button press data */
+    uint16_t pull;      /* Button pull-up data */
+    uint8_t cond;       /* Status data */
+    uint8_t code;       /* Key code */
+    uint16_t dummy1;    /* Dummy 1 */
+    uint32_t dummy2[3]; /* Dummy 2 */
 } PerKeyBoard;
 
-extern Uint8 slGetPortDir1(void);
-extern Uint8 slGetPortDir2(void);
-extern Bool slSetPortDir1(Uint8);
-extern Bool slSetPortDir2(Uint8);
+extern uint8_t slGetPortDir1(void);
+extern uint8_t slGetPortDir2(void);
+extern bool slSetPortDir1(uint8_t);
+extern bool slSetPortDir2(uint8_t);
 
-extern Uint8 slGetPortData1(void);
-extern Uint8 slGetPortData2(void);
-extern void slSetPortData1(Uint8);
-extern void slSetPortData2(Uint8);
+extern uint8_t slGetPortData1(void);
+extern uint8_t slGetPortData2(void);
+extern void slSetPortData1(uint8_t);
+extern void slSetPortData2(uint8_t);
 
-extern Uint8 slGetPortSelect1(void);
-extern Uint8 slGetPortSelect2(void);
-extern Bool slSetPortSelect1(Uint8);
-extern Bool slSetPortSelect2(Uint8);
+extern uint8_t slGetPortSelect1(void);
+extern uint8_t slGetPortSelect2(void);
+extern bool slSetPortSelect1(uint8_t);
+extern bool slSetPortSelect2(uint8_t);
 
-extern Uint8 slGetPortExt1(void);
-extern Uint8 slGetPortExt2(void);
-extern Bool slSetPortExt1(Uint8);
-extern Bool slSetPortExt2(Uint8);
+extern uint8_t slGetPortExt1(void);
+extern uint8_t slGetPortExt2(void);
+extern bool slSetPortExt1(uint8_t);
+extern bool slSetPortExt2(uint8_t);
 
-extern Uint8 slGetLanguage(void);
-extern void slSetLanguage(Uint8);
+extern uint8_t slGetLanguage(void);
+extern void slSetLanguage(uint8_t);
 
-extern Uint8 slGetSoundEffect(void);
-extern void slSetSoundEffect(Uint8);
+extern uint8_t slGetSoundEffect(void);
+extern void slSetSoundEffect(uint8_t);
 
-extern Uint8 slGetSoundOutput(void);
-extern void slSetSoundOutput(Uint8);
+extern uint8_t slGetSoundOutput(void);
+extern void slSetSoundOutput(uint8_t);
 
-extern Uint8 slGetHelpWindow(void);
-extern void slSetHelpWindow(Uint8);
+extern uint8_t slGetHelpWindow(void);
+extern void slSetHelpWindow(uint8_t);
 
 extern void slInitPeripheral(void);
-extern Bool slSetResultBuffer(Uint8 *, PerDigital *, Uint16);
+extern bool slSetResultBuffer(uint8_t *, PerDigital *, uint16_t);
 
-extern Bool slIntBackCancel(void);
-extern Uint8 slCheckReset(void);
-extern Bool slClearReset(void);
+extern bool slIntBackCancel(void);
+extern uint8_t slCheckReset(void);
+extern bool slClearReset(void);
 
-extern Uint8 slGetOptimize(void);
-extern Bool slSetOptimize(Uint8);
+extern uint8_t slGetOptimize(void);
+extern bool slSetOptimize(uint8_t);
 
-extern Uint8 slGetPortMode1(void);
-extern Uint8 slGetPortMode2(void);
-extern Bool slSetPortMode1(Uint8);
-extern Bool slSetPortMode2(Uint8);
+extern uint8_t slGetPortMode1(void);
+extern uint8_t slGetPortMode2(void);
+extern bool slSetPortMode1(uint8_t);
+extern bool slSetPortMode2(uint8_t);
 
-extern Bool slRequestCommand(Uint8, Uint8);
+extern bool slRequestCommand(uint8_t, uint8_t);
 
 extern SmpcStatus *Smpc_Status;
 extern PerDigital *Smpc_Peripheral;
-extern Uint8 Per_Connect1, Per_Connect2;
+extern uint8_t Per_Connect1, Per_Connect2;
 
 #ifdef TITAN
 typedef struct
 { /* System Switch */
-    Uint8 dummy;
-    Uint8 data;
-    Uint8 push;
-    Uint8 pull;
+    uint8_t dummy;
+    uint8_t data;
+    uint8_t push;
+    uint8_t pull;
 } SysSwitch;
 
 extern PerDigital PerDigitalBuf[4];
@@ -2379,10 +2341,10 @@ extern void slReturnWork(WORK *);
 
 /* DMA control */
 
-extern void slDMACopy(void *, void *, Uint32);
-extern void slDMAXCopy(void *, void *, Uint32, Uint16);
+extern void slDMACopy(void *, void *, uint32_t);
+extern void slDMAXCopy(void *, void *, uint32_t, uint16_t);
 extern void slDMAWait();
-extern Bool slDMAStatus();
+extern bool slDMAStatus();
 
 /* DMA control with SBL */
 
@@ -2484,32 +2446,32 @@ extern Bool slDMAStatus();
 
 typedef struct
 {
-    Uint32 pr;  /* Priority mode */
-    Uint32 dme; /* DMA master enable */
-    Uint32 msk; /* Mask bit */
+    uint32_t pr;  /* Priority mode */
+    uint32_t dme; /* DMA master enable */
+    uint32_t msk; /* Mask bit */
 } DmaCpuComPrm; /* Common transfer parameter */
 
 typedef struct
 {
-    Uint32 sar;  /* DMA source address */
-    Uint32 dar;  /* DMA destination-address */
-    Uint32 tcr;  /* DMA transfer count */
-    Uint32 dm;   /* Destination address mode bit */
-    Uint32 sm;   /*Source address mode bit */
-    Uint32 ts;   /*Transfer size */
-    Uint32 ar;   /*Auto request mode */
-    Uint32 ie;   /*Interrupt enable */
-    Uint32 drcr; /*DMA request / response selection control */
-    Uint32 msk;  /*Mask bit */
+    uint32_t sar;  /* DMA source address */
+    uint32_t dar;  /* DMA destination-address */
+    uint32_t tcr;  /* DMA transfer count */
+    uint32_t dm;   /* Destination address mode bit */
+    uint32_t sm;   /*Source address mode bit */
+    uint32_t ts;   /*Transfer size */
+    uint32_t ar;   /*Auto request mode */
+    uint32_t ie;   /*Interrupt enable */
+    uint32_t drcr; /*DMA request / response selection control */
+    uint32_t msk;  /*Mask bit */
 } DmaCpuPrm;     /*Transfer parameter */
 
 typedef struct
 {
-    Uint32 ae;     /* Address error flag */
-    Uint32 nmif;   /* NMI flag */
+    uint32_t ae;     /* Address error flag */
+    uint32_t nmif;   /* NMI flag */
 } DmaCpuComStatus; /* Common status */
 
-typedef Uint32 DmaCpuStatus; /* status */
+typedef uint32_t DmaCpuStatus; /* status */
 
 /* Constant (SCU-DMA) */
 /*****************************************************************************/
@@ -2578,118 +2540,118 @@ typedef Uint32 DmaCpuStatus; /* status */
 
 typedef struct
 {
-    Uint32 dxr;    /* Read address */
-    Uint32 dxw;    /* Export address */
-    Uint32 dxc;    /* Bytes transferred */
-    Uint32 dxad_r; /* Read address addition value */
-    Uint32 dxad_w; /* Write address addition value */
-    Uint32 dxmod;  /* Mode bit */
-    Uint32 dxrup;  /* Read address update bit */
-    Uint32 dxwup;  /* Write address update bit */
-    Uint32 dxft;   /* Activation factor selection bit */
-    Uint32 msk;    /* Mask bit */
+    uint32_t dxr;    /* Read address */
+    uint32_t dxw;    /* Export address */
+    uint32_t dxc;    /* Bytes transferred */
+    uint32_t dxad_r; /* Read address addition value */
+    uint32_t dxad_w; /* Write address addition value */
+    uint32_t dxmod;  /* Mode bit */
+    uint32_t dxrup;  /* Read address update bit */
+    uint32_t dxwup;  /* Write address update bit */
+    uint32_t dxft;   /* Activation factor selection bit */
+    uint32_t msk;    /* Mask bit */
 } DmaScuPrm;       /* Transfer parameter */
 
 typedef struct
 {
-    Uint32 dxmv; /* DMA operating flag */
+    uint32_t dxmv; /* DMA operating flag */
 } DmaScuStatus;  /* status */
 
 extern void DMA_CpuSetComPrm(DmaCpuComPrm *);
-extern void DMA_CpuSetPrm(DmaCpuPrm *, Uint32);
-extern void DMA_CpuStart(Uint32);
-extern void DMA_CpuStop(Uint32);
+extern void DMA_CpuSetPrm(DmaCpuPrm *, uint32_t);
+extern void DMA_CpuStart(uint32_t);
+extern void DMA_CpuStop(uint32_t);
 extern void DMA_CpuAllStop();
 extern void DMA_CpuGetComStatus(DmaCpuComStatus *);
-extern DmaCpuStatus DMA_CpuGetStatus(Uint32);
-extern void DMA_ScuSetPrm(DmaScuPrm *, Uint32);
-extern void DMA_ScuStart(Uint32);
-extern void DMA_ScuGetStatus(DmaScuStatus *, Uint32);
+extern DmaCpuStatus DMA_CpuGetStatus(uint32_t);
+extern void DMA_ScuSetPrm(DmaScuPrm *, uint32_t);
+extern void DMA_ScuStart(uint32_t);
+extern void DMA_ScuGetStatus(DmaScuStatus *, uint32_t);
 
-extern void DMA_ScuMemCopy(void *, void *, Uint32);
-extern Uint32 DMA_ScuResult();
+extern void DMA_ScuMemCopy(void *, void *, uint32_t);
+extern uint32_t DMA_ScuResult();
 
-extern void DMA_CpuMemCopy1(void *, void *, Uint32);
-extern void DMA_CpuMemCopy2(void *, void *, Uint32);
-extern void DMA_CpuMemCopy4(void *, void *, Uint32);
-extern void DMA_CpuMemCopy16(void *, void *, Uint32);
-extern Uint32 DMA_CpuResult();
+extern void DMA_CpuMemCopy1(void *, void *, uint32_t);
+extern void DMA_CpuMemCopy2(void *, void *, uint32_t);
+extern void DMA_CpuMemCopy4(void *, void *, uint32_t);
+extern void DMA_CpuMemCopy16(void *, void *, uint32_t);
+extern uint32_t DMA_CpuResult();
 
 /* Slave CPU control */
 extern void slSlaveFunc(void (*func)(void*), void *);
 
 /* System library */
-extern void slInitSystem(Uint16, TEXTURE *, Sint8);
-extern void slSetTVMode(Uint16);
-extern void slSetScrTVMode(Uint16);
-extern void slSetSprTVMode(Uint16);
-extern Bool slDynamicFrame(Uint16);
+extern void slInitSystem(uint16_t, TEXTURE *, int8_t);
+extern void slSetTVMode(uint16_t);
+extern void slSetScrTVMode(uint16_t);
+extern void slSetSprTVMode(uint16_t);
+extern bool slDynamicFrame(uint16_t);
 extern void slSynch(void);
 extern void slInitSynch(void);
-extern Bool slTransferEntry(void *, void *, Uint16);
+extern bool slTransferEntry(void *, void *, uint16_t);
 extern void slIntFunction(void (*func)());
 extern void slSynchFunction(void (*func)());
 extern void SetCDFunc(void (*func)());
 extern void slCashPurge();
 
 /* Sound library */
-extern void slInitSound(Uint8 *, Uint32, Uint8 *, Uint32);
-extern Bool slBGMOn(Uint16, Uint8, Uint8, Uint8);
-extern Bool slBGMPause();
-extern Bool slBGMCont();
-extern Bool slBGMOff();
-extern Bool slBGMFade(Uint8, Uint8);
-extern Bool slBGMTempo(Sint16);
+extern void slInitSound(uint8_t *, uint32_t, uint8_t *, uint32_t);
+extern bool slBGMOn(uint16_t, uint8_t, uint8_t, uint8_t);
+extern bool slBGMPause();
+extern bool slBGMCont();
+extern bool slBGMOff();
+extern bool slBGMFade(uint8_t, uint8_t);
+extern bool slBGMTempo(int16_t);
 #define slBGMStat() slSequenceStat(0)
-extern Bool slSoundAllOff();
-extern Bool slSoundAllPause();
-extern Bool slSoundAllCont();
-extern Bool slDSPOff();
-extern Bool slSndVolume(Uint8);
-extern Uint8 slSequenceOn(Uint16, Uint8, Uint8, Sint8);
-extern Bool slSequenceOff(Uint8);
-extern Bool slSequenceFade(Uint8, Uint8, Uint8);
-extern Bool slSequenceTempo(Uint8, Sint16);
-extern Bool slSequencePause(Uint8);
-extern Bool slSequenceCont(Uint8);
-extern Bool slSequencePan(Uint8, Sint8);
-extern Bool slSequenceStat(Uint8);
-extern Bool slSequenceReset(Uint8);
-extern void *slSndMapChange(Uint8);
+extern bool slSoundAllOff();
+extern bool slSoundAllPause();
+extern bool slSoundAllCont();
+extern bool slDSPOff();
+extern bool slSndVolume(uint8_t);
+extern uint8_t slSequenceOn(uint16_t, uint8_t, uint8_t, int8_t);
+extern bool slSequenceOff(uint8_t);
+extern bool slSequenceFade(uint8_t, uint8_t, uint8_t);
+extern bool slSequenceTempo(uint8_t, int16_t);
+extern bool slSequencePause(uint8_t);
+extern bool slSequenceCont(uint8_t);
+extern bool slSequencePan(uint8_t, int8_t);
+extern bool slSequenceStat(uint8_t);
+extern bool slSequenceReset(uint8_t);
+extern void *slSndMapChange(uint8_t);
 extern void slWaitSound(void *);
-extern Bool slCDDAOn(Uint8, Uint8, Sint8, Sint8);
-extern Bool slCDDAOff();
-extern Sint8 slPCMOn(PCM *, void *, Uint32);
-extern Bool slPCMOff(PCM *);
-extern Bool slPCMParmChange(PCM *);
-extern Bool slPCMStat(PCM *);
-extern Sint8 slSndPCMNum(Uint8);
-extern Uint8 slSndSeqNum();
-extern Bool slSndEffect(Uint8);
-extern Bool slSndMixChange(Uint8, Uint8);
-extern Bool slSndMixParmChange(Uint8, Uint8, Sint8);
-extern Sint8 slSoundRequest(const char *, ...);
+extern bool slCDDAOn(uint8_t, uint8_t, int8_t, int8_t);
+extern bool slCDDAOff();
+extern int8_t slPCMOn(PCM *, void *, uint32_t);
+extern bool slPCMOff(PCM *);
+extern bool slPCMParmChange(PCM *);
+extern bool slPCMStat(PCM *);
+extern int8_t slSndPCMNum(uint8_t);
+extern uint8_t slSndSeqNum();
+extern bool slSndEffect(uint8_t);
+extern bool slSndMixChange(uint8_t, uint8_t);
+extern bool slSndMixParmChange(uint8_t, uint8_t, int8_t);
+extern int8_t slSoundRequest(const char *, ...);
 extern void slSndFlush();
 
 /* Gouraud library */
 
-typedef Uint16 GOURAUDTBL[4];
+typedef uint16_t GOURAUDTBL[4];
 
-extern void slInitGouraud(GOURAUDTBL *, Uint32, Uint32, Uint8 *);
+extern void slInitGouraud(GOURAUDTBL *, uint32_t, uint32_t, uint8_t *);
 extern void slPutPolygonX(XPDATA *, FIXED *);
 extern void slGouraudTblCopy(void);
-extern void slSetGouraudTbl(Uint16 *);
-extern void slSetGouraudColor(Uint16);
-extern void slSetAmbient(Uint16);
+extern void slSetGouraudTbl(uint16_t *);
+extern void slSetGouraudColor(uint16_t);
+extern void slSetAmbient(uint16_t);
 
-extern void slSetFlatColor(Uint16);
+extern void slSetFlatColor(uint16_t);
 
-extern void slSetDepthLimit(Uint32, Uint16, Uint16);
-extern void slSetDepthTbl(Uint16 *, Uint16, Uint16);
+extern void slSetDepthLimit(uint32_t, uint16_t, uint16_t);
+extern void slSetDepthTbl(uint16_t *, uint16_t, uint16_t);
 
-extern void slNearClipFlag(Uint32);
-extern void slDispPlaneLevel(Sint32);
-extern void slWindowClipLevel(Sint32);
+extern void slNearClipFlag(uint32_t);
+extern void slDispPlaneLevel(int32_t);
+extern void slWindowClipLevel(int32_t);
 
 /*------------------------------------------------------------------------*/
 

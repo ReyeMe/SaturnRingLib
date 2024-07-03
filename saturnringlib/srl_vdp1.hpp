@@ -14,17 +14,17 @@ namespace SRL
 
 		/** @brief Pointer to the last free space in the heap
 		 */
-		inline static Uint16 HeapPointer = 0;
+		inline static uint16_t HeapPointer = 0;
 
 	public:
 
 		/** @brief VDP1 front buffer address
 		 */
-		inline static const Uint32 FrontBuffer = 0x25C80000;
+		inline static const uint32_t FrontBuffer = 0x25C80000;
 
 		/** @brief End location of the user area
 		 */
-		inline static const Uint32 UserAreaEnd = 0x25C7FEF8;
+		inline static const uint32_t UserAreaEnd = 0x25C7FEF8;
 
 		/** @brief VDP1 texture
 		 */
@@ -32,20 +32,20 @@ namespace SRL
 		{
 			/** @brief Texture width
 			 */
-			Uint16 Width;
+			uint16_t Width;
 
 			/** @brief Texture height
 			 */
-			Uint16 Height;
+			uint16_t Height;
 			
 			/** @brief Address of the texture
 			 */
-			Uint16 Address;
+			uint16_t Address;
 
 			/** @brief Size of the texture for hardware
 			 * @note Width is divided by 8
 			 */
-			Uint16 Size;
+			uint16_t Size;
 
 			/** @brief Construct a new Texture object
 			 */
@@ -58,7 +58,7 @@ namespace SRL
 			 * @param width Texture width (must be divisible by 8)
 			 * @param height Texture height
 			 */
-			Texture(const Uint16 width, const Uint16 height) : Width(width), Height(height), Address(0)
+			Texture(const uint16_t width, const uint16_t height) : Width(width), Height(height), Address(0)
 			{
 				this->Size = ((width & 0x1f8) << 5) | height;
 			}
@@ -68,7 +68,7 @@ namespace SRL
 			 * @param height Texture height
 			 * @param address Texture address
 			 */
-			Texture(const Uint16 width, const Uint16 height, const Uint16 address) : Width(width), Height(height), Address(address)
+			Texture(const uint16_t width, const uint16_t height, const uint16_t address) : Width(width), Height(height), Address(address)
 			{
 				this->Size = ((width & 0x1f8) << 5) | height;
 			}
@@ -88,7 +88,7 @@ namespace SRL
 
 			/** @brief Identifier of the palette (not used in RGB555)
 			 */
-			Uint16 PaletteId;
+			uint16_t PaletteId;
 
 			/** @brief Construct a new Texture Metadata object
 			 */
@@ -101,7 +101,7 @@ namespace SRL
 			 * @param colorMode Texture color mode
 			 * @param palette Id of the pallet (not used in RGB555 mode)
 			 */
-			TextureMetadata(VDP1::Texture* texture, CRAM::TextureColorMode colorMode, Uint32 palette) : ColorMode(colorMode), Texture(texture), PaletteId(palette)
+			TextureMetadata(VDP1::Texture* texture, CRAM::TextureColorMode colorMode, uint32_t palette) : ColorMode(colorMode), Texture(texture), PaletteId(palette)
 			{
 				// Do nothing
 			}
@@ -109,11 +109,11 @@ namespace SRL
 			/** @brief Get texture image data
 			 * @return Pointer to image data
 			 */
-			Uint8* GetData()
+			uint8_t* GetData()
 			{
 				if (this->Texture != nullptr)
 				{
-					return (Uint8*)(SpriteVRAM + (this->Texture->Address << 3));
+					return (uint8_t*)(SpriteVRAM + (this->Texture->Address << 3));
 				}
 
 				return nullptr;
@@ -139,7 +139,7 @@ namespace SRL
 			}
 
 			VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-			return VDP1::UserAreaEnd - (SpriteVRAM + AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode));
+			return VDP1::UserAreaEnd - (SpriteVRAM + AdjCG(previous.Address << 3, previous.Width, previous.Height, (uint16_t)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode));
 		}
 
         /** @brief Get the start location of the gouraud table
@@ -158,16 +158,16 @@ namespace SRL
 		 * @param data Texture data
 		 * @return Index of the loaded texture
 		 */
-		inline static Sint32 TryLoadTexture(const Uint16 width, const Uint16 height, const CRAM::TextureColorMode colorMode, const Uint16 palette, void* data)
+		inline static int32_t TryLoadTexture(const uint16_t width, const uint16_t height, const CRAM::TextureColorMode colorMode, const uint16_t palette, void* data)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
-				Uint32 address = CGADDRESS;
+				uint32_t address = CGADDRESS;
 
 				if (VDP1::HeapPointer > 0)
 				{
 					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, (Uint16)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode);
+					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, (uint16_t)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode);
 				}
 
 				// Create texture entry
@@ -177,7 +177,7 @@ namespace SRL
 				VDP1::TextureMetadata metadata = VDP1::TextureMetadata(&VDP1::Textures[VDP1::HeapPointer], colorMode, palette);
 				VDP1::Metadata[VDP1::HeapPointer] = metadata;
 
-                Uint16 pixelSizeDivider = 0;
+                uint16_t pixelSizeDivider = 0;
 
                 switch (colorMode)
                 {
@@ -196,7 +196,7 @@ namespace SRL
                 }
 
 				// Copy data over to the VDP1
-				slDMACopy(data, metadata.GetData(), (Uint32)(((width * height) << 1) >> pixelSizeDivider));
+				slDMACopy(data, metadata.GetData(), (uint32_t)(((width * height) << 1) >> pixelSizeDivider));
 
 				// Increase heap pointer
 				return VDP1::HeapPointer++;
@@ -211,13 +211,13 @@ namespace SRL
 		 * @param paletteHandler Palette loader handling (expects index of the palette in CRAM as result, only needed for loading paletted image)
 		 * @return Index of the loaded texture
 		 */
-		inline static Sint32 TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, Sint16 (*paletteHandler)(SRL::Bitmap::BitmapInfo*) = nullptr)
+		inline static int32_t TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, int16_t (*paletteHandler)(SRL::Bitmap::BitmapInfo*) = nullptr)
 		{
 			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
 			{
-				Sint16 palette = 0;
+				int16_t palette = 0;
 				SRL::Bitmap::BitmapInfo info = bitmap->GetInfo();
-				Uint32 address = CGADDRESS;
+				uint32_t address = CGADDRESS;
 
 				if (info.Palette != nullptr)
 				{
@@ -254,7 +254,7 @@ namespace SRL
 		/** @brief Reset texture heap to specified index
 		 * @param index Index to reset to (texture on this index will be overwritten on next TryLoadTexture(); call)
 		 */
-		inline static void ResetTextureHeap(const Uint16 index)
+		inline static void ResetTextureHeap(const uint16_t index)
 		{
 			VDP1::HeapPointer = VDP1::HeapPointer > index ? index : VDP1::HeapPointer;
 		}

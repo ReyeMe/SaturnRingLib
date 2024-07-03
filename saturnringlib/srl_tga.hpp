@@ -19,7 +19,7 @@ namespace SRL::Bitmap
     private:
         /** @brief Size of the header
          */
-        constexpr inline static const Uint32 HeaderSize = 18;
+        constexpr inline static const uint32_t HeaderSize = 18;
 
         /** @brief Known types
          */
@@ -40,11 +40,11 @@ namespace SRL::Bitmap
         {
             /** @brief X coordinate
              */
-            Sint16 X;
+            int16_t X;
 
             /** @brief Y coordinate
              */
-            Sint16 Y;
+            int16_t Y;
         };
 
         /** @brief Palette description
@@ -53,19 +53,19 @@ namespace SRL::Bitmap
         {
             /** @brief Start of the palette data
              */
-            Sint16 PaletteStart;
+            int16_t PaletteStart;
 
             /** @brief Length of the palette data
              */
-            Sint16 PaletteLength;
+            int16_t PaletteLength;
 
             /** @brief Color bit depth of the palette entry
              */
-            Sint8 PaletteColorDepth;
+            int8_t PaletteColorDepth;
 
             /** @brief 
              */
-            Sint8 Reserved;
+            int8_t Reserved;
         };
 
         /** @brief Image description
@@ -82,11 +82,11 @@ namespace SRL::Bitmap
 
             /** @brief Color bit depth
              */
-            Sint8 PixelColorDepth;
+            int8_t PixelColorDepth;
 
             /** @brief Image descriptor
              */
-            Sint8 Descriptor;
+            int8_t Descriptor;
         };
 
         /** @brief TGA image header
@@ -95,15 +95,15 @@ namespace SRL::Bitmap
         {
             /** @brief Image identifier length
              */
-            Sint8 ImageIdLength;
+            int8_t ImageIdLength;
 
             /** @brief Has palette
              */
-            Sint8 HasPalette;
+            int8_t HasPalette;
 
             /** @brief Image type
              */
-            Sint8 ImageType;
+            int8_t ImageType;
 
             /** @brief Palette description
              */
@@ -118,7 +118,7 @@ namespace SRL::Bitmap
          */
         struct TgaRlePacket
         {
-            enum class PacketType : Uint8
+            enum class PacketType : uint8_t
             {
                 /** @brief Count contains number of pixels after the packet
                  */
@@ -135,7 +135,7 @@ namespace SRL::Bitmap
 
             /** @brief Number of pixels or repetitions
              */
-            Uint8 Count:7;
+            uint8_t Count:7;
         };
         
         /** @brief Color palette
@@ -152,13 +152,13 @@ namespace SRL::Bitmap
 
         /** @brief Image data
          */
-        Uint8* imageData;
+        uint8_t* imageData;
 
         /** @brief Deserialize number
          * @param buf Value buffer
          * @return Deserialized value
          */
-        constexpr inline static Uint16 DeserializeUint16(Uint8 *buf)
+        constexpr inline static uint16_t Deserializeuint16_t(uint8_t *buf)
         {
             return (*(buf + 1) << 8) | *(buf);
         }
@@ -167,7 +167,7 @@ namespace SRL::Bitmap
          * @param buf Value buffer
          * @return Deserialized value
          */
-        constexpr inline static Uint32 DeserializeUint32(Uint8 *buf)
+        constexpr inline static uint32_t Deserializeuint32_t(uint8_t *buf)
         {
             return (*(buf + 3) << 24) | (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
         }
@@ -176,7 +176,7 @@ namespace SRL::Bitmap
          * @param buf Value buffers
          * @return Deserialized value
          */
-        constexpr inline static Uint32 DeserializeUint24(Uint8 *buf)
+        constexpr inline static uint32_t DeserializeUint24(uint8_t *buf)
         {
             return (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
         }
@@ -187,22 +187,22 @@ namespace SRL::Bitmap
          */
         static bool IsFormatValid(const TGA::TgaHeader* header)
         {
-            Uint8 bitDepth = header->Image.PixelColorDepth >> 3;
+            uint8_t bitDepth = header->Image.PixelColorDepth >> 3;
 
             switch (header->ImageType)
             {
-            case ((Sint8)TGA::TgaTypes::TgaGrayscale):
-            case ((Sint8)TGA::TgaTypes::TgaRleGrayscale):
+            case ((int8_t)TGA::TgaTypes::TgaGrayscale):
+            case ((int8_t)TGA::TgaTypes::TgaRleGrayscale):
                 if (bitDepth != 1 || header->HasPalette) return false;
                 break;
             
-            case ((Sint8)TGA::TgaTypes::TgaTrueColor):
-            case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
+            case ((int8_t)TGA::TgaTypes::TgaTrueColor):
+            case ((int8_t)TGA::TgaTypes::TgaRleTrueColor):
                 if ((bitDepth != 2 && bitDepth != 3 && bitDepth != 4) || header->HasPalette) return false;
                 break;
             
-            case ((Sint8)TGA::TgaTypes::TgaPaletted):
-            case ((Sint8)TGA::TgaTypes::TgaRlePaletted):
+            case ((int8_t)TGA::TgaTypes::TgaPaletted):
+            case ((int8_t)TGA::TgaTypes::TgaRlePaletted):
                 if (header->Palette.PaletteStart >= header->Palette.PaletteLength || !header->HasPalette) return false;
 
                 switch (header->Palette.PaletteColorDepth)
@@ -230,7 +230,7 @@ namespace SRL::Bitmap
          * @param header TGA header
          * @return Offset to the data block
          */
-        constexpr inline static Uint32 ImageDataOffset(const TGA::TgaHeader* header)
+        constexpr inline static uint32_t ImageDataOffset(const TGA::TgaHeader* header)
         {
             return TGA::HeaderSize + header->ImageIdLength + (header->Palette.PaletteLength * (header->Palette.PaletteColorDepth >> 3));
         }
@@ -239,7 +239,7 @@ namespace SRL::Bitmap
          * @param header TGA header
          * @return Offset to the palette block
          */
-        constexpr inline static Uint32 ImagePaletteOffset(const TGA::TgaHeader* header)
+        constexpr inline static uint32_t ImagePaletteOffset(const TGA::TgaHeader* header)
         {
             return TGA::HeaderSize + header->ImageIdLength;
         }
@@ -249,20 +249,20 @@ namespace SRL::Bitmap
          * @param header File header
          * @param transparentColor defines a color that should be changed to be transparent
          */
-        static Bitmap::Palette* DecodePalette(Uint8* stream, const TGA::TgaHeader* header, Sint32 transparentColor)
+        static Bitmap::Palette* DecodePalette(uint8_t* stream, const TGA::TgaHeader* header, int32_t transparentColor)
         {
-            Uint8* buffer = (stream + TGA::ImagePaletteOffset(header));
+            uint8_t* buffer = (stream + TGA::ImagePaletteOffset(header));
             Bitmap::Palette* palette = new Bitmap::Palette(header->Palette.PaletteLength);
-            Uint8 depth = header->Palette.PaletteColorDepth >> 3;
+            uint8_t depth = header->Palette.PaletteColorDepth >> 3;
 
-            for (Sint32 index = 0; index < header->Palette.PaletteLength; index++)
+            for (int32_t index = 0; index < header->Palette.PaletteLength; index++)
             {
                 if (index != transparentColor)
                 {
                     switch (depth)
                     {
                     case 2:
-                        palette->Colors[index] = SRL::Types::HighColor::FromARGB15(TGA::DeserializeUint16(&buffer[index << 1]));
+                        palette->Colors[index] = SRL::Types::HighColor::FromARGB15(TGA::Deserializeuint16_t(&buffer[index << 1]));
                         break;
                     
                     // Loading RGB24 is a tad slower thx to the multiplication
@@ -272,7 +272,7 @@ namespace SRL::Bitmap
                         
                     default:
                     case 4:
-                        palette->Colors[index] = SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(&buffer[index << 2]));
+                        palette->Colors[index] = SRL::Types::HighColor::FromARGB32(TGA::Deserializeuint32_t(&buffer[index << 2]));
                         break;
                     }
                 }
@@ -289,18 +289,18 @@ namespace SRL::Bitmap
          * @param stream File stream
          * @param header File header
          */
-        inline void DecodePaletted(Uint8* stream, const TGA::TgaHeader* header)
+        inline void DecodePaletted(uint8_t* stream, const TGA::TgaHeader* header)
         {
             // Allocated space for image data
-            Uint32 pixels = this->width * this->height;
-            this->imageData = new Uint8[pixels];
-            Uint8* buffer = (stream + TGA::ImageDataOffset(header));
+            uint32_t pixels = this->width * this->height;
+            this->imageData = new uint8_t[pixels];
+            uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
 
             // Read palette data
             if (header->Palette.PaletteLength <= 16)
             {
                 // 16 color palette
-                for (Uint32 index = 0; index < pixels; index++)
+                for (uint32_t index = 0; index < pixels; index++)
                 {
                     this->imageData[index] = ((buffer[index << 1] & 0x0f) << 4) | (buffer[(index << 1) + 1] & 0x0f);
                 }
@@ -308,7 +308,7 @@ namespace SRL::Bitmap
             else
             {
                 // 256 color palette
-                for (Uint32 index = 0; index < pixels; index++)
+                for (uint32_t index = 0; index < pixels; index++)
                 {
                     this->imageData[index] = buffer[index];
                 }
@@ -320,24 +320,24 @@ namespace SRL::Bitmap
          * @param header File header
          * @param transparentColor defines a color that should be changed to be transparent
          */
-        inline void DecodeTrueColor(Uint8* stream, const TGA::TgaHeader* header, SRL::Types::HighColor transparentColor)
+        inline void DecodeTrueColor(uint8_t* stream, const TGA::TgaHeader* header, SRL::Types::HighColor transparentColor)
         {
             // Allocated space for image data
-            Uint32 size = this->width * this->height;
-            this->imageData = (Uint8*)new SRL::Types::HighColor[size];
-            Uint8* buffer = (stream + TGA::ImageDataOffset(header));
-            Uint8 depth = header->Image.PixelColorDepth >> 3;
+            uint32_t size = this->width * this->height;
+            this->imageData = (uint8_t*)new SRL::Types::HighColor[size];
+            uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
+            uint8_t depth = header->Image.PixelColorDepth >> 3;
 
             // Read image data
-            for (Uint32 index = 0; index < size; index++)
+            for (uint32_t index = 0; index < size; index++)
             {
-                Uint8* pixelData = buffer + (depth * index);
+                uint8_t* pixelData = buffer + (depth * index);
                 SRL::Types::HighColor color;
 
                 switch (depth)
                 {
                 case 2:
-                    color = SRL::Types::HighColor::FromARGB15(TGA::DeserializeUint16(pixelData));
+                    color = SRL::Types::HighColor::FromARGB15(TGA::Deserializeuint16_t(pixelData));
                     break;
                 
                 case 3:
@@ -346,7 +346,7 @@ namespace SRL::Bitmap
                     
                 default:
                 case 4:
-                    color = SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(pixelData));
+                    color = SRL::Types::HighColor::FromARGB32(TGA::Deserializeuint32_t(pixelData));
                     break;
                 }
                 
@@ -359,16 +359,16 @@ namespace SRL::Bitmap
          * @param header File header
          * @param transparentColor defines a color that should be changed to be transparent
          */
-        inline void DecodeTrueColorRle(Uint8* stream, const TGA::TgaHeader* header, SRL::Types::HighColor transparentColor)
+        inline void DecodeTrueColorRle(uint8_t* stream, const TGA::TgaHeader* header, SRL::Types::HighColor transparentColor)
         {
             // Allocated space for image data
-            Uint32 size = this->width * this->height;
-            this->imageData = (Uint8*)new SRL::Types::HighColor[size];
-            Uint8* buffer = (stream + TGA::ImageDataOffset(header));
-            Uint8 depth = header->Image.PixelColorDepth >> 3;
+            uint32_t size = this->width * this->height;
+            this->imageData = (uint8_t*)new SRL::Types::HighColor[size];
+            uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
+            uint8_t depth = header->Image.PixelColorDepth >> 3;
             SRL::Types::HighColor fill;
 
-            for (Uint32 pixel = 0; pixel < size;)
+            for (uint32_t pixel = 0; pixel < size;)
             {
                 TgaRlePacket* packet = (TgaRlePacket*)(buffer++);
 
@@ -383,7 +383,7 @@ namespace SRL::Bitmap
                         switch (depth)
                         {
                         case 2:
-                            color = SRL::Types::HighColor::FromARGB15(TGA::DeserializeUint16(buffer));
+                            color = SRL::Types::HighColor::FromARGB15(TGA::Deserializeuint16_t(buffer));
                             break;
                         
                         case 3:
@@ -392,7 +392,7 @@ namespace SRL::Bitmap
                             
                         default:
                         case 4:
-                            color = SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(buffer));
+                            color = SRL::Types::HighColor::FromARGB32(TGA::Deserializeuint32_t(buffer));
                             break;
                         }
 
@@ -413,7 +413,7 @@ namespace SRL::Bitmap
                     switch (depth)
                     {
                     case 2:
-                        fill = SRL::Types::HighColor::FromARGB15(TGA::DeserializeUint16(buffer));
+                        fill = SRL::Types::HighColor::FromARGB15(TGA::Deserializeuint16_t(buffer));
                         break;
                     
                     case 3:
@@ -422,7 +422,7 @@ namespace SRL::Bitmap
                         
                     default:
                     case 4:
-                        fill= SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(buffer));
+                        fill= SRL::Types::HighColor::FromARGB32(TGA::Deserializeuint32_t(buffer));
                         break;
                     }
         
@@ -450,7 +450,7 @@ namespace SRL::Bitmap
             /** @brief Defines a index of color in palette that should be changed to be transparent
              * @note Used only with paletted images
              */
-            Sint32 TransparentColorIndex;
+            int32_t TransparentColorIndex;
             
             /** @brief Defines a color that should be changed to be transparent
              * @note Used only with RGB images
@@ -473,27 +473,27 @@ namespace SRL::Bitmap
          */
         void LoadData(Cd::File* file, LoaderSettings* settings)
         {
-            Uint8* stream = new Uint8[file->Size.Bytes + 1];
-            Sint32 read = file->LoadBytes(0, file->Size.Bytes, stream);
+            uint8_t* stream = new uint8_t[file->Size.Bytes + 1];
+            int32_t read = file->LoadBytes(0, file->Size.Bytes, stream);
             
             // Open file
             if (read == file->Size.Bytes)
             {
                 // Load file
-                Uint8* data = stream;
+                uint8_t* data = stream;
 
                 // Load header, this is a bit complicated since the header not only is not aligned, but is also little endian
                 TgaHeader header;
                 header.ImageIdLength = *(data);
                 header.HasPalette = *(data + 1);
                 header.ImageType = *(data + 2);
-                header.Palette.PaletteStart = TGA::DeserializeUint16(data + 3);
-                header.Palette.PaletteLength = TGA::DeserializeUint16(data + 5);
+                header.Palette.PaletteStart = TGA::Deserializeuint16_t(data + 3);
+                header.Palette.PaletteLength = TGA::Deserializeuint16_t(data + 5);
                 header.Palette.PaletteColorDepth = *(data + 7);
-                header.Image.Origin.X = TGA::DeserializeUint16(data + 8);
-                header.Image.Origin.Y = TGA::DeserializeUint16(data + 10);
-                header.Image.Size.X = TGA::DeserializeUint16(data + 12);
-                header.Image.Size.Y = TGA::DeserializeUint16(data + 14);
+                header.Image.Origin.X = TGA::Deserializeuint16_t(data + 8);
+                header.Image.Origin.Y = TGA::Deserializeuint16_t(data + 10);
+                header.Image.Size.X = TGA::Deserializeuint16_t(data + 12);
+                header.Image.Size.Y = TGA::Deserializeuint16_t(data + 14);
                 header.Image.PixelColorDepth = *(data + 16);
                 header.Image.Descriptor = *(data + 17);
                 
@@ -519,16 +519,16 @@ namespace SRL::Bitmap
                 // Data stream should now be pointing to after the header
                 switch (header.ImageType)
                 {
-                case ((Sint8)TGA::TgaTypes::TgaPaletted):
+                case ((int8_t)TGA::TgaTypes::TgaPaletted):
                     this->palette = TGA::DecodePalette(stream, &header, settings->TransparentColorIndex);
                     this->DecodePaletted(stream, &header);
                     break;
 
-                case ((Sint8)TGA::TgaTypes::TgaTrueColor):
+                case ((int8_t)TGA::TgaTypes::TgaTrueColor):
                     this->DecodeTrueColor(stream, &header, settings->TransparentColor);
                     break;
 
-                case ((Sint8)TGA::TgaTypes::TgaRleTrueColor):
+                case ((int8_t)TGA::TgaTypes::TgaRleTrueColor):
                     this->DecodeTrueColorRle(stream, &header, settings->TransparentColor);
                     break;
                 
@@ -594,7 +594,7 @@ namespace SRL::Bitmap
         /** @brief Get image data
          * @return Pointer to image data
          */
-        Uint8* GetData() override
+        uint8_t* GetData() override
         {
             return this->imageData;
         }

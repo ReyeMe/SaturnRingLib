@@ -44,16 +44,16 @@
 /*-------------------------- 《関数宣言》 --------------------------*/
 
 /*    ストリーム形式数ＳＧのステレオ伸張        */
-/* extern void ADP_DecStereoStm(Uint16 *in, void *out, Sint32 nsg); */
+/* extern void ADP_DecStereoStm(uint16_t *in, void *out, int32_t nsg); */
                                                                                
 /*    ストリーム形式数ＳＧのモノラル伸張        */
-/* extern void ADP_DecMonoStm(Uint16 *in, void *out, Sint32 nsg); */
+/* extern void ADP_DecMonoStm(uint16_t *in, void *out, int32_t nsg); */
                                                                                
 /*    バッファ形式数ＳＧのステレオ伸張          */
-extern void ADP_DecStereoBuf(void *in, void *out, Sint32 nsg);
+extern void ADP_DecStereoBuf(void *in, void *out, int32_t nsg);
                                                                                
 /*    バッファ形式数ＳＧのモノラル伸張          */
-extern void ADP_DecMonoBuf(void *in, void *out, Sint32 nsg);
+extern void ADP_DecMonoBuf(void *in, void *out, int32_t nsg);
                                                                                
 /*    バッファ形式１ＳＧのステレオ伸張          */
 extern void ADP_DecStereo(void *in, void *out);

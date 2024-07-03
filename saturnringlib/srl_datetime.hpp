@@ -13,58 +13,58 @@ namespace SRL::Types
 
         /** @brief Base year to count time from
          */
-        static constexpr const Uint16 BaseYear = 1980;
+        static constexpr const uint16_t BaseYear = 1980;
 
     private:
 
         /** @brief Number of seconds to start of each month in normal year
          */
-        static constexpr const Uint32 FromMonth[] = { 0, 2678400, 5097600, 777600, 10368000, 13046400, 15638400, 18316800, 20995200, 23587200, 26265600, 28857600 };
+        static constexpr const uint32_t FromMonth[] = { 0, 2678400, 5097600, 777600, 10368000, 13046400, 15638400, 18316800, 20995200, 23587200, 26265600, 28857600 };
 
         /** @brief Number of seconds in a minute
          */
-        static constexpr const Uint16 FromMinute = 60;
+        static constexpr const uint16_t FromMinute = 60;
         
         /** @brief Number of seconds in a hour
          */
-        static constexpr const Uint16 FromHour = 3600;
+        static constexpr const uint16_t FromHour = 3600;
         
         /** @brief Number of seconds in a day
          */
-        static constexpr const Uint32 FromDay = 86400;
+        static constexpr const uint32_t FromDay = 86400;
         
         /** @brief Current year
          */
-        Uint16 year;
+        uint16_t year;
 
         /** @brief Current month
          */
-        Uint8 month;
+        uint8_t month;
 
         /** @brief Current week
          */
-        Uint8 week;
+        uint8_t week;
 
         /** @brief Current day
          */
-        Uint8 day;
+        uint8_t day;
 
         /** @brief Current hour
          */
-        Uint8 hour;
+        uint8_t hour;
 
         /** @brief Current number of minutes
          */
-        Uint8 minute;
+        uint8_t minute;
 
         /** @brief Current number of seconds
          */
-        Uint8 second;
+        uint8_t second;
         
         /** @brief Does the year number points to a leap year
          * @return true if is leap year
          */
-        static constexpr bool IsLeapYear(Uint16 year)
+        static constexpr bool IsLeapYear(uint16_t year)
         {
             return ((((year % 4) == 0) && ((year % 100) != 0)) || ((year % 400) == 0));
         }
@@ -74,11 +74,11 @@ namespace SRL::Types
         DateTime() : year(DateTime::BaseYear), month(1), week(0), day(1), hour(0), minute(0), second(0) { }
 
         /** @brief Gets number of seconds elapsed since start of the year
-         * @return Uint32 
+         * @return uint32_t 
          */
-        static Uint32 GetSecondsThisYear(const DateTime& date)
+        static uint32_t GetSecondsThisYear(const DateTime& date)
         {
-            Uint32 result = date.second +
+            uint32_t result = date.second +
                 (date.minute * DateTime::FromMinute) +
                 (date.hour * DateTime::FromHour) +
                 ((date.day - 1) * DateTime::FromDay) +
@@ -96,7 +96,7 @@ namespace SRL::Types
     
         /** @brief Construct a new time object
          */
-        DateTime(Uint8 second, Uint8 minute, Uint8 hour, Uint8 day, Uint8 week, Uint8 month, Uint16 year) :
+        DateTime(uint8_t second, uint8_t minute, uint8_t hour, uint8_t day, uint8_t week, uint8_t month, uint16_t year) :
             year(year),
             month(month),
             week(week),
@@ -155,7 +155,7 @@ namespace SRL::Types
         /** @brief Gets date year
          * @return Date year
          */
-        constexpr Uint16 Year()
+        constexpr uint16_t Year()
         {
             return this->year;
         }
@@ -163,7 +163,7 @@ namespace SRL::Types
         /** @brief Gets date month
          * @return Date month
          */
-        constexpr Uint8 Month()
+        constexpr uint8_t Month()
         {
             return this->month;
         }
@@ -171,7 +171,7 @@ namespace SRL::Types
         /** @brief Gets date week
          * @return Date week
          */
-        constexpr Uint8 Week()
+        constexpr uint8_t Week()
         {
             return this->week;
         }
@@ -179,7 +179,7 @@ namespace SRL::Types
         /** @brief Gets date day
          * @return Date day
          */
-        constexpr Uint8 Day()
+        constexpr uint8_t Day()
         {
             return this->day;
         }
@@ -187,7 +187,7 @@ namespace SRL::Types
         /** @brief Gets clock hours
          * @return Clock hours
          */
-        constexpr Uint8 Hour()
+        constexpr uint8_t Hour()
         {
             return this->hour;
         }
@@ -195,7 +195,7 @@ namespace SRL::Types
         /** @brief Gets clock minutes
          * @return Clock minutes
          */
-        constexpr Uint8 Minute()
+        constexpr uint8_t Minute()
         {
             return this->minute;
         }
@@ -203,7 +203,7 @@ namespace SRL::Types
         /** @brief Gets clock seconds
          * @return Clock seconds
          */
-        constexpr Uint8 Second()
+        constexpr uint8_t Second()
         {
             return this->second;
         }
@@ -215,7 +215,7 @@ namespace SRL::Types
         {
             return BupDate
             {
-                (Uint8)(this->year - DateTime::BaseYear),
+                (uint8_t)(this->year - DateTime::BaseYear),
                 this->month,
                 this->day,
                 this->hour,

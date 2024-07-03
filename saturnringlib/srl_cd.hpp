@@ -34,19 +34,19 @@ namespace SRL
         {
             /** @brief Number of bytes this file takes
              */
-            Sint32 Bytes;
+            int32_t Bytes;
 
             /** @brief Number of sectors on disk the file takes
              */
-            Sint32 Sectors;
+            int32_t Sectors;
 
             /** @brief Size of the sector
              */
-            Sint32 SectorSize;
+            int32_t SectorSize;
 
             /** @brief Size of the last sector
              */
-            Sint32 LastSectorSize;
+            int32_t LastSectorSize;
 
             /** @brief Construct a new File Size object
              */
@@ -70,7 +70,7 @@ namespace SRL
 
             /** @brief File identifier
              */
-            Sint32 identifier;
+            int32_t identifier;
 
         public:
             /** @brief File handle
@@ -88,10 +88,10 @@ namespace SRL
             {
                 if (name != nullptr)
                 {
-                    Sint32 sectorSize;
-                    Sint32 sectorCount;
-                    Sint32 lastSectorSize;
-                    Sint32 id = GFS_NameToId((Sint8*)name);
+                    int32_t sectorSize;
+                    int32_t sectorCount;
+                    int32_t lastSectorSize;
+                    int32_t id = GFS_NameToId((int8_t*)name);
 
                     if (id >= 0)
                     {
@@ -120,7 +120,7 @@ namespace SRL
             /** @brief File exists
              * @return True if exists
              */
-            constexpr Bool Exists()
+            constexpr bool Exists()
             {
                 return this->identifier >= 0;
             }
@@ -141,7 +141,7 @@ namespace SRL
              * @param destination Buffer to read bytes into
              * @return Number of bytes read (if lower than 0, error was encountered)
              */
-            Sint32 Read(Sint32 size, void* destination)
+            int32_t Read(int32_t size, void* destination)
             {
                 if (this->Handle != nullptr)
                 {
@@ -158,10 +158,10 @@ namespace SRL
              * @param destination Buffer to read batch into
              * @return Number of bytes read (if lower than 0, error was encountered)
              */
-            Sint32 LoadBytes(Sint32 startOffset, Sint32 size, void* destination)
+            int32_t LoadBytes(int32_t startOffset, int32_t size, void* destination)
             {
-                Bool wasOpen = false;
-                Sint32 result = 0;
+                bool wasOpen = false;
+                int32_t result = 0;
 
                 if (this->identifier >= 0)
                 {
@@ -220,7 +220,7 @@ namespace SRL
                 name = (char*)0;
             }
 
-            Sint32 fid = GFS_NameToId((Sint8*)name);
+            int32_t fid = GFS_NameToId((int8_t*)name);
             GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
             GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
             GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
@@ -376,7 +376,7 @@ namespace SRL
             static TableOfContents GetTable()
             {
                 TableOfContents toc;
-                CDC_TgetToc((Uint32*)&toc);
+                CDC_TgetToc((uint32_t*)&toc);
                 return toc;
             }
 

@@ -26,12 +26,12 @@ namespace SRL::Types
         constexpr Vector2D(const Vector2D& vector) : X(vector.X), Y(vector.Y) { }
         
         /** @brief Constructor to create a new 2D vector out of double values
-         * @param data Vector data (byte array of two Sint32 values)
+         * @param data Vector data (byte array of two int32_t values)
          */
         constexpr Vector2D(void* data) : Vector2D()
         {
-            this->X = Fxp::FromRaw(((Sint32*)data)[0]);
-            this->Y = Fxp::FromRaw(((Sint32*)data)[1]);
+            this->X = Fxp::FromRaw(((int32_t*)data)[0]);
+            this->Y = Fxp::FromRaw(((int32_t*)data)[1]);
         }
 
         /** @brief Constructor to create a new 2D vector out of double values
@@ -299,13 +299,13 @@ namespace SRL::Types
         constexpr Vector3D(const Vector3D& vector) : Vector2D(vector), Z(vector.Z) { }
         
         /** @brief Constructor to create a new 3D vector out of double values
-         * @param data Vector data (byte array of three Sint32 values)
+         * @param data Vector data (byte array of three int32_t values)
          */
         constexpr Vector3D(void* data) : Vector3D()
         {
-            this->X = Fxp::FromRaw(((Sint32*)data)[0]);
-            this->Y = Fxp::FromRaw(((Sint32*)data)[1]);
-            this->Z = Fxp::FromRaw(((Sint32*)data)[2]);
+            this->X = Fxp::FromRaw(((int32_t*)data)[0]);
+            this->Y = Fxp::FromRaw(((int32_t*)data)[1]);
+            this->Z = Fxp::FromRaw(((int32_t*)data)[2]);
         }
 
         /** @brief Constructor to create a new 2D vector out of double values

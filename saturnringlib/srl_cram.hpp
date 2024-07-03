@@ -17,7 +17,7 @@ namespace SRL
     
         /** @brief Texture color mode
          */
-        enum class TextureColorMode : Uint16
+        enum class TextureColorMode : uint16_t
         {
             /** @brief 256 color image
              */
@@ -56,7 +56,7 @@ namespace SRL
 
             /** @brief Palette identifier
              */
-            Uint16 id;
+            uint16_t id;
 
         public:
 
@@ -69,7 +69,7 @@ namespace SRL
              * @param mode Color mode
              * @param id Palette identifier
              */
-            Palette(const CRAM::TextureColorMode mode, const Uint16 id) : paletteMode(mode), id(id)
+            Palette(const CRAM::TextureColorMode mode, const uint16_t id) : paletteMode(mode), id(id)
             {
                 if (mode == CRAM::TextureColorMode::RGB555)
                 {
@@ -77,14 +77,14 @@ namespace SRL
                 }
                 else
                 {
-                    this->data = ((SRL::Types::HighColor*)CRAM::BaseAddress) + (id * (16 << (((Uint16)mode) - 2)));
+                    this->data = ((SRL::Types::HighColor*)CRAM::BaseAddress) + (id * (16 << (((uint16_t)mode) - 2)));
                 }
             }
 
             /** @brief Get palette identifier
              * @return Palette identifier
              */
-            Uint16 GetId()
+            uint16_t GetId()
             {
                 return this->id;
             }
@@ -110,16 +110,16 @@ namespace SRL
              * @param count Number of color to load (-1 means full palette)
              * @return Number of colors that have been loaded, -1 on error
              */
-            Sint16 Load(Types::HighColor* data, const Sint16 count = -1)
+            int16_t Load(Types::HighColor* data, const int16_t count = -1)
             {
-                Sint16 colorCount = count;
+                int16_t colorCount = count;
 
                 // Not valid in RGB555 color mode configuration
                 if (this->paletteMode != CRAM::TextureColorMode::RGB555)
                 {
                     if (count < 0)
                     {
-                        colorCount = (16 << (((Uint16)this->paletteMode) - 2));
+                        colorCount = (16 << (((uint16_t)this->paletteMode) - 2));
                     }
 
                     // Copy colors to CRAM
@@ -140,7 +140,7 @@ namespace SRL
         /** @brief Allocation mask
          * @note Each entry is one 256 color bank
          */
-        inline static Uint16 AllocationMask[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+        inline static uint16_t AllocationMask[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
     public:
 
@@ -149,7 +149,7 @@ namespace SRL
          * @param size Color bank size
          * @return true if bank is being used
          */
-        static bool GetBankUsedState(Uint16 bank, CRAM::TextureColorMode size)
+        static bool GetBankUsedState(uint16_t bank, CRAM::TextureColorMode size)
         {
             switch (size)
             {
@@ -157,10 +157,10 @@ namespace SRL
                 return CRAM::AllocationMask[bank] != 0;
 
             case CRAM::TextureColorMode::Paletted128:
-                return ((Uint8*)CRAM::AllocationMask)[bank] != 0;
+                return ((uint8_t*)CRAM::AllocationMask)[bank] != 0;
             
             case CRAM::TextureColorMode::Paletted64:
-                return ((Uint8*)CRAM::AllocationMask)[bank >> 1] & (bank % 2 == 0 ? 0x0f : 0xf0) != 0;
+                return ((uint8_t*)CRAM::AllocationMask)[bank >> 1] & (bank % 2 == 0 ? 0x0f : 0xf0) != 0;
             
             case CRAM::TextureColorMode::Paletted16:
                 return (CRAM::AllocationMask[bank >> 4] & (1 << (bank - (16 * (bank >> 4))))) != 0;
@@ -175,7 +175,7 @@ namespace SRL
          * @param size Color bank size
          * @param used true if bank is being used, otherwise false
          */
-        static void SetBankUsedState(Uint16 bank, CRAM::TextureColorMode size, bool used)
+        static void SetBankUsedState(uint16_t bank, CRAM::TextureColorMode size, bool used)
         {
             switch (size)
             {
@@ -184,18 +184,18 @@ namespace SRL
                 break;
 
             case CRAM::TextureColorMode::Paletted128:
-                ((Uint8*)CRAM::AllocationMask)[bank] = used ? 0xff : 0x00;
+                ((uint8_t*)CRAM::AllocationMask)[bank] = used ? 0xff : 0x00;
                 break;
             
             case CRAM::TextureColorMode::Paletted64:
 
                 if (used)
                 {
-                    ((Uint8*)CRAM::AllocationMask)[bank >> 1] |= (bank % 2 == 0 ? 0x0f : 0xf0);
+                    ((uint8_t*)CRAM::AllocationMask)[bank >> 1] |= (bank % 2 == 0 ? 0x0f : 0xf0);
                 }
                 else
                 {
-                    ((Uint8*)CRAM::AllocationMask)[bank >> 1] &= (bank % 2 == 0 ? 0xf0 : 0x0f);
+                    ((uint8_t*)CRAM::AllocationMask)[bank >> 1] &= (bank % 2 == 0 ? 0xf0 : 0x0f);
                 }
 
                 break;
@@ -222,30 +222,30 @@ namespace SRL
          * @param mode Color palette size
          * @return -1 if no free bank was found, or Color bank index
          */
-        static Sint32 GetFreeBank(CRAM::TextureColorMode size)
+        static int32_t GetFreeBank(CRAM::TextureColorMode size)
         {
             if (size != CRAM::TextureColorMode::RGB555)
             {
-                Sint32 freeBank = -1;
+                int32_t freeBank = -1;
 
                 // Here we will search the allocation mask for free space
                 // Palettes cannot overlap and must be aligned to their respective bank size
                 switch (size)
                 {
                 case CRAM::TextureColorMode::Paletted256:
-                    for (Sint32 id = 0; id < 8 && freeBank < 0; CRAM::AllocationMask[id] == 0 ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 8 && freeBank < 0; CRAM::AllocationMask[id] == 0 ? freeBank = id : id++);
                     break;
 
                 case CRAM::TextureColorMode::Paletted128:
-                    for (Sint32 id = 0; id < 16 && freeBank < 0; ((Uint8*)CRAM::AllocationMask)[id] == 0 ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 16 && freeBank < 0; ((uint8_t*)CRAM::AllocationMask)[id] == 0 ? freeBank = id : id++);
                     break;
                 
                 case CRAM::TextureColorMode::Paletted64:
-                    for (Sint32 id = 0; id < 32 && freeBank < 0; (((Uint8*)CRAM::AllocationMask)[id >> 1] & (id % 2 == 0 ? 0x0f : 0xf0) == 0) ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 32 && freeBank < 0; (((uint8_t*)CRAM::AllocationMask)[id >> 1] & (id % 2 == 0 ? 0x0f : 0xf0) == 0) ? freeBank = id : id++);
                     break;
                 
                 case CRAM::TextureColorMode::Paletted16:
-                    for (Sint32 id = 0; id < 128 && freeBank < 0; (CRAM::AllocationMask[id >> 4] & (1 << (id - (16 * (id >> 4))))) == 0 ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 128 && freeBank < 0; (CRAM::AllocationMask[id >> 4] & (1 << (id - (16 * (id >> 4))))) == 0 ? freeBank = id : id++);
                     break;
                 default:
                     break;

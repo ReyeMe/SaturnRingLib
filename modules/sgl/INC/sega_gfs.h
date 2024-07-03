@@ -50,9 +50,9 @@
 /* デモデモ用   */
 #define GFS_DDS_ADDR    0x6000ccc       /* デモデモ情報参照領域のアドレス   */
 #define GFS_DDS_EXEC    0x01            /* DDS実行中を示す                  */
-#define GFS_DDS_ID()    (*(Uint8 *)(GFS_DDS_ADDR+0))  /* DDS識別子の値      */
-#define GFS_DDS_TNO()   (*(Uint8 *)(GFS_DDS_ADDR+1))  /* 先頭CDDAトラックNo */
-#define GFS_DDS_FID()   (*(Uint16 *)(GFS_DDS_ADDR+2)) /* ディレクトリ識別子 */
+#define GFS_DDS_ID()    (*(uint8_t *)(GFS_DDS_ADDR+0))  /* DDS識別子の値      */
+#define GFS_DDS_TNO()   (*(uint8_t *)(GFS_DDS_ADDR+1))  /* 先頭CDDAトラックNo */
+#define GFS_DDS_FID()   (*(uint16_t *)(GFS_DDS_ADDR+2)) /* ディレクトリ識別子 */
 #define GFS_IS_DDS()    (GFS_DDS_ID()==GFS_DDS_EXEC)  /* DDS実行中の判断    */
 
 /* エラーコード */
@@ -174,56 +174,56 @@ enum GfsDirType {
  *      データ型の定義
  *****************************************************************************/
 
-typedef Sint32 (*GfsTransFunc)(void *obj, Sint32 nsct);
+typedef int32_t (*GfsTransFunc)(void *obj, int32_t nsct);
 
      /* ファイル情報 */
 typedef struct {
-    Sint32      fid;                    /* ファイル識別子 */
+    int32_t      fid;                    /* ファイル識別子 */
     CdcFile     finfo;
-    Sint32      sctsz;                  /* セクタ長 */
-    Sint32      nsct;                   /* セクタ数 */
-    Sint32      lstrm;                  /* 最終セクタ中の無効データ数   */
+    int32_t      sctsz;                  /* セクタ長 */
+    int32_t      nsct;                   /* セクタ数 */
+    int32_t      lstrm;                  /* 最終セクタ中の無効データ数   */
 } GfsFinfo;
 
 
 /* CDバッファの資源管理 */
 typedef struct {
-    Sint32      bufno;                  /* バッファ区画番号 */
-    Sint32      sctsz;                  /* ＣＤバッファのセクタサイズ   */
-    Sint32      flt;                    /* 絞り番号 */
+    int32_t      bufno;                  /* バッファ区画番号 */
+    int32_t      sctsz;                  /* ＣＤバッファのセクタサイズ   */
+    int32_t      flt;                    /* 絞り番号 */
     CdcSubh     subh;                   /* サブヘッダ */
-    Sint32      fmode;                  /* 絞りモード */
-    Sint32      puid;                   /* 取得ピックアップのユーザID */
-    Sint32      filepos;                /* 先頭データのファイル上の位置 */
-    Sint32      sctpos;                 /* 転送位置 */
+    int32_t      fmode;                  /* 絞りモード */
+    int32_t      puid;                   /* 取得ピックアップのユーザID */
+    int32_t      filepos;                /* 先頭データのファイル上の位置 */
+    int32_t      sctpos;                 /* 転送位置 */
     /* 再生範囲 */
-    Sint32      sfad;                   /* 開始FAD */
-    Sint32      efad;                   /* 終了FAD */
+    int32_t      sfad;                   /* 開始FAD */
+    int32_t      efad;                   /* 終了FAD */
 } GfsCdRsrc;
 
 
 /* SCSIファイルの仮想CDバッファ管理 */
 typedef struct {
-    Sint32      fid;                    /* SCSIファイル識別子   */
-    Sint32      filepos;                /* 先頭データのファイル上の位置 */
-    Sint32      sctpos;                 /* バッファ上のセクタ位置 */
-    Sint32      sctnum;                 /* バッファ内のセクタ数 */
+    int32_t      fid;                    /* SCSIファイル識別子   */
+    int32_t      filepos;                /* 先頭データのファイル上の位置 */
+    int32_t      sctpos;                 /* バッファ上のセクタ位置 */
+    int32_t      sctnum;                 /* バッファ内のセクタ数 */
 } GfsScsiRsrc;
 
 
 /* メモリファイルの仮想CDバッファ管理 */
 typedef struct {
     void        *data;                  /* データ領域           */
-    Sint32      filepos;                /* 先頭データのファイル上の位置 */
-    Sint32      sctpos;                 /* バッファ上のセクタ位置 */
-    Sint32      sctnum;                 /* バッファ内のセクタ数 */
+    int32_t      filepos;                /* 先頭データのファイル上の位置 */
+    int32_t      sctpos;                 /* バッファ上のセクタ位置 */
+    int32_t      sctnum;                 /* バッファ内のセクタ数 */
 } GfsMemRsrc;
 
 
 /* 読み込み元管理 */
 typedef struct {
     /* 読み込み元管理 */
-    Sint32      ftype;                  /* ファイル種別         */
+    int32_t      ftype;                  /* ファイル種別         */
     union {
         GfsCdRsrc       cd;             /* CDの資源             */
         GfsScsiRsrc     scsi;           /* SCSIファイルの資源   */
@@ -236,22 +236,22 @@ typedef struct {
 typedef struct {
     GfsFinfo    finfo;                  /* ファイル情報         */
     GfsDtsrc    dtsrc;                  /* 読み込み元           */
-    Sint32      gmode;                  /* 取り出しモード       */
-    Sint32      stat;                   /* 実行状態             */
+    int32_t      gmode;                  /* 取り出しモード       */
+    int32_t      stat;                   /* 実行状態             */
     /* flow in管理 */
-    Sint32      sct;                    /* 読み込みセクタ数     */
-    Sint32      sctcnt;                 /* 読み込みカウンタ     */
-    Sint32      sctmax;                 /* 読み込み最大セクタ数 */
+    int32_t      sct;                    /* 読み込みセクタ数     */
+    int32_t      sctcnt;                 /* 読み込みカウンタ     */
+    int32_t      sctmax;                 /* 読み込み最大セクタ数 */
 } GfsFlow;
 
 
 /* データパック構造体 */
 typedef struct {
     void        *data;                  /* データ領域           */
-    Sint32      adlt;                   /* アドレスの増加分     */
-    Sint32      len;                    /* 転送バイト数         */
-    Sint32      nsct;                   /* 転送セクタ数         */
-    Bool        use;                    /* 使用フラグ           */
+    int32_t      adlt;                   /* アドレスの増加分     */
+    int32_t      len;                    /* 転送バイト数         */
+    int32_t      nsct;                   /* 転送セクタ数         */
+    bool        use;                    /* 使用フラグ           */
 } GfsDataPack;
 
 
@@ -261,22 +261,22 @@ typedef GfsDataPack *GfdpHn;
 /* CDバッファからの転送を管理する */
 typedef struct {
     void        *buf;                   /* 転送先アドレス */
-    Sint32      size;                   /* データ領域のサイズ */
-    Sint32      wp;                     /* 書き込みオフセット */
+    int32_t      size;                   /* データ領域のサイズ */
+    int32_t      wp;                     /* 書き込みオフセット */
     /* 転送管理 */
     GfdpHn      dps;                    /* 転送元のデータパック */
     GfdpHn      dpd;                    /* 転送先からのデータパック */
-    Sint32      tsctmax;                /* １回の転送の最大セクタ数 */
-    Sint32      tsct;                   /* 転送目標セクタ数 */
-    Sint32      tsctcnt;                /* 現在まで転送セクタ数 */
-    Sint32      tbytcnt;                /* セクタ内の転送バイト数 */
+    int32_t      tsctmax;                /* １回の転送の最大セクタ数 */
+    int32_t      tsct;                   /* 転送目標セクタ数 */
+    int32_t      tsctcnt;                /* 現在まで転送セクタ数 */
+    int32_t      tbytcnt;                /* セクタ内の転送バイト数 */
     /* 転送関数 */
     void        *obj;                   /* 転送関数への第１引数 */
     GfsTransFunc tfunc;                 /* 転送関数 */
-    Sint32      unit;                   /* 転送単位 */
-    Bool        active;                 /* 動作中フラグ */
-    Sint32      stat;                   /* 状態 */
-    Sint32      mode;                   /* 転送モード */
+    int32_t      unit;                   /* 転送単位 */
+    bool        active;                 /* 動作中フラグ */
+    int32_t      stat;                   /* 状態 */
+    int32_t      mode;                   /* 転送モード */
 } GfsTrans;
 
 
@@ -285,9 +285,9 @@ typedef GfsTrans *GftrHn;
 
 /* オープンしたファイルを管理する */
 typedef struct {
-    Bool        used;                   /* この構造体が使用中かどうか */
-    Sint32      amode;                  /* アクセスモード */
-    Sint32      astat;                  /* アクセス状態 */
+    bool        used;                   /* この構造体が使用中かどうか */
+    int32_t      amode;                  /* アクセスモード */
+    int32_t      astat;                  /* アクセス状態 */
     GfsFlow     flow;
     GfsTrans    trans;
 } GfsFile;
@@ -298,7 +298,7 @@ typedef GfsFile *GfsHn;
 
 
 /* ユーザ登録転送関数 */
-typedef Sint32 (*GfsTrFunc)(GfsHn gfs, Sint32 nsct);
+typedef int32_t (*GfsTrFunc)(GfsHn gfs, int32_t nsct);
      
 
 /* ディレクトリレコード構造体(ファイル名なし)   */
@@ -310,14 +310,14 @@ typedef struct {
 /* ディレクトリレコード構造体(ファイル名あり)   */
 typedef struct {
     CdcFile     dirrec;
-    Sint8       fname[GFS_FNAME_LEN];   /* ファイル名 */
+    int8_t       fname[GFS_FNAME_LEN];   /* ファイル名 */
 } GfsDirName;
 
 
 /* ディレクトリ情報管理構造体 */
 typedef struct {
-    Sint32      type;                   /* 種別 */
-    Sint32      ndir;                   /* 最大要素数 */
+    int32_t      type;                   /* 種別 */
+    int32_t      ndir;                   /* 最大要素数 */
     union {
         GfsDirId *dir_i;                /* ファイル名なしディレクトリ情報 */
         GfsDirName *dir_n;              /* ファイル名つきディレクトリ情報 */
@@ -326,13 +326,13 @@ typedef struct {
 
 
 /* エラー処理関数 */
-typedef void (*GfsErrFunc)(void *obj, Sint32 ec);
+typedef void (*GfsErrFunc)(void *obj, int32_t ec);
 
 /* エラー状態 */
 typedef struct {
     GfsErrFunc  func;                   /* エラー発生時の呼び出し関数   */
     void        *obj;                   /* 呼び出し関数に渡す第一引数   */
-    Sint32      code;                   /* エラーコード                 */
+    int32_t      code;                   /* エラーコード                 */
 } GfsErrStat;
 
 
@@ -341,101 +341,101 @@ typedef struct {
  *****************************************************************************/
 
 /* ファイルシステムの初期化 */
-Sint32 GFS_Init(Sint32 open_max, void *work, GfsDirTbl *dirtbl);
+int32_t GFS_Init(int32_t open_max, void *work, GfsDirTbl *dirtbl);
 
 /* ディレクトリレコードの読み込み */
-Sint32 GFS_LoadDir(Sint32 fid, GfsDirTbl *dirtbl);
+int32_t GFS_LoadDir(int32_t fid, GfsDirTbl *dirtbl);
 
 /* カレントディレクトリレコードの設定 */
-Sint32 GFS_SetDir(GfsDirTbl *dirtbl);
+int32_t GFS_SetDir(GfsDirTbl *dirtbl);
 
 /* 名前からファイル識別子への変換 */
-Sint32 GFS_NameToId(Sint8 *fname);
+int32_t GFS_NameToId(int8_t *fname);
 
 /* ファイル識別子からファイル名への変換 */
-Sint8 *GFS_IdToName(Sint32 fid);
+int8_t *GFS_IdToName(int32_t fid);
 
 /* ファイル識別子からディレクトリレコード取得 */
-Sint32 GFS_GetDirInfo(Sint32 fid, GfsDirId *dirrec);
+int32_t GFS_GetDirInfo(int32_t fid, GfsDirId *dirrec);
 
 /*  ファイルシステムのリセット  */
 void    GFS_Reset(void);
 
 /* ファイルハンドルの割当て */
-GfsHn GFS_Open(Sint32 fid);
+GfsHn GFS_Open(int32_t fid);
 
 /* ファイルハンドルの割当て解除 */
 void GFS_Close(GfsHn gfs);
 
 /* アクセスポインタの移動 */
-Sint32 GFS_Seek(GfsHn gfs, Sint32 ofs, Sint32 org);
+int32_t GFS_Seek(GfsHn gfs, int32_t ofs, int32_t org);
 
 /* アクセスポインタの取得 */
-Sint32 GFS_Tell(GfsHn gfs);
+int32_t GFS_Tell(GfsHn gfs);
 
 /* ファイル終了のチェック */
-Bool GFS_IsEof(GfsHn gfs);
+bool GFS_IsEof(GfsHn gfs);
 
 /* バイトサイズからセクタサイズへの変換 */
-Sint32 GFS_ByteToSct(GfsHn gfs, Sint32 nbyte);
+int32_t GFS_ByteToSct(GfsHn gfs, int32_t nbyte);
 
 /* ファイルサイズに関する情報の取得 */
-void GFS_GetFileSize(GfsHn gfs, Sint32 *sctsz, Sint32 *nsct, Sint32 *lstsz);
+void GFS_GetFileSize(GfsHn gfs, int32_t *sctsz, int32_t *nsct, int32_t *lstsz);
 
 /* ファイル情報の取得 */
-void GFS_GetFileInfo(GfsHn gfs, Sint32 *fid, Sint32 *fn, Sint32 *fsize,
-                     Sint32 *atr);
+void GFS_GetFileInfo(GfsHn gfs, int32_t *fid, int32_t *fn, int32_t *fsize,
+                     int32_t *atr);
 
 /*  CDバッファ区画のセクタ数の取得      */
-Sint32 GFS_GetNumCdbuf(GfsHn gfs);
+int32_t GFS_GetNumCdbuf(GfsHn gfs);
 
 /* 一括読み込み */
-Sint32 GFS_Load(Sint32 fid, Sint32 ofs, void *buf, Sint32 bsize);
+int32_t GFS_Load(int32_t fid, int32_t ofs, void *buf, int32_t bsize);
 
 /* 完了復帰型読み込み */
-Sint32 GFS_Fread(GfsHn gfs, Sint32 nsct, void *buf, Sint32 bsize);
+int32_t GFS_Fread(GfsHn gfs, int32_t nsct, void *buf, int32_t bsize);
 
 /* 即時復帰型読み込み */
-Sint32 GFS_NwFread(GfsHn gfs, Sint32 nsct, void *buf, Sint32 bsize);
+int32_t GFS_NwFread(GfsHn gfs, int32_t nsct, void *buf, int32_t bsize);
 
 /* 即時復帰型ＣＤバッファ読み込み */
-Sint32 GFS_NwCdRead(GfsHn gfs, Sint32 nsct);
+int32_t GFS_NwCdRead(GfsHn gfs, int32_t nsct);
 
 /* アクセス動作完了チェック */
-Bool GFS_NwIsComplete(GfsHn gfs);
+bool GFS_NwIsComplete(GfsHn gfs);
 
 /* アクセス動作の中止 */
-Sint32 GFS_NwStop(GfsHn gfs);
+int32_t GFS_NwStop(GfsHn gfs);
 
 /* アクセス状態の取得 */
-void GFS_NwGetStat(GfsHn gfs, Sint32 *amode, Sint32 *ndata);
+void GFS_NwGetStat(GfsHn gfs, int32_t *amode, int32_t *ndata);
 
 /* ファイル単位でのアクセス動作の実行 */
-Sint32 GFS_NwExecOne(GfsHn gfs);
+int32_t GFS_NwExecOne(GfsHn gfs);
 
 /* サーバアクセス動作の実行 */
-Sint32 GFS_NwExecServer(GfsHn *now_gfs);
+int32_t GFS_NwExecServer(GfsHn *now_gfs);
 
 /* ＣＤバッファからの取り出しモードの設定 */
-Sint32 GFS_SetGmode(GfsHn gfs, Sint32 gmode);
+int32_t GFS_SetGmode(GfsHn gfs, int32_t gmode);
 
 /* 転送モードの設定 */
-Sint32 GFS_SetTmode(GfsHn gfs, Sint32 tmode);
+int32_t GFS_SetTmode(GfsHn gfs, int32_t tmode);
 
 /* ソースバッファへの読み込みセクタ数の設定 */
-Sint32 GFS_SetReadPara(GfsHn gfs, Sint32 nsct);
+int32_t GFS_SetReadPara(GfsHn gfs, int32_t nsct);
 
 /* ソースバッファからホストへの転送セクタ数の設定 */
-Sint32 GFS_SetTransPara(GfsHn gfs, Sint32 tsize);
+int32_t GFS_SetTransPara(GfsHn gfs, int32_t tsize);
 
 /* 転送関数の登録       */
 void    GFS_SetTrFunc(GfsHn gfs, GfsTrFunc func);
 
 /* 転送関数における転送開始     */
-Uint32  *GFS_StartTrans(GfsHn gfs, Sint32 *dadr);
+uint32_t  *GFS_StartTrans(GfsHn gfs, int32_t *dadr);
 
 /* ピックアップをアクセスポインタの位置に移動する */
-Sint32 GFS_CdMovePickup(GfsHn gfs);
+int32_t GFS_CdMovePickup(GfsHn gfs);
 
 /* エラー処理関数の登録 */
 void GFS_SetErrFunc(GfsErrFunc func, void *obj);
@@ -444,10 +444,10 @@ void GFS_SetErrFunc(GfsErrFunc func, void *obj);
 void GFS_GetErrStat(GfsErrStat *stat);
 
 /*  トラック番号の変換      */
-Sint32  GFS_ConvTno(Sint32 logtno);
+int32_t  GFS_ConvTno(int32_t logtno);
 
 /* fidとオフセットからフレームアドレスを取得する */
-Sint32 GFS_GetFad(Sint32 fid, Sint32 ofs);
+int32_t GFS_GetFad(int32_t fid, int32_t ofs);
 
 
 /*****************************************************************************
@@ -467,130 +467,130 @@ Sint32 GFS_GetFad(Sint32 fid, Sint32 ofs);
 
 /* ファイル操作用関数(管理テーブル, GfsMngのメンバ) */
 typedef struct {
-    Sint32 (*flowin)(GfsFlow *);        /* ソースバッファ読み込み関数   */
-    void (*stopin)(GfsFlow *, Bool);    /* 読み込み中止関数             */
-    Sint32 (*seek)(GfsFlow *, Sint32);  /* アクセスポインタ設定関数     */
-    Sint32 (*tell)(GfsFlow *);          /* アクセスポインタ取得関数     */
+    int32_t (*flowin)(GfsFlow *);        /* ソースバッファ読み込み関数   */
+    void (*stopin)(GfsFlow *, bool);    /* 読み込み中止関数             */
+    int32_t (*seek)(GfsFlow *, int32_t);  /* アクセスポインタ設定関数     */
+    int32_t (*tell)(GfsFlow *);          /* アクセスポインタ取得関数     */
 } GfsFileFunc;
 
 /* アクセスサーバ管理構造体(管理テーブル, GfsMngのメンバ) */
 typedef struct {
     GfsHn   access_file[GFS_OPEN_MAX];  /* アクセスモード指定済ファイル */
-    Sint32  nfile;                      /* 登録ファイル数               */
+    int32_t  nfile;                      /* 登録ファイル数               */
 } GfsSvr;
 
 
 /* ディレクトリ管理構造体(管理テーブル, GfsMngのメンバ) */
 typedef struct {
     GfsDirTbl   dirtbl;                 /* ディレクトリ情報管理 */
-    Sint32      nfile;                  /* ファイル数 */
+    int32_t      nfile;                  /* ファイル数 */
 } GfsDirMng;
 
 
 /* 絞り設定コマンドキューの要素(CDブロック管理構造体, GfsCdbMngのメンバ) */
 typedef struct {
-    Uint8 flt;                          /* 設定先絞り番号 */
-    Uint8 fmode;                        /* 絞りモード */
+    uint8_t flt;                          /* 設定先絞り番号 */
+    uint8_t fmode;                        /* 絞りモード */
     CdcSubh subh;                       /* サブヘッダ */
-    Sint32 fad;                         /* 開始FAD */
-    Sint32 snum;                        /* FADセクタ数 */
+    int32_t fad;                         /* 開始FAD */
+    int32_t snum;                        /* FADセクタ数 */
 } GfcdSelQu;
 
 /* 接続コマンドキューの要素(CDブロック管理構造体, GfsCdbMngのメンバ) */
 typedef struct {
-    Sint32 flt;                         /* 設定絞り */
-    Sint32 buf;                         /* 真出力接続バッファ */
-    Sint32 flnout;                      /* 偽出力接続絞り(負の値を使用) */
+    int32_t flt;                         /* 設定絞り */
+    int32_t buf;                         /* 真出力接続バッファ */
+    int32_t flnout;                      /* 偽出力接続絞り(負の値を使用) */
 } GfcdFconQu;    
 
 /* CDブロック管理構造体(管理テーブル, GfsMngのメンバ) */
 typedef struct {
     /* 資源管理 */
-    Sint8 use_buf[GFS_CDBBUF_NR];       /* バッファ区画使用状態 */
-    Sint8 use_filt[GFS_CDBBUF_NR];      /* 絞り使用状態 */
-    Bool use_pu;                        /* ピックアップ使用状態 */
-    Sint32 tr_bufno;                    /* データ転送中のバッファ区画   */
-    Sint32 puid;                        /* ピックアップの所有者ID */
-    Sint32 timer;                       /* タイムアウトカウンタ */
+    int8_t use_buf[GFS_CDBBUF_NR];       /* バッファ区画使用状態 */
+    int8_t use_filt[GFS_CDBBUF_NR];      /* 絞り使用状態 */
+    bool use_pu;                        /* ピックアップ使用状態 */
+    int32_t tr_bufno;                    /* データ転送中のバッファ区画   */
+    int32_t puid;                        /* ピックアップの所有者ID */
+    int32_t timer;                       /* タイムアウトカウンタ */
     CdcStat stat;                       /* CDブロックの状態 */
     void (*func)(void *);               /* CSCTハンドラ */
     void *obj;                          /* CSCTハンドラの引数 */
     /* GFCD_SetFiltタスク */
     struct {
-        Sint32 len;                     /* 絞り設定コマンドキューの長さ */
-        Sint32 stat;                    /* コマンドキュー先頭の状態 */
+        int32_t len;                     /* 絞り設定コマンドキューの長さ */
+        int32_t stat;                    /* コマンドキュー先頭の状態 */
         GfcdSelQu selq[GFS_SELQ_MAX];   /* 絞り設定コマンドキュー */
     } tsk_setflt;
     /* GFCD_SetFiltConタスク */
     struct {
-        Sint32 len;                     /* 接続コマンドキューの長さ */
-        Sint32 stat;                    /* タスク終了フラグ */
+        int32_t len;                     /* 接続コマンドキューの長さ */
+        int32_t stat;                    /* タスク終了フラグ */
         GfcdFconQu fconq[GFS_FCONQ_MAX]; /* 接続コマンドキュー */
     } tsk_fltcon;
     /* GFCD_SetConタスク */
     struct {
-        Sint32 stat;                    /* タスク終了フラグ */
-        Sint32 flt;                     /* CD接続先絞り */
+        int32_t stat;                    /* タスク終了フラグ */
+        int32_t flt;                     /* CD接続先絞り */
     } tsk_setcon;
     /* GFCD_GetLenDataタスク */
     struct {
-        Sint32 stat;                    /* タスク終了フラグ */
-        Sint32 bufno;                   /* 対象区画 */
-        Sint32 spos;                    /* 先頭セクタ位置 */
-        Sint32 usct;                    /* 要求セクタ数 */
-        Sint32 cnt;                     /* タスクの実行回数 */
-        Sint32 *nsct;                   /* 区画内セクタ数格納先 */
-        Sint32 *nbyte;                  /* 区画内バイト数格納先 */
+        int32_t stat;                    /* タスク終了フラグ */
+        int32_t bufno;                   /* 対象区画 */
+        int32_t spos;                    /* 先頭セクタ位置 */
+        int32_t usct;                    /* 要求セクタ数 */
+        int32_t cnt;                     /* タスクの実行回数 */
+        int32_t *nsct;                   /* 区画内セクタ数格納先 */
+        int32_t *nbyte;                  /* 区画内バイト数格納先 */
     }tsk_getlen;
     /* GFCD_ReqDataタスク */
     struct {
-        Sint32 stat;                    /* タスク終了フラグ */
-        Sint32 bufno;                   /* 対象区画 */
-        Sint32 sctpos;                  /* セクタ位置 */
-        Sint32 nsct;                    /* 要求セクタ数 */
+        int32_t stat;                    /* タスク終了フラグ */
+        int32_t bufno;                   /* 対象区画 */
+        int32_t sctpos;                  /* セクタ位置 */
+        int32_t nsct;                    /* 要求セクタ数 */
     } tsk_reqdat;
     /* GFCD_DelSctDataタスク */
     struct {
-        Sint32 stat;                    /* タスク終了フラグ */
-        Sint32 bufno;                   /* 対象区画 */
-        Sint32 sctpos;                  /* 削除開始セクタ位置 */
-        Sint32 nsct;                    /* 削除セクタ数 */
+        int32_t stat;                    /* タスク終了フラグ */
+        int32_t bufno;                   /* 対象区画 */
+        int32_t sctpos;                  /* 削除開始セクタ位置 */
+        int32_t nsct;                    /* 削除セクタ数 */
     } tsk_delsct;
     /* GFCD_MoveSctDataタスク */
     struct {
-        Sint32 stat;                    /* タスク終了フラグ */
-        Sint32 dst;                     /* 移動先区画 */
-        Sint32 src;                     /* 移動元区画 */
-        Sint32 spos;                    /* 移動開始セクタ位置 */
-        Sint32 snum;                    /* 移動セクタ数 */
-        Sint32 fmode;                   /* 移動先セレクタの絞りモード保存 */
+        int32_t stat;                    /* タスク終了フラグ */
+        int32_t dst;                     /* 移動先区画 */
+        int32_t src;                     /* 移動元区画 */
+        int32_t spos;                    /* 移動開始セクタ位置 */
+        int32_t snum;                    /* 移動セクタ数 */
+        int32_t fmode;                   /* 移動先セレクタの絞りモード保存 */
     } tsk_movsct;
     /* GFCD_ChgDirタスク */
     struct {
-        Sint32 stat;                    /* タスク終了フラグ */
-        Sint16 fid;                     /* 設定ファイル識別子 */
-        Sint16 work;                    /* 作業バッファ */
-        Sint32 *ndir;                   /* 保持ディレクトリ情報個数 */
+        int32_t stat;                    /* タスク終了フラグ */
+        int16_t fid;                     /* 設定ファイル識別子 */
+        int16_t work;                    /* 作業バッファ */
+        int32_t *ndir;                   /* 保持ディレクトリ情報個数 */
     } tsk_chgdir;
 } GfsCdbMng;
 
 /* 管理テーブル */
 typedef struct {
-    Sint32      openmax;                /* オープンファイルの最大数 */
+    int32_t      openmax;                /* オープンファイルの最大数 */
     GfsFileFunc functbl[GFS_FTYPE_NR];  /* ファイル操作用関数 */
     GfsSvr      svr;                    /* アクセスサーバ */
     GfsDirMng   curdir;                 /* カレントディレクトリ */
     GfsHn       pickup;                 /* ピックアップ制御中ファイル */
-    Sint32      sfad;                   /* 再生範囲:開始FAD */
-    Sint32      efad;                   /* 再生範囲:終了FAD+1 */
+    int32_t      sfad;                   /* 再生範囲:開始FAD */
+    int32_t      efad;                   /* 再生範囲:終了FAD+1 */
     GfsHn       trans;                  /* データ転送中ファイル */
     GfsErrStat  error;                  /* エラー状態 */
-    Uint32      flags;                  /* デバイス接続情報など */
-    Sint32      timer;                  /* タイムアウトカウンタ */
+    uint32_t      flags;                  /* デバイス接続情報など */
+    int32_t      timer;                  /* タイムアウトカウンタ */
     GfsCdbMng   cdb;                    /* CDブロック管理構造体 */
     GfsDataPack srcpk;                  /* 転送元データパック */
     GfsDataPack dstpk;                  /* 転送先データパック */
-    Uint8       sect_buf[GFS_SCTBUF_SIZ]; /* １セクタの読み込み用バッファ */
+    uint8_t       sect_buf[GFS_SCTBUF_SIZ]; /* １セクタの読み込み用バッファ */
     GfsFile     file[1];                /* 全ハンドルの配列（可変長） */
 } GfsMng;
 

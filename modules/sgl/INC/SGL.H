@@ -19,7 +19,7 @@
 #define	VERTICES(v0,v1,v2,v3)	{v0 , v1 , v2 , v3}}
 #define	C_RGB(r,g,b)		(((b)&0x1f)<<10|((g)&0x1f)<<5|((r)&0x1f)|0x8000)
 
-typedef	Uint16	TEXDAT;
+typedef	uint16_t	TEXDAT;
 
 /********************************/
 /*	Old Texture Table	*/
@@ -27,7 +27,7 @@ typedef	Uint16	TEXDAT;
 #define	cgaddress	0x10000
 #define pal COL_32K
 #define TEXDEF(h,v,presize)		{h,v,(cgaddress+(((presize)*4)>>(pal)))/8,(((h)&0x1f8)<<5 | (v))}
-#define	PICDEF(texno,cmode,pcsrc)	{(Uint16)(texno),(Uint16)(cmode),(void *)(pcsrc)}
+#define	PICDEF(texno,cmode,pcsrc)	{(uint16_t)(texno),(uint16_t)(cmode),(void *)(pcsrc)}
 
 /********************************/
 /*	New Texture Table	*/
@@ -35,7 +35,7 @@ typedef	Uint16	TEXDAT;
 #define	CGADDRESS	0x10000
 #define	AdjCG(cga,hs,vs,col)		((cga) + (((((hs)*(vs)*4)>>(col))+0x1f) &0x7ffe0))
 #define	TEXTBL(hs,vs,cga)		{hs , vs , (cga)>>3 , ((hs)&0x1f8)<<5|(vs)}
-#define	PICTBL(texno,cmode,pcsrc)	{(Uint16)(texno),(Uint16)(cmode),(void *)(pcsrc)}
+#define	PICTBL(texno,cmode,pcsrc)	{(uint16_t)(texno),(uint16_t)(cmode),(void *)(pcsrc)}
 
 /********************************/
 /*	Object structure	*/

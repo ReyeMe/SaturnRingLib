@@ -17,29 +17,29 @@ namespace SRL::Types
 
 		/** @brief Divisor register
 		 */
-		static inline auto& DivisorRegister = *reinterpret_cast<volatile Uint32*>(CpuAddress + 0x0F00UL);
+		static inline auto& DivisorRegister = *reinterpret_cast<volatile uint32_t*>(CpuAddress + 0x0F00UL);
 
 		/** @brief Dividend register
 		 */
-		static inline auto& DividendRegister = *reinterpret_cast<volatile Uint32*>(CpuAddress + 0x0F10UL);
+		static inline auto& DividendRegister = *reinterpret_cast<volatile uint32_t*>(CpuAddress + 0x0F10UL);
 
 		/** @brief Result of the division register
 		 */
-		static inline auto& DivisionResultRegister = *reinterpret_cast<volatile Uint32*>(CpuAddress + 0x0F14UL);
+		static inline auto& DivisionResultRegister = *reinterpret_cast<volatile uint32_t*>(CpuAddress + 0x0F14UL);
 
 		/** @brief Fixed point value
 		 */
-		Sint32 value;
+		int32_t value;
 
-		/** @brief Private constructor for creating Fxp objects from an Sint32 value.
-		 * @param inValue The Sint32 value to store.
+		/** @brief Private constructor for creating Fxp objects from an int32_t value.
+		 * @param inValue The int32_t value to store.
 		 */
-		constexpr Fxp(const Sint32& inValue) : value(inValue) {}
+		constexpr Fxp(const int32_t& inValue) : value(inValue) {}
 
-		/** @brief Private constructor for creating Fxp objects from an Sint32 value.
-		 * @param inValue The Sint32 value to store.
+		/** @brief Private constructor for creating Fxp objects from an int32_t value.
+		 * @param inValue The int32_t value to store.
 		 */
-		constexpr Fxp(const Uint32& inValue) : value(inValue) {}
+		constexpr Fxp(const uint32_t& inValue) : value(inValue) {}
 
 	public:
 
@@ -66,7 +66,7 @@ namespace SRL::Types
 		 * @param value Integer fixed point value
 		 * @return Fixed point value
 		 */
-		static constexpr Fxp FromRaw(const Sint32& value)
+		static constexpr Fxp FromRaw(const int32_t& value)
 		{
 			return Fxp(value);
 		}
@@ -75,7 +75,7 @@ namespace SRL::Types
 		 * @param value Integer value
 		 * @return Fixed point value
 		 */
-		static constexpr Fxp FromInt(const Sint32& value)
+		static constexpr Fxp FromInt(const int32_t& value)
 		{
 			return Fxp(value << 16);
 		}
@@ -86,7 +86,7 @@ namespace SRL::Types
 		 */
 		static void AsyncDivisionStart(const Fxp& dividend, const Fxp& divisor)
 		{
-			Uint32 dividendh;
+			uint32_t dividendh;
 			__asm__ volatile("swap.w %[in], %[out]\n"
 				: [out] "=&r"(dividendh)
 				: [in] "r"(dividend.value));
@@ -105,7 +105,7 @@ namespace SRL::Types
 		 */
 		static Fxp AsyncDivisionGet()
 		{
-			return static_cast<Sint32>(Fxp::DivisionResultRegister);
+			return static_cast<int32_t>(Fxp::DivisionResultRegister);
 		}
 
 		/** @brief Faster and slightly less accurate version of Sqrt.
@@ -114,8 +114,8 @@ namespace SRL::Types
 		 */
 		constexpr Fxp FastSqrt() const
 		{
-			Sint32 baseEstimation = 0;
-			Sint32 estimation = this->value;
+			int32_t baseEstimation = 0;
+			int32_t estimation = this->value;
 
 			if (estimation > 0)
 			{
@@ -124,7 +124,7 @@ namespace SRL::Types
 					baseEstimation = 1 << 7;
 					estimation <<= 7;
 
-					Sint32 iterationValue = this->value >> 1;
+					int32_t iterationValue = this->value >> 1;
 					while (iterationValue)
 					{
 						estimation >>= 1;
@@ -152,14 +152,14 @@ namespace SRL::Types
 		 */
 		constexpr Fxp Sqrt() const
 		{
-			Uint32 remainder = static_cast<Uint32>(value);
-			Uint32 root = 0;
-			Uint32 bit = 0x40000000; // Set the initial bit to the highest bit for 32-bit integers
+			uint32_t remainder = static_cast<uint32_t>(value);
+			uint32_t root = 0;
+			uint32_t bit = 0x40000000; // Set the initial bit to the highest bit for 32-bit integers
 
 			while (bit > 0x40)
 			{
 				// Try the current bit in the root calculation
-				Uint32 trial = root + bit;
+				uint32_t trial = root + bit;
 
 				if (remainder >= trial)
 				{
@@ -174,13 +174,13 @@ namespace SRL::Types
 
 			root >>= 8; // Adjust the result
 
-			return static_cast<Uint32>(root);
+			return static_cast<uint32_t>(root);
 		}
 
 		/** @brief Convert fixed point value to integer by dividing with 65536
 		 * @return Integer value 
 		 */
-		constexpr Sint32 ToInt() const
+		constexpr int32_t ToInt() const
 		{
 			return this->value >> 16;
 		}
@@ -188,7 +188,7 @@ namespace SRL::Types
 		/** @brief Gets raw value
 		 * @return Raw fixed point value 
 		 */
-		constexpr Sint32 Value() const
+		constexpr int32_t Value() const
 		{
 			return this->value;
 		}
@@ -231,7 +231,7 @@ namespace SRL::Types
 			}
 			else
 			{
-				Uint32 mach;
+				uint32_t mach;
 				__asm__ volatile(
 					"\tdmuls.l %[a], %[b]\n"
 					"\tsts mach, %[mach]\n"
@@ -307,7 +307,7 @@ namespace SRL::Types
 		 * @param integer Integer value
 		 * @return True if bigger
 		 */
-		constexpr bool operator>(const Sint32& integer) const
+		constexpr bool operator>(const int32_t& integer) const
 		{
 			return this->value > (integer << 16);
 		}
@@ -317,7 +317,7 @@ namespace SRL::Types
 		 * @param integer Integer value
 		 * @return True if same or bigger
 		 */
-		constexpr bool operator>=(const Sint32& integer) const
+		constexpr bool operator>=(const int32_t& integer) const
 		{
 			return this->value >= (integer << 16);
 		}
@@ -327,7 +327,7 @@ namespace SRL::Types
 		 * @param integer Integer value
 		 * @return True if smaller
 		 */
-		constexpr bool operator<(const Sint32& integer) const
+		constexpr bool operator<(const int32_t& integer) const
 		{
 			return this->value < (integer << 16);
 		}
@@ -337,7 +337,7 @@ namespace SRL::Types
 		 * @param integer Integer value
 		 * @return True if same or smaller
 		 */
-		constexpr bool operator<=(const Sint32& integer) const
+		constexpr bool operator<=(const int32_t& integer) const
 		{
 			return this->value <= (integer << 16);
 		}
@@ -347,7 +347,7 @@ namespace SRL::Types
 		 * @param integer Integer value
 		 * @return True if same
 		 */
-		constexpr bool operator==(const Sint32& integer) const
+		constexpr bool operator==(const int32_t& integer) const
 		{
 			return this->value == (integer << 16);
 		}
@@ -357,7 +357,7 @@ namespace SRL::Types
 		 * @param integer Integer value
 		 * @return True if not same
 		 */
-		constexpr bool operator!=(const Sint32& integer) const
+		constexpr bool operator!=(const int32_t& integer) const
 		{
 			return this->value != (integer << 16);
 		}

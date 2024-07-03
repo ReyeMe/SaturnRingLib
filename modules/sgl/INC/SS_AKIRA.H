@@ -1,5 +1,5 @@
 #define     toFIXEDa(p)                 ((FIXED)(p * 65536.0 * (-300.0)))
-#define     RAGtoANG(r)                 ((Sint16)(r * 65536.0 / ( 2 * 3.1415 )))
+#define     RAGtoANG(r)                 ((int16_t)(r * 65536.0 / ( 2 * 3.1415 )))
 
 typedef struct mo{
     FIXED   HARApos[XYZ] ;
@@ -31,9 +31,9 @@ typedef struct mo{
 #define    INITANGY           DEG2ANG(90.0)
 #define    INITANGZ           DEG2ANG(0.0)
 
-extern     void slInitSystem(Uint16 , TEXTURE * , Sint8) ;
+extern     void slInitSystem(uint16_t , TEXTURE * , int8_t) ;
 extern     void objectdata(ANGLE * , FIXED *) ;
 extern     void Debuge() ;
 
-extern     Uint16 TotalPolygon , DispPolygons ;
+extern     uint16_t TotalPolygon , DispPolygons ;
 

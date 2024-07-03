@@ -24,10 +24,10 @@ int main()
     
     // Load texture
     SRL::Bitmap::TGA* tga = new SRL::Bitmap::TGA("TEST.TGA");   // Loads TGA file into main RAM
-    Sint32 textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
+    int32_t textureIndex = SRL::VDP1::TryLoadTexture(tga);       // Loads TGA into VDP1
     delete tga;                                                 // Frees main RAM
 
-    Sint16 degrees = 0;
+    int16_t degrees = 0;
 
     // Main program loop
 	while(1)

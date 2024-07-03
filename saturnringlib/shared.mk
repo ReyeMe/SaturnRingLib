@@ -159,7 +159,7 @@ ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}), 1)
 	cp $(SGLDIR)/DSP/3BANDANA.EXB ./cd/data/
 endif
 endif
-	xorrisofs -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" \
+	xorrisofs --norock -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" \
 	-publisher "SEGA ENTERPRISES, LTD." -preparer "SEGA ENTERPRISES, LTD." -appid "SaturnApp" \
 	-abstract "$(ASSETS_DIR)/ABS.TXT" -copyright "$(ASSETS_DIR)/CPY.TXT" -biblio "$(ASSETS_DIR)/BIB.TXT" -generic-boot $(IPFILE) \
 	-full-iso9660-filenames -o $(BUILD_ISO) $(ASSETS_DIR) $(ENTRYPOINT)

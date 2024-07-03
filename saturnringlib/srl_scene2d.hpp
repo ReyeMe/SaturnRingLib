@@ -15,25 +15,25 @@ namespace SRL
 
         /** @brief Base address of the gouraud table
          */
-        static const Uint16 GouraudTableBase = 0xe000;
+        static const uint16_t GouraudTableBase = 0xe000;
 
         struct EffectStore {
 
             /** @brief Gouraud table address
              */
-            Uint16 Gouraud;
+            uint16_t Gouraud;
 
             /** @brief Screen doors effect state
              */
-            Uint16 ScreenDoors:1;
+            uint16_t ScreenDoors:1;
 
             /** @brief Half-transparency effect state
              */
-            Uint16 HalfTransparency:1;
+            uint16_t HalfTransparency:1;
 
             /** @brief Reserved for future use
              */
-            Uint16 Reserved: 14;
+            uint16_t Reserved: 14;
         };
 
         /** @brief Stored effect state
@@ -53,7 +53,7 @@ namespace SRL
          * @param color Sprite color
          * @return Sprite command
          */
-        static constexpr inline SPRITE GetShapeCommand(Uint16 type, Types::HighColor color) 
+        static constexpr inline SPRITE GetShapeCommand(uint16_t type, Types::HighColor color) 
         {
             SPRITE sprite;
             sprite.COLR = color;
@@ -74,12 +74,12 @@ namespace SRL
          * @param texturePalette Palette override
          * @return Sprite attributes
          */
-        static constexpr inline SPR_ATTR GetSpriteAttribute(const Uint16 texture, SRL::CRAM::Palette* texturePalette)
+        static constexpr inline SPR_ATTR GetSpriteAttribute(const uint16_t texture, SRL::CRAM::Palette* texturePalette)
         {
-            Uint8 colorMode = CL32KRGB;
-            Uint16 palette = No_Palet;
+            uint8_t colorMode = CL32KRGB;
+            uint16_t palette = No_Palet;
             CRAM::TextureColorMode colorModeType = SRL::VDP1::Metadata[texture].ColorMode;
-            Uint16 paletteId = SRL::VDP1::Metadata[texture].PaletteId;
+            uint16_t paletteId = SRL::VDP1::Metadata[texture].PaletteId;
 
             if (texturePalette != nullptr)
             {
@@ -135,10 +135,10 @@ namespace SRL
 
         /** @brief List of all available sprite effects
          */
-        enum SpriteEffect : Uint8 {
+        enum SpriteEffect : uint8_t {
             
             /** @brief Gouraud shading
-             * @details Enables/disables gouraud shading for sprites.<br>Expected parameter is zero based index (**Uint16**) to a gouraud shading table to enable shading, or negative or no value to disable it.
+             * @details Enables/disables gouraud shading for sprites.<br>Expected parameter is zero based index (**uint16_t**) to a gouraud shading table to enable shading, or negative or no value to disable it.
              * @code {.cpp}
              * // Disable shading
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, -1);
@@ -186,11 +186,11 @@ namespace SRL
          * @param effect Effect id
          * @param data Effect parameter
          */
-        static inline void SetEffect(const SpriteEffect effect, const Sint32 data = -1) {
+        static inline void SetEffect(const SpriteEffect effect, const int32_t data = -1) {
             switch (effect)
             {
             case SpriteEffect::Gouraud:
-                Scene2D::Effects.Gouraud = data >= 0 ? (SRL::Scene2D::GouraudTableBase + ((Uint16)data & 0xffff)) : 0;
+                Scene2D::Effects.Gouraud = data >= 0 ? (SRL::Scene2D::GouraudTableBase + ((uint16_t)data & 0xffff)) : 0;
                 break;
             
             case SpriteEffect::ScreenDoors:
@@ -214,7 +214,7 @@ namespace SRL
          * @return True on success
          */
         static bool DrawSprite(
-            const Uint16 texture,
+            const uint16_t texture,
             SRL::CRAM::Palette* texturePalette,
             const Types::Vector2D location[4],
             const Types::Fxp depth)
@@ -233,7 +233,7 @@ namespace SRL
          * @param depth Depth sort value
          * @return True on success
          */
-        static bool DrawSprite(const Uint16 texture, const Types::Vector2D location[4], const Types::Fxp depth)
+        static bool DrawSprite(const uint16_t texture, const Types::Vector2D location[4], const Types::Fxp depth)
         {
             return Scene2D::DrawSprite(texture, nullptr, location, depth);
         }
@@ -247,7 +247,7 @@ namespace SRL
          * @return True on success
          */
         static bool DrawSprite(
-            const Uint16 texture,
+            const uint16_t texture,
             SRL::CRAM::Palette* texturePalette,
             const Types::Vector3D& location,
             const Types::Angle& angle = Types::Angle::FromRaw(0),
@@ -296,7 +296,7 @@ namespace SRL
          * @param scale Scale of the sprite
          * @return True on success
          */
-        static bool DrawSprite(const Uint16 texture, const Types::Vector3D& location, const Types::Angle& angle = Types::Angle::FromRaw(0), const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
+        static bool DrawSprite(const uint16_t texture, const Types::Vector3D& location, const Types::Angle& angle = Types::Angle::FromRaw(0), const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
         {
             return Scene2D::DrawSprite(texture, nullptr, location, angle, scale);
         }
@@ -307,7 +307,7 @@ namespace SRL
          * @param scale Scale of the sprite
          * @return True on success
          */
-        static bool DrawSprite(const Uint16 texture, const Types::Vector3D& location, const Types::Vector2D& scale)
+        static bool DrawSprite(const uint16_t texture, const Types::Vector3D& location, const Types::Vector2D& scale)
         {
             return Scene2D::DrawSprite(texture, nullptr, location, Types::Angle::FromRaw(0), scale);
         }
@@ -320,7 +320,7 @@ namespace SRL
          * @return True on success
          */
         static bool DrawSprite(
-            const Uint16 texture,
+            const uint16_t texture,
             SRL::CRAM::Palette* texturePalette,
             const Types::Vector3D& location,
             const Types::Vector2D& scale)

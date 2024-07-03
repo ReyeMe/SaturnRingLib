@@ -29,8 +29,8 @@ namespace SRL::Sound
             if (program.Exists() && areaMap.Exists())
             {
                 // Prepare temporary buffers
-                Uint8* programBuffer = new Uint8[program.Size.Bytes];
-                Uint8* areaMapBuffer = new Uint8[areaMap.Size.Bytes];
+                uint8_t* programBuffer = new uint8_t[program.Size.Bytes];
+                uint8_t* areaMapBuffer = new uint8_t[areaMap.Size.Bytes];
 
                 // Load driver
                 program.LoadBytes(0, program.Size.Bytes, programBuffer);
@@ -38,10 +38,10 @@ namespace SRL::Sound
 
                 // Initialize sound
                 SndIniDt init;
-                SND_INI_PRG_ADR(init) = (Uint16*)programBuffer;
-                SND_INI_PRG_SZ(init) = (Uint16)program.Size.Bytes;
-                SND_INI_ARA_ADR(init) = (Uint16*)areaMapBuffer;
-                SND_INI_ARA_SZ(init) = (Uint16)areaMap.Size.Bytes;
+                SND_INI_PRG_ADR(init) = (uint16_t*)programBuffer;
+                SND_INI_PRG_SZ(init) = (uint16_t)program.Size.Bytes;
+                SND_INI_ARA_ADR(init) = (uint16_t*)areaMapBuffer;
+                SND_INI_ARA_SZ(init) = (uint16_t)areaMap.Size.Bytes;
                 SND_Init(&init);
 	            SND_ChgMap(0);
 
@@ -53,9 +53,9 @@ namespace SRL::Sound
 
                 if (dsp.Exists())
                 {
-                    Uint8* dspProgram = new Uint8[dsp.Size.Bytes];
+                    uint8_t* dspProgram = new uint8_t[dsp.Size.Bytes];
                     dsp.LoadBytes(0, dsp.Size.Bytes, dspProgram);
-                    SND_MoveData((Uint16*)dspProgram, dsp.Size.Bytes, SND_KD_DSP_PRG, 1);
+                    SND_MoveData((uint16_t*)dspProgram, dsp.Size.Bytes, SND_KD_DSP_PRG, 1);
                     delete dspProgram;
                 }
 #endif
@@ -89,11 +89,11 @@ namespace SRL::Sound
 
         /** @brief Last frame playback was at
          */
-        inline static Sint32 LastLocation = 0x00;
+        inline static int32_t LastLocation = 0x00;
 
         /** @brief Track to play to
          */
-        inline static Uint16 TargetTrack = 0xff;
+        inline static uint16_t TargetTrack = 0xff;
 
         /** @brief Loop playback
          */
@@ -105,7 +105,7 @@ namespace SRL::Sound
 		 *  @param left Left channel audio volume (7 is max)
 		 *  @param right Right channle audio volume (7 is max)
 		 */
-		constexpr static void SetVolume(const Uint8 left, const Uint8 right)
+		constexpr static void SetVolume(const uint8_t left, const uint8_t right)
         {
             SND_SetCdDaLev(left, right);
         }
@@ -113,7 +113,7 @@ namespace SRL::Sound
 		/** @brief Set CD playback volume
 		 *  @param volume Audio volume (7 is max)
 		 */
-		constexpr static void SetVolume(const Uint8 volume)
+		constexpr static void SetVolume(const uint8_t volume)
         {
             Cdda::SetVolume(volume, volume);
         }
@@ -122,7 +122,7 @@ namespace SRL::Sound
 		 *  @param left Left channel volume (7 is max)
 		 *  @param right Right channel volume (7 is max)
 		 */
-		constexpr static void SetPan(const Uint8 left, const Uint8 right)
+		constexpr static void SetPan(const uint8_t left, const uint8_t right)
         {
             SND_SetCdDaPan(left, right);
         }
@@ -132,7 +132,7 @@ namespace SRL::Sound
 		 *  @param toTrack Ending track
 		 *  @param loop Whether to play the range of track again after it ends
 		 */
-		static void Play(const Uint16 fromTrack, const Uint16 toTrack, const bool loop)
+		static void Play(const uint16_t fromTrack, const uint16_t toTrack, const bool loop)
         {
             Cdda::TargetTrack = toTrack;
             Cdda::LoopPlayback = loop;
@@ -160,7 +160,7 @@ namespace SRL::Sound
 		 *  @param track Track number (in jo starts at 3)
 		 *  @param loop Whether to loop track after it ends
 		 */
-		constexpr static void PlaySingle(const Uint16 track, const bool loop)
+		constexpr static void PlaySingle(const uint16_t track, const bool loop)
 		{
             Cdda::Play(track, track, loop);
 		}
@@ -234,11 +234,11 @@ namespace SRL::Sound
             {
                 /** @brief Total volume of left channel
                  */
-                Uint16 LeftChannel;
+                uint16_t LeftChannel;
 
                 /** @brief Total volume of right channel
                  */
-                Uint16 RightChannel;
+                uint16_t RightChannel;
             };
             
 #if SRL_ENABLE_FREQ_ANALYSIS == 1 || DOXYGEN
@@ -249,15 +249,15 @@ namespace SRL::Sound
             {
                 /** @brief Volume of highs
                  */
-                Uint16 Highs;
+                uint16_t Highs;
 
                 /** @brief Volume of mids
                  */
-                Uint16 Mids;
+                uint16_t Mids;
 
                 /** @brief Volume of lows
                  */
-                Uint16 Lows;
+                uint16_t Lows;
             };
 #endif
 

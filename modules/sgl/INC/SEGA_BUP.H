@@ -22,14 +22,14 @@
 
 #include	<sega_xpt.h>
 
-#define	BUP_LIB_ADDRESS		(*(volatile Uint32 *)(0x6000350+8))
-#define	BUP_VECTOR_ADDRESS	(*(volatile Uint32 *)(0x6000350+4))
+#define	BUP_LIB_ADDRESS		(*(volatile uint32_t *)(0x6000350+8))
+#define	BUP_VECTOR_ADDRESS	(*(volatile uint32_t *)(0x6000350+4))
 
-/* ƒ†ƒjƒbƒg‚h‚c */
+/* ï¿½ï¿½ï¿½jï¿½bï¿½gï¿½hï¿½c */
 #define	BUP_MAIN_UNIT	(1)
 #define	BUP_CURTRIDGE	(2)
 
-/* Œ¾Œêí—Ş */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 #define	BUP_JAPANESE	(0)
 #define	BUP_ENGLISH	(1)
 #define	BUP_FRANCAIS	(2)
@@ -37,7 +37,7 @@
 #define	BUP_ESPANOL	(4)
 #define	BUP_ITALIANO	(5)
 
-/* ‘•’uó‘Ô */
+/* ï¿½ï¿½ï¿½uï¿½ï¿½ï¿½ */
 #define	BUP_NON			(1)
 #define	BUP_UNFORMAT		(2)
 #define	BUP_WRITE_PROTECT	(3)
@@ -48,44 +48,44 @@
 #define	BUP_BROKEN		(8)
 
 /******************************************
- * ‹L‰¯‘•’uÚ‘±î•ñƒe[ƒuƒ‹               *
+ * ï¿½Lï¿½ï¿½ï¿½ï¿½ï¿½uï¿½Ú‘ï¿½ï¿½ï¿½ï¿½eï¿½[ï¿½uï¿½ï¿½               *
  ******************************************/
 typedef struct BupConfig{
-	Uint16	unit_id;	/* ƒ†ƒjƒbƒg‚h‚c */
-	Uint16	partition;	/* ƒp[ƒeƒBƒVƒ‡ƒ“” */
+	uint16_t	unit_id;	/* ï¿½ï¿½ï¿½jï¿½bï¿½gï¿½hï¿½c */
+	uint16_t	partition;	/* ï¿½pï¿½[ï¿½eï¿½Bï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 } BupConfig;
 
 /******************************************
- * ƒXƒeƒCƒ^ƒXî•ñƒe[ƒuƒ‹                 *
+ * ï¿½Xï¿½eï¿½Cï¿½^ï¿½Xï¿½ï¿½ï¿½eï¿½[ï¿½uï¿½ï¿½                 *
  ******************************************/
 typedef	struct BupStat{
-	Uint32	totalsize;	/* ‘S—e—Ê(Byte) */
-	Uint32	totalblock;	/* ‘SƒuƒƒbƒN” */
-	Uint32	blocksize;	/* 1ƒuƒƒbƒN‚ÌƒTƒCƒY(Byte) */
-	Uint32	freesize;	/* ‹ó‚«—e—Ê */
-	Uint32	freeblock;	/* ‹óƒuƒƒbƒN” */
-	Uint32	datanum;
+	uint32_t	totalsize;	/* ï¿½Sï¿½eï¿½ï¿½(Byte) */
+	uint32_t	totalblock;	/* ï¿½Sï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½ï¿½ */
+	uint32_t	blocksize;	/* 1ï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½ÌƒTï¿½Cï¿½Y(Byte) */
+	uint32_t	freesize;	/* ï¿½ó‚«—eï¿½ï¿½ */
+	uint32_t	freeblock;	/* ï¿½ï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½ï¿½ */
+	uint32_t	datanum;
 } BupStat;
 
 /******************************************
- * ƒfƒBƒŒƒNƒgƒŠî•ñƒe[ƒuƒ‹               *
+ * ï¿½fï¿½Bï¿½ï¿½ï¿½Nï¿½gï¿½ï¿½ï¿½ï¿½ï¿½eï¿½[ï¿½uï¿½ï¿½               *
  ******************************************/
 typedef struct BupDir{
-	Uint8	filename[12];	/* ƒtƒ@ƒCƒ‹–¼ */
-	Uint8	comment[11];	/* ƒRƒƒ“ƒg */
-	Uint8	language;	/* ƒRƒƒ“ƒg‚ÌŒ¾Œêí—Ş */
-	Uint32	date;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒv */
-	Uint32	datasize;	/* ƒf[ƒ^ƒTƒCƒYiBytej */
-	Uint16	blocksize;	/* ƒf[ƒ^ƒTƒCƒYiƒuƒƒbƒN”j */
+	uint8_t	filename[12];	/* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ */
+	uint8_t	comment[11];	/* ï¿½Rï¿½ï¿½ï¿½ï¿½ï¿½g */
+	uint8_t	language;	/* ï¿½Rï¿½ï¿½ï¿½ï¿½ï¿½gï¿½ÌŒï¿½ï¿½ï¿½ï¿½ï¿½ */
+	uint32_t	date;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½v */
+	uint32_t	datasize;	/* ï¿½fï¿½[ï¿½^ï¿½Tï¿½Cï¿½Yï¿½iByteï¿½j */
+	uint16_t	blocksize;	/* ï¿½fï¿½[ï¿½^ï¿½Tï¿½Cï¿½Yï¿½iï¿½uï¿½ï¿½ï¿½bï¿½Nï¿½ï¿½ï¿½j */
 } BupDir;
 
 typedef struct BupDate {
-	Uint8	year;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒvi”N -1980j */
-	Uint8	month;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒviŒ 1`12j */
-	Uint8	day;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒvi“ú 1`31j */
-	Uint8	time;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒvi 0`23j */
-	Uint8	min;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒvi•ª 0`59j */
-	Uint8	week;		/* ƒ^ƒCƒ€ƒXƒ^ƒ“ƒv (—j“ú “ú0`“y6)*/
+	uint8_t	year;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½vï¿½iï¿½N -1980ï¿½j */
+	uint8_t	month;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½vï¿½iï¿½ï¿½ 1ï¿½`12ï¿½j */
+	uint8_t	day;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½vï¿½iï¿½ï¿½ 1ï¿½`31ï¿½j */
+	uint8_t	time;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½vï¿½iï¿½ï¿½ 0ï¿½`23ï¿½j */
+	uint8_t	min;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½vï¿½iï¿½ï¿½ 0ï¿½`59ï¿½j */
+	uint8_t	week;		/* ï¿½^ï¿½Cï¿½ï¿½ï¿½Xï¿½^ï¿½ï¿½ï¿½v (ï¿½jï¿½ï¿½ ï¿½ï¿½0ï¿½`ï¿½y6)*/
 } BupDate;
 
 #endif /* ifndef SEGA_BUP_H */
@@ -95,44 +95,44 @@ typedef struct BupDate {
 
 /* #if !(__GNUC__) */
 #ifndef __GNUC__
-#define	BUP_Init	((void (*)(Uint32 *lib,Uint32 *work,BupConfig tp[3])) (BUP_LIB_ADDRESS))
+#define	BUP_Init	((void (*)(uint32_t *lib,uint32_t *work,BupConfig tp[3])) (BUP_LIB_ADDRESS))
 #else
-#define	BUP_Init	((void (*)(volatile Uint32 *lib,Uint32 *work,BupConfig tp[3])) (BUP_LIB_ADDRESS))
+#define	BUP_Init	((void (*)(volatile uint32_t *lib,uint32_t *work,BupConfig tp[3])) (BUP_LIB_ADDRESS))
 #endif
 
-#define	BUP_SelPart	((Sint32 (*)(Uint32 device,Uint16 num)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+4)))
+#define	BUP_SelPart	((int32_t (*)(uint32_t device,uint16_t num)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+4)))
 
-#define	BUP_Format	((Sint32 (*)(Uint32 device)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+8)))
+#define	BUP_Format	((int32_t (*)(uint32_t device)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+8)))
 
-#define	BUP_Stat	((Sint32 (*)(Uint32 device,Uint32 datasize,BupStat *tb)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+12)))
+#define	BUP_Stat	((int32_t (*)(uint32_t device,uint32_t datasize,BupStat *tb)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+12)))
 
 /* #if !(__GNUC__) */
 #ifndef __GNUC__
-#define	BUP_Write	((Sint32 (*)(Uint32 device,BupDir *tb,Uint8 *data,Uint8 wmode)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+16)))
+#define	BUP_Write	((int32_t (*)(uint32_t device,BupDir *tb,uint8_t *data,uint8_t wmode)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+16)))
 #else
-#define	BUP_Write	((Sint32 (*)(Uint32 device,BupDir *tb,volatile Uint8 *data,Uint8 wmode)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+16)))
+#define	BUP_Write	((int32_t (*)(uint32_t device,BupDir *tb,volatile uint8_t *data,uint8_t wmode)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+16)))
 #endif
 
 /* #if !(__GNUC__) */
 #ifndef __GNUC__
-#define	BUP_Read	((Sint32 (*)(Uint32 device,Uint8 *filename,Uint8 *data)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+20)))
+#define	BUP_Read	((int32_t (*)(uint32_t device,uint8_t *filename,uint8_t *data)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+20)))
 #else
-#define	BUP_Read	((Sint32 (*)(Uint32 device,Uint8 *filename,volatile Uint8 *data)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+20)))
+#define	BUP_Read	((int32_t (*)(uint32_t device,uint8_t *filename,volatile uint8_t *data)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+20)))
 #endif
 
-#define	BUP_Delete	((Sint32 (*)(Uint32 device,Uint8 *filename)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+24)))
+#define	BUP_Delete	((int32_t (*)(uint32_t device,uint8_t *filename)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+24)))
 
-#define	BUP_Dir 	((Sint32 (*)(Uint32 device,Uint8 *filename,Uint16 tbsize,BupDir *tb)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+28)))
+#define	BUP_Dir 	((int32_t (*)(uint32_t device,uint8_t *filename,uint16_t tbsize,BupDir *tb)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+28)))
 
 /* #if !(__GNUC__) */
 #ifndef __GNUC__
-#define	BUP_Verify	((Sint32 (*)(Uint32 device,Uint8 *filename,Uint8 *data)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+32)))
+#define	BUP_Verify	((int32_t (*)(uint32_t device,uint8_t *filename,uint8_t *data)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+32)))
 #else
-#define	BUP_Verify	((Sint32 (*)(Uint32 device,Uint8 *filename,volatile Uint8 *data)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+32)))
+#define	BUP_Verify	((int32_t (*)(uint32_t device,uint8_t *filename,volatile uint8_t *data)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+32)))
 #endif
 
-#define	BUP_GetDate	((void (*)(Uint32 date,BupDate *tb)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+36)))
+#define	BUP_GetDate	((void (*)(uint32_t date,BupDate *tb)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+36)))
 
-#define	BUP_SetDate	((Uint32 (*)(BupDate *tb)) (*(Uint32 *)(BUP_VECTOR_ADDRESS+40)))
+#define	BUP_SetDate	((uint32_t (*)(BupDate *tb)) (*(uint32_t *)(BUP_VECTOR_ADDRESS+40)))
 
 #endif /* SEGA_BUP_PROTO */

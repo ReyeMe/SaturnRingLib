@@ -1,27 +1,27 @@
 /*
- * –¼Ì:        ƒVƒXƒeƒ€ ƒvƒƒOƒ‰ƒ€
+ * ï¿½ï¿½ï¿½ï¿½:        ï¿½Vï¿½Xï¿½eï¿½ï¿½ ï¿½vï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½ï¿½
  *
- * ƒtƒ@ƒCƒ‹–¼:  sega_sys.h
+ * ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½:  sega_sys.h
  *
- * –Ú“I:        BOOT ROM ‚ÌƒT[ƒrƒXƒ‹[ƒ`ƒ“‚ð’è‹`‚µ‚Ü‚·B
+ * ï¿½Ú“I:        BOOT ROM ï¿½ÌƒTï¿½[ï¿½rï¿½Xï¿½ï¿½ï¿½[ï¿½`ï¿½ï¿½ï¿½ï¿½ï¿½`ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½B
  *
- *              (1) SCU Š„‚èž‚ÝƒT[ƒrƒXƒ‹[ƒ`ƒ“‚Ì“o˜^ŽQÆ
- *              (2) SH2 Š„‚èž‚ÝƒxƒNƒ^‚Ì“o˜^ŽQÆ
- *              (3) ƒVƒXƒeƒ€ƒZƒ}ƒtƒH‚Ì‘€ì  (BOOT ROM V0.90ˆÈ~)
- *              (4) SCU Š„‚èž‚Ýƒ}ƒXƒN‚Ì‘€ì(BOOT ROM V0.90ˆÈ~)
- *              (5) ƒVƒXƒeƒ€ƒNƒƒbƒN‚ÌØ‘Ö‚¦(BOOT ROM V0.92ˆÈ~)
- *              (6) SCU Š„‚èž‚Ýƒ‹[ƒ`ƒ“—Dæ“x‚Ì•ÏX(SCU2.1ˆÈ~)
- *              (7) CD  ƒ}ƒ‹ƒ`ƒvƒŒ[ƒ„‚Ì‹N“®ŽÀs(CD•t‚«ƒ‚ƒfƒ‹—p)
- *              (8) ƒpƒ[ƒIƒ“ƒNƒŠƒAƒƒ‚ƒŠ‚Ì‘€ì (ROM V1.00ˆÈ~)
- *              (9) MPEG ƒ`ƒFƒbƒN(Š®—¹•œ‹AŒ^)    (ROM V1.00ˆÈ~)
+ *              (1) SCU ï¿½ï¿½ï¿½èžï¿½ÝƒTï¿½[ï¿½rï¿½Xï¿½ï¿½ï¿½[ï¿½`ï¿½ï¿½ï¿½Ì“oï¿½^ï¿½Qï¿½ï¿½
+ *              (2) SH2 ï¿½ï¿½ï¿½èžï¿½Ýƒxï¿½Nï¿½^ï¿½Ì“oï¿½^ï¿½Qï¿½ï¿½
+ *              (3) ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Zï¿½}ï¿½tï¿½Hï¿½Ì‘ï¿½ï¿½ï¿½  (BOOT ROM V0.90ï¿½È~)
+ *              (4) SCU ï¿½ï¿½ï¿½èžï¿½Ýƒ}ï¿½Xï¿½Nï¿½Ì‘ï¿½ï¿½ï¿½(BOOT ROM V0.90ï¿½È~)
+ *              (5) ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½ÌØ‘Ö‚ï¿½(BOOT ROM V0.92ï¿½È~)
+ *              (6) SCU ï¿½ï¿½ï¿½èžï¿½Ýƒï¿½ï¿½[ï¿½`ï¿½ï¿½ï¿½Dï¿½ï¿½xï¿½Ì•ÏX(SCU2.1ï¿½È~)
+ *              (7) CD  ï¿½}ï¿½ï¿½ï¿½`ï¿½vï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ì‹Nï¿½ï¿½ï¿½ï¿½ï¿½s(CDï¿½tï¿½ï¿½ï¿½ï¿½ï¿½fï¿½ï¿½ï¿½p)
+ *              (8) ï¿½pï¿½ï¿½ï¿½[ï¿½Iï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì‘ï¿½ï¿½ï¿½ (ROM V1.00ï¿½È~)
+ *              (9) MPEG ï¿½`ï¿½Fï¿½bï¿½N(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½^)    (ROM V1.00ï¿½È~)
  *
- *              sega_sys.lib‚ÅŠÖ”‚ð’è‹`‚µ‚Ü‚·BiVer.2.01ˆÈ~j
+ *              sega_sys.libï¿½ÅŠÖï¿½ï¿½ï¿½ï¿½`ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½Bï¿½iVer.2.01ï¿½È~ï¿½j
  *
- * Žg—p•û–@:
+ * ï¿½gï¿½pï¿½ï¿½ï¿½@:
  *
  *      void  Vfunc(void)
  *      {
- *           // ... ŽÀs•¶ ... //
+ *           // ... ï¿½ï¿½ï¿½sï¿½ï¿½ ... //
  *      }
  *
  *      extern void  Hihdr(void);
@@ -29,10 +29,10 @@
  *      void  test()
  *      {
  *           void (*tmp)();
- *           Sint32 rep;
- *           Uint32 msk, clk, lval1;
- *           Uint8  p0;
- *           const Uint32 PriTab[32] = {
+ *           int32_t rep;
+ *           uint32_t msk, clk, lval1;
+ *           uint8_t  p0;
+ *           const uint32_t PriTab[32] = {
  *              0x00f0ffff, 0x00e0fffe, 0x00d0fffc, 0x00c0fff8,
  *              0x00b0fff0, 0x00a0ffe0, 0x0090ffc0, 0x0080ff80,
  *              0x0080ff80, 0x0070fe00, 0x0070fe00, 0x0070fe00,
@@ -43,47 +43,47 @@
  *              0x0070fe00, 0x0070fe00, 0x0070fe00, 0x0070fe00,
  *           };
  *
- *           SYS_SETUINT(0x40, Vfunc);  // Vfunc() ‚ð VB-In Š„ž‚Ý—p‚É“o˜^   //
- *           tmp = SYS_GETUINT(0x41);   // Œ»Ý‚Ì VB-Out ƒ‹[ƒ`ƒ““o˜^‚ðŽQÆ  //
- *           SYS_SETUINT(0x41, 0);      // VB-Out ƒ‹[ƒ`ƒ“‚Ì“o˜^‚ðÁ‹Ž       //
+ *           SYS_SETUINT(0x40, Vfunc);  // Vfunc() ï¿½ï¿½ VB-In ï¿½ï¿½ï¿½ï¿½ï¿½Ý—pï¿½É“oï¿½^   //
+ *           tmp = SYS_GETUINT(0x41);   // ï¿½ï¿½ï¿½Ý‚ï¿½ VB-Out ï¿½ï¿½ï¿½[ï¿½`ï¿½ï¿½ï¿½oï¿½^ï¿½ï¿½ï¿½Qï¿½ï¿½  //
+ *           SYS_SETUINT(0x41, 0);      // VB-Out ï¿½ï¿½ï¿½[ï¿½`ï¿½ï¿½ï¿½Ì“oï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½       //
  *
- *           SYS_SETSINT(0x42, Hihdr);  // Hihdr() ‚ð HB-In ƒxƒNƒ^‚É“o˜^     //
- *           tmp = SYS_GETSINT(0x6e);   // Œ»Ý‚Ì DIVU ƒxƒNƒ^“o˜^‚ðŽQÆ      //
- *           SYS_SETSINT(0x6e, 0);      // DIVU ƒxƒNƒ^‚ðÄ‰Šú‰»             //
+ *           SYS_SETSINT(0x42, Hihdr);  // Hihdr() ï¿½ï¿½ HB-In ï¿½xï¿½Nï¿½^ï¿½É“oï¿½^     //
+ *           tmp = SYS_GETSINT(0x6e);   // ï¿½ï¿½ï¿½Ý‚ï¿½ DIVU ï¿½xï¿½Nï¿½^ï¿½oï¿½^ï¿½ï¿½ï¿½Qï¿½ï¿½      //
+ *           SYS_SETSINT(0x6e, 0);      // DIVU ï¿½xï¿½Nï¿½^ï¿½ï¿½ï¿½Äï¿½ï¿½ï¿½ï¿½ï¿½             //
  *
- *           rep = SYS_TASSEM(0x5);     // ƒZƒ}ƒtƒH 5 ‚ðƒeƒXƒg¥ƒAƒ“ƒh¥ƒZƒbƒg //
- *           SYS_CLRSEM(0x5);           // ƒZƒ}ƒtƒH 5 ‚ðƒNƒŠƒA               //
+ *           rep = SYS_TASSEM(0x5);     // ï¿½Zï¿½}ï¿½tï¿½H 5 ï¿½ï¿½ï¿½eï¿½Xï¿½gï¿½ï¿½Aï¿½ï¿½ï¿½hï¿½ï¿½Zï¿½bï¿½g //
+ *           SYS_CLRSEM(0x5);           // ï¿½Zï¿½}ï¿½tï¿½H 5 ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½A               //
  *
- *           SYS_SETSCUIM(0xfffffffe);  // VB-In Š„ž‚Ý‚Ì‚Ý‚ð‹–‰Â‚ÉÝ’è      //
- *           SYS_CHGSCUIM(0xfffffffc, 0); // VB-In, VB-Out ‚ð‹–‰Â‚É•ÏX      //
- *           SYS_CHGSCUIM(0xffffffff, 2); // VB-Out  ‚ð•s‹–‰Â‚É•ÏX          //
- *           msk = SYS_GETSCUIM;        // Œ»Ý‚Ì SCU Š„ž‚Ýƒ}ƒXƒN’l‚ðŽQÆ   //
+ *           SYS_SETSCUIM(0xfffffffe);  // VB-In ï¿½ï¿½ï¿½ï¿½ï¿½Ý‚Ì‚Ý‚ï¿½ï¿½ï¿½ï¿½Â‚ÉÝ’ï¿½      //
+ *           SYS_CHGSCUIM(0xfffffffc, 0); // VB-In, VB-Out ï¿½ï¿½ï¿½ï¿½ï¿½Â‚É•ÏX      //
+ *           SYS_CHGSCUIM(0xffffffff, 2); // VB-Out  ï¿½ï¿½sï¿½ï¿½ï¿½Â‚É•ÏX          //
+ *           msk = SYS_GETSCUIM;        // ï¿½ï¿½ï¿½Ý‚ï¿½ SCU ï¿½ï¿½ï¿½ï¿½ï¿½Ýƒ}ï¿½Xï¿½Nï¿½lï¿½ï¿½ï¿½Qï¿½ï¿½   //
  *
- *           SYS_CHGSYSCK(1);           // ƒVƒXƒeƒ€ƒNƒƒbƒN‚ð‚Q‚W‚l‚ÉØ‘Ö‚¦  //
- *           clk = SYS_GETSYSCK;        // Œ»Ý‚Ì ƒVƒXƒeƒ€ƒNƒƒbƒN’l‚ðŽQÆ   //
+ *           SYS_CHGSYSCK(1);           // ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½ï¿½ï¿½Qï¿½Wï¿½lï¿½ÉØ‘Ö‚ï¿½  //
+ *           clk = SYS_GETSYSCK;        // ï¿½ï¿½ï¿½Ý‚ï¿½ ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½bï¿½Nï¿½lï¿½ï¿½ï¿½Qï¿½ï¿½   //
  *                                      //   0: 26 MHz       1: 28 MHz       //
  *                                      //     320/640 pix/H   352/704 pix/H //
  *
- *           SYS_CHGUIPR(PriTab);       // ‚r‚b‚tŠ„‚èž‚Ýƒ‹[ƒ`ƒ“—Dæ“x•ÏX  //
+ *           SYS_CHGUIPR(PriTab);       // ï¿½rï¿½bï¿½tï¿½ï¿½ï¿½èžï¿½Ýƒï¿½ï¿½[ï¿½`ï¿½ï¿½ï¿½Dï¿½ï¿½xï¿½ÏX  //
  *
- *           SYS_EXECDMP();             // ‚b‚cƒ}ƒ‹ƒ`ƒvƒŒ[ƒ„‹N“®ŽÀs        //
+ *           SYS_EXECDMP();             // ï¿½bï¿½cï¿½}ï¿½ï¿½ï¿½`ï¿½vï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½s        //
  *
- *           p0 = SYS_PCLRMEM;          // ƒpƒ[ƒIƒ“ƒNƒŠƒAƒƒ‚ƒŠæ“ªƒoƒCƒg  //
- *           lval1 = *((Uint32*)&SYS_PCLRMEM+1); // ‚ÆŒã”¼ƒƒ“ƒOƒ[ƒh‚ðŽQÆ //
+ *           p0 = SYS_PCLRMEM;          // ï¿½pï¿½ï¿½ï¿½[ï¿½Iï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ“ªï¿½oï¿½Cï¿½g  //
+ *           lval1 = *((uint32_t*)&SYS_PCLRMEM+1); // ï¿½ÆŒã”¼ï¿½ï¿½ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½Qï¿½ï¿½ //
  *
- *           rep = SYS_CHKMPEG(0);      // ˆø”‚Í•K‚¸ 0. MANSYS.DOC ‚ÌŽg—p—á //
- *                                      // ‚É]‚Á‚Ä‚­‚¾‚³‚¢                  //
+ *           rep = SYS_CHKMPEG(0);      // ï¿½ï¿½ï¿½ï¿½ï¿½Í•Kï¿½ï¿½ 0. MANSYS.DOC ï¿½ÌŽgï¿½pï¿½ï¿½ //
+ *                                      // ï¿½É]ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                  //
  *      }
  *
- *      // ... •Ê‚Ìƒtƒ@ƒCƒ‹ ... //
+ *      // ... ï¿½Ê‚Ìƒtï¿½@ï¿½Cï¿½ï¿½ ... //
  *      #pragma interrupt(Hihdr)
  *      void  Hihdr(void)
  *      {
- *           // ... ŽÀs•¶ ... //
+ *           // ... ï¿½ï¿½ï¿½sï¿½ï¿½ ... //
  *      }
  *
  *
- * “ú•t:        1994/05/06  for BOOT 0.90,0.901,0.91  by T. S.
+ * ï¿½ï¿½ï¿½t:        1994/05/06  for BOOT 0.90,0.901,0.91  by T. S.
  *              1994/07/16  for BOOT 0.92x,0.95       by T. S.
  *              1994/07/29  for BOOT 0.96x,1.00       by T. S.
  *              1994/08/31  how to exec CD multi-player
@@ -91,7 +91,7 @@
  *              1995/03/31  MPEG check service
  *              1995/09/26  sega_sys.lib (Ver.2.01)   by M. M.
  *
- * ƒo[ƒWƒ‡ƒ“:  Ver.2.01
+ * ï¿½oï¿½[ï¿½Wï¿½ï¿½ï¿½ï¿½:  Ver.2.01
  *
  */
 
@@ -99,56 +99,56 @@
 #define SEGA_SYS_H
 
 /***********************************************************************
- *      ƒCƒ“ƒNƒ‹[ƒhƒtƒ@ƒCƒ‹
+ *      ï¿½Cï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½[ï¿½hï¿½tï¿½@ï¿½Cï¿½ï¿½
  ***********************************************************************/
 #include "sega_xpt.h"
 
 /***********************************************************************
- *      ˆ—ƒ}ƒNƒ
+ *      ï¿½ï¿½ï¿½ï¿½ï¿½}ï¿½Nï¿½ï¿½
  ***********************************************************************/
 #define SYS_SETUINT(_Num_, _Hdr_) \
-        ((**(volatile void(**)(Uint32, void*))0x6000300)((_Num_), (_Hdr_)))
+        ((**(volatile void(**)(uint32_t, void*))0x6000300)((_Num_), (_Hdr_)))
 #define SYS_GETUINT(_Num_) \
-        ((void*)(**(void(*(**)(Uint32))(Uint32))0x6000304)(_Num_))
+        ((void*)(**(void(*(**)(uint32_t))(uint32_t))0x6000304)(_Num_))
 
 #define SYS_SETSINT(_Num_, _Hdr_) \
-        ((**(volatile void(**)(Uint32, void*))0x6000310)((_Num_), (_Hdr_)))
+        ((**(volatile void(**)(uint32_t, void*))0x6000310)((_Num_), (_Hdr_)))
 #define SYS_GETSINT(_Num_) \
-        ((void*)(**(void(*(**)(Uint32))(Uint32))0x6000314)(_Num_))
+        ((void*)(**(void(*(**)(uint32_t))(uint32_t))0x6000314)(_Num_))
 
 #define SYS_TASSEM(_Num_) \
-        ((**(volatile Uint32(**)(Uint32))0x6000330)(_Num_))
+        ((**(volatile uint32_t(**)(uint32_t))0x6000330)(_Num_))
 #define SYS_CLRSEM(_Num_) \
-        ((**(volatile void(**)(Uint32))0x6000334)(_Num_))
+        ((**(volatile void(**)(uint32_t))0x6000334)(_Num_))
 
 #define SYS_SETSCUIM(_MaskPat_) \
-        ((**(volatile void(**)(Uint32))0x6000340)(_MaskPat_))
+        ((**(volatile void(**)(uint32_t))0x6000340)(_MaskPat_))
 #define SYS_CHGSCUIM(_AndMask_, _OrMask_) \
-        ((**(volatile void(**)(Uint32, Uint32))0x6000344)((_AndMask_), (_OrMask_)))
+        ((**(volatile void(**)(uint32_t, uint32_t))0x6000344)((_AndMask_), (_OrMask_)))
 #define SYS_GETSCUIM \
-        (*(volatile Uint32*)0x6000348)
+        (*(volatile uint32_t*)0x6000348)
 
 #define SYS_CHGSYSCK(_CkMode_) \
-        ((**(volatile void(**)(Uint32))0x6000320)(_CkMode_))
+        ((**(volatile void(**)(uint32_t))0x6000320)(_CkMode_))
 #define SYS_GETSYSCK \
-        (*(volatile Uint32*)0x6000324)
+        (*(volatile uint32_t*)0x6000324)
 
 #define SYS_CHGUIPR(_IprTab_) \
-        ((**(volatile void(**)(Uint32*))0x6000280)(_IprTab_))
+        ((**(volatile void(**)(uint32_t*))0x6000280)(_IprTab_))
 
 #define SYS_EXECDMP \
         (**(volatile void(**)(void))0x600026C)
 
 #define SYS_PCLRMEM \
-        (*(volatile Uint8*)0x6000210)
+        (*(volatile uint8_t*)0x6000210)
 
 #define SYS_CHKMPEG(_dummy_) \
-        ((**(volatile Sint32(**)(Sint32))0x6000274)(_dummy_))
+        ((**(volatile int32_t(**)(int32_t))0x6000274)(_dummy_))
 
 /***********************************************************************
- *      ŠÖ”‚ÌéŒ¾
+ *      ï¿½Öï¿½ï¿½ÌéŒ¾
  ***********************************************************************/
-void SYS_CheckTrack(Sint32 tno);
-void SYS_Exit(Sint32 code);
+void SYS_CheckTrack(int32_t tno);
+void SYS_Exit(int32_t code);
 
 #endif

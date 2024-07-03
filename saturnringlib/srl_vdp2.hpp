@@ -17,16 +17,16 @@ namespace SRL
          */
         inline static  void SetBackColor(const Types::HighColor& color)
         {
-            slBack1ColSet((void*)(VDP2_VRAM_A1 + 0x1fffe), (Uint16)color);
+            slBack1ColSet((void*)(VDP2_VRAM_A1 + 0x1fffe), (uint16_t)color);
         }
 
         /** @brief Set color for print
          * @param index Color index
          * @param color Color to set
          */
-        inline static  void SetPrintPaletteColor(const Uint16 index, const Types::HighColor& color)
+        inline static  void SetPrintPaletteColor(const uint16_t index, const Types::HighColor& color)
         {
-            *(((Types::HighColor*)CRAM::BaseAddress) + (1 + (index << 8))) = (Uint16)color;
+            *(((Types::HighColor*)CRAM::BaseAddress) + (1 + (index << 8))) = (uint16_t)color;
         }
 
         /** @brief Initialize VDP2

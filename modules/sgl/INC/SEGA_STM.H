@@ -1,10 +1,10 @@
 /*****************************************************************************
- *      ƒ\ƒtƒgƒEƒFƒAƒ‰ƒCƒuƒ‰ƒŠ
+ *      ï¿½\ï¿½tï¿½gï¿½Eï¿½Fï¿½Aï¿½ï¿½ï¿½Cï¿½uï¿½ï¿½ï¿½ï¿½
  *
  *      Copyright (c) 1994,1995,1996 SEGA
  *
- * Library: ƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€
- * Module : ŒöŠJ—pƒwƒbƒ_ƒtƒ@ƒCƒ‹
+ * Library: ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½
+ * Module : ï¿½ï¿½ï¿½Jï¿½pï¿½wï¿½bï¿½_ï¿½tï¿½@ï¿½Cï¿½ï¿½
  * File   : sega_stm.h
  * Date   : 1996-03-21
  * Version: 2.11
@@ -15,11 +15,11 @@
 #define     SEGA_STM_H
 
 /*****************************************************************************
- *      ƒCƒ“ƒNƒ‹[ƒhƒtƒ@ƒCƒ‹
+ *      ï¿½Cï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½[ï¿½hï¿½tï¿½@ï¿½Cï¿½ï¿½
  *****************************************************************************/
 #include        "sega_gfs.h"
 
-/* ƒo[ƒWƒ‡ƒ“   */
+/* ï¿½oï¿½[ï¿½Wï¿½ï¿½ï¿½ï¿½   */
                             /*             1         2         3         4  */
                             /*    1234567890123456789012345678901234567890  */
                             /*    ++++++++++++++++++++++++++++++++          */
@@ -31,232 +31,232 @@
 #define STM_VERSION_LEN 32
 
 /*****************************************************************************
- *      ’è”ƒ}ƒNƒ
+ *      ï¿½è”ï¿½}ï¿½Nï¿½ï¿½
  *****************************************************************************/
 
 #define STM_LONG_MAX    0x7fffffff
 
-/* ƒ‹[ƒvÄ¶‚Ì“Ç‚İ‚İw’è           */
+/* ï¿½ï¿½ï¿½[ï¿½vï¿½Äï¿½ï¿½ï¿½ï¿½Ì“Ç‚İï¿½ï¿½İwï¿½ï¿½           */
 enum StmLoopRead {
-    STM_LOOP_READ       = TRUE,         /* ƒ‹[ƒvÄ¶“Ç‚İ‚İ‚ğ‚·‚é   */
-    STM_LOOP_NOREAD     = FALSE,        /* ƒ‹[ƒvÄ¶“Ç‚İ‚İ‚ğ‚µ‚È‚¢ */
+    STM_LOOP_READ       = TRUE,         /* ï¿½ï¿½ï¿½[ï¿½vï¿½Äï¿½ï¿½ï¿½ï¿½Ç‚İï¿½ï¿½İ‚ï¿½ï¿½ï¿½ï¿½ï¿½   */
+    STM_LOOP_NOREAD     = FALSE,        /* ï¿½ï¿½ï¿½[ï¿½vï¿½Äï¿½ï¿½ï¿½ï¿½Ç‚İï¿½ï¿½İ‚ï¿½ï¿½ï¿½ï¿½È‚ï¿½ */
     STM_LOOP_END
 };
 
-/* ƒ‹[ƒvƒXƒgƒŠ[ƒ€‚ğæ“ªƒXƒgƒŠ[ƒ€‚Éİ’è‚·‚é   */
+/* ï¿½ï¿½ï¿½[ï¿½vï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½æ“ªï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Éİ’è‚·ï¿½ï¿½   */
 #define STM_LOOP_DFL    ((StmHn)(0xffffffff))
 
-/* –³ŒÀ‰ñƒ‹[ƒv‚Ìw’è                   */
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ñƒ‹[ï¿½vï¿½Ìwï¿½ï¿½                   */
 #define STM_LOOP_ENDLESS        STM_LONG_MAX
 
-/* ƒXƒgƒŠ[ƒ€ƒAƒNƒZƒXó‘Ô(acstat)       */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Aï¿½Nï¿½Zï¿½Xï¿½ï¿½ï¿½(acstat)       */
 enum StmAcStat {
-    STM_EXEC_COMPLETED  = 0x100,        /* ƒAƒNƒZƒXI—¹                 */
-    STM_EXEC_PAUSE      = 0x101,        /* ƒAƒNƒZƒXˆê’â~’†           */
-    STM_EXEC_DOING      = 0x102,        /* ƒAƒNƒZƒX’†                   */
-    STM_EXEC_WAIT       = 0x103,        /* “]‘—ƒQ[ƒg‚ÌŠJ‚«‘Ò‚¿ó‘Ô     */
-    STM_EXEC_TSKEND     = 0x104,        /* ‘¦•œ‹Aˆ—Š®—¹             */
+    STM_EXEC_COMPLETED  = 0x100,        /* ï¿½Aï¿½Nï¿½Zï¿½Xï¿½Iï¿½ï¿½                 */
+    STM_EXEC_PAUSE      = 0x101,        /* ï¿½Aï¿½Nï¿½Zï¿½Xï¿½êï¿½ï¿½~ï¿½ï¿½           */
+    STM_EXEC_DOING      = 0x102,        /* ï¿½Aï¿½Nï¿½Zï¿½Xï¿½ï¿½                   */
+    STM_EXEC_WAIT       = 0x103,        /* ï¿½]ï¿½ï¿½ï¿½Qï¿½[ï¿½gï¿½ÌŠJï¿½ï¿½ï¿½Ò‚ï¿½ï¿½ï¿½ï¿½     */
+    STM_EXEC_TSKEND     = 0x104,        /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½             */
     STM_EXEC_END
 };
 
 
-/* “]‘—ƒ†ƒjƒbƒgƒTƒCƒY           */
+/* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½jï¿½bï¿½gï¿½Tï¿½Cï¿½Y           */
 enum StmUnitSize {
-    STM_UNIT_FORM1      = 2048,         /* MODE1,MODE2Form1ƒZƒNƒ^ƒTƒCƒY */
-    STM_UNIT_FORM2      = 2324,         /* MODE2Form2ƒZƒNƒ^ƒTƒCƒY       */
-    STM_UNIT_WORD       = 2,            /* ƒ[ƒh                       */
-    STM_UNIT_BYTE       = 1,            /* ƒoƒCƒg                       */
+    STM_UNIT_FORM1      = 2048,         /* MODE1,MODE2Form1ï¿½Zï¿½Nï¿½^ï¿½Tï¿½Cï¿½Y */
+    STM_UNIT_FORM2      = 2324,         /* MODE2Form2ï¿½Zï¿½Nï¿½^ï¿½Tï¿½Cï¿½Y       */
+    STM_UNIT_WORD       = 2,            /* ï¿½ï¿½ï¿½[ï¿½h                       */
+    STM_UNIT_BYTE       = 1,            /* ï¿½oï¿½Cï¿½g                       */
     STM_UNIT_END
 };
 
 
-/* ƒXƒgƒŠ[ƒ€î•ñ                       */
-#define STM_KEY_NONE    (-1)            /* ŠeƒXƒgƒŠ[ƒ€ƒL[‘I‘ğ‚ğ–³‹   */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½                       */
+#define STM_KEY_NONE    (-1)            /* ï¿½eï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Lï¿½[ï¿½Iï¿½ï¿½ï¿½ğ–³ï¿½   */
 
-/* “Ç‚İ‚İƒZƒNƒ^”ÍˆÍ                   */
+/* ï¿½Ç‚İï¿½ï¿½İƒZï¿½Nï¿½^ï¿½Íˆï¿½                   */
 enum StmFad {
-    STM_FAD_CDTOP       = 150,          /* ƒfƒBƒXƒNæ“ªFAD              */
-    STM_FAD_CDEND       = STM_LONG_MAX  /* ƒfƒBƒXƒNI—¹–˜“Ç‚Şê‡‚ÌƒZƒNƒ^”*/
+    STM_FAD_CDTOP       = 150,          /* ï¿½fï¿½Bï¿½Xï¿½Nï¿½æ“ªFAD              */
+    STM_FAD_CDEND       = STM_LONG_MAX  /* ï¿½fï¿½Bï¿½Xï¿½Nï¿½Iï¿½ï¿½ï¿½ï¿½ï¿½Ç‚Şê‡ï¿½ÌƒZï¿½Nï¿½^ï¿½ï¿½*/
 };
 
 
-/* CDƒoƒbƒtƒ@ƒZƒNƒ^ˆÊ’u                 */
+/* CDï¿½oï¿½bï¿½tï¿½@ï¿½Zï¿½Nï¿½^ï¿½Ê’u                 */
 enum StmSctPos {
-    STM_CDBUF_TOP       = 0,            /* ƒoƒbƒtƒ@‹æ‰ææ“ª             */
-    STM_CDBUF_END       = 0xffff        /* ‘SƒZƒNƒ^”                   */
+    STM_CDBUF_TOP       = 0,            /* ï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½æ“ª             */
+    STM_CDBUF_END       = 0xffff        /* ï¿½Sï¿½Zï¿½Nï¿½^ï¿½ï¿½                   */
 };
 
-/* ƒI[ƒvƒ““Ç‚İ‚İƒUƒuƒ‚[ƒhİ’è—p   */
+/* ï¿½Iï¿½[ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½Ç‚İï¿½ï¿½İƒUï¿½uï¿½ï¿½ï¿½[ï¿½hï¿½İ’ï¿½p   */
 enum StmSctType {
-    STM_SM_EOR          = CDC_SM_EOR,           /* ƒŒƒR[ƒhÅŒã‚ÌƒZƒNƒ^ */
-    STM_SM_VIDEO        = CDC_SM_VIDEO,         /* ƒrƒfƒIƒZƒNƒ^         */
-    STM_SM_AUDIO        = CDC_SM_AUDIO,         /* ƒI[ƒfƒBƒIƒZƒNƒ^     */
-    STM_SM_DATA         = CDC_SM_DATA,          /* ƒf[ƒ^ƒZƒNƒ^         */
-    STM_SM_TRIG         = CDC_SM_TRIG,          /* ƒgƒŠƒK[ƒrƒbƒg       */
-    STM_SM_FORM         = CDC_SM_FORM,          /* ƒtƒH[ƒ€ƒrƒbƒg       */
-    STM_SM_RT           = CDC_SM_RT,            /* ƒŠƒAƒ‹ƒ^ƒCƒ€ƒZƒNƒ^   */
-    STM_SM_EOF          = CDC_SM_EOF,           /* ƒtƒ@ƒCƒ‹ÅŒã‚ÌƒZƒNƒ^ */
+    STM_SM_EOR          = CDC_SM_EOR,           /* ï¿½ï¿½ï¿½Rï¿½[ï¿½hï¿½ÅŒï¿½ÌƒZï¿½Nï¿½^ */
+    STM_SM_VIDEO        = CDC_SM_VIDEO,         /* ï¿½rï¿½fï¿½Iï¿½Zï¿½Nï¿½^         */
+    STM_SM_AUDIO        = CDC_SM_AUDIO,         /* ï¿½Iï¿½[ï¿½fï¿½Bï¿½Iï¿½Zï¿½Nï¿½^     */
+    STM_SM_DATA         = CDC_SM_DATA,          /* ï¿½fï¿½[ï¿½^ï¿½Zï¿½Nï¿½^         */
+    STM_SM_TRIG         = CDC_SM_TRIG,          /* ï¿½gï¿½ï¿½ï¿½Kï¿½[ï¿½rï¿½bï¿½g       */
+    STM_SM_FORM         = CDC_SM_FORM,          /* ï¿½tï¿½Hï¿½[ï¿½ï¿½ï¿½rï¿½bï¿½g       */
+    STM_SM_RT           = CDC_SM_RT,            /* ï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½^ï¿½Cï¿½ï¿½ï¿½Zï¿½Nï¿½^   */
+    STM_SM_EOF          = CDC_SM_EOF,           /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ÅŒï¿½ÌƒZï¿½Nï¿½^ */
     STM_SM_END
 };
 
 
-/* Å‘å“]‘—ƒZƒNƒ^”                     */
+/* ï¿½Å‘ï¿½]ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½                     */
 #define STM_TR_ALL      STM_LONG_MAX
 
 
-/* “]‘—ƒQ[ƒgó‘Ô                       */
+/* ï¿½]ï¿½ï¿½ï¿½Qï¿½[ï¿½gï¿½ï¿½ï¿½                       */
 enum StmGate {
-    STM_GATE_OPEN       = 0x300,                /* ŠJ‚«                 */
-    STM_GATE_CLOSE      = 0x301,                /* •Â‚¶                 */
+    STM_GATE_OPEN       = 0x300,                /* ï¿½Jï¿½ï¿½                 */
+    STM_GATE_CLOSE      = 0x301,                /* ï¿½Â‚ï¿½                 */
     STM_GATE_END
 };
 
 
-/* “]‘—ƒ‚[ƒh                   */
+/* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½h                   */
 enum StmTrMode {
-    STM_TR_SCU          = GFS_TMODE_SCU,        /* SCU‚É‚æ‚éDMA         */
-    STM_TR_SDMA0        = GFS_TMODE_SDMA0,      /* CPUƒTƒCƒNƒ‹ƒXƒ`[ƒ‹  */
-    STM_TR_SDMA1        = GFS_TMODE_SDMA1,      /* CPUƒTƒCƒNƒ‹ƒXƒ`[ƒ‹  */
-    STM_TR_CPU          = GFS_TMODE_CPU,        /* ƒ\ƒtƒgƒEƒGƒA“]‘—     */
+    STM_TR_SCU          = GFS_TMODE_SCU,        /* SCUï¿½É‚ï¿½ï¿½DMA         */
+    STM_TR_SDMA0        = GFS_TMODE_SDMA0,      /* CPUï¿½Tï¿½Cï¿½Nï¿½ï¿½ï¿½Xï¿½`ï¿½[ï¿½ï¿½  */
+    STM_TR_SDMA1        = GFS_TMODE_SDMA1,      /* CPUï¿½Tï¿½Cï¿½Nï¿½ï¿½ï¿½Xï¿½`ï¿½[ï¿½ï¿½  */
+    STM_TR_CPU          = GFS_TMODE_CPU,        /* ï¿½\ï¿½tï¿½gï¿½Eï¿½Gï¿½Aï¿½]ï¿½ï¿½     */
     STM_TR_END
 };
 
 
-/* ŠÖ”ID                       */
+/* ï¿½Öï¿½ID                       */
 enum StmFuncId {
-    STM_INIT            = 0x300,        /* ƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€‰Šú‰»     */
-    STM_OPENGRP         = 0x301,        /* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv‚ÌƒI[ƒvƒ“ */
-    STM_CLOSEGRP        = 0x302,        /* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv‚ÌƒNƒ[ƒY */
-    STM_GETSTMNUM       = 0x303,        /* ƒXƒgƒŠ[ƒ€”‚Ìæ“¾           */
-    STM_GETSTMHNDL      = 0x304,        /* ƒXƒgƒŠ[ƒ€ƒnƒ“ƒhƒ‹‚Ìæ“¾     */
-    STM_SETCDBUFFUNC    = 0x305,        /* ƒoƒbƒtƒ@ƒTƒCƒYŠÄ‹ŠÖ”‚Ì“o˜^ */
-    STM_OPENFID         = 0x306,        /* ¯•Êq‚É‚æ‚éƒI[ƒvƒ“         */
-    STM_OPENFRANGE      = 0x307,        /* ƒZƒNƒ^ˆÊ’u‚É‚æ‚éƒI[ƒvƒ“     */
-    STM_OPENRESI        = 0x308,        /* í’“ƒXƒgƒŠ[ƒ€‚ÌƒI[ƒvƒ“     */
-    STM_CLOSE           = 0x309,        /* ƒXƒgƒŠ[ƒ€‚ÌƒNƒ[ƒY         */
-    STM_SETKEY          = 0x310,        /* ƒXƒgƒŠ[ƒ€ƒL[‚Ìİ’è         */
-    STM_GETINFO         = 0x311,        /* ƒXƒgƒŠ[ƒ€î•ñ‚Ìæ“¾         */
-    STM_SCTTOWORD       = 0x312,        /* ƒZƒNƒ^”‚©‚çƒ[ƒh”‚Ö‚Ì•ÏŠ· */
-    STM_WORDTOSCT       = 0x313,        /* ƒ[ƒh”‚©‚çƒZƒNƒ^”‚Ö‚Ì•ÏŠ· */
-    STM_SETALIAS        = 0x314,        /* ƒGƒCƒŠƒAƒX‚Ìİ’è             */
-    STM_UNSETALIAS      = 0x315,        /* ƒGƒCƒŠƒAƒX‚Ì‰ğœ             */
-    STM_SETTRBUF        = 0x316,        /* “]‘——Ìˆæ‚Ìİ’è               */
-    STM_SETTRFUNC       = 0x317,        /* “]‘—ŠÖ”‚Ìİ’è               */
-    STM_STARTTRANS      = 0x318,        /* “]‘—ŠÖ”‚É‚¨‚¯‚é“]‘—ŠJn     */
-    STM_SETTRGATE       = 0x319,        /* “]‘—ƒQ[ƒg‚ÌŠJ•Â             */
-    STM_SETTRPARA       = 0x320,        /* Å‘å“]‘—ƒZƒNƒ^”‚Ìİ’è       */
-    STM_SETTRFAD        = 0x321,        /* “]‘—ŠJnFAD‚Ìİ’è            */
-    STM_SETTRMODE       = 0x322,        /* “]‘—ƒ‚[ƒh‚Ìİ’è             */
-    STM_RESETTRBUF      = 0x323,        /* “]‘——Ìˆæ‚ÌƒŠƒZƒbƒg           */
-    STM_GETNUMCDBUF     = 0x324,        /* CDƒoƒbƒtƒ@—LŒøƒZƒNƒ^”‚Ìæ“¾ */
-    STM_GETSCTINFO      = 0x325,        /* “Ç‚İ‚İƒZƒNƒ^î•ñ‚Ìæ“¾     */
-    STM_GETLENTRBUF     = 0x326,        /* “]‘——Ìˆæ‚Ìƒf[ƒ^”‚Ìæ“¾     */
-    STM_ISTRBUFFULL     = 0x327,        /* “]‘——Ìˆæƒtƒ‹‚Ìƒ`ƒFƒbƒN       */
-    STM_ISTRANS         = 0x328,        /* “]‘—’†‚Ìƒ`ƒFƒbƒN             */
-    STM_SETEXECGRP      = 0x329,        /* ƒT[ƒoÀsƒOƒ‹[ƒv‚Ìw’è     */
-    STM_EXECSERVER      = 0x330,        /* ƒT[ƒo‚ÌÀs                 */
-    STM_MOVEPICKUP      = 0x331,        /* ƒsƒbƒNƒAƒbƒv‚ÌˆÚ“®           */
-    STM_SETLOOP         = 0x332,        /* ƒ‹[ƒvƒXƒgƒŠ[ƒ€‚Ìw’è       */
-    STM_GETLOOPCNT      = 0x333,        /* ƒ‹[ƒvƒJƒEƒ“ƒ^‚Ìæ“¾         */
-    STM_GETEXECSTAT     = 0x334,        /* Àsó‘Ô‚Ìæ“¾               */
-    STM_ISCOMPLETE      = 0x335,        /* ÀsI—¹‚Ìƒ`ƒFƒbƒN           */
-    STM_EXECTRANS       = 0x336,        /* ƒXƒgƒŠ[ƒ€ƒf[ƒ^‚Ì“]‘—       */
-    STM_CONNECTCDBUF    = 0x337,        /* i‚è‚ÆCDƒoƒbƒtƒ@‹æ‰æ‚ÌÚ‘±   */
-    STM_MOVECDBUF       = 0x338,        /* CDƒoƒbƒtƒ@ƒf[ƒ^‚ÌˆÚ“®       */
-    STM_ERASECDBUF      = 0x339,        /* CDƒoƒbƒtƒ@ƒf[ƒ^‚ÌÁ‹       */
-    STM_SETERRFUNC      = 0x340,        /* ƒGƒ‰[ŠÖ”‚Ì“o˜^             */
-    STM_GETERRSTAT      = 0x341,        /* ƒGƒ‰[ó‘Ô‚Ìæ“¾             */
+    STM_INIT            = 0x300,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½     */
+    STM_OPENGRP         = 0x301,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½ÌƒIï¿½[ï¿½vï¿½ï¿½ */
+    STM_CLOSEGRP        = 0x302,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½ÌƒNï¿½ï¿½ï¿½[ï¿½Y */
+    STM_GETSTMNUM       = 0x303,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Ìæ“¾           */
+    STM_GETSTMHNDL      = 0x304,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìæ“¾     */
+    STM_SETCDBUFFUNC    = 0x305,        /* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½Äï¿½ï¿½Öï¿½ï¿½Ì“oï¿½^ */
+    STM_OPENFID         = 0x306,        /* ï¿½ï¿½ï¿½Êqï¿½É‚ï¿½ï¿½Iï¿½[ï¿½vï¿½ï¿½         */
+    STM_OPENFRANGE      = 0x307,        /* ï¿½Zï¿½Nï¿½^ï¿½Ê’uï¿½É‚ï¿½ï¿½Iï¿½[ï¿½vï¿½ï¿½     */
+    STM_OPENRESI        = 0x308,        /* ï¿½í’“ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌƒIï¿½[ï¿½vï¿½ï¿½     */
+    STM_CLOSE           = 0x309,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌƒNï¿½ï¿½ï¿½[ï¿½Y         */
+    STM_SETKEY          = 0x310,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Lï¿½[ï¿½Ìİ’ï¿½         */
+    STM_GETINFO         = 0x311,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Ìæ“¾         */
+    STM_SCTTOWORD       = 0x312,        /* ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½çƒï¿½[ï¿½hï¿½ï¿½ï¿½Ö‚Ì•ÏŠï¿½ */
+    STM_WORDTOSCT       = 0x313,        /* ï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½Ö‚Ì•ÏŠï¿½ */
+    STM_SETALIAS        = 0x314,        /* ï¿½Gï¿½Cï¿½ï¿½ï¿½Aï¿½Xï¿½Ìİ’ï¿½             */
+    STM_UNSETALIAS      = 0x315,        /* ï¿½Gï¿½Cï¿½ï¿½ï¿½Aï¿½Xï¿½Ì‰ï¿½ï¿½ï¿½             */
+    STM_SETTRBUF        = 0x316,        /* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½Ìİ’ï¿½               */
+    STM_SETTRFUNC       = 0x317,        /* ï¿½]ï¿½ï¿½ï¿½Öï¿½ï¿½Ìİ’ï¿½               */
+    STM_STARTTRANS      = 0x318,        /* ï¿½]ï¿½ï¿½ï¿½Öï¿½ï¿½É‚ï¿½ï¿½ï¿½ï¿½ï¿½]ï¿½ï¿½ï¿½Jï¿½n     */
+    STM_SETTRGATE       = 0x319,        /* ï¿½]ï¿½ï¿½ï¿½Qï¿½[ï¿½gï¿½ÌŠJï¿½ï¿½             */
+    STM_SETTRPARA       = 0x320,        /* ï¿½Å‘ï¿½]ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½Ìİ’ï¿½       */
+    STM_SETTRFAD        = 0x321,        /* ï¿½]ï¿½ï¿½ï¿½Jï¿½nFADï¿½Ìİ’ï¿½            */
+    STM_SETTRMODE       = 0x322,        /* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½hï¿½Ìİ’ï¿½             */
+    STM_RESETTRBUF      = 0x323,        /* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½Ìƒï¿½ï¿½Zï¿½bï¿½g           */
+    STM_GETNUMCDBUF     = 0x324,        /* CDï¿½oï¿½bï¿½tï¿½@ï¿½Lï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½Ìæ“¾ */
+    STM_GETSCTINFO      = 0x325,        /* ï¿½Ç‚İï¿½ï¿½İƒZï¿½Nï¿½^ï¿½ï¿½ï¿½Ìæ“¾     */
+    STM_GETLENTRBUF     = 0x326,        /* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½Ìƒfï¿½[ï¿½^ï¿½ï¿½ï¿½Ìæ“¾     */
+    STM_ISTRBUFFULL     = 0x327,        /* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½tï¿½ï¿½ï¿½Ìƒ`ï¿½Fï¿½bï¿½N       */
+    STM_ISTRANS         = 0x328,        /* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒ`ï¿½Fï¿½bï¿½N             */
+    STM_SETEXECGRP      = 0x329,        /* ï¿½Tï¿½[ï¿½oï¿½ï¿½ï¿½sï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½Ìwï¿½ï¿½     */
+    STM_EXECSERVER      = 0x330,        /* ï¿½Tï¿½[ï¿½oï¿½Ìï¿½ï¿½s                 */
+    STM_MOVEPICKUP      = 0x331,        /* ï¿½sï¿½bï¿½Nï¿½Aï¿½bï¿½vï¿½ÌˆÚ“ï¿½           */
+    STM_SETLOOP         = 0x332,        /* ï¿½ï¿½ï¿½[ï¿½vï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ìwï¿½ï¿½       */
+    STM_GETLOOPCNT      = 0x333,        /* ï¿½ï¿½ï¿½[ï¿½vï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½Ìæ“¾         */
+    STM_GETEXECSTAT     = 0x334,        /* ï¿½ï¿½ï¿½sï¿½ï¿½Ô‚Ìæ“¾               */
+    STM_ISCOMPLETE      = 0x335,        /* ï¿½ï¿½ï¿½sï¿½Iï¿½ï¿½ï¿½Ìƒ`ï¿½Fï¿½bï¿½N           */
+    STM_EXECTRANS       = 0x336,        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½fï¿½[ï¿½^ï¿½Ì“]ï¿½ï¿½       */
+    STM_CONNECTCDBUF    = 0x337,        /* ï¿½iï¿½ï¿½ï¿½CDï¿½oï¿½bï¿½tï¿½@ï¿½ï¿½ï¿½ÌÚ‘ï¿½   */
+    STM_MOVECDBUF       = 0x338,        /* CDï¿½oï¿½bï¿½tï¿½@ï¿½fï¿½[ï¿½^ï¿½ÌˆÚ“ï¿½       */
+    STM_ERASECDBUF      = 0x339,        /* CDï¿½oï¿½bï¿½tï¿½@ï¿½fï¿½[ï¿½^ï¿½Ìï¿½ï¿½ï¿½       */
+    STM_SETERRFUNC      = 0x340,        /* ï¿½Gï¿½ï¿½ï¿½[ï¿½Öï¿½ï¿½Ì“oï¿½^             */
+    STM_GETERRSTAT      = 0x341,        /* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½Ô‚Ìæ“¾             */
     STM_FUNC_END
 };
 
 
-/* ƒGƒ‰[ƒR[ƒh         */
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½Rï¿½[ï¿½h         */
 enum StmErrCode {
-    STM_ERR_OK          = GFS_ERR_OK,           /* ³íI—¹             */
-    STM_ERR_CDRD        = GFS_ERR_CDRD,         /* CDƒŠ[ƒhƒGƒ‰[       */
-    STM_ERR_CDNODISC    = GFS_ERR_CDNODISC,     /* CD‚ğƒZƒbƒg‚µ‚Ä‚¢‚È‚¢ */
-    STM_ERR_FID         = GFS_ERR_FID,          /* ƒtƒ@ƒCƒ‹¯•Êq•s³   */
-    STM_ERR_HNDL        = GFS_ERR_HNDL,         /* ƒnƒ“ƒhƒ‹‚ª•s³       */
-    STM_ERR_NUM         = GFS_ERR_NUM,          /* ƒoƒCƒg”‚È‚Ç‚ª•‰     */
-    STM_ERR_PARA        = GFS_ERR_PARA,         /* ƒpƒ‰ƒ[ƒ^‚ª•s³     */
-    STM_ERR_NOHNDL      = GFS_ERR_NOHNDL,       /* ƒnƒ“ƒhƒ‹‚É‹ó‚«‚ª‚È‚¢ */
-    STM_ERR_PUINUSE     = GFS_ERR_PUINUSE,      /* ƒsƒbƒNƒAƒbƒv“®ì’†   */
-    STM_ERR_TMOUT       = GFS_ERR_TMOUT,        /* ƒ^ƒCƒ€ƒAƒEƒg         */
-    STM_ERR_CDOPEN      = GFS_ERR_CDOPEN,       /* ƒgƒŒƒC‚ªŠJ‚¢‚Ä‚¢‚é   */
-    STM_ERR_FATAL       = GFS_ERR_FATAL,        /* CD‚ªFATALó‘Ô        */
+    STM_ERR_OK          = GFS_ERR_OK,           /* ï¿½ï¿½ï¿½ï¿½Iï¿½ï¿½             */
+    STM_ERR_CDRD        = GFS_ERR_CDRD,         /* CDï¿½ï¿½ï¿½[ï¿½hï¿½Gï¿½ï¿½ï¿½[       */
+    STM_ERR_CDNODISC    = GFS_ERR_CDNODISC,     /* CDï¿½ï¿½ï¿½Zï¿½bï¿½gï¿½ï¿½ï¿½Ä‚ï¿½ï¿½È‚ï¿½ */
+    STM_ERR_FID         = GFS_ERR_FID,          /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ï¿½ï¿½Êqï¿½sï¿½ï¿½   */
+    STM_ERR_HNDL        = GFS_ERR_HNDL,         /* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½sï¿½ï¿½       */
+    STM_ERR_NUM         = GFS_ERR_NUM,          /* ï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½È‚Ç‚ï¿½ï¿½ï¿½     */
+    STM_ERR_PARA        = GFS_ERR_PARA,         /* ï¿½pï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½^ï¿½ï¿½ï¿½sï¿½ï¿½     */
+    STM_ERR_NOHNDL      = GFS_ERR_NOHNDL,       /* ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½É‹ó‚«‚ï¿½ï¿½È‚ï¿½ */
+    STM_ERR_PUINUSE     = GFS_ERR_PUINUSE,      /* ï¿½sï¿½bï¿½Nï¿½Aï¿½bï¿½vï¿½ï¿½ï¿½ì’†   */
+    STM_ERR_TMOUT       = GFS_ERR_TMOUT,        /* ï¿½^ï¿½Cï¿½ï¿½ï¿½Aï¿½Eï¿½g         */
+    STM_ERR_CDOPEN      = GFS_ERR_CDOPEN,       /* ï¿½gï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½Jï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½   */
+    STM_ERR_FATAL       = GFS_ERR_FATAL,        /* CDï¿½ï¿½FATALï¿½ï¿½ï¿½        */
     STM_ERR_END
 };
 
 
 /*****************************************************************************
- *      ƒf[ƒ^Œ^‚Ì’è‹`
+ *      ï¿½fï¿½[ï¿½^ï¿½^ï¿½Ì’ï¿½`
  *****************************************************************************/
 
-/* ƒXƒgƒŠ[ƒ€ƒnƒ“ƒhƒ‹           */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½           */
 typedef struct stmobj {
-    void            *grp;           /* Š‘®‚·‚éƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv           */
-    struct stmobj   *alias;         /* ÀÛ‚É‘€ì‚·‚éƒXƒgƒŠ[ƒ€             */
-    struct stmobj   *sfadlst;       /* ŠJnFAD¸‡ƒŠƒXƒg                    */
-    struct stmobj   *fltlst;        /* i‚è‚ÌÚ‘±‡ƒŠƒXƒg                   */
-    GfsHn           gfs;            /* ƒtƒ@ƒCƒ‹ƒnƒ“ƒhƒ‹                     */
-    GfsFlow         *flow;          /* “Ç‚İ‚İŠÇ—                         */
-    Sint32          (*trfunc)(void *obj, struct stmobj *stm, Sint32 nsct);
-                                    /* “]‘—ŠÖ”(StmTrFunc)                  */
-    void            *obj;           /* “]‘—ŠÖ”‚Ì‘æˆêˆø”   @@@@        */
-    Uint32          *trsrc;         /* “]‘—Œ³ƒAƒhƒŒƒX                       */
-    Sint32          adlt;           /* “]‘—Œ³ƒAƒhƒŒƒX•Ï‰»•ª                 */
-    Sint32          trfad;          /* “]‘—ŠJnFAD                          */
-    Uint8           atr;            /* ƒAƒgƒŠƒrƒ…[ƒg                       */
-    Uint8           svrstat;
+    void            *grp;           /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½v           */
+    struct stmobj   *alias;         /* ï¿½ï¿½ï¿½Û‚É‘ï¿½ï¿½ì‚·ï¿½ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½             */
+    struct stmobj   *sfadlst;       /* ï¿½Jï¿½nFADï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Xï¿½g                    */
+    struct stmobj   *fltlst;        /* ï¿½iï¿½ï¿½ÌÚ‘ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Xï¿½g                   */
+    GfsHn           gfs;            /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½                     */
+    GfsFlow         *flow;          /* ï¿½Ç‚İï¿½ï¿½İŠÇ—ï¿½                         */
+    int32_t          (*trfunc)(void *obj, struct stmobj *stm, int32_t nsct);
+                                    /* ï¿½]ï¿½ï¿½ï¿½Öï¿½(StmTrFunc)                  */
+    void            *obj;           /* ï¿½]ï¿½ï¿½ï¿½Öï¿½ï¿½Ì‘ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½@ï¿½@ï¿½@ï¿½@        */
+    uint32_t          *trsrc;         /* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X                       */
+    int32_t          adlt;           /* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½Xï¿½Ï‰ï¿½ï¿½ï¿½                 */
+    int32_t          trfad;          /* ï¿½]ï¿½ï¿½ï¿½Jï¿½nFAD                          */
+    uint8_t           atr;            /* ï¿½Aï¿½gï¿½ï¿½ï¿½rï¿½ï¿½ï¿½[ï¿½g                       */
+    uint8_t           svrstat;
 } StmObj;
 
 typedef StmObj      *StmHn;
 
 
-/* “]‘—ŠÖ”     */
-typedef Sint32  (*StmTrFunc)(void *obj, StmHn stm, Sint32 nsct);
+/* ï¿½]ï¿½ï¿½ï¿½Öï¿½     */
+typedef int32_t  (*StmTrFunc)(void *obj, StmHn stm, int32_t nsct);
 #define STM_TR_NULLFUNC         ((StmTrFunc)0)
 
-/* ƒGƒ‰[ŠÖ”   */
-typedef void    (*StmErrFunc)(void *obj, Sint32 ec);
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½Öï¿½   */
+typedef void    (*StmErrFunc)(void *obj, int32_t ec);
 #define STM_ERR_NULLFUNC        ((StmErrFunc)0)
 
-/* ƒoƒbƒtƒ@ŠÄ‹ŠÖ”  */
+/* ï¿½oï¿½bï¿½tï¿½@ï¿½Äï¿½ï¿½Öï¿½  */
 typedef void    (*StmCdbufFunc)(void *obj);
 #define STM_CDBUF_NULLFUNC      ((StmCdbufFunc)0)
 #define STM_CDBUF_REST          NULL
 
-/* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv           */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½v           */
 typedef struct {
-    StmHn       sfadlst;        /* “Ç‚İ‚İŠJnFAD‚É‚æ‚éƒŠƒXƒg          */
-    StmHn       fltlst;         /* i‚èÚ‘±‡ƒŠƒXƒg                     */
-    StmHn       loopstm;        /* ƒ‹[ƒvƒXƒgƒŠ[ƒ€                     */
-    StmHn       lststm;         /* ÅIƒXƒgƒŠ[ƒ€                       */
-    StmHn       nexttrns;       /* Ÿ‚Ì“]‘—ƒXƒgƒŠ[ƒ€           */
-    Sint32      fad;            /* “Ç‚İ‚İÀsAˆê’â~‚ÌFAD      */
-    Sint32      acstat;         /* ƒAƒNƒZƒXó‘Ô                         */
+    StmHn       sfadlst;        /* ï¿½Ç‚İï¿½ï¿½İŠJï¿½nFADï¿½É‚ï¿½éƒŠï¿½Xï¿½g          */
+    StmHn       fltlst;         /* ï¿½iï¿½ï¿½Ú‘ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Xï¿½g                     */
+    StmHn       loopstm;        /* ï¿½ï¿½ï¿½[ï¿½vï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½                     */
+    StmHn       lststm;         /* ï¿½ÅIï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½                       */
+    StmHn       nexttrns;       /* ï¿½ï¿½ï¿½Ì“]ï¿½ï¿½ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½           */
+    int32_t      fad;            /* ï¿½Ç‚İï¿½ï¿½İï¿½ï¿½sï¿½ï¿½ï¿½Aï¿½êï¿½ï¿½~ï¿½ï¿½ï¿½ï¿½FAD      */
+    int32_t      acstat;         /* ï¿½Aï¿½Nï¿½Zï¿½Xï¿½ï¿½ï¿½                         */
                                 /* (COMPLETED, PAUSE, DOING, WAIT)      */
-    StmHn       chkstm;         /* ƒoƒbƒtƒ@ƒTƒCƒYŠÄ‹ƒXƒgƒŠ[ƒ€         */
-    Sint32      chksctnum;      /* ƒoƒbƒtƒ@ƒTƒCƒYŠÄ‹ŠÖ”ŒÄ‚Ñ‚¾‚µƒZƒNƒ^” */
-    StmCdbufFunc  chkfunc;      /* ƒoƒbƒtƒ@ƒTƒCƒYŠÄ‹ŠÖ”               */
-    void        *chkobj;        /* ƒoƒbƒtƒ@ƒTƒCƒYŠÄ‹ƒIƒuƒWƒFƒNƒg       */
-    Sint32      loopmax;        /* ƒ‹[ƒv‰ñ”                           */
-    Sint32      loopcnt;        /* ƒ‹[ƒvƒJƒEƒ“ƒ^                       */
-    Sint32      puid;           /* ƒsƒbƒNƒAƒbƒvƒ†[ƒUID                 */
-    Uint16      atr;            /* ƒAƒgƒŠƒrƒ…[ƒg                       */
-    Uint8       svrstat;
+    StmHn       chkstm;         /* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½Äï¿½ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½         */
+    int32_t      chksctnum;      /* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½Äï¿½ï¿½Öï¿½ï¿½Ä‚Ñ‚ï¿½ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ */
+    StmCdbufFunc  chkfunc;      /* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½Äï¿½ï¿½Öï¿½               */
+    void        *chkobj;        /* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½Äï¿½ï¿½Iï¿½uï¿½Wï¿½Fï¿½Nï¿½g       */
+    int32_t      loopmax;        /* ï¿½ï¿½ï¿½[ï¿½vï¿½ï¿½                           */
+    int32_t      loopcnt;        /* ï¿½ï¿½ï¿½[ï¿½vï¿½Jï¿½Eï¿½ï¿½ï¿½^                       */
+    int32_t      puid;           /* ï¿½sï¿½bï¿½Nï¿½Aï¿½bï¿½vï¿½ï¿½ï¿½[ï¿½UID                 */
+    uint16_t      atr;            /* ï¿½Aï¿½gï¿½ï¿½ï¿½rï¿½ï¿½ï¿½[ï¿½g                       */
+    uint8_t       svrstat;
 } StmGrp;
 
 typedef StmGrp  *StmGrpHn;
 
-/* ƒXƒgƒŠ[ƒ€ƒL[               */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Lï¿½[               */
 typedef struct {
-    Sint16      fn;             /* ƒtƒ@ƒCƒ‹”Ô†                         */
-    Sint16      cn;             /* ƒ`ƒƒƒlƒ‹”Ô†                         */
-    Sint16      smmsk;          /* ƒTƒuƒ‚[ƒhƒ}ƒXƒNƒpƒ^[ƒ“             */
-    Sint16      smval;          /* ƒTƒuƒ‚[ƒh”äŠr’l                     */
-    Sint16      cimsk;          /* ƒR[ƒfƒBƒ“ƒOî•ñƒ}ƒXƒNƒpƒ^[ƒ“       */
-    Sint16      cival;          /* ƒR[ƒfƒBƒ“ƒOî•ñ”äŠr’l               */
+    int16_t      fn;             /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Ôï¿½                         */
+    int16_t      cn;             /* ï¿½`ï¿½ï¿½ï¿½lï¿½ï¿½ï¿½Ôï¿½                         */
+    int16_t      smmsk;          /* ï¿½Tï¿½uï¿½ï¿½ï¿½[ï¿½hï¿½}ï¿½Xï¿½Nï¿½pï¿½^ï¿½[ï¿½ï¿½             */
+    int16_t      smval;          /* ï¿½Tï¿½uï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½rï¿½l                     */
+    int16_t      cimsk;          /* ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½}ï¿½Xï¿½Nï¿½pï¿½^ï¿½[ï¿½ï¿½       */
+    int16_t      cival;          /* ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½ï¿½rï¿½l               */
 } StmKey;
 
 #define STM_KEY_FN(stmkey)      ((stmkey)->fn)
@@ -267,23 +267,23 @@ typedef struct {
 #define STM_KEY_CIVAL(stmkey)   ((stmkey)->cival)
 
 
-/* ƒXƒgƒŠ[ƒ€Ä¶”ÍˆÍ           */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Äï¿½ï¿½Íˆï¿½           */
 typedef struct {
-    Sint32      sfad;           /* Ä¶ŠJnFAD                          */
-    Sint32      fasnum;         /* Ä¶ƒZƒNƒ^”                         */
+    int32_t      sfad;           /* ï¿½Äï¿½ï¿½Jï¿½nFAD                          */
+    int32_t      fasnum;         /* ï¿½Äï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½                         */
 } StmFrange;
 
 #define STM_FRANGE_SFAD(frange)         ((frange)->sfad)
 #define STM_FRANGE_FASNUM(frange)       ((frange)->fasnum)
 
 
-/* ƒZƒNƒ^î•ñ                   */
+/* ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½                   */
 typedef struct {
-    Sint32      fad;            /* ƒtƒŒ[ƒ€ƒAƒhƒŒƒX                     */
-    Sint32      fn;             /* ƒtƒ@ƒCƒ‹”Ô†                         */
-    Sint32      cn;             /* ƒ`ƒƒƒlƒ‹”Ô†                         */
-    Uint8       sm;             /* ƒTƒuƒ‚[ƒh                           */
-    Uint8       ci;             /* ƒR[ƒfƒBƒ“ƒOî•ñ                     */
+    int32_t      fad;            /* ï¿½tï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Aï¿½hï¿½ï¿½ï¿½X                     */
+    int32_t      fn;             /* ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½Ôï¿½                         */
+    int32_t      cn;             /* ï¿½`ï¿½ï¿½ï¿½lï¿½ï¿½ï¿½Ôï¿½                         */
+    uint8_t       sm;             /* ï¿½Tï¿½uï¿½ï¿½ï¿½[ï¿½h                           */
+    uint8_t       ci;             /* ï¿½Rï¿½[ï¿½fï¿½Bï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½                     */
 } StmSct;
 
 #define STM_SCT_FAD(sct)        ((sct)->fad)
@@ -293,12 +293,12 @@ typedef struct {
 #define STM_SCT_CI(sct)         ((sct)->ci)
 
 
-/* ƒGƒ‰[ŠÇ—                   */
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½Ç—ï¿½                   */
 typedef struct {
-    Sint32      code;           /* ƒGƒ‰[ƒR[ƒh                         */
-    Sint32      where;          /* ƒGƒ‰[”­¶êŠ                       */
-    StmErrFunc  func;           /* ƒGƒ‰[”­¶‚ÌŒÄ‚Ñ‚¾‚µŠÖ”           */
-    void        *obj;           /* ŒÄ‚Ñ‚¾‚µŠÖ”‚Ì‘æˆêˆø”               */
+    int32_t      code;           /* ï¿½Gï¿½ï¿½ï¿½[ï¿½Rï¿½[ï¿½h                         */
+    int32_t      where;          /* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½êŠ                       */
+    StmErrFunc  func;           /* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌŒÄ‚Ñ‚ï¿½ï¿½ï¿½ï¿½Öï¿½           */
+    void        *obj;           /* ï¿½Ä‚Ñ‚ï¿½ï¿½ï¿½ï¿½Öï¿½ï¿½Ì‘ï¿½ï¿½ï¿½ï¿½ï¿½               */
 } StmErrStat;
 
 #define STM_ERR_CODE(err)       ((err)->code)
@@ -307,168 +307,168 @@ typedef struct {
 #define STM_ERR_OBJ(err)        ((err)->obj)
 
 
-/* ƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€ŠÇ—       */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Ç—ï¿½       */
 typedef struct {
-    StmGrp      *stmgrptbl;     /* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒvŠ„“–‚Ä—Ìˆæ         */
-    Sint32      stmgrpmax;      /* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒvÅ‘å”             */
-    StmObj      *stmtbl;        /* ƒXƒgƒŠ[ƒ€Š„“–‚Ä—Ìˆæ                 */
-    Sint32      stmmax;         /* ƒXƒgƒŠ[ƒ€Å‘å”                     */
-    StmGrpHn    curgrp;         /* Œ»İˆ—’†ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv         */
-    Sint32      sfad;           /* Ä¶ŠJnFAD                          */
-    Sint32      efad;           /* Ä¶I—¹FAD                          */
-    StmErrStat  err;            /* ƒGƒ‰[ŠÇ—                           */
-    Bool        svrexec;        /* STM_ExecServerˆ—’†                 */
+    StmGrp      *stmgrptbl;     /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½ï¿½ï¿½ï¿½ï¿½Ä—Ìˆï¿½         */
+    int32_t      stmgrpmax;      /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½Å‘å”             */
+    StmObj      *stmtbl;        /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä—Ìˆï¿½                 */
+    int32_t      stmmax;         /* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Å‘å”                     */
+    StmGrpHn    curgrp;         /* ï¿½ï¿½ï¿½İï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½v         */
+    int32_t      sfad;           /* ï¿½Äï¿½ï¿½Jï¿½nFAD                          */
+    int32_t      efad;           /* ï¿½Äï¿½ï¿½Iï¿½ï¿½FAD                          */
+    StmErrStat  err;            /* ï¿½Gï¿½ï¿½ï¿½[ï¿½Ç—ï¿½                           */
+    bool        svrexec;        /* STM_ExecServerï¿½ï¿½ï¿½ï¿½ï¿½ï¿½                 */
 } StmMng;
 
 
 /*****************************************************************************
- *      ˆ—ƒ}ƒNƒ
+ *      ï¿½ï¿½ï¿½ï¿½ï¿½}ï¿½Nï¿½ï¿½
  *****************************************************************************/
 
-/* ì‹Æ—ÌˆæƒTƒCƒY‚Ìæ“¾                 */
+/* ï¿½ï¿½Æ—Ìˆï¿½Tï¿½Cï¿½Yï¿½Ìæ“¾                 */
 #define STM_WORK_SIZE(grpmax, stmmax)   \
     (sizeof(StmMng) + sizeof(StmGrp) * (grpmax) + sizeof(StmObj) * (stmmax))
 
 /*****************************************************************************
- *      ŠÖ”‚ÌéŒ¾
+ *      ï¿½Öï¿½ï¿½ÌéŒ¾
  *****************************************************************************/
 
-/* ƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€‰Šú‰»             */
-Bool    STM_Init(Sint32 grpmax, Sint32 stmmax, void *work);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½             */
+bool    STM_Init(int32_t grpmax, int32_t stmmax, void *work);
 
-/* ƒXƒgƒŠ[ƒ€ƒVƒXƒeƒ€‚ÌƒŠƒZƒbƒg         */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Vï¿½Xï¿½eï¿½ï¿½ï¿½Ìƒï¿½ï¿½Zï¿½bï¿½g         */
 void    STM_Reset(void);
 
-/* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv‚ÌƒI[ƒvƒ“         */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½ÌƒIï¿½[ï¿½vï¿½ï¿½         */
 StmGrpHn        STM_OpenGrp(void);
 
-/* ƒXƒgƒŠ[ƒ€ƒOƒ‹[ƒv‚ÌƒNƒ[ƒY         */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½ÌƒNï¿½ï¿½ï¿½[ï¿½Y         */
 void    STM_CloseGrp(StmGrpHn grp);
 
-/* ƒXƒgƒŠ[ƒ€”‚Ìæ“¾                   */
-Sint32  STM_GetStmNum(StmGrpHn grp);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Ìæ“¾                   */
+int32_t  STM_GetStmNum(StmGrpHn grp);
 
-/* ƒXƒgƒŠ[ƒ€ƒnƒ“ƒhƒ‹‚Ìæ“¾             */
-StmHn   STM_GetStmHndl(StmGrpHn grp, Sint32 nstm);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½Ìæ“¾             */
+StmHn   STM_GetStmHndl(StmGrpHn grp, int32_t nstm);
 
-/* ƒoƒbƒtƒ@ƒTƒCƒYŠÄ‹ŠÖ”‚Ì“o˜^         */
-void    STM_SetCdbufFunc(StmGrpHn grp, StmHn stm, Sint32 nsct, 
+/* ï¿½oï¿½bï¿½tï¿½@ï¿½Tï¿½Cï¿½Yï¿½Äï¿½ï¿½Öï¿½ï¿½Ì“oï¿½^         */
+void    STM_SetCdbufFunc(StmGrpHn grp, StmHn stm, int32_t nsct, 
                                        StmCdbufFunc func, void *obj);
 
-/* ¯•Êq‚É‚æ‚éƒtƒ@ƒCƒ‹‚ÌƒI[ƒvƒ“       */
-StmHn   STM_OpenFid(StmGrpHn grp, Sint32 fid, StmKey *key, Sint32 lpread);
+/* ï¿½ï¿½ï¿½Êqï¿½É‚ï¿½ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ÌƒIï¿½[ï¿½vï¿½ï¿½       */
+StmHn   STM_OpenFid(StmGrpHn grp, int32_t fid, StmKey *key, int32_t lpread);
 
-/* ƒZƒNƒ^ˆÊ’u‚É‚æ‚éƒtƒ@ƒCƒ‹‚ÌƒI[ƒvƒ“   */
+/* ï¿½Zï¿½Nï¿½^ï¿½Ê’uï¿½É‚ï¿½ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½ÌƒIï¿½[ï¿½vï¿½ï¿½   */
 StmHn   STM_OpenFrange(StmGrpHn grp, StmFrange *frange, StmKey *key,
-                                                           Sint32 lpread);
+                                                           int32_t lpread);
 
-/* í’“ƒXƒgƒŠ[ƒ€‚ÌƒI[ƒvƒ“             */
-StmHn   STM_OpenResi(StmGrpHn grp, Sint32 fid, StmKey *key, Sint32 fad);
+/* ï¿½í’“ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌƒIï¿½[ï¿½vï¿½ï¿½             */
+StmHn   STM_OpenResi(StmGrpHn grp, int32_t fid, StmKey *key, int32_t fad);
 
-/* ƒXƒgƒŠ[ƒ€‚ÌƒNƒ[ƒY                 */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌƒNï¿½ï¿½ï¿½[ï¿½Y                 */
 void    STM_Close(StmHn stm);
 
-/* ƒXƒgƒŠ[ƒ€ƒL[‚Ìİ’è                 */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Lï¿½[ï¿½Ìİ’ï¿½                 */
 void    STM_SetKey(StmHn stm, StmKey *stmkey);
 
-/* ƒXƒgƒŠ[ƒ€î•ñ‚Ìæ“¾                 */
-StmGrpHn        STM_GetInfo(StmHn stm, Sint32 *fid, StmFrange *range, 
-                                                Sint32 *bn, StmKey *stmkey);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Ìæ“¾                 */
+StmGrpHn        STM_GetInfo(StmHn stm, int32_t *fid, StmFrange *range, 
+                                                int32_t *bn, StmKey *stmkey);
 
-/* ƒZƒNƒ^”‚©‚çƒ[ƒh”‚Ö‚Ì•ÏŠ·         */
-Sint32  STM_SctToWord(StmHn stm, Sint32 nsct);
+/* ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½ï¿½ï¿½çƒï¿½[ï¿½hï¿½ï¿½ï¿½Ö‚Ì•ÏŠï¿½         */
+int32_t  STM_SctToWord(StmHn stm, int32_t nsct);
 
-/* ƒ[ƒh”‚©‚çƒZƒNƒ^”‚Ö‚Ì•ÏŠ·         */
-Sint32  STM_WordToSct(StmHn stm, Sint32 nword);
+/* ï¿½ï¿½ï¿½[ï¿½hï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½Ö‚Ì•ÏŠï¿½         */
+int32_t  STM_WordToSct(StmHn stm, int32_t nword);
 
-/* ƒXƒgƒŠ[ƒ€ƒnƒ“ƒhƒ‹‚ÌƒGƒCƒŠƒAƒXİ’è   */
-Bool    STM_SetAlias(StmHn alias, StmHn stm);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ÌƒGï¿½Cï¿½ï¿½ï¿½Aï¿½Xï¿½İ’ï¿½   */
+bool    STM_SetAlias(StmHn alias, StmHn stm);
 
-/* ƒXƒgƒŠ[ƒ€ƒnƒ“ƒhƒ‹‚ÌƒGƒCƒŠƒAƒX‰ğœ   */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½ÌƒGï¿½Cï¿½ï¿½ï¿½Aï¿½Xï¿½ï¿½ï¿½ï¿½   */
 void    STM_UnsetAlias(StmHn alias);
 
-/* “]‘——Ìˆæ‚Ìİ’è                       */
-void    STM_SetTrBuf(StmHn stm, void *buffer, Sint32 nunit, Sint32 unitsize);
+/* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½Ìİ’ï¿½                       */
+void    STM_SetTrBuf(StmHn stm, void *buffer, int32_t nunit, int32_t unitsize);
 
-/* “]‘—ŠÖ”‚Ìİ’è                       */
+/* ï¿½]ï¿½ï¿½ï¿½Öï¿½ï¿½Ìİ’ï¿½                       */
 void    STM_SetTrFunc(StmHn stm, StmTrFunc func, void *obj);
 
-/* “]‘—ŠÖ”‚É‚¨‚¯‚é“]‘—ŠJn             */
-Uint32  *STM_StartTrans(StmHn stm, Sint32 *dadr);
+/* ï¿½]ï¿½ï¿½ï¿½Öï¿½ï¿½É‚ï¿½ï¿½ï¿½ï¿½ï¿½]ï¿½ï¿½ï¿½Jï¿½n             */
+uint32_t  *STM_StartTrans(StmHn stm, int32_t *dadr);
 
-/* “]‘—ƒQ[ƒg‚ÌŠJ•Â                     */
-void    STM_SetTrGate(StmHn stm, Sint32 gate);
+/* ï¿½]ï¿½ï¿½ï¿½Qï¿½[ï¿½gï¿½ÌŠJï¿½ï¿½                     */
+void    STM_SetTrGate(StmHn stm, int32_t gate);
 
-/* Å‘å“]‘—ƒZƒNƒ^”‚Ìİ’è               */
-void    STM_SetTrPara(StmHn stm, Sint32 tsct);
+/* ï¿½Å‘ï¿½]ï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½Ìİ’ï¿½               */
+void    STM_SetTrPara(StmHn stm, int32_t tsct);
 
-/* “]‘—ŠJnFAD‚Ìİ’è                    */
-void    STM_SetTrFad(StmHn stm, Sint32 fad);
+/* ï¿½]ï¿½ï¿½ï¿½Jï¿½nFADï¿½Ìİ’ï¿½                    */
+void    STM_SetTrFad(StmHn stm, int32_t fad);
 
-/* “]‘—ƒ‚[ƒh‚Ìİ’è                     */
-void    STM_SetTrMode(StmHn stm, Sint32 tmode);
+/* ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½[ï¿½hï¿½Ìİ’ï¿½                     */
+void    STM_SetTrMode(StmHn stm, int32_t tmode);
 
-/* “]‘——Ìˆæ‚ÌƒŠƒZƒbƒg                   */
+/* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½Ìƒï¿½ï¿½Zï¿½bï¿½g                   */
 void    STM_ResetTrBuf(StmHn stm);
 
-/* ‚b‚cƒoƒbƒtƒ@—LŒøƒZƒNƒ^”‚Ìæ“¾       */
-Sint32  STM_GetNumCdbuf(StmHn stm);
+/* ï¿½bï¿½cï¿½oï¿½bï¿½tï¿½@ï¿½Lï¿½ï¿½ï¿½Zï¿½Nï¿½^ï¿½ï¿½ï¿½Ìæ“¾       */
+int32_t  STM_GetNumCdbuf(StmHn stm);
 
-/* “Ç‚İ‚İƒZƒNƒ^î•ñ‚Ìæ“¾             */
-Bool    STM_GetSctInfo(StmHn stm, Sint32 spos, StmSct *sinfo);
+/* ï¿½Ç‚İï¿½ï¿½İƒZï¿½Nï¿½^ï¿½ï¿½ï¿½Ìæ“¾             */
+bool    STM_GetSctInfo(StmHn stm, int32_t spos, StmSct *sinfo);
 
-/* “]‘——Ìˆæ‚Ìƒf[ƒ^”(ƒ[ƒh)‚Ìæ“¾     */
-Sint32  STM_GetLenTrBuf(StmHn stm);
+/* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½Ìƒfï¿½[ï¿½^ï¿½ï¿½(ï¿½ï¿½ï¿½[ï¿½h)ï¿½Ìæ“¾     */
+int32_t  STM_GetLenTrBuf(StmHn stm);
 
-/* “]‘——Ìˆæƒtƒ‹‚Ìƒ`ƒFƒbƒN               */
-Bool    STM_IsTrBufFull(StmHn stm);
+/* ï¿½]ï¿½ï¿½ï¿½Ìˆï¿½tï¿½ï¿½ï¿½Ìƒ`ï¿½Fï¿½bï¿½N               */
+bool    STM_IsTrBufFull(StmHn stm);
 
-/* ƒXƒgƒŠ[ƒ€ƒf[ƒ^“]‘—’†‚Ìƒ`ƒFƒbƒN     */
-Bool    STM_IsTrans(StmHn stm);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½fï¿½[ï¿½^ï¿½]ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒ`ï¿½Fï¿½bï¿½N     */
+bool    STM_IsTrans(StmHn stm);
 
-/* ƒT[ƒoÀsƒOƒ‹[ƒv‚Ìw’è(‘¦•œ‹A)   */
-Bool    STM_NwSetExecGrp(StmGrpHn grp);
+/* ï¿½Tï¿½[ï¿½oï¿½ï¿½ï¿½sï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½Ìwï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½A)   */
+bool    STM_NwSetExecGrp(StmGrpHn grp);
 
-/* ƒT[ƒoÀsƒOƒ‹[ƒv‚Ìw’è(Š®—¹•œ‹A)   */
-Bool    STM_SetExecGrp(StmGrpHn grp);
+/* ï¿½Tï¿½[ï¿½oï¿½ï¿½ï¿½sï¿½Oï¿½ï¿½ï¿½[ï¿½vï¿½Ìwï¿½ï¿½(ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½A)   */
+bool    STM_SetExecGrp(StmGrpHn grp);
 
-/* ƒT[ƒo‚ÌÀs                         */
-Sint32  STM_ExecServer(void);
+/* ï¿½Tï¿½[ï¿½oï¿½Ìï¿½ï¿½s                         */
+int32_t  STM_ExecServer(void);
 
-/* ƒsƒbƒNƒAƒbƒv‚ÌˆÚ“®                   */
-void    STM_MovePickup(StmHn stm, Sint32 off);
+/* ï¿½sï¿½bï¿½Nï¿½Aï¿½bï¿½vï¿½ÌˆÚ“ï¿½                   */
+void    STM_MovePickup(StmHn stm, int32_t off);
 
-/* ƒŠ[ƒhƒGƒ‰[”­¶‚ÌƒŠƒJƒoƒŠ         */
-Sint32  STM_Recover(void);
+/* ï¿½ï¿½ï¿½[ï¿½hï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìƒï¿½ï¿½Jï¿½oï¿½ï¿½         */
+int32_t  STM_Recover(void);
 
-/* ƒ‹[ƒvƒXƒgƒŠ[ƒ€‚Ìw’è               */
-Bool    STM_SetLoop(StmGrpHn grp, StmHn loopstm, Sint32 loopmax);
+/* ï¿½ï¿½ï¿½[ï¿½vï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½Ìwï¿½ï¿½               */
+bool    STM_SetLoop(StmGrpHn grp, StmHn loopstm, int32_t loopmax);
 
-/* ƒ‹[ƒvƒJƒEƒ“ƒ^‚Ìæ“¾                 */
-Sint32  STM_GetLoopCnt(StmGrpHn grp);
+/* ï¿½ï¿½ï¿½[ï¿½vï¿½Jï¿½Eï¿½ï¿½ï¿½^ï¿½Ìæ“¾                 */
+int32_t  STM_GetLoopCnt(StmGrpHn grp);
 
-/* Àsó‘Ô‚Ìæ“¾                       */
-Sint32  STM_GetExecStat(StmGrpHn grp, Sint32 *fad);
+/* ï¿½ï¿½ï¿½sï¿½ï¿½Ô‚Ìæ“¾                       */
+int32_t  STM_GetExecStat(StmGrpHn grp, int32_t *fad);
 
-/* ÀsI—¹‚Ìƒ`ƒFƒbƒN                   */
-Bool    STM_IsComplete(StmHn stm);
+/* ï¿½ï¿½ï¿½sï¿½Iï¿½ï¿½ï¿½Ìƒ`ï¿½Fï¿½bï¿½N                   */
+bool    STM_IsComplete(StmHn stm);
 
-/* ƒXƒgƒŠ[ƒ€ƒf[ƒ^‚Ì“]‘—               */
-Bool    STM_ExecTrans(StmHn stm);
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½fï¿½[ï¿½^ï¿½Ì“]ï¿½ï¿½               */
+bool    STM_ExecTrans(StmHn stm);
 
-/* ƒXƒgƒŠ[ƒ€‚ÌÚ‘±                     */
+/* ï¿½Xï¿½gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ÌÚ‘ï¿½                     */
 void    STM_ConnectCdbuf(StmHn keystm, StmHn bufstm);
 
-/* CDƒoƒbƒtƒ@ƒf[ƒ^‚ÌˆÚ“®               */
-void    STM_MoveCdbuf(StmHn src, Sint32 spos, Sint32 snum, StmHn dst);
+/* CDï¿½oï¿½bï¿½tï¿½@ï¿½fï¿½[ï¿½^ï¿½ÌˆÚ“ï¿½               */
+void    STM_MoveCdbuf(StmHn src, int32_t spos, int32_t snum, StmHn dst);
 
-/* CDƒoƒbƒtƒ@ƒf[ƒ^‚ÌÁ‹               */
-void    STM_EraseCdbuf(StmHn stm, Sint32 spos, Sint32 snum);
+/* CDï¿½oï¿½bï¿½tï¿½@ï¿½fï¿½[ï¿½^ï¿½Ìï¿½ï¿½ï¿½               */
+void    STM_EraseCdbuf(StmHn stm, int32_t spos, int32_t snum);
 
-/* ƒGƒ‰[”­¶‚ÌŒÄ‚Ñ‚¾‚µŠÖ”‚Ì“o˜^     */
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌŒÄ‚Ñ‚ï¿½ï¿½ï¿½ï¿½Öï¿½ï¿½Ì“oï¿½^     */
 void    STM_SetErrFunc(StmErrFunc func, void *obj);
 
-/* ƒGƒ‰[ó‘Ô‚Ìæ“¾                     */
+/* ï¿½Gï¿½ï¿½ï¿½[ï¿½ï¿½Ô‚Ìæ“¾                     */
 void    STM_GetErrStat(StmErrStat *stat);
 
 #endif  /* SEGA_STM_H   */

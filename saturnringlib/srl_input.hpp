@@ -8,7 +8,7 @@ namespace SRL::Input
 {
 	/** @brief Peripheral type family
 	 */
-	enum class PeripheralFamily : Uint8
+	enum class PeripheralFamily : uint8_t
 	{
 		/** @brief Digital controllers (control pad, fighting stick, etc...)
 		 */
@@ -37,7 +37,7 @@ namespace SRL::Input
 	
 	/** @brief Peripheral type
 	 */
-	enum class PeripheralType : Uint8
+	enum class PeripheralType : uint8_t
 	{
 		/** @brief Generic gamepad
 		 */
@@ -92,7 +92,7 @@ namespace SRL::Input
 
 		/** @brief Maximal number of connected devices
 		 */
-		inline static const Uint8 MaxPeripherals = 12;
+		inline static const uint8_t MaxPeripherals = 12;
 
 	protected:
 
@@ -109,7 +109,7 @@ namespace SRL::Input
          * @param port Port index
          * @return Port data
          */
-        static PerDigital* GetRawData(const Uint8& port)
+        static PerDigital* GetRawData(const uint8_t& port)
         {
             return &IPeripheral::Peripherals[port];
         }
@@ -118,16 +118,16 @@ namespace SRL::Input
 		 * @param port Peripheral port
 		 * @return true if peripheral is present
 		 */
-		inline static bool IsConnected(const Uint8& port)
+		inline static bool IsConnected(const uint8_t& port)
 		{
-			return port < IPeripheral::MaxPeripherals && IPeripheral::Peripherals[port].id != (Uint8)PeripheralType::NotConnected;
+			return port < IPeripheral::MaxPeripherals && IPeripheral::Peripherals[port].id != (uint8_t)PeripheralType::NotConnected;
 		}
 
 		/** @brief Gets connected peripheral type to specified port
 		 * @param port Peripheral port
 		 * @return Peripheral type
 		 */
-		inline static PeripheralType GetType(const Uint8& port)
+		inline static PeripheralType GetType(const uint8_t& port)
 		{
 			if (IPeripheral::IsConnected(port))
 			{
@@ -141,11 +141,11 @@ namespace SRL::Input
 		 * @param index Index of the peripheral
 		 * @return Port number of connected peripheral of 0xff
 		 */
-		inline static Uint8 FindNthConnectedPeripheral(const Uint8& index)
+		inline static uint8_t FindNthConnectedPeripheral(const uint8_t& index)
 		{
-			Uint8 counter = 0;
+			uint8_t counter = 0;
 
-			for (Uint8 port = 0; port < IPeripheral::MaxPeripherals; port++)
+			for (uint8_t port = 0; port < IPeripheral::MaxPeripherals; port++)
 			{
 				if (IPeripheral::IsConnected(port))
 				{
@@ -165,12 +165,12 @@ namespace SRL::Input
 		 */
 		static void RefreshPeripherals()
 		{
-			Uint8* destination = reinterpret_cast<Uint8*>(IPeripheral::Peripherals);
-			Uint8* source = reinterpret_cast<Uint8*>(Smpc_Peripheral);
-			Uint32 batchSize = sizeof(PerDigital) * (IPeripheral::MaxPeripherals >> 1);
+			uint8_t* destination = reinterpret_cast<uint8_t*>(IPeripheral::Peripherals);
+			uint8_t* source = reinterpret_cast<uint8_t*>(Smpc_Peripheral);
+			uint32_t batchSize = sizeof(PerDigital) * (IPeripheral::MaxPeripherals >> 1);
 
 			// Copy first half
-			for (Uint32 byte = 0; byte < batchSize; byte++)
+			for (uint32_t byte = 0; byte < batchSize; byte++)
 			{
 				*destination++ = *source++;
 			}
@@ -179,7 +179,7 @@ namespace SRL::Input
 			source += sizeof(PerDigital) * 9;
 
 			// Copy second half
-			for (Uint32 byte = 0; byte < batchSize; byte++)
+			for (uint32_t byte = 0; byte < batchSize; byte++)
 			{
 				*destination++ = *source++;
 			}
@@ -196,19 +196,19 @@ namespace SRL::Input
 		/** @brief Construct a new peripheral handle
 		 * @param port Peripheral port
 		 */
-		IPeripheral(const Uint8& port) : Port(port) { }
+		IPeripheral(const uint8_t& port) : Port(port) { }
 
 	public:
 
 		/** @brief Port of the current peripheral
 		 */
-		Uint8 Port;
+		uint8_t Port;
 
 		/** @brief Gets connected peripheral type family to specified port
 		 * @param port Peripheral port
 		 * @return Peripheral type family
 		 */
-		PeripheralFamily GetFamily(const Uint8& port)
+		PeripheralFamily GetFamily(const uint8_t& port)
 		{
 			if (IPeripheral::IsConnected(port))
 			{
@@ -249,7 +249,7 @@ namespace SRL::Input
 	{
 		/** @brief Digital gamepad buttons
 		 */
-		enum class Button : Uint16
+		enum class Button : uint16_t
 		{
 			/** @brief D-Pad right direction
 			 */
@@ -307,14 +307,14 @@ namespace SRL::Input
 		/** @brief Construct a new Gamepad handler
 		 * @param port Gamepad peripheral port
 		 */
-		Gamepad(const Uint8& port) : IPeripheral(port) { }
+		Gamepad(const uint8_t& port) : IPeripheral(port) { }
 
 		/** @brief Indicates whether peripheral is connected or not
 		 * @return true if connected
 		 */
 		constexpr bool IsConnected() override
 		{
-			return IPeripheral::IsConnected(this->Port) && IPeripheral::Peripherals[this->Port].id == (Uint8)PeripheralType::Gamepad;
+			return IPeripheral::IsConnected(this->Port) && IPeripheral::Peripherals[this->Port].id == (uint8_t)PeripheralType::Gamepad;
 		}
 
 		/** @brief Check if user is holding down a button
@@ -325,7 +325,7 @@ namespace SRL::Input
 		 */
 		constexpr bool virtual IsHeld(const Button& button)
 		{
-			return this->IsConnected() && ((IPeripheral::Peripherals[this->Port].data & ((Uint16)button)) == 0);
+			return this->IsConnected() && ((IPeripheral::Peripherals[this->Port].data & ((uint16_t)button)) == 0);
 		}
 
 		/** @brief Check if user pressed a button
@@ -338,9 +338,9 @@ namespace SRL::Input
 		{
 			if (this->IsConnected())
 			{
-				Uint16 current = IPeripheral::Peripherals[this->Port].data;
-				Uint16 last = IPeripheral::PeripheralsPreviousState[this->Port].data;
-				return (((current ^ last) & current) & ((Uint16)button)) != 0;
+				uint16_t current = IPeripheral::Peripherals[this->Port].data;
+				uint16_t last = IPeripheral::PeripheralsPreviousState[this->Port].data;
+				return (((current ^ last) & current) & ((uint16_t)button)) != 0;
 			}
 
 			return false;
@@ -356,9 +356,9 @@ namespace SRL::Input
 		{
 			if (this->IsConnected())
 			{
-				Uint16 current = IPeripheral::Peripherals[this->Port].data;
-				Uint16 last = IPeripheral::PeripheralsPreviousState[this->Port].data;
-				return (((current ^ last) & last) & ((Uint16)button)) != 0;
+				uint16_t current = IPeripheral::Peripherals[this->Port].data;
+				uint16_t last = IPeripheral::PeripheralsPreviousState[this->Port].data;
+				return (((current ^ last) & last) & ((uint16_t)button)) != 0;
 			}
 
 			return false;
