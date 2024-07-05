@@ -2,9 +2,11 @@
 
 #include "srl_base.hpp"
 #include "srl_cd.hpp"
+#include "srl_math.hpp"
 
 extern "C" { 
     #include <sega_snd.h>
+    #include <sega_pcm.h>
 }
 
 /** @brief Sound handling
@@ -45,9 +47,12 @@ namespace SRL::Sound
                 SND_Init(&init);
 	            SND_ChgMap(0);
 
+                uint8_t sound_map[] =  {0xff,0xff};
+                slInitSound(programBuffer, program.Size.Bytes, sound_map, sizeof(sound_map));
+                *(volatile unsigned char *)(0x25a004e1) = 0x0;
                 CDC_CdInit(0x00, 0x00, 0x05, 0x0f);
                 SND_SetCdDaLev(7, 7);
-
+                
 #if SRL_ENABLE_FREQ_ANALYSIS == 1
                 Cd::File dsp("3BANDANA.EXB");
 
@@ -70,17 +75,6 @@ namespace SRL::Sound
         }
     };
 
-
-    /** @brief TODO: Implement!
-     */
-    class PCM
-    {
-    private:
-
-    public:
-
-    };
-    
     /** @brief CD audio playback
      */
     class Cdda
@@ -305,4 +299,468 @@ namespace SRL::Sound
             }
         };
     };
+    
+    /** @brief PCM playback
+     */
+    namespace Pcm
+    {
+        /** @brief PCM audio channels
+         */
+        enum PcmChannels
+        {
+            /** @brief Single channel
+             */
+            Mono = _Mono,
+
+            /** @brief Dual channel
+             */
+            Stereo = _Stereo
+        };
+
+        /** @brief PCM audio bit depth
+         */
+        enum PcmBitDepth
+        {
+            /** @brief 8-bit data
+             */
+            Pcm8Bit = _PCM8Bit,
+
+            /** @brief 16-bit data
+             */
+            Pcm16Bit = _PCM16Bit
+        };
+
+        /** @brief Base PCM file interface
+         */
+        class IPcmFile
+        {
+        public:
+        
+            /** @brief Sound data
+             */
+            int8_t* data = nullptr;
+
+            /** @brief Number of bytes to play
+             */
+            uint32_t dataSize = 0;
+
+
+        protected:
+
+            /** @brief Sound mode (_Mono or _Stereo)
+             */
+            uint8_t mode = _Mono;
+
+            /** @brief Bit depth (_PCM8Bit or _PCM16Bit)
+             */
+            uint8_t depth = _PCM8Bit;
+
+            /** @brief Sound sample rate
+             */
+            uint16_t sampleRate = 11020;
+
+            /** @brief Loads new sound from a file
+             * @param file Sound file (.wav)
+             */
+            IPcmFile() { }
+
+            /** @brief Free PCM sound data
+             */
+            ~IPcmFile() { }
+
+        private:
+
+            /** @brief Logarithmic table
+             */
+            static inline const constexpr int8_t LogTable[] = {
+            /* 0 */		0, 
+            /* 1 */		1, 
+            /* 2 */		2, 2, 
+            /* 4 */		3, 3, 3, 3, 
+            /* 8 */		4, 4, 4, 4, 4, 4, 4, 4, 
+            /* 16 */	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 
+            /* 32 */	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
+                        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
+            /* 64 */	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+                        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+                        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+                        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+            /* 128 */	8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+            };
+            /* 1,3,4,5,10 bit mask */
+            #define PCM_MSK1(a)	((a)&0x0001)
+            #define PCM_MSK3(a)	((a)&0x0007)
+            #define PCM_MSK4(a)	((a)&0x000F)
+            #define PCM_MSK5(a)	((a)&0x001F)
+            #define PCM_MSK10(a) ((a)&0x03FF)
+
+            /** @brief SCSP basic frequency 44.1[kHz]
+             */
+            #define PCM_SCSP_FREQUENCY (44100L)
+
+            /** @brief Calculating the octave value
+             */
+            #define PCM_CALC_OCT(samplingRate) 											\
+                ((int32_t)Pcm::IPcmFile::LogTable[PCM_SCSP_FREQUENCY / ((samplingRate) + 1)])
+
+            /** @brief Calculating shift reference frequency
+             */
+            #define PCM_CALC_SHIFT_FREQ(oct)											\
+                (PCM_SCSP_FREQUENCY >> (oct))
+
+            /** @brief FNS calculation
+             */
+            #define PCM_CALC_FNS(samplingRate, shiftFreq)								\
+                ((((samplingRate) - (shiftFreq)) << 10) / (shiftFreq))
+
+            /** @brief Pitch value
+             */
+            #define PCM_SET_PITCH_WORD(oct, fns)										\
+		        ((uint16_t)((PCM_MSK4(-(oct)) << 11) | PCM_MSK10(fns)))
+            
+            /** @brief Available PCM channels
+             */
+            static inline PCM Channels[4] =
+            {
+                { _Stereo | _PCM8Bit , 0, 127, 0, 0, 0, 0, 0, 0 },
+                { _Stereo | _PCM8Bit , 2, 127, 0, 0, 0, 0, 0, 0 },
+                { _Stereo | _PCM8Bit , 4, 127, 0, 0, 0, 0, 0, 0 },
+                { _Stereo | _PCM8Bit , 6, 127, 0, 0, 0, 0, 0, 0 }
+            };
+
+            static inline int8_t FindChannel()
+            {
+                for (int channel = 0; channel < 4; channel++)
+                {
+                    if (!slPCMStat(&Pcm::IPcmFile::Channels[channel]))
+                    {
+                        return channel;
+                    }
+                }
+                
+                return -1;
+            }
+
+        public:
+
+            bool PlayOnChannel(uint8_t channel)
+            {
+                if (!slPCMStat(&Pcm::IPcmFile::Channels[channel]))
+                {
+                    uint16_t octave = PCM_CALC_OCT(this->sampleRate);
+                    uint16_t shift = PCM_CALC_SHIFT_FREQ(octave);
+                    uint16_t fns = PCM_CALC_FNS(this->sampleRate, shift);
+
+                    Pcm::IPcmFile::Channels[channel].mode = this->mode | this->depth;
+                    Pcm::IPcmFile::Channels[channel].pitch = PCM_SET_PITCH_WORD(octave, fns);
+                    Pcm::IPcmFile::Channels[channel].level = 127;
+                    slPCMOn(&Pcm::IPcmFile::Channels[channel], this->data, this->dataSize);
+                    return true;
+                }
+
+                return false;
+            }
+
+            /** @brief Try to play sound on the first free channel
+             */
+            bool Play()
+            {
+                int8_t channel = Pcm::IPcmFile::FindChannel();
+                
+                if (channel >= 0)
+                {
+                    return this->PlayOnChannel(channel);
+                }
+
+                return false;
+            }
+
+            static bool IsChannelFree(uint8_t channel)
+            {
+                return channel < 4 && !slPCMStat(&Pcm::IPcmFile::Channels[channel]);
+            }
+        };
+
+        class RawPcm : public Pcm::IPcmFile
+        {
+        private:
+        
+        public:
+
+            /** @brief Initializes a new PCM audio handle
+             * @param file 
+             * @param channels 
+             * @param depth 
+             * @param sampleRate 
+             */
+            RawPcm(Cd::File* file, const Pcm::PcmChannels channels, const Pcm::PcmBitDepth depth, const uint16_t sampleRate)
+            {
+                if (file == nullptr)
+                {
+                    Debug::Assert("FIle cannot be NULL!");
+                    return;
+                }
+
+                // slPCMOn won't play samples shorter than 0x900
+                size_t clampedLength = SRL::Math::Max<uint32_t>(file->Size.Bytes, 0x900);
+                
+                this->data = new int8_t[clampedLength];
+                this->dataSize = clampedLength;
+                this->mode = (uint8_t)channels | (uint8_t)depth;
+                this->sampleRate = sampleRate;
+
+                for (size_t byte = file->Size.Bytes; byte < clampedLength; byte++) this->data[byte] = 0x00;
+                int32_t loaded = file->LoadBytes(0, file->Size.Bytes, this->data);
+
+                if (loaded != file->Size.Bytes)
+                {
+                    Debug::Assert("Reached end of a file! Got %dbytes instead of %dbytes", loaded, file->Size.Bytes);
+                }
+            }
+
+            ~RawPcm()
+            {
+                delete this->data;
+            }
+        };
+                
+        /** @brief Wave sound effect
+         */
+        class WaveSound : public Pcm::IPcmFile
+        {
+        private:
+
+            /** @brief Deserialize number
+             * @param buf Value buffer
+             * @return Deserialized value
+             */
+            constexpr inline static uint16_t SwapEndianess16(uint16_t value)
+            {
+                return ((value & 0xff) << 8) | ((value & 0xff00) >> 8);
+            }
+
+            /** @brief Deserialize number
+             * @param buf Value buffer
+             * @return Deserialized value
+             */
+            constexpr inline static uint32_t SwapEndianess32(uint32_t value)
+            {
+                return ((value>>24)&0xff) |
+                    ((value<<8)&0xff0000) |
+                    ((value>>8)&0xff00) |
+                    ((value<<24)&0xff000000);
+            }
+
+            /** @brief RIFF data chunk
+             */
+            struct RiffChunkHeader
+            {
+                uint8_t Id[4];
+                uint32_t Size;	
+            };
+
+            /** @brief LIST data chunk
+             */
+            struct ListChunkHeader
+            {
+                uint8_t Id[4];
+                uint32_t Size;
+                uint8_t Type[4];
+            };
+
+            /** @brief File data types
+             */
+            enum WaveTypes : uint16_t
+            {
+                FormatPCM = 0x0001,
+                FormatFloat = 0x0003,
+                FormatALAW  = 0x0006,
+                FormatMULAW = 0x0007,
+                FormatExtensible = 0xFFFE
+            };
+
+            /** @brief Wave file header
+             */
+            struct WaveHeader
+            {
+                /** @brief Marks the file as a riff file.
+                 */
+                char Riff[4];
+
+                /** @brief Size of the overall file.
+                 */
+                uint32_t FileSize;
+
+                /** @brief File Type Header. For our purposes, it always equals “WAVE”.
+                 */
+                char Wave[4];
+
+                /** @brief Format chunk.
+                 */
+                RiffChunkHeader FormatChunkHeader;
+
+                /** @brief Type of format (1 is PCM) - 2 byte integer
+                 */
+                uint16_t Type;
+
+                /** @brief Number of Channels - 2 byte integer
+                 */
+                uint16_t Channels;
+
+                /** @brief Sample Rate - 32 byte integer. Common values are 44100 (CD), 48000 (DAT).
+                 * Sample Rate = Number of Samples per second, or Hertz.
+                 */
+                uint32_t SampleRate;
+
+                /** @brief (Sample Rate * BitsPerSample * Channels) / 8.
+                 */
+                uint32_t BitRate;
+
+                /** @brief (BitsPerSample * Channels) / 8.1 - 8 bit mono2 - 8 bit stereo/16 bit mono4 - 16 bit stereo
+                 */
+                uint16_t BitPerChannel;
+
+                /** @brief Bits per sample
+                 */
+                uint16_t BitPerSample;
+
+                /** @brief Data chunks
+                 */
+                ListChunkHeader Info;
+            };
+            
+            /** @brief Load PCM data
+             * @param waveData 
+             * @param size 
+             * @param is8bit 
+             */
+            void LoadPcmData(uint8_t* waveData, uint32_t size, bool is8bit)
+            {
+                // slPCMOn won't play samples shorter than 0x900
+                size_t clampedLength = SRL::Math::Max<uint32_t>(size, 0x900);
+                this->data = new int8_t[clampedLength];
+                this->dataSize = clampedLength;
+
+                if (is8bit)
+                {
+                    for (uint32_t byte = 0; byte < size; byte++)
+                    {
+                        this->data[byte] = ((uint8_t)*(waveData + byte)) - 128;
+                    }
+                }
+                else
+                {
+                    for (uint32_t byte = 0; byte < size; byte+=2)
+                    {
+                        // Swap endianess
+                        this->data[byte] = (*(waveData + byte + 1) << 8) | (*(waveData + byte) << 0);
+                    }
+                }
+
+                // Fill
+                for (uint32_t byte = size; byte < clampedLength; byte++)
+                {
+                    this->data[byte] = 0x00;
+                }
+            }
+
+        public:
+
+            /** @brief Initializes a new wave sound
+             * @param file Sound file
+             */
+            WaveSound(Cd::File* file)
+            {
+                if (file == nullptr)
+                {
+                    Debug::Assert("FIle cannot be NULL!");
+                    return;
+                }
+
+                uint8_t* waveData = new uint8_t[file->Size.Bytes];
+                int32_t loaded = file->LoadBytes(0, file->Size.Bytes, waveData);
+                WaveHeader* header = (WaveHeader*)waveData;
+
+                if (loaded != file->Size.Bytes)
+                {
+                    Debug::Assert("Reached end of a file! Got %dbytes instead of %dbytes", loaded, file->Size.Bytes);
+                    delete waveData;
+                    return;
+                }
+
+                // Fix endianess
+                header->Type = WaveSound::SwapEndianess16(header->Type);
+                header->Channels = WaveSound::SwapEndianess16(header->Channels);
+                header->BitPerSample = WaveSound::SwapEndianess16(header->BitPerSample);
+                header->SampleRate = WaveSound::SwapEndianess32(header->SampleRate);
+                header->Info.Size = WaveSound::SwapEndianess32(header->Info.Size);
+
+                // Validate format
+                if (header->Riff[0] != 'R' || header->Riff[1] != 'I' || header->Riff[2] != 'F' || header->Riff[3] != 'F' ||
+                    header->Wave[0] != 'W' || header->Wave[1] != 'A' || header->Wave[2] != 'V' || header->Wave[3] != 'E')
+                {
+                    Debug::Assert("Not a valid wave file!");
+                    delete waveData;
+                    return;
+                }
+                else if (header->Type != 1 || 
+                    header->Channels > 2 || header->Channels < 1 ||
+                    (header->BitPerSample != 8 && header->BitPerSample != 16))
+                {
+                    Debug::Assert("Not supported format!");
+                    delete waveData;
+                    return;
+                }
+
+                if (header != nullptr)
+                {
+                    this->sampleRate = header->SampleRate;
+                    this->mode = header->Channels == 1 ? _Mono : _Stereo;
+                    this->mode |= header->BitPerSample == 8 ? _PCM8Bit : _PCM16Bit;
+
+                    delete waveData;
+                }
+
+                // Skip info chunks
+                uint8_t* dataChunk = (uint8_t*)(((uint8_t*)&header->Info) + header->Info.Size + 8);
+                
+                if (dataChunk[0] == 'd' && dataChunk[1] == 'a' && dataChunk[2] == 't' && dataChunk[3] == 'a')
+                {
+                    uint32_t size = dataChunk[4] | (dataChunk[5] << 8) | (dataChunk[6] << 16) | (dataChunk[7] << 24);
+
+                    switch ((WaveTypes)header->Type)
+                    {
+                    case 1:
+                        this->LoadPcmData(dataChunk + 8, size, header->BitPerSample == 8);
+                        break;
+                    
+                    default:
+                        Debug::Assert("Not supported format!");
+                        break;
+                    }
+                }
+                else
+                {
+                    Debug::Assert("Not supported format!");
+                }
+                
+                delete waveData;
+            }
+
+            /** @brief Destroy loaded sound
+             */
+            ~WaveSound()
+            {
+                if (this->data != nullptr) delete this->data;
+                this->data = nullptr;
+            }
+        };
+    }
 }

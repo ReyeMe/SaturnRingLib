@@ -11,6 +11,8 @@ LDFILE = $(SGLDIR)/sgl.linker
 SGLLDIR = $(SGLDIR)/LIB
 SGLIDIR = $(SGLDIR)/INC
 
+LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
+
 COBJECTS = $(SOURCES:.c=.o)
 OBJECTS = $(COBJECTS:.cxx=.o)
 
@@ -59,6 +61,7 @@ endif
 
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
 	CCFLAGS += -DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
+	LIBS += $(SGLLDIR)/LIBSND.A
 
 	ifeq ($(strip ${SRL_ENABLE_FREQ_ANALYSIS}),1)
 		CCFLAGS += -DSRL_ENABLE_FREQ_ANALYSIS=1
@@ -132,7 +135,6 @@ endif
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
-LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/LIBSND.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
 CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 

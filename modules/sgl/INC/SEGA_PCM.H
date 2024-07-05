@@ -474,24 +474,6 @@ typedef struct {
 	void	(*set_trmode)(PcmHn pcm, PcmTrMode mode);
 } PcmExecFunc;
 
-/* ���ݎQ�Ƃ̂��߂̋�錾 */
-struct PcmWork;
-
-/* �쐬�p�����[�^ */
-typedef struct {
-	struct PcmWork *work;		/* ���[�N�̃A�h���X 						*/
-								/*  (���C�u�������g�p��������ٖ��̍�Ɨ̈�) */
-	int8_t		*ring_addr;		/* �t�@�C�����i�[����o�b�t�@�̐擪�A�h���X */
-								/*  (�������̃t�@�C���̎��͂��̃A�h���X) 	*/
-								/*  (CD�̃t�@�C���̎����ݸ��ޯ̧�̱��ڽ) 	*/
-	int32_t		ring_size;		/* �o�b�t�@�T�C�Y[byte] 					*/
-								/*  (�������̃t�@�C���̎��̓t�@�C���T�C�Y) 	*/
-								/*  (CD�̃t�@�C���̎����ݸ��ޯ̧�̃T�C�Y 	*/
-	int8_t		*pcm_addr;		/* �T�E���h��������PCM�o�b�t�@�A�h���X 		*/
-	int32_t		pcm_size;		/* �T�E���h��������PCM�o�b�t�@�T�C�Y[sample]*/
-								/*  (1ch���̃T���v���� 4096*1..4096*16) 	*/
-} PcmCreatePara;
-
 /* �쐬�p�����[�^ */
 typedef struct {
 	int8_t		*ring_addr;		/* �t�@�C�����i�[����o�b�t�@�̐擪�A�h���X */
@@ -514,6 +496,7 @@ typedef struct {
 	int32_t		stop_trg_sample;	/* �Đ���~�g���K�T���v��[sample/1ch] 	*/
 } PcmPara;
 
+/* ���ݎQ�Ƃ̂��߂̋�錾 */
 /* �o�b�l���[�N */
 typedef struct {
 	int32_t			work_start;		/* 'WORK' ���[�N�̊J�n 			*/
@@ -522,6 +505,21 @@ typedef struct {
 	PcmFilePara 	filepara;		/* �t�@�C���A�N�Z�X�p�����[�^ 	*/
 	PcmExecFunc 	execfunc;		/* ���s�֐� 					*/
 } PcmWork;
+
+/* �쐬�p�����[�^ */
+typedef struct {
+	PcmWork *work;		/* ���[�N�̃A�h���X 						*/
+								/*  (���C�u�������g�p��������ٖ��̍�Ɨ̈�) */
+	int8_t		*ring_addr;		/* �t�@�C�����i�[����o�b�t�@�̐擪�A�h���X */
+								/*  (�������̃t�@�C���̎��͂��̃A�h���X) 	*/
+								/*  (CD�̃t�@�C���̎����ݸ��ޯ̧�̱��ڽ) 	*/
+	int32_t		ring_size;		/* �o�b�t�@�T�C�Y[byte] 					*/
+								/*  (�������̃t�@�C���̎��̓t�@�C���T�C�Y) 	*/
+								/*  (CD�̃t�@�C���̎����ݸ��ޯ̧�̃T�C�Y 	*/
+	int8_t		*pcm_addr;		/* �T�E���h��������PCM�o�b�t�@�A�h���X 		*/
+	int32_t		pcm_size;		/* �T�E���h��������PCM�o�b�t�@�T�C�Y[sample]*/
+								/*  (1ch���̃T���v���� 4096*1..4096*16) 	*/
+} PcmCreatePara;
 
 /*-------------------------- �s�֐��錾�t --------------------------*/
 /* ���C�u�����̏����� */
