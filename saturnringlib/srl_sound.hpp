@@ -458,7 +458,7 @@ namespace SRL::Sound
                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
             };
-            
+
             /* 1,3,4,5,10 bit mask */
             #define PCM_MSK1(a)	((a)&0x0001)
             #define PCM_MSK3(a)	((a)&0x0007)
@@ -603,10 +603,10 @@ namespace SRL::Sound
         public:
 
             /** @brief Initializes a new PCM audio handle
-             * @param file 
-             * @param channels 
-             * @param depth 
-             * @param sampleRate 
+             * @param file PCM file
+             * @param channels Number of channels (Mono or Stereo)
+             * @param depth Bit depth (8 or 16 bit)
+             * @param sampleRate Sample rate (in Hz)
              */
             RawPcm(Cd::File* file, const Pcm::PcmChannels channels, const Pcm::PcmBitDepth depth, const uint16_t sampleRate)
             {
