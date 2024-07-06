@@ -53,7 +53,7 @@ int main()
             {
             case 0:
                 SRL::Debug::Print(1, 7, "Playing TUDU8.WAV, Mono, 8bit     ");
-                //tudu8.PlayOnChannel(0);
+                tudu8.PlayOnChannel(0);
                 break;
             case 1:
                 SRL::Debug::Print(1, 7, "Playing COPTER.WAV, Stereo, 16bit ");
@@ -61,7 +61,7 @@ int main()
                 break;
             case 2:
                 SRL::Debug::Print(1, 7, "Playing GUN.PCM, Mono, 8bit       ");
-                //gun.PlayOnChannel(0);
+                gun.PlayOnChannel(0);
                 break;
             
             default:
