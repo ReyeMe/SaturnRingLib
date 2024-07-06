@@ -326,7 +326,7 @@ namespace SRL
              * @param ptr Pointer to check
              * @return true if pointer belongs to the current memory zone
              */
-            inline static bool InRange(void* ptr)
+            static bool InRange(void* ptr)
             {
                 return Memory::InZone(Memory::mainWorkRam, ptr);
             }
@@ -334,7 +334,7 @@ namespace SRL
             /** @brief Free allocated memory
              * @param ptr Pointer to allocated memory
              */
-            inline static void Free(void* ptr)
+            static void Free(void* ptr)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
                 tlsf_free(Memory::mainWorkRam.Address, ptr);
@@ -347,7 +347,7 @@ namespace SRL
              * @param size Number of bytes to allocate
              * @return Pointer to the allocated space in memory
              */
-            inline static void* Malloc(size_t size)
+            static void* Malloc(size_t size)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_malloc(Memory::mainWorkRam.Address, size);
@@ -361,7 +361,7 @@ namespace SRL
              * @param size New size in number of bytes that should be allocated
              * @return Pointer to the allocated space in memory
              */
-            inline static void* Realloc(void* ptr, size_t size)
+            static void* Realloc(void* ptr, size_t size)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_realloc(Memory::mainWorkRam.Address, size);
@@ -373,7 +373,7 @@ namespace SRL
             /** @brief Gets total size of the used space in the memory zone
              * @return Number of bytes
              */
-            inline static size_t GetUsedSpace()
+            static size_t GetUsedSpace()
             {
                 return 0;
             }
@@ -381,7 +381,7 @@ namespace SRL
             /** @brief Gets total size of the free space in the memory zone
              * @return Number of bytes
              */
-            inline static size_t GetFreeSpace()
+            static size_t GetFreeSpace()
             {
                 return 0;
             }
@@ -389,7 +389,7 @@ namespace SRL
             /** @brief Gets total size of the memory zone
              * @return Number of bytes
              */
-            inline static size_t GetSize()
+            static size_t GetSize()
             {
                 return Memory::mainWorkRam.Size;
             }
@@ -602,10 +602,10 @@ namespace SRL
             switch (zone)
             {
             case Zone::HWRam:
-                return 0;
+                return HighWorkRam::GetUsedSpace();
 
             case Zone::LWRam:
-                return 0;
+                return LowWorkRam::GetUsedSpace();
 
             case Zone::CartRam:
                 return CartRam::GetUsedSpace();
@@ -624,10 +624,10 @@ namespace SRL
             switch (zone)
             {
             case Zone::HWRam:
-                return 0;
+                return HighWorkRam::GetFreeSpace();
 
             case Zone::LWRam:
-                return 0;
+                return LowWorkRam::GetFreeSpace();
 
             case Zone::CartRam:
                 return CartRam::GetFreeSpace();
