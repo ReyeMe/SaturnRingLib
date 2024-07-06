@@ -28,12 +28,16 @@ int main()
 
     // Now we can reset the allocation behaviour back to default
     SRL::Sound::Pcm::SetMemAllocationBehaviour(
-        SRL::Sound::Pcm::PcmMalloc::HwRam,
-        SRL::Sound::Pcm::PcmMalloc::HwRam);
+        SRL::Sound::Pcm::PcmMalloc::Default,
+        SRL::Sound::Pcm::PcmMalloc::Default);
 
+    // We can also use 'new', 'lwnew', 'cartnew' keywords to decide where the PCM object and its contents would live
+    // This works in tandem to the 'SetMemAllocationBehaviour' function, which can override what allocators will be used for buffers within the PCM object
+    // By calling 'lwnew' here and having set 'SetMemAllocationBehaviour' to 'default', not only the buffers inside but pointer to our tudu8 object are both on lwram
+    // To free these objects we can just call 'delete', just like if using the classic 'new' keyword
     SRL::Debug::Print(1, 7, "Loading... TUDU8.WAV     ");
     SRL::Cd::File tudu8File("TUDU8.WAV"); // Mono, 8 bit
-    SRL::Sound::Pcm::WaveSound tudu8(&tudu8File);
+    SRL::Sound::Pcm::WaveSound* tudu8 = lwnew SRL::Sound::Pcm::WaveSound(&tudu8File);
 
     // sound playlist
     uint8_t current = 0;
@@ -45,7 +49,7 @@ int main()
 	{
         SRL::Debug::Print(2,4, "%d   ", loopCount++);
 
-        if (SRL::Sound::Pcm::IPcmFile::IsChannelFree(0))
+        if (SRL::Sound::Pcm::IsChannelFree(0))
         {
             loopCount = 0;
 
@@ -53,7 +57,7 @@ int main()
             {
             case 0:
                 SRL::Debug::Print(1, 7, "Playing TUDU8.WAV, Mono, 8bit     ");
-                tudu8.PlayOnChannel(0);
+                tudu8->PlayOnChannel(0);
                 break;
             case 1:
                 SRL::Debug::Print(1, 7, "Playing COPTER.WAV, Stereo, 16bit ");

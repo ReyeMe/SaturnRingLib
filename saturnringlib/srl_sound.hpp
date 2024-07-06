@@ -337,50 +337,113 @@ namespace SRL::Sound
          */
         enum PcmMalloc : uint16_t
         {
+            /** @brief Will use the same malloc as what was used for object creation
+             */
+            Default = 0,
+
             /** @brief High Work RAM malloc, (main system RAM)
              */
-            HwRam = 0,
+            HwRam = 1,
 
             /** @brief Low work RAM malloc
              */
-            LwRam = 1,
+            LwRam = 2,
 
             /** @brief Cart RAM malloc
              */
-            CartRam = 2
+            CartRam = 3
         };
 
     private:
         
         /** @brief This malloc will be used to allocate memory for parsing a file
          */
-        static inline Pcm::PcmMalloc WorkMalloc = Pcm::PcmMalloc::HwRam;
+        static inline Pcm::PcmMalloc WorkMalloc = Pcm::PcmMalloc::Default;
 
         /** @brief This malloc will be used to allocated memory for a parsed file
          */
-        static inline Pcm::PcmMalloc DataMalloc = Pcm::PcmMalloc::HwRam;
-
-        /** @brief Use specified malloc to allocate memory block
-         * @param malloc Malloc to use
-         * @param size Size in bytes to allocate
-         * @return Pointer to allocated block
+        static inline Pcm::PcmMalloc DataMalloc = Pcm::PcmMalloc::Default;
+        
+        /** @brief Logarithmic table
          */
-        static inline void* AllocateWithBehaviour(const Pcm::PcmMalloc malloc, size_t size)
+        static inline const int8_t LogTable[] = {
+        /* 0 */		0, 
+        /* 1 */		1, 
+        /* 2 */		2, 2, 
+        /* 4 */		3, 3, 3, 3, 
+        /* 8 */		4, 4, 4, 4, 4, 4, 4, 4, 
+        /* 16 */	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 
+        /* 32 */	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
+                    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
+        /* 64 */	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+                    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+                    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+                    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
+        /* 128 */	8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
+                    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+        };
+
+        /* 1,3,4,5,10 bit mask */
+        #define PCM_MSK1(a)	((a)&0x0001)
+        #define PCM_MSK3(a)	((a)&0x0007)
+        #define PCM_MSK4(a)	((a)&0x000F)
+        #define PCM_MSK5(a)	((a)&0x001F)
+        #define PCM_MSK10(a) ((a)&0x03FF)
+
+        /** @brief SCSP basic frequency 44.1[kHz]
+         */
+        #define PCM_SCSP_FREQUENCY (44100L)
+
+        /** @brief Calculating the octave value
+         */
+        #define PCM_CALC_OCT(samplingRate) 											\
+            ((int32_t)Pcm::LogTable[PCM_SCSP_FREQUENCY / ((samplingRate) + 1)])
+
+        /** @brief Calculating shift reference frequency
+         */
+        #define PCM_CALC_SHIFT_FREQ(oct)											\
+            (PCM_SCSP_FREQUENCY >> (oct))
+
+        /** @brief FNS calculation
+         */
+        #define PCM_CALC_FNS(samplingRate, shiftFreq)								\
+            ((((samplingRate) - (shiftFreq)) << 10) / (shiftFreq))
+
+        /** @brief Pitch value
+         */
+        #define PCM_SET_PITCH_WORD(oct, fns)										\
+		    ((uint16_t)((PCM_MSK4(-(oct)) << 11) | PCM_MSK10(fns)))
+        
+        /** @brief Available PCM channels
+         */
+        static inline PCM Channels[4] =
         {
-            switch (malloc)
+            { _Stereo | _PCM16Bit , 0, 127, 0, 0, 0, 0, 0, 0 },
+            { _Stereo | _PCM16Bit , 2, 127, 0, 0, 0, 0, 0, 0 },
+            { _Stereo | _PCM16Bit , 4, 127, 0, 0, 0, 0, 0, 0 },
+            { _Stereo | _PCM16Bit , 6, 127, 0, 0, 0, 0, 0, 0 }
+        };
+
+        /** @brief Look for unused PCM channel
+         * @return int8_t Channel number if any found, or -1 if not
+         */
+        static inline int8_t FindChannel()
+        {
+            for (int channel = 0; channel < 4; channel++)
             {
-            case Pcm::PcmMalloc::HwRam:
-                return SRL::Memory::HighWorkRam::Malloc(size);
-            
-            case Pcm::PcmMalloc::LwRam:
-                return SRL::Memory::LowWorkRam::Malloc(size);
-
-            case Pcm::PcmMalloc::CartRam:
-                return SRL::Memory::CartRam::Malloc(size);
-
-            default:
-                return nullptr;
+                if (!slPCMStat(&Pcm::Channels[channel]))
+                {
+                    return channel;
+                }
             }
+            
+            return -1;
         }
 
     public:
@@ -399,7 +462,7 @@ namespace SRL::Sound
          */
         class IPcmFile
         {
-        public:
+        protected:
         
             /** @brief Sound data
              */
@@ -408,8 +471,6 @@ namespace SRL::Sound
             /** @brief Number of bytes to play
              */
             uint32_t dataSize = 0;
-
-        protected:
 
             /** @brief Sound mode (_Mono or _Stereo)
              */
@@ -432,88 +493,47 @@ namespace SRL::Sound
              */
             ~IPcmFile() { }
 
-        private:
-
-            /** @brief Logarithmic table
+            /** @brief Use specified malloc to allocate memory block
+             * @param malloc Malloc to use
+             * @param size Size in bytes to allocate
+             * @return Pointer to allocated block
              */
-            static inline const int8_t LogTable[] = {
-            /* 0 */		0, 
-            /* 1 */		1, 
-            /* 2 */		2, 2, 
-            /* 4 */		3, 3, 3, 3, 
-            /* 8 */		4, 4, 4, 4, 4, 4, 4, 4, 
-            /* 16 */	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 
-            /* 32 */	6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
-                        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
-            /* 64 */	7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
-                        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
-                        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
-                        7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 
-            /* 128 */	8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 
-                        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
-            };
-
-            /* 1,3,4,5,10 bit mask */
-            #define PCM_MSK1(a)	((a)&0x0001)
-            #define PCM_MSK3(a)	((a)&0x0007)
-            #define PCM_MSK4(a)	((a)&0x000F)
-            #define PCM_MSK5(a)	((a)&0x001F)
-            #define PCM_MSK10(a) ((a)&0x03FF)
-
-            /** @brief SCSP basic frequency 44.1[kHz]
-             */
-            #define PCM_SCSP_FREQUENCY (44100L)
-
-            /** @brief Calculating the octave value
-             */
-            #define PCM_CALC_OCT(samplingRate) 											\
-                ((int32_t)Pcm::IPcmFile::LogTable[PCM_SCSP_FREQUENCY / ((samplingRate) + 1)])
-
-            /** @brief Calculating shift reference frequency
-             */
-            #define PCM_CALC_SHIFT_FREQ(oct)											\
-                (PCM_SCSP_FREQUENCY >> (oct))
-
-            /** @brief FNS calculation
-             */
-            #define PCM_CALC_FNS(samplingRate, shiftFreq)								\
-                ((((samplingRate) - (shiftFreq)) << 10) / (shiftFreq))
-
-            /** @brief Pitch value
-             */
-            #define PCM_SET_PITCH_WORD(oct, fns)										\
-		        ((uint16_t)((PCM_MSK4(-(oct)) << 11) | PCM_MSK10(fns)))
-            
-            /** @brief Available PCM channels
-             */
-            static inline PCM Channels[4] =
+            void* AllocateWithBehaviour(const Pcm::PcmMalloc malloc, size_t size)
             {
-                { _Stereo | _PCM16Bit , 0, 127, 0, 0, 0, 0, 0, 0 },
-                { _Stereo | _PCM16Bit , 2, 127, 0, 0, 0, 0, 0, 0 },
-                { _Stereo | _PCM16Bit , 4, 127, 0, 0, 0, 0, 0, 0 },
-                { _Stereo | _PCM16Bit , 6, 127, 0, 0, 0, 0, 0, 0 }
-            };
-
-            /** @brief Look for unused PCM channel
-             * @return int8_t Channel number if any found, or -1 if not
-             */
-            static inline int8_t FindChannel()
-            {
-                for (int channel = 0; channel < 4; channel++)
+                // User set malloc
+                switch (malloc)
                 {
-                    if (!slPCMStat(&Pcm::IPcmFile::Channels[channel]))
-                    {
-                        return channel;
-                    }
-                }
+                case Pcm::PcmMalloc::HwRam:
+                    return SRL::Memory::HighWorkRam::Malloc(size);
                 
-                return -1;
+                case Pcm::PcmMalloc::LwRam:
+                    return SRL::Memory::LowWorkRam::Malloc(size);
+
+                case Pcm::PcmMalloc::CartRam:
+                    return SRL::Memory::CartRam::Malloc(size);
+
+                default:
+                    break;
+                }
+
+                // Figure out what malloc we have to use
+                uint32_t address = reinterpret_cast<uint32_t>(this);
+
+                if (address >= 0x06000000 && address <= 0x07FFFFFF)
+                {
+                    return SRL::Memory::HighWorkRam::Malloc(size);
+                }
+                else if (address >= 0x00200000 && address <= 0x002FFFFF)
+                {
+                    return SRL::Memory::LowWorkRam::Malloc(size);
+                }
+                else if (SRL::Memory::CartRam::InRange(this))
+                {
+                    return SRL::Memory::CartRam::Malloc(size);
+                }
+
+                SRL::Debug::Assert("Could not find correct allocator for memory at 0x%x!", reinterpret_cast<uint32_t>(this));
+                return nullptr;
             }
 
         public:
@@ -526,18 +546,18 @@ namespace SRL::Sound
              */
             bool PlayOnChannel(uint8_t channel, uint8_t volume = 127, int8_t pan = 0)
             {
-                if (!slPCMStat(&Pcm::IPcmFile::Channels[channel]))
+                if (!slPCMStat(&Pcm::Channels[channel]))
                 {
                     uint16_t octave = PCM_CALC_OCT(this->sampleRate);
                     uint16_t shift = PCM_CALC_SHIFT_FREQ(octave);
                     uint16_t fns = PCM_CALC_FNS(this->sampleRate, shift);
 
-                    Pcm::IPcmFile::Channels[channel].mode = this->mode | this->depth;
-                    Pcm::IPcmFile::Channels[channel].pitch = PCM_SET_PITCH_WORD(octave, fns);
-                    Pcm::IPcmFile::Channels[channel].level = volume;
-                    Pcm::IPcmFile::Channels[channel].pan = pan;
+                    Pcm::Channels[channel].mode = this->mode | this->depth;
+                    Pcm::Channels[channel].pitch = PCM_SET_PITCH_WORD(octave, fns);
+                    Pcm::Channels[channel].level = volume;
+                    Pcm::Channels[channel].pan = pan;
 
-                    slPCMOn(&Pcm::IPcmFile::Channels[channel], this->data, this->dataSize);
+                    slPCMOn(&Pcm::Channels[channel], this->data, this->dataSize);
                     return true;
                 }
 
@@ -551,7 +571,7 @@ namespace SRL::Sound
              */
             int8_t Play(uint8_t volume = 127, int8_t pan = 0)
             {
-                int8_t channel = Pcm::IPcmFile::FindChannel();
+                int8_t channel = Pcm::FindChannel();
                 
                 if (channel >= 0 && this->PlayOnChannel(channel, volume, pan))
                 {
@@ -559,39 +579,6 @@ namespace SRL::Sound
                 }
 
                 return -1;
-            }
-
-            /** @brief Check whether sound channel is currently free
-             * @param channel Sound channel to check (0-3)
-             * @return true if channel is not playing anything
-             */
-            static bool IsChannelFree(uint8_t channel)
-            {
-                return channel < 4 && !slPCMStat(&Pcm::IPcmFile::Channels[channel]);
-            }
-
-            /** @brief Stop currently playing sound
-             * @param channel Sound channel to stop (0-3)
-             * @return true if successfully stopped
-             */
-            static bool StopSound(uint8_t channel)
-            {
-                return channel < 4 && slPCMOff(&Pcm::IPcmFile::Channels[channel]);
-            }
-
-            /** @brief Set the Volume & Panning
-             * @param channel Sound channel to modify (0-3)
-             * @param volume Playback volume (0-127)
-             * @param pan Audio channel panning (-127 to 127)
-             */
-            static void SetVolumePan(uint8_t channel, uint8_t volume, int8_t pan = 0)
-            {
-                if (channel < 4)
-                {
-                    Pcm::IPcmFile::Channels[channel].pan = pan;
-                    Pcm::IPcmFile::Channels[channel].level = volume;
-                    slPCMParmChange(&Pcm::IPcmFile::Channels[channel]);
-                }
             }
         };
 
@@ -619,7 +606,7 @@ namespace SRL::Sound
                 // slPCMOn won't play samples shorter than 0x900
                 size_t clampedLength = SRL::Math::Max<uint32_t>(file->Size.Bytes, 0x900);
                 
-                this->data = (int8_t*)Pcm::AllocateWithBehaviour(Pcm::DataMalloc, clampedLength);
+                this->data = (int8_t*)this->AllocateWithBehaviour(Pcm::DataMalloc, clampedLength);
                 this->dataSize = clampedLength;
                 this->mode = (uint8_t)channels;
                 this->depth = (uint8_t)depth;
@@ -638,7 +625,8 @@ namespace SRL::Sound
              */
             ~RawPcm()
             {
-                delete this->data;
+                if (this->data != nullptr) delete this->data;
+                this->dataSize = 0;
             }
         };
                 
@@ -748,16 +736,16 @@ namespace SRL::Sound
             };
             
             /** @brief Load PCM data
-             * @param waveData 
-             * @param size 
-             * @param is8bit 
-             * @param stereo
+             * @param waveData Wave pcm data
+             * @param size Length of the data block
+             * @param is8bit Is audio 8 bits per sample?
+             * @param stereo Is audio interleaved left and right channel?
              */
             void LoadPcmData(uint8_t* waveData, uint32_t size, bool is8bit, bool stereo)
             {
                 // slPCMOn won't play samples shorter than 0x900
                 size_t clampedLength = SRL::Math::Max<uint32_t>(size, 0x900);
-                this->data = (int8_t*)Pcm::AllocateWithBehaviour(Pcm::DataMalloc, clampedLength);
+                this->data = (int8_t*)this->AllocateWithBehaviour(Pcm::DataMalloc, clampedLength);
                 this->dataSize = clampedLength;
 
                 if (this->data == nullptr)
@@ -834,7 +822,7 @@ namespace SRL::Sound
                     return;
                 }
 
-                uint8_t* waveData = (uint8_t*)Pcm::AllocateWithBehaviour(Pcm::WorkMalloc, file->Size.Bytes);
+                uint8_t* waveData = (uint8_t*)this->AllocateWithBehaviour(Pcm::WorkMalloc, file->Size.Bytes);
                 int32_t loaded = file->LoadBytes(0, file->Size.Bytes, waveData);
                 WaveHeader* header = (WaveHeader*)waveData;
 
@@ -913,7 +901,65 @@ namespace SRL::Sound
             {
                 if (this->data != nullptr) delete this->data;
                 this->data = nullptr;
+                this->dataSize = 0;
             }
         };
+    
+        
+        /** @brief Try to play a sound on a specific channel
+         * @param pcm Sound effect to play
+         * @param channel Sound channel to play sound on (0-3)
+         * @param volume Playback volume (0-127)
+         * @param pan Audio channel panning (-127 to 127)
+         * @return true if sound was played
+         */
+        static bool PlayOnChannel(Pcm::IPcmFile& pcm, uint8_t channel, uint8_t volume = 127, int8_t pan = 0)
+        {
+            return pcm.PlayOnChannel(channel, volume, pan);
+        }
+
+        /** @brief Try to play sound on the first free channel
+         * @param pcm Sound effect to play
+         * @param volume Playback volume (0-127)
+         * @param pan Audio channel panning (-127 to 127)
+         * @return Channel number if sound was played or -1 if it was not
+         */
+        static int8_t Play(Pcm::IPcmFile& pcm, uint8_t volume = 127, int8_t pan = 0)
+        {
+            return pcm.Play(volume, pan);
+        }
+
+        /** @brief Check whether sound channel is currently free
+         * @param channel Sound channel to check (0-3)
+         * @return true if channel is not playing anything
+         */
+        static bool IsChannelFree(uint8_t channel)
+        {
+            return channel < 4 && !slPCMStat(&Pcm::Channels[channel]);
+        }
+
+        /** @brief Stop currently playing sound
+         * @param channel Sound channel to stop (0-3)
+         * @return true if successfully stopped
+         */
+        static bool StopSound(uint8_t channel)
+        {
+            return channel < 4 && slPCMOff(&Pcm::Channels[channel]);
+        }
+
+        /** @brief Set the Volume & Panning
+         * @param channel Sound channel to modify (0-3)
+         * @param volume Playback volume (0-127)
+         * @param pan Audio channel panning (-127 to 127)
+         */
+        static void SetVolumePan(uint8_t channel, uint8_t volume, int8_t pan = 0)
+        {
+            if (channel < 4)
+            {
+                Pcm::Channels[channel].pan = pan;
+                Pcm::Channels[channel].level = volume;
+                slPCMParmChange(&Pcm::Channels[channel]);
+            }
+        }
     };
 }
