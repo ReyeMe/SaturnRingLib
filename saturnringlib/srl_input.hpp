@@ -165,6 +165,10 @@ namespace SRL::Input
 		 */
 		static void RefreshPeripherals()
 		{
+            // Copy current state to previous state
+            slDMACopy(IPeripheral::Peripherals, IPeripheral::PeripheralsPreviousState, sizeof(IPeripheral::PeripheralsPreviousState));
+
+            // Copy new state in
 			uint8_t* destination = reinterpret_cast<uint8_t*>(IPeripheral::Peripherals);
 			uint8_t* source = reinterpret_cast<uint8_t*>(Smpc_Peripheral);
 			uint32_t batchSize = sizeof(PerDigital) * (IPeripheral::MaxPeripherals >> 1);
@@ -330,13 +334,13 @@ namespace SRL::Input
 			return this->IsConnected() && ((IPeripheral::Peripherals[this->Port].data & ((uint16_t)button)) == 0);
 		}
 
-		/** @brief Check if user pressed a button
+		/** @brief Check if user released a button
 		 * @param peripheral Connected peripheral
 		 * @param button Button to check
-		 * @return true Button is being held down
-		 * @return false Button is not held down
+		 * @return true Button was released
+		 * @return false Button was not released
 		 */
-		constexpr bool virtual IsDown(const Button& button)
+		constexpr bool virtual WasReleased(const Button& button)
 		{
 			if (this->IsConnected())
 			{
@@ -348,13 +352,13 @@ namespace SRL::Input
 			return false;
 		}
 
-		/** @brief Check if user released a button
+		/** @brief Check if user pressed a button
 		 * @param peripheral Connected peripheral
 		 * @param button Button to check
-		 * @return true Button was released
-		 * @return false Button was not released
+		 * @return true Button was pressed
+		 * @return false Button was not pressed
 		 */
-		constexpr bool virtual IsUp(const Button& button)
+		constexpr bool virtual WasPressed(const Button& button)
 		{
 			if (this->IsConnected())
 			{
