@@ -16,6 +16,33 @@ namespace SRL
 		 */
 		inline static uint16_t HeapPointer = 0;
 
+        /** @brief Get the number of bits to shift to the right
+         * @param colorMode Color mode
+         * @return Number of bits to shift
+         */
+        inline static uint8_t GetSizeShifter(CRAM::TextureColorMode colorMode)
+        {
+            uint16_t pixelSizeShifter = 0;
+
+            switch (colorMode)
+            {
+            case CRAM::TextureColorMode::Paletted256:
+            case CRAM::TextureColorMode::Paletted128:
+            case CRAM::TextureColorMode::Paletted64:
+                pixelSizeShifter = 1;
+                break;
+            
+            case CRAM::TextureColorMode::Paletted16:
+                pixelSizeShifter = 2;
+                break;
+
+            default:
+                break;
+            }
+
+            return pixelSizeShifter;
+        }
+
 	public:
 
 		/** @brief VDP1 front buffer address
@@ -164,10 +191,12 @@ namespace SRL
 			{
 				uint32_t address = CGADDRESS;
 
+                
+
 				if (VDP1::HeapPointer > 0)
 				{
 					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];
-					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, (uint16_t)VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode);
+					address = AdjCG(previous.Address << 3, previous.Width, previous.Height, VDP1::GetSizeShifter(VDP1::Metadata[VDP1::HeapPointer - 1].ColorMode));
 				}
 
 				// Create texture entry
@@ -177,26 +206,8 @@ namespace SRL
 				VDP1::TextureMetadata metadata = VDP1::TextureMetadata(&VDP1::Textures[VDP1::HeapPointer], colorMode, palette);
 				VDP1::Metadata[VDP1::HeapPointer] = metadata;
 
-                uint16_t pixelSizeDivider = 0;
-
-                switch (colorMode)
-                {
-                case CRAM::TextureColorMode::Paletted256:
-                case CRAM::TextureColorMode::Paletted128:
-                case CRAM::TextureColorMode::Paletted64:
-                    pixelSizeDivider = 1;
-                    break;
-                
-                case CRAM::TextureColorMode::Paletted16:
-                    pixelSizeDivider = 2;
-                    break;
-
-                default:
-                    break;
-                }
-
 				// Copy data over to the VDP1
-				slDMACopy(data, metadata.GetData(), (uint32_t)(((width * height) << 1) >> pixelSizeDivider));
+				slDMACopy(data, metadata.GetData(), (uint32_t)(((width * height) << 1) >> VDP1::GetSizeShifter(colorMode)));
 
 				// Increase heap pointer
 				return VDP1::HeapPointer++;
