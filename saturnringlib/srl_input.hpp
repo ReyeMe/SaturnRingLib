@@ -314,7 +314,9 @@ namespace SRL::Input
 		 */
 		constexpr bool IsConnected() override
 		{
-			return IPeripheral::IsConnected(this->Port) && IPeripheral::Peripherals[this->Port].id == (uint8_t)PeripheralType::Gamepad;
+			return IPeripheral::IsConnected(this->Port) && 
+                (IPeripheral::Peripherals[this->Port].id == (uint8_t)PeripheralType::Gamepad ||
+                IPeripheral::Peripherals[this->Port].id == (uint8_t)PeripheralType::Analog3dPad);
 		}
 
 		/** @brief Check if user is holding down a button

@@ -123,11 +123,11 @@ namespace SRL
                 (Scene2D::Effects.ScreenDoors << 8) |
                     colorMode |
                     No_Window |
-                    ECdis |
+                    ECdis | 
                     (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
                     (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
 
-                sprVflip | FUNC_Sprite | _ZmCC);
+                sprNoflip | FUNC_Sprite | _ZmCC);
             #pragma GCC diagnostic pop
         }
 
