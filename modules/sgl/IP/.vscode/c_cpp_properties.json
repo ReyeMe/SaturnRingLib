@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "Saturn",
+            "includePath": [
+                "${workspaceFolder}/../INC"
+            ],
+            "compilerPath": "${workspaceFolder}/../../../Compiler/sh2eb-elf/bin/sh2eb-elf-gcc.exe",
+            "cStandard": "c23",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "gcc-x86"
+        }
+    ],
+    "version": 4
+}

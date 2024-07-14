@@ -6,6 +6,7 @@
 
 /[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/*
 !/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/resources
+/[Mm]odules/[Ss][Gg][Ll]/[Ii][Pp]/[Bb]uild[Dd]rop/**
 
 /[Mm]odules/[Ss][Gg][Ll]/[Ss][Rr][Cc]/*.o
 /[Mm]odules/[Tt][Ll][Ss][Ff]/*.o
