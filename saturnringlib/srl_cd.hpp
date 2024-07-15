@@ -81,6 +81,13 @@ namespace SRL
              */
             FileSize Size;
 
+            /** @brief Construct a new File object from Gfs handle and identifier
+             * @param handle Gfs handle
+             * @param fid File identifier
+             * @param getSize Fetch file size (will cause file to be open for a bit)
+             */
+            File(GfsHn handle, int32_t fid, bool getSize = true) : Handle(handle), Size(getSize ? FileSize(handle) : FileSize()), identifier(fid) { }
+
             /** @brief Open a file on CD
              * @param handle File handle
              */
@@ -123,6 +130,14 @@ namespace SRL
             constexpr bool Exists()
             {
                 return this->identifier >= 0;
+            }
+
+            /** @brief Get file identifier
+             * @return File identifier
+             */
+            constexpr int32_t GetIdentifier()
+            {
+                return this->identifier;
             }
 
             /** @brief Close file
