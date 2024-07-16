@@ -13,8 +13,18 @@ SGLIDIR = $(SGLDIR)/INC
 
 LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
 
+# include extra modules
+MODULE_EXTRA_INC = 
+
+ifneq ($(strip $(MODULES_EXTRA)),)
+	include $(patsubst %, $(SDK_ROOT)/../modules_extra/%/module.mk, $(strip $(MODULES_EXTRA)))
+	MODULE_EXTRA_INC += $(patsubst %, -I$(SDK_ROOT)/../modules_extra/%/INC, $(strip $(MODULES_EXTRA)))
+	MODULE_OBJECTS = $(MODULE_SOURCES:.c=.o)
+	OBJECTS += $(MODULE_OBJECTS:.cxx=.o)
+endif
+
 COBJECTS = $(SOURCES:.c=.o)
-OBJECTS = $(COBJECTS:.cxx=.o)
+OBJECTS += $(COBJECTS:.cxx=.o)
 
 ifdef OS
    CC = sh2eb-elf-gcc.exe
@@ -140,7 +150,7 @@ endif
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
-CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT)
+CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -ffreestanding -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
 # Compilation tasks

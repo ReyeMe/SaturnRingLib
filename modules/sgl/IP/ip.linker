@@ -1,0 +1,49 @@
+OUTPUT_FORMAT("coff-sh")
+OUTPUT_ARCH(sh)
+
+IP_START = 0x06002000;
+
+SECTIONS
+{
+    . = IP_START;
+	.text 0x06002000 :
+	{
+	}
+
+	.text ALIGN(0x20) :
+	{
+        *(EXCLUDE_FILE(*smpsys.o) .text*)
+        *(.text.startup)
+		*(.strings)
+		_etext = .;
+	}
+
+	.tors  ALIGN(0x10) :
+	{
+		___ctors = . ;
+		*(.ctors)
+		___ctors_end = . ;
+		___dtors = . ;
+		*(.dtors)
+		___dtors_end = . ;
+	}
+	.data ALIGN(0x10):
+	{
+		* (.data)
+		_edata = . ;
+	}
+
+	.rodata ALIGN(0x20) :
+	{
+		*(.rodata)
+	}
+
+	.bss ALIGN(0x10) (NOLOAD):
+	{
+		__bstart = . ;
+		*(.bss)
+		* ( COMMON )
+		__bend = . ;
+		_end = .;
+	}
+}
