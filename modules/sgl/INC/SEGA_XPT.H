@@ -31,8 +31,22 @@
 /****************************** 基本データ型宣言 *****************************/
 /*****************************************************************************/
 
-#include <stdint-gcc.h>
+#ifdef USE_BACKUP_TYPES
+typedef unsigned    char    uint8_t;      /* 符号なし１バイト整数 */
+typedef signed      char    int8_t;      /* 符号つき１バイト整数 */
+typedef unsigned    short   uint16_t;     /* 符号なし２バイト整数 */
+typedef signed      short   int16_t;     /* 符号つき２バイト整数 */
+typedef unsigned    long    uint32_t;     /* 符号なし４バイト整数 */
+typedef signed      long    int32_t;     /* 符号つき４バイト整数 */
+typedef float               Float32;    /* ４バイト実数 */
+typedef double              Float64;    /* ８バイト実数 */
 
+typedef int                 Int;        /* INT型（ツール用）            */
+
+typedef int                 Bool;       /* 論理型（論理定数を値にとる） */
+#else
+#include <stdint-gcc.h>
+#endif
 /*****************************************************************************/
 /********************************* 定数マクロ ********************************/
 /*****************************************************************************/

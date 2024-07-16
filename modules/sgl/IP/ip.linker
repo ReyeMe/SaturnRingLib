@@ -1,19 +1,19 @@
 OUTPUT_FORMAT("coff-sh")
 OUTPUT_ARCH(sh)
 
+IP_START = 0x06002000;
+
 SECTIONS
 {
+    . = IP_START;
 	.text 0x06002000 :
 	{
-		* (.text)
 	}
 
 	.text ALIGN(0x20) :
 	{
-		* (.text)
+        *(EXCLUDE_FILE(*smpsys.o) .text*)
         *(.text.startup)
-        ___main = .;
-        _main = .;
 		*(.strings)
 		_etext = .;
 	}

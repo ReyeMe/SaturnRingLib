@@ -31,19 +31,19 @@ OBJS_AREA = $(SGLLDR)/SYS_AREJ.O $(SGLLDR)/SYS_ARET.O $(SGLLDR)/SYS_AREU.O $(SGL
 
 # ip objects
 OBJS = $(ASRCS:.s=.o) $(SGLLDR)/SYS_SEC.O $(OBJS_AREA) $(SGLLDR)/SYS_INIT.O $(SRCS:.c=.o)
-CLEAR_OBJS = $(ASRCS:.s=.o) $(SRCS:.c=.o) 
+CLEAR_OBJS = $(ASRCS:.s=.o) $(SRCS:.c=.o)
 
 LIBS = 
 
 # option
-CCFLAGS = -O0 -m2 -c -g
+CCFLAGS = -O2 -m2 -c -g0 -DUSE_BACKUP_TYPES -I$(SGLIDR)
 ASFLAGS =
 
 # -m2 must be specified in LDFLAGS so the linker will search the SH2 lib dirs
 # Specify path of libsgl.a by using "-L" option
 
-LDFLAGS = -m2 -Xlinker -T$(LDFILE) -nostartfiles -Xlinker -Map \
-          -Xlinker $(MPFILE) -nostdlib
+LDFLAGS = -m2 -Xlinker -T$(LDFILE) -nostdlib -nolibc -nostdinc -nostartfiles -Xlinker -Map \
+          -Xlinker $(MPFILE)
           
 DFLAGS =
 
