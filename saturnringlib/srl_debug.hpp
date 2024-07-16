@@ -24,7 +24,11 @@ namespace SRL
         /** @brief Default print text buffer
          */
         inline static  char lineBuffer[SRL_DEBUG_MAX_PRINT_LENGTH];
-    
+
+
+        constexpr static  unsigned long logStartAddress = 0x24000000UL;
+        constexpr static  unsigned long CS1 = logStartAddress + 0x1000;
+
     public:
 
 #ifdef DEBUG
@@ -36,6 +40,34 @@ namespace SRL
          */
         static constexpr bool Enabled = false;
 #endif
+
+        class LogLevels {
+        public:
+          enum class Levels : uint8_t {
+              INFO = 0,
+              WARNING = 1,
+              FATAL = 2,
+              DEBUG = 3,
+          };
+
+          LogLevels() = default;
+          constexpr LogLevels(Levels aLevel) : lvl(aLevel) { }
+          constexpr operator Levels() const { return lvl; }
+
+          inline const char* ToString() const
+          {
+              switch (lvl)
+              {
+                  case Levels::INFO:      return "INFO";
+                  case Levels::WARNING:   return "WARNING";
+                  case Levels::FATAL:     return "FATAL";
+                  case Levels::DEBUG:     return "DEBUG";
+                  default:                return "";
+              }
+          }
+        private:
+            Levels lvl;
+        };
 
         /** @brief Print text on screen at specific location
          * @param x Offset from left of the screen
@@ -82,7 +114,7 @@ namespace SRL
                     character++;
                     screenX++;
                 }
-                
+
                 return line;
             }
 
@@ -187,6 +219,46 @@ namespace SRL
             }
         }
 
+        /** @brief Log message
+         * @param message Custom message to show
+         */
+        inline static void Log(const char *message) {
+            Log(LogLevels::Levels::INFO, message);
+          }
+
+        /** @brief Log message
+        * @param lvl  Log level
+         * @param message Custom message to show
+         */
+        inline static void Log(const LogLevels lvl, const char *message) {
+            volatile uint8_t *addr = (volatile uint8_t *)(CS1);
+            const char *s = lvl.ToString();
+            uint8_t size = 0 ;
+            while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
+                *addr = static_cast<uint8_t>(*s++);
+
+            s = message;
+            while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
+                *addr = static_cast<uint8_t>(*s++);
+
+            // Closethe string if not already done
+            if((uint8_t)*(s-1) != '\n') {
+                *addr = '\n';
+            }
+        }
+
+        /** @brief Log message
+        * @param lvl  Log level
+         * @param message Custom message to show
+         * @param args... Text arguments
+         */
+        template <typename ...Args>
+        inline static void Log(const LogLevels lvl, const char *message, Args...args) {
+            static char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = {};
+            snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH-1, message, args ...);
+            Log(lvl, buffer);
+        }
+
         /** @brief Breaks any further execution and shows assert screen
          * @param message Custom message to show
          * @param file File the assert happened in
@@ -206,10 +278,10 @@ namespace SRL
 
             Debug::Print(1,1, "Assert raised");
             uint8_t lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
-            
+
             Debug::Print(1,lines + 4, "Message:");
             Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
-            
+
             //Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
             Debug::Print(1,25, "Free HWRam: %d bytes", SRL::Memory::HighWorkRam::GetFreeSpace());
 
@@ -219,7 +291,7 @@ namespace SRL
             uint8_t frame = 0;
             uint16_t frameCountdown = 3;
             bool breakOut = false;
-            
+
             while (!breakOut)
             {
                 if (frameCountdown == 0)
