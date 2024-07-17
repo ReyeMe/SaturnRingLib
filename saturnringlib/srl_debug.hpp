@@ -54,6 +54,8 @@ namespace SRL
           constexpr LogLevels(Levels aLevel) : lvl(aLevel) { }
           constexpr operator Levels() const { return lvl; }
 
+          /** @brief rToString method
+           */
           inline const char* ToString() const
           {
               switch (lvl)
@@ -65,6 +67,7 @@ namespace SRL
                   default:                return "";
               }
           }
+
         private:
             Levels lvl;
         };
@@ -227,28 +230,36 @@ namespace SRL
           }
 
         /** @brief Log message
-        * @param lvl  Log level
+         * @param lvl  Log level
          * @param message Custom message to show
          */
         inline static void Log(const LogLevels lvl, const char *message) {
+            static const char * separator = " : ";
             volatile uint8_t *addr = (volatile uint8_t *)(CS1);
             const char *s = lvl.ToString();
             uint8_t size = 0 ;
+            // Write Log level
             while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
                 *addr = static_cast<uint8_t>(*s++);
 
+            // Write separator
+            s = separator;
+            while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
+                *addr = static_cast<uint8_t>(*s++);
+
+            // Write message
             s = message;
             while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
                 *addr = static_cast<uint8_t>(*s++);
 
-            // Closethe string if not already done
+            // Close the string if not already done
             if((uint8_t)*(s-1) != '\n') {
                 *addr = '\n';
             }
         }
 
         /** @brief Log message
-        * @param lvl  Log level
+         * @param lvl  Log level
          * @param message Custom message to show
          * @param args... Text arguments
          */
