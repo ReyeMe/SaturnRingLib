@@ -1,5 +1,5 @@
 # Configuration
-SRL_MAX_TEXTURES = 0          # Number of VDP1 texture slots
+SRL_MAX_TEXTURES = 1          # Number of VDP1 texture slots
 SRL_MODE = NTSC                 # Valid options are PAL or NTSC
 SRL_HIGH_RES = 0                # 480i mode
 SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
