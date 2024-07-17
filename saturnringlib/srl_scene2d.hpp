@@ -31,14 +31,18 @@ namespace SRL
              */
             uint16_t HalfTransparency:1;
 
+            /** @brief Clipping mode
+             */
+            uint16_t Clipping:2;
+
             /** @brief Reserved for future use
              */
-            uint16_t Reserved: 14;
+            uint16_t Reserved: 12;
         };
 
         /** @brief Stored effect state
          */
-        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0 };
+        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0 };
 
         /** @brief Is gouraud shading enabled?
          * @return true if gouraud shading is enabled
@@ -63,6 +67,7 @@ namespace SRL
                 ((CL32KRGB & 7) << 3) |
                 (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
                 (Scene2D::Effects.ScreenDoors << 8) |
+                (Scene2D::Effects.Clipping << 9) |
                 (Scene2D::Effects.HalfTransparency ? 0x3 : 0 );
 
             sprite.GRDA = (Scene2D::IsGouraudEnabled() ? Scene2D::Effects.Gouraud : 0);
@@ -119,13 +124,13 @@ namespace SRL
                 texture,
                 palette,
                 (Scene2D::IsGouraudEnabled() ? Scene2D::Effects.Gouraud : 0),
-
+                
+                (Scene2D::Effects.Clipping << 9) |
                 (Scene2D::Effects.ScreenDoors << 8) |
-                    colorMode |
-                    No_Window |
-                    ECdis | 
-                    (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
-                    (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
+                colorMode |
+                ECdis | 
+                (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
+                (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
 
                 sprNoflip | FUNC_Sprite | _ZmCC);
             #pragma GCC diagnostic pop
@@ -133,9 +138,27 @@ namespace SRL
 
     public:
 
+        /** @brief Clipping effect mode
+         */
+        enum ClippingEffect : uint8_t
+        {
+            /** @brief Disable sprite clipping
+             */
+            NoClipping = 0,
+
+            /** @brief Display sprite only on the inside of the clipping rectangle
+             */
+            ClipOutside = 2,
+
+            /** @brief Display sprite only on the outside of the clipping rectangle
+             */
+            ClipInside = 3,
+        };
+
         /** @brief List of all available sprite effects
          */
-        enum SpriteEffect : uint8_t {
+        enum SpriteEffect : uint8_t
+        {
             
             /** @brief Gouraud shading
              * @details Enables/disables gouraud shading for sprites.<br>Expected parameter is zero based index (**uint16_t**) to a gouraud shading table to enable shading, or negative or no value to disable it.
@@ -179,7 +202,37 @@ namespace SRL
              * @endcode
              */
             HalfTransparency = 2,
+
+            /** @brief Sprite clipping effect
+             * @details Enables/disables clipping effect.<br>Expects SRL::Scene2D::ClippingEffect enum.<br>Use SRL::Scene2D::SetClippingRectangle() function to set the clipping rectangle.
+             * @code {.cpp}
+             * // Disable clipping
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::NoClipping);
+             * // or
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping);
+             * 
+             * // Enable clipping
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::ClipInside);
+             * @endcode
+             */
+            Clipping = 3
         };
+
+        /** @brief Set the Clipping rectangle
+         * @param location Rectangle top left corner location in screen coordinates, where top left corner of the screen is (0,0)
+         * @param size Rectangle size
+         * @return true on success
+         */
+        static inline bool SetClippingRectangle(const Types::Vector3D& location, const Types::Vector2D& size)
+        {
+            SPRITE sprite;
+            sprite.CTRL = FUNC_UserClip;
+            sprite.XA = location.X.ToInt();
+            sprite.YA = location.Y.ToInt();
+            sprite.XC = (location.X + size.X).ToInt();
+            sprite.YC = (location.Y + size.Y).ToInt();
+            return slSetSprite(&sprite, location.Z.Value());
+        }
 
         /** @brief Set sprite effect
          * @details See @ref SRL::Scene2D::SpriteEffect for valid effect data
@@ -199,6 +252,10 @@ namespace SRL
 
             case SpriteEffect::HalfTransparency:
                 Scene2D::Effects.HalfTransparency = data == 1;
+                break;
+
+            case SpriteEffect::Clipping:
+                Scene2D::Effects.Clipping = data < 0 ? 0 : data & 0x3;
                 break;
 
             default:
@@ -350,7 +407,7 @@ namespace SRL
          * @param color Polygon color
          * @param sort Z order
          */
-        static void DrawPolygon(const Types::Vector2D points[4], const bool fill, const Types::HighColor& color, const Types::Fxp sort)
+        static bool DrawPolygon(const Types::Vector2D points[4], const bool fill, const Types::HighColor& color, const Types::Fxp sort)
         {
             SPRITE polygon = Scene2D::GetShapeCommand(fill ? FUNC_Polygon : FUNC_PolyLine, color);
             polygon.XA = points[0].X.ToInt();
@@ -361,7 +418,7 @@ namespace SRL
             polygon.YC = points[2].Y.ToInt();
             polygon.XD = points[3].X.ToInt();
             polygon.YD = points[3].Y.ToInt();
-            slSetSprite(&polygon, sort.Value());
+            return slSetSprite(&polygon, sort.Value());
         }
     };
 }

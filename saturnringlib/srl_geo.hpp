@@ -35,32 +35,5 @@ namespace SRL
         {
             return slCheckOnScreen((FIXED*)&point, size.Value()) >= 0;
         }
-
-        /** @brief Sinus from angle
-         * @param angle Angle value
-         * @return Sinus value
-         */
-        static SRL::Types::Fxp Sin(const SRL::Types::Angle& angle)
-        {
-            return SRL::Types::Fxp::FromRaw(slSin(angle.Value()));
-        }
-        
-        /** @brief Cosines from angle
-         * @param angle Angle value
-         * @return Cosines value
-         */
-        static SRL::Types::Fxp Cos(const SRL::Types::Angle& angle)
-        {
-            return SRL::Types::Fxp::FromRaw(slCos(angle.Value()));
-        }
-        
-        /** @brief Tangent from angle
-         * @param angle Angle value
-         * @return Tangent value
-         */
-        static SRL::Types::Fxp Tan(const SRL::Types::Angle& angle)
-        {
-            return SRL::Types::Fxp::FromRaw(slTan(angle.Value()));
-        }
     };
 }
