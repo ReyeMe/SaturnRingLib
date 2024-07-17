@@ -31,6 +31,15 @@ namespace SRL
             return Types::Fxp::FromRaw(slCos(angle.Value()));
         }
 
+        /** @brief Tangent from angle
+         * @param angle Angle value
+         * @return Tangent value
+         */
+        static SRL::Types::Fxp Tan(const SRL::Types::Angle& angle)
+        {
+            return SRL::Types::Fxp::FromRaw(slTan(angle.Value()));
+        }
+        
 		/// @brief Get absolute value
 		/// @tparam ValueType Type of the value
 		/// @param value Numeric value

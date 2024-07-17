@@ -68,6 +68,53 @@ namespace SRL::Bitmap
             int8_t Reserved;
         };
 
+        /** @brief For loop range
+         */
+        struct ForRange
+        {
+            /** @brief Loop start
+             */
+            int32_t Start;
+
+            /** @brief Loop end
+             */
+            int32_t End;
+
+            /** @brief Loop step
+             */
+            int32_t Step;
+        };
+        
+        /** @brief 
+         */
+        enum TgaOrigin
+        {
+            BottomLeft = 0x00,
+            BottomRight = 0x01,
+            TopLeft = 0x02,
+            TopRight = 0x03,
+        };
+
+#pragma pack(push, 1)
+        /** @brief Image descriptor
+         */
+        struct TgaDescriptor
+        {
+            /** @brief How image pixel data is organized
+             */
+            uint8_t DataStorageMode: 2;
+
+            /** @brief Where image pixel data start
+             */
+            uint8_t Origin:2;
+
+            /** @brief Number of attribute bits associated with each pixel
+             */
+            uint8_t PixelAttributeBits:4;
+
+        };
+#pragma pack(pop)
+                
         /** @brief Image description
          */
         struct TgaImage
@@ -86,7 +133,11 @@ namespace SRL::Bitmap
 
             /** @brief Image descriptor
              */
-            int8_t Descriptor;
+            union
+            {
+                int8_t Value;
+                TgaDescriptor Data;
+            } Descriptor;
         };
 
         /** @brief TGA image header
@@ -254,12 +305,12 @@ namespace SRL::Bitmap
             uint8_t* buffer = (stream + TGA::ImagePaletteOffset(header));
             Bitmap::Palette* palette = new Bitmap::Palette(header->Palette.PaletteLength);
             uint8_t depth = header->Palette.PaletteColorDepth >> 3;
+            uint8_t* pixelData = buffer;
 
             for (int32_t index = 0; index < header->Palette.PaletteLength; index++)
             {
                 if (index != transparentColor)
                 {
-                    uint8_t* pixelData = buffer + (depth * index);
                     SRL::Types::HighColor color = SRL::Types::HighColor();
 
                     switch (depth)
@@ -284,6 +335,8 @@ namespace SRL::Bitmap
                 {
                     palette->Colors[index] = SRL::Types::HighColor();
                 }
+
+                pixelData += depth;
             }
 
             return palette;
@@ -292,13 +345,17 @@ namespace SRL::Bitmap
         /** @brief Decode paletted image
          * @param stream File stream
          * @param header File header
+         * @param xLoop Range of width loop
+         * @param yLoop Range of height loop
          */
-        inline void DecodePaletted(uint8_t* stream, const TGA::TgaHeader* header)
+        inline void DecodePaletted(uint8_t* stream, const TGA::TgaHeader* header, ForRange& xLoop, ForRange& yLoop)
         {
             // Allocated space for image data
             uint32_t pixels = this->width * this->height;
             this->imageData = new uint8_t[pixels];
             uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
+            int32_t xLocation = xLoop.Start;
+            int32_t yLocation = yLoop.Start;
 
             // Read palette data
             if (header->Palette.PaletteLength <= 16)
@@ -306,7 +363,15 @@ namespace SRL::Bitmap
                 // 16 color palette
                 for (uint32_t index = 0; index < pixels; index++)
                 {
-                    this->imageData[index] = ((buffer[index << 1] & 0x0f) << 4) | (buffer[(index << 1) + 1] & 0x0f);
+                    uint32_t location = (yLocation * this->width) + xLocation;
+                    this->imageData[location] = ((buffer[index << 1] & 0x0f) << 4) | (buffer[(index << 1) + 1] & 0x0f);
+                    xLocation += xLoop.Step;
+
+                    if (xLocation == xLoop.End)
+                    {
+                        xLocation = xLoop.Start;
+                        yLocation += yLoop.Step;
+                    }
                 }
             }
             else
@@ -314,7 +379,15 @@ namespace SRL::Bitmap
                 // 256 color palette
                 for (uint32_t index = 0; index < pixels; index++)
                 {
-                    this->imageData[index] = buffer[index];
+                    uint32_t location = (yLocation * this->width) + xLocation;
+                    this->imageData[location] = buffer[index];
+                    xLocation += xLoop.Step;
+
+                    if (xLocation == xLoop.End)
+                    {
+                        xLocation = xLoop.Start;
+                        yLocation += yLoop.Step;
+                    }
                 }
             }
         }
@@ -322,13 +395,17 @@ namespace SRL::Bitmap
         /** @brief Decode paletted image
          * @param stream File stream
          * @param header File header
+         * @param xLoop Range of width loop
+         * @param yLoop Range of height loop
          */
-        inline void DecodeRlePaletted(uint8_t* stream, const TGA::TgaHeader* header)
+        inline void DecodeRlePaletted(uint8_t* stream, const TGA::TgaHeader* header, ForRange& xLoop, ForRange& yLoop)
         {
             // Allocated space for image data
             size_t size = this->width * this->height;
             this->imageData = new uint8_t[size];
             uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
+            int32_t xLocation = xLoop.Start;
+            int32_t yLocation = yLoop.Start;
             size_t fill = 0;
 
             // Read image data
@@ -341,8 +418,28 @@ namespace SRL::Bitmap
                 case TgaRlePacket::PacketType::RawPacket:
                     for (int packed = 0; packed <= packet->Count; packed++)
                     {
-                        this->imageData[pixel++] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
-                        buffer++;
+                        uint32_t location = (yLocation * this->width) + xLocation;
+
+                        if (header->Palette.PaletteLength <= 16)
+                        {
+                            // 16 color palette
+                            this->imageData[location] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
+                            buffer+=2;
+                        }
+                        else
+                        {
+                            // 256 color palette
+                            this->imageData[location] = *(buffer++);
+                        }
+                        
+                        pixel++;
+                        xLocation += xLoop.Step;
+
+                        if (xLocation == xLoop.End)
+                        {
+                            xLocation = xLoop.Start;
+                            yLocation += yLoop.Step;
+                        }
                     }
 
                     break;
@@ -352,7 +449,27 @@ namespace SRL::Bitmap
                     // Repeat the pixel color
                     for (int repeater = 0; repeater <= packet->Count; repeater++)
                     {
-                        this->imageData[pixel++] = *buffer;
+                        uint32_t location = (yLocation * this->width) + xLocation;
+
+                        if (header->Palette.PaletteLength <= 16)
+                        {
+                            // 16 color palette
+                            this->imageData[location] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
+                        }
+                        else
+                        {
+                            // 256 color palette
+                            this->imageData[location] = *buffer;
+                        }
+                        
+                        pixel++;
+                        xLocation += xLoop.Step;
+
+                        if (xLocation == xLoop.End)
+                        {
+                            xLocation = xLoop.Start;
+                            yLocation += yLoop.Step;
+                        }
                     }
 
                     // Move to next pixel data
@@ -365,15 +482,19 @@ namespace SRL::Bitmap
         /** @brief Decode true color image
          * @param data Image data
          * @param header File header
+         * @param xLoop Range of width loop
+         * @param yLoop Range of height loop
          * @param transparentColor defines a color that should be changed to be transparent
          */
-        inline void DecodeTrueColor(uint8_t* stream, const TGA::TgaHeader* header, SRL::Types::HighColor transparentColor)
+        inline void DecodeTrueColor(uint8_t* stream, const TGA::TgaHeader* header, ForRange& xLoop, ForRange& yLoop, SRL::Types::HighColor transparentColor)
         {
             // Allocated space for image data
             uint32_t size = this->width * this->height;
             this->imageData = (uint8_t*)new SRL::Types::HighColor[size];
             uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
             uint8_t depth = header->Image.PixelColorDepth >> 3;
+            int32_t xLocation = xLoop.Start;
+            int32_t yLocation = yLoop.Start;
 
             // Read image data
             for (uint32_t index = 0; index < size; index++)
@@ -397,16 +518,27 @@ namespace SRL::Bitmap
                     break;
                 }
                 
-                ((SRL::Types::HighColor*)this->imageData)[index] = color != transparentColor ? color : SRL::Types::HighColor();
+                uint32_t location = (yLocation * this->width) + xLocation;
+                ((SRL::Types::HighColor*)this->imageData)[location] = color != transparentColor ? color : SRL::Types::HighColor();
+                
+                xLocation += xLoop.Step;
+
+                if (xLocation == xLoop.End)
+                {
+                    xLocation = xLoop.Start;
+                    yLocation += yLoop.Step;
+                }
             }
         }
         
         /** @brief Decode true color image with RLE compression
          * @param data Image data
          * @param header File header
+         * @param xLoop Range of width loop
+         * @param yLoop Range of height loop
          * @param transparentColor defines a color that should be changed to be transparent
          */
-        inline void DecodeTrueColorRle(uint8_t* stream, const TGA::TgaHeader* header, SRL::Types::HighColor transparentColor)
+        inline void DecodeTrueColorRle(uint8_t* stream, const TGA::TgaHeader* header, ForRange& xLoop, ForRange& yLoop, SRL::Types::HighColor transparentColor)
         {
             // Allocated space for image data
             uint32_t size = this->width * this->height;
@@ -414,6 +546,8 @@ namespace SRL::Bitmap
             uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
             uint8_t depth = header->Image.PixelColorDepth >> 3;
             SRL::Types::HighColor fill;
+            int32_t xLocation = xLoop.Start;
+            int32_t yLocation = yLoop.Start;
 
             for (uint32_t pixel = 0; pixel < size;)
             {
@@ -443,10 +577,19 @@ namespace SRL::Bitmap
                             break;
                         }
 
-                        ((SRL::Types::HighColor*)this->imageData)[pixel] = color != transparentColor ? color : SRL::Types::HighColor();
+                        uint32_t location = (yLocation * this->width) + xLocation;
+                        ((SRL::Types::HighColor*)this->imageData)[location] = color != transparentColor ? color : SRL::Types::HighColor();
 
                         // Move to next pixel data
                         buffer += depth;
+
+                        xLocation += xLoop.Step;
+
+                        if (xLocation == xLoop.End)
+                        {
+                            xLocation = xLoop.Start;
+                            yLocation += yLoop.Step;
+                        }
 
                         // Move to next pixel
                         pixel++;
@@ -478,7 +621,18 @@ namespace SRL::Bitmap
                     // Repeat the pixel color
                     for (int repeater = 0; repeater <= packet->Count; repeater++)
                     {
-                        ((SRL::Types::HighColor*)this->imageData)[pixel++] = fill;
+                        uint32_t location = (yLocation * this->width) + xLocation;
+                        ((SRL::Types::HighColor*)this->imageData)[location] = fill;
+                        
+                        xLocation += xLoop.Step;
+
+                        if (xLocation == xLoop.End)
+                        {
+                            xLocation = xLoop.Start;
+                            yLocation += yLoop.Step;
+                        }
+
+                        pixel++;
                     }
 
                     // Move to next pixel data
@@ -542,7 +696,7 @@ namespace SRL::Bitmap
                 header.Image.Size.X = TGA::DeserializeUint16(data + 12);
                 header.Image.Size.Y = TGA::DeserializeUint16(data + 14);
                 header.Image.PixelColorDepth = *(data + 16);
-                header.Image.Descriptor = *(data + 17);
+                header.Image.Descriptor.Value = *(data + 17);
                 
                 // Lets check whether the header makes sense
                 if (header.Image.Size.X == 0 || header.Image.Size.Y == 0 ||
@@ -563,25 +717,50 @@ namespace SRL::Bitmap
                 this->width = (size_t)header.Image.Size.X;
                 this->height = (size_t)header.Image.Size.Y;
 
+                // Pixel read order
+                uint8_t origin = header.Image.Descriptor.Data.Origin;
+                ForRange xLoop = { 0, 0, 0 };
+                ForRange yLoop = { 0, 0, 0 };
+
+                if (origin == TgaOrigin::TopLeft || origin == TgaOrigin::TopRight) {
+                    yLoop.Start = 0; // start bottom, step upward
+                    yLoop.Step = 1;
+                    yLoop.End = this->height;
+                } else {
+                    yLoop.Start = this->height - 1; // start at top, step downward
+                    yLoop.Step = -1;
+                    yLoop.End = -1;
+                }
+
+                if (origin == TgaOrigin::TopLeft || origin == TgaOrigin::BottomLeft) {
+                    xLoop.Start = 0;
+                    xLoop.Step = 1;
+                    xLoop.End = this->width;
+                } else {
+                    xLoop.Start = this->width - 1;
+                    xLoop.Step = -1;
+                    xLoop.End = -1;
+                }
+
                 // Data stream should now be pointing to after the header
                 switch (header.ImageType)
                 {
                 case ((int8_t)TGA::TgaTypes::TgaPaletted):
                     this->palette = TGA::DecodePalette(stream, &header, settings->TransparentColorIndex);
-                    this->DecodePaletted(stream, &header);
+                    this->DecodePaletted(stream, &header, xLoop, yLoop);
                     break;
 
                 case ((int8_t)TGA::TgaTypes::TgaRlePaletted):
                     this->palette = TGA::DecodePalette(stream, &header, settings->TransparentColorIndex);
-                    this->DecodeRlePaletted(stream, &header);
+                    this->DecodeRlePaletted(stream, &header, xLoop, yLoop);
                     break;
 
                 case ((int8_t)TGA::TgaTypes::TgaTrueColor):
-                    this->DecodeTrueColor(stream, &header, settings->TransparentColor);
+                    this->DecodeTrueColor(stream, &header, xLoop, yLoop, settings->TransparentColor);
                     break;
 
                 case ((int8_t)TGA::TgaTypes::TgaRleTrueColor):
-                    this->DecodeTrueColorRle(stream, &header, settings->TransparentColor);
+                    this->DecodeTrueColorRle(stream, &header, xLoop, yLoop, settings->TransparentColor);
                     break;
                 
                 default:
