@@ -25,5 +25,9 @@
 **/cd/data/BOOTSND.MAP
 **/cd/data/3BANDANA.EXB
 
+**/cd/data/ABS.TXT
+**/cd/data/BIB.TXT
+**/cd/data/CPY.TXT
+
 /Projects/**
 !/Projects/Put_your_projects_here.txt
