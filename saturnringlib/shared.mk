@@ -164,6 +164,9 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	mkdir -p $(MUSIC_DIR)
 	mkdir -p $(ASSETS_DIR)
 	mkdir -p $(BUILD_DROP)
+	test -f $(ASSETS_DIR)/ABS.TXT || echo "NOT Abstracted by SEGA" >> $(ASSETS_DIR)/ABS.TXT
+	test -f $(ASSETS_DIR)/BIB.TXT || echo "NOT Bibliographiced by SEGA" >> $(ASSETS_DIR)/BIB.TXT
+	test -f $(ASSETS_DIR)/CPY.TXT || touch $(ASSETS_DIR)/CPY.TXT
 	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
 
 convert_binary : compile_objects
