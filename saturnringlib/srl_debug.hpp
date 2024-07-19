@@ -8,6 +8,17 @@
 
 namespace SRL
 {
+    namespace Log
+    {
+      enum class Levels : uint8_t {
+          TRACE = 0,
+          DEBUG = 1,
+          INFO = 2,
+          WARNING = 3,
+          FATAL = 4,
+        };
+    };
+
     /** @brief Debug helper
      */
     class Debug
@@ -25,8 +36,12 @@ namespace SRL
          */
         inline static  char lineBuffer[SRL_DEBUG_MAX_PRINT_LENGTH];
 
-
+        /** @brief TBD
+         */
         constexpr static  unsigned long logStartAddress = 0x24000000UL;
+
+        /** @brief TBD
+         */
         constexpr static  unsigned long CS1 = logStartAddress + 0x1000;
 
     public:
@@ -41,18 +56,13 @@ namespace SRL
         static constexpr bool Enabled = false;
 #endif
 
+      /** @brief Log levels wrapper
+       */
         class LogLevels {
         public:
-          enum class Levels : uint8_t {
-              INFO = 0,
-              WARNING = 1,
-              FATAL = 2,
-              DEBUG = 3,
-          };
-
           LogLevels() = default;
-          constexpr LogLevels(Levels aLevel) : lvl(aLevel) { }
-          constexpr operator Levels() const { return lvl; }
+          constexpr LogLevels(SRL::Log::Levels aLevel) : lvl(aLevel) { }
+          constexpr operator SRL::Log::Levels() const { return lvl; }
 
           /** @brief rToString method
            */
@@ -60,16 +70,17 @@ namespace SRL
           {
               switch (lvl)
               {
-                  case Levels::INFO:      return "INFO";
-                  case Levels::WARNING:   return "WARNING";
-                  case Levels::FATAL:     return "FATAL";
-                  case Levels::DEBUG:     return "DEBUG";
-                  default:                return "";
+                  case SRL::Log::Levels::TRACE:     return "TRACE";
+                  case SRL::Log::Levels::DEBUG:     return "DEBUG";
+                  case SRL::Log::Levels::INFO:      return "INFO";
+                  case SRL::Log::Levels::WARNING:   return "WARNING";
+                  case SRL::Log::Levels::FATAL:     return "FATAL";
+                  default:                          return "";
               }
           }
 
         private:
-            Levels lvl;
+            SRL::Log::Levels lvl;
         };
 
         /** @brief Print text on screen at specific location
@@ -226,7 +237,7 @@ namespace SRL
          * @param message Custom message to show
          */
         inline static void Log(const char *message) {
-            Log(LogLevels::Levels::INFO, message);
+            Log(SRL::Log::Levels::INFO, message);
           }
 
         /** @brief Log message
