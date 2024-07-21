@@ -62,6 +62,9 @@ namespace SRL
             // Initialize VDP2
             VDP2::Initialize(backColor);
 
+            // Set window size to 512 (this allows us to have VDP1 render outside of the visible area)
+            *(uint16_t*)(SpriteVRAM+20)=511;
+
             // Set cull depth
             slZdspLevel(3);
 
