@@ -1,18 +1,26 @@
 #pragma once
 
+/** @brief Global SRL namespace
+*/
 namespace SRL
 {
+  /** @brief Logger namespace that holds the logger functionnality
+  */
   namespace Logger
   {
+    /** @brief LogLevels
+    */
     enum class LogLevels : uint8_t {
-      TRACE = 0,
-      DEBUG = 1,
-      INFO = 2,
-      WARNING = 3,
-      FATAL = 4,
-      NONE = 99,
+      TRACE = 0,      /*!< TRACE Level, used to trace code execution while debugging */
+      DEBUG = 1,      /*!< DEBUG Level, debug traces, may disappear at release */
+      INFO = 2,       /*!< INFO Level, generic information messages */
+      WARNING = 3,    /*!< WARNING Level, warning messages */
+      FATAL = 4,      /*!< FATAL Level, message display before a crash */
+      NONE = 99,      /*!< NONE Level, used to disable logging */
     };
 
+    /** @brief Log class
+    */
     class Log
     {
     private:
@@ -28,27 +36,30 @@ namespace SRL
 
       Log() = delete;
 
+      /** @brief minimum log level to be output
+      */
       #ifndef SRL_LOG_LEVEL
-        static constexpr SRL::Logger::LogLevels minLevel = SRL::Logger::LogLevels::INFO;
+        static constexpr SRL::Logger::LogLevels MinLevel = SRL::Logger::LogLevels::INFO;
       #else
         #define Stringify(U) SRL::Logger::LogLevels::U
-        static constexpr SRL::Logger::LogLevels minLevel = Stringify(SRL_LOG_LEVEL);
+        static constexpr SRL::Logger::LogLevels MinLevel = Stringify(SRL_LOG_LEVEL);
         #undef Stringify
        #endif
 
       /** @brief Log levels helper class
       */
-      class LogLevelHelper {
+      class LogLevelHelper
+      {
       public:
         LogLevelHelper() = default;
         constexpr LogLevelHelper(SRL::Logger::LogLevels aLevel) : lvl(aLevel) { }
         constexpr operator SRL::Logger::LogLevels() const { return lvl; }
 
-        /** @brief rToString method
+        /** @brief ToString method
         */
         inline const char* ToString() const
         {
-          switch (lvl)
+          switch (this->lvl)
           {
             case SRL::Logger::LogLevels::TRACE:     return "TRACE";
             case SRL::Logger::LogLevels::DEBUG:     return "DEBUG";
@@ -60,6 +71,8 @@ namespace SRL
         }
 
       private:
+        /** @brief private log level
+        */
         SRL::Logger::LogLevels lvl;
       };
 
@@ -68,8 +81,9 @@ namespace SRL
       * @param message Custom message to show
       */
       template <SRL::Logger::LogLevels lvl>
-      inline static void LogPrint(const char *message) {
-        if constexpr (lvl >= minLevel) {
+      inline static void LogPrint(const char *message)
+      {
+        if constexpr (lvl >= MinLevel) {
           static const char * separator = " : ";
           volatile uint8_t *addr = (volatile uint8_t *)(CS1);
           const char *s = SRL::Logger::Log::LogLevelHelper(lvl).ToString();
@@ -100,17 +114,20 @@ namespace SRL
       * @param args... Text arguments
       */
       template <typename ...Args>
-      inline static void LogPrint(const char *message, Args...args) {
+      inline static void LogPrint(const char *message, Args...args)
+      {
         LogPrint<SRL::Logger::LogLevels::INFO>(message, args ...);
       }
 
       /** @brief Log message
+      * @param lvl  Log level
       * @param message Custom message to show
       * @param args... Text arguments
       */
       template <SRL::Logger::LogLevels lvl, typename ...Args>
-      inline static void LogPrint(const char *message, Args...args) {
-        if constexpr (lvl >= minLevel) {
+      inline static void LogPrint(const char *message, Args...args)
+      {
+        if constexpr (lvl >= MinLevel) {
           static char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = {};
           snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH-1, message, args ...);
           LogPrint<lvl>(buffer);
@@ -124,7 +141,8 @@ namespace SRL
     * @param args... Text arguments
     */
     template <typename ...Args>
-    inline void LogTrace(const char *message, Args...args) {
+    inline void LogTrace(const char *message, Args...args)
+    {
         SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TRACE>(message, args ...);
     }
 
@@ -133,7 +151,8 @@ namespace SRL
     * @param args... Text arguments
     */
     template <typename ...Args>
-    inline void LogInfo(const char *message, Args...args) {
+    inline void LogInfo(const char *message, Args...args)
+    {
         SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::INFO>(message, args ...);
     }
 
@@ -142,7 +161,8 @@ namespace SRL
     * @param args... Text arguments
     */
     template <typename ...Args>
-    inline void LogDebug(const char *message, Args...args) {
+    inline void LogDebug(const char *message, Args...args)
+    {
         SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::DEBUG>(message, args ...);
     }
 
@@ -151,12 +171,14 @@ namespace SRL
     * @param args... Text arguments
     */
     template <typename ...Args>
-    inline void LogWarning(const char *message, Args...args) {
+    inline void LogWarning(const char *message, Args...args)
+    {
         SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::WARNING>(message, args ...);
     }
 
     template <typename ...Args>
-    inline void LogFatal(const char *message, Args...args) {
+    inline void LogFatal(const char *message, Args...args)
+    {
         SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::FATAL>(message, args ...);
     }
 
@@ -165,7 +187,8 @@ namespace SRL
     * @param args... Text arguments
     */
     template <typename ...Args>
-    inline void LogPrint(const char *message, Args...args) {
+    inline void LogPrint(const char *message, Args...args)
+    {
         LogInfo(message, args ...);
     }
 

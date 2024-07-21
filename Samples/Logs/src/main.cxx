@@ -11,7 +11,7 @@ int main()
 	const int32_t myNumber = 555;
 	const char * myString = "666";
 
-	Log::LogPrint("Current log level : %s", Log::LogLevelHelper(Log::minLevel).ToString());
+	Log::LogPrint("Current log level : %s", Log::LogLevelHelper(Log::MinLevel).ToString());
 
 	Log::LogPrint("Before Initialize");
 	SRL::Core::Initialize(HighColor(20,10,50));
