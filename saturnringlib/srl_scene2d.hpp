@@ -232,7 +232,7 @@ namespace SRL
              * @details Enables/disables clipping effect.<br>Expects SRL::Scene2D::ClippingEffect enum.<br>Use SRL::Scene2D::SetClippingRectangle() function to set the clipping rectangle.
              * @code {.cpp}
              * // Disable flip
-             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::NoFlip);
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::NoClipping);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping);
              * 
@@ -246,7 +246,7 @@ namespace SRL
              * @details Allows to set sprite texture read direction (making sprite flipped)
              * @code {.cpp}
              * // Disable flipping
-             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::NoClipping);
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::NoFlip);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip);
              * 
