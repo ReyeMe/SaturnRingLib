@@ -19,6 +19,9 @@
 /[Ee]mulators/[Mm]ednafen/**
 !/[Ee]mulators/[Mm]ednafen/put_mednafen_here.txt
 
+**/cd/data/ABS.TXT
+**/cd/data/BIB.TXT
+**/cd/data/CPY.TXT
 **/cd/data/SDDRVS.*
 **/cd/data/BOOTSND.MAP
 **/cd/data/3BANDANA.EXB

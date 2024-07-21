@@ -65,7 +65,6 @@ namespace SRL
             Palette() : paletteMode(CRAM::TextureColorMode::RGB555), id(0) { }
 
             /** @brief Construct a new Palette entry
-             * @param data Color data pointer
              * @param mode Color mode
              * @param id Palette identifier
              */

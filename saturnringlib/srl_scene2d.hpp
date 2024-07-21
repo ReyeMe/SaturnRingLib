@@ -17,6 +17,8 @@ namespace SRL
          */
         static const uint16_t GouraudTableBase = 0xe000;
 
+        /** @brief Struct to store effect settings
+         */
         struct EffectStore {
 
             /** @brief Gouraud table address
@@ -35,14 +37,18 @@ namespace SRL
              */
             uint16_t Clipping:2;
 
+            /** @brief Sprite flipping
+             */
+            uint16_t Flip:2;
+
             /** @brief Reserved for future use
              */
-            uint16_t Reserved: 12;
+            uint16_t Reserved: 10;
         };
 
         /** @brief Stored effect state
          */
-        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0 };
+        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0, 0 };
 
         /** @brief Is gouraud shading enabled?
          * @return true if gouraud shading is enabled
@@ -132,7 +138,9 @@ namespace SRL
                 (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
                 (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
 
-                sprNoflip | FUNC_Sprite | _ZmCC);
+                (Scene2D::Effects.Flip << 4) |
+                FUNC_Sprite |
+                _ZmCC);
             #pragma GCC diagnostic pop
         }
 
@@ -153,6 +161,23 @@ namespace SRL
             /** @brief Display sprite only on the outside of the clipping rectangle
              */
             ClipInside = 3,
+        };
+
+        /** @brief Sprite flip effect
+         */
+        enum FlipEffect : uint8_t
+        {
+            /** @brief Do not flip sprite
+             */
+            NoFlip = 0,
+
+            /** @brief Flip sprite horizontally
+             */
+            HorizontalFlip = 1,
+
+            /** @brief Flip sprite vertically
+             */
+            VerticalFlip = 2,
         };
 
         /** @brief List of all available sprite effects
@@ -206,16 +231,33 @@ namespace SRL
             /** @brief Sprite clipping effect
              * @details Enables/disables clipping effect.<br>Expects SRL::Scene2D::ClippingEffect enum.<br>Use SRL::Scene2D::SetClippingRectangle() function to set the clipping rectangle.
              * @code {.cpp}
-             * // Disable clipping
-             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::NoClipping);
+             * // Disable flip
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::NoFlip);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping);
              * 
-             * // Enable clipping
+             * // Enable flip
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::ClipInside);
              * @endcode
              */
-            Clipping = 3
+            Clipping = 3,
+
+            /** @brief Flip sprite effect
+             * @details Allows to set sprite texture read direction (making sprite flipped)
+             * @code {.cpp}
+             * // Disable flipping
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::NoClipping);
+             * // or
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip);
+             * 
+             * // Enable clipping
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip);
+             * 
+             * // Enable flip in both directions
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip | SRL::Scene2D::FlipEffect::VerticalFlip);
+             * @endcode
+             */
+            Flip = 4
         };
 
         /** @brief Set the Clipping rectangle
@@ -256,6 +298,10 @@ namespace SRL
 
             case SpriteEffect::Clipping:
                 Scene2D::Effects.Clipping = data < 0 ? 0 : data & 0x3;
+                break;
+
+            case SpriteEffect::Flip:
+                Scene2D::Effects.Flip = data < 0 ? 0 : data & 0x3;
                 break;
 
             default:
