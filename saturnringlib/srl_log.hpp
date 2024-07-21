@@ -34,9 +34,15 @@ namespace SRL
 
     public:
 
-      Log() = delete;                         //disable default constructor
-      Log(const Log&) = delete;               //disable copy constructor
-      Log& operator = (const Log&) = delete;  //disable assignment operator
+      /** @brief disable default constructor
+      */
+      Log() = delete;
+      /** @brief disable copy constructor
+      */
+      Log(const Log&) = delete;
+      /** @brief disable assignment operator
+      */
+      Log& operator = (const Log&) = delete;
 
       /** @brief minimum log level to be output
       */
