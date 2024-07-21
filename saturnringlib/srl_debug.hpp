@@ -25,14 +25,6 @@ namespace SRL
          */
         inline static  char lineBuffer[SRL_DEBUG_MAX_PRINT_LENGTH];
 
-        /** @brief TBD
-         */
-        constexpr static  unsigned long logStartAddress = 0x24000000UL;
-
-        /** @brief TBD
-         */
-        constexpr static  unsigned long CS1 = logStartAddress + 0x1000;
-
     public:
 
 #ifdef DEBUG

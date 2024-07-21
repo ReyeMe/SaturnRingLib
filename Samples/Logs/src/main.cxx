@@ -34,7 +34,7 @@ int main()
 
 	LogFatal("Here we go again, If you're %d, then I'm %s", myNumber, myString);
 
-	// Main program loo
+	// Main program loop
 	while(1)
 	{
 		SRL::Core::Synchronize();

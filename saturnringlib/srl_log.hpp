@@ -24,13 +24,13 @@ namespace SRL
     class Log
     {
     private:
-      /** @brief TBD
+      /** @brief Log starts address
       */
-      constexpr static  unsigned long logStartAddress = 0x24000000UL;
+      constexpr static unsigned long logStartAddress = 0x24000000UL;
 
-      /** @brief TBD
+      /** @brief Log charcater output address
       */
-      constexpr static  unsigned long CS1 = logStartAddress + 0x1000;
+      constexpr static unsigned long CS1 = logStartAddress + 0x1000;
 
     public:
 
@@ -51,8 +51,17 @@ namespace SRL
       class LogLevelHelper
       {
       public:
-        LogLevelHelper() = default;
-        constexpr LogLevelHelper(SRL::Logger::LogLevels aLevel) : lvl(aLevel) { }
+
+        LogLevelHelper() = delete; //disable default constructor
+
+        /** @brief Constructor
+          * @param aLevel Log level
+        */
+        constexpr explicit LogLevelHelper(SRL::Logger::LogLevels aLevel) : lvl(aLevel) { }
+
+        /** @brief Getter
+          * @returns Log level
+        */
         constexpr operator SRL::Logger::LogLevels() const { return lvl; }
 
         /** @brief ToString method
