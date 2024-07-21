@@ -8,17 +8,6 @@
 
 namespace SRL
 {
-    namespace Log
-    {
-      enum class Levels : uint8_t {
-          TRACE = 0,
-          DEBUG = 1,
-          INFO = 2,
-          WARNING = 3,
-          FATAL = 4,
-        };
-    };
-
     /** @brief Debug helper
      */
     class Debug
@@ -55,47 +44,6 @@ namespace SRL
          */
         static constexpr bool Enabled = false;
 #endif
-
-#ifndef SRL_LOG_LEVEL
-      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::INFO;
-#elif SRL_LOG_LEVEL == TRACE
-      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::TRACE;
-#elif SRL_LOG_LEVEL == DEBUG
-      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::DEBUG;
-#elif SRL_LOG_LEVEL == INFO
-      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::INFO;
-#elif SRL_LOG_LEVEL == WARNING
-      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::WARNING;
-#elif SRL_LOG_LEVEL == FATAL
-      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::FATAL;      
-#endif
-
-      /** @brief Log levels wrapper
-       */
-        class LogLevels {
-        public:
-          LogLevels() = default;
-          constexpr LogLevels(SRL::Log::Levels aLevel) : lvl(aLevel) { }
-          constexpr operator SRL::Log::Levels() const { return lvl; }
-
-          /** @brief rToString method
-           */
-          inline const char* ToString() const
-          {
-              switch (lvl)
-              {
-                  case SRL::Log::Levels::TRACE:     return "TRACE";
-                  case SRL::Log::Levels::DEBUG:     return "DEBUG";
-                  case SRL::Log::Levels::INFO:      return "INFO";
-                  case SRL::Log::Levels::WARNING:   return "WARNING";
-                  case SRL::Log::Levels::FATAL:     return "FATAL";
-                  default:                          return "";
-              }
-          }
-
-        private:
-            SRL::Log::Levels lvl;
-        };
 
         /** @brief Print text on screen at specific location
          * @param x Offset from left of the screen
@@ -244,59 +192,6 @@ namespace SRL
             for (int y = 0; y < 30; y++)
             {
                 Debug::PrintClearLine(y);
-            }
-        }
-
-        /** @brief Log message
-         * @param message Custom message to show
-         */
-        inline static void Log(const char *message) {
-            Log<SRL::Log::Levels::INFO>(message);
-          }
-
-        /** @brief Log message
-         * @param lvl  Log level
-         * @param message Custom message to show
-         */
-        template <SRL::Log::Levels lvl>
-        inline static void Log(const char *message) {
-          if constexpr (lvl >= minLevel) {
-            static const char * separator = " : ";
-            volatile uint8_t *addr = (volatile uint8_t *)(CS1);
-            const char *s = LogLevels(lvl).ToString();
-            uint8_t size = 0 ;
-            // Write Log level
-            while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
-                *addr = static_cast<uint8_t>(*s++);
-
-            // Write separator
-            s = separator;
-            while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
-                *addr = static_cast<uint8_t>(*s++);
-
-            // Write message
-            s = message;
-            while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
-                *addr = static_cast<uint8_t>(*s++);
-
-            // Close the string if not already done
-            if((uint8_t)*(s-1) != '\n') {
-                *addr = '\n';
-            }
-          }
-        }
-
-        /** @brief Log message
-         * @param lvl  Log level
-         * @param message Custom message to show
-         * @param args... Text arguments
-         */
-        template <SRL::Log::Levels lvl, typename ...Args>
-        inline static void Log(const char *message, Args...args) {
-            if constexpr (lvl >= minLevel) {
-              static char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = {};
-              snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH-1, message, args ...);
-              Log<lvl>(buffer);
             }
         }
 
