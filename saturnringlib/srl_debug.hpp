@@ -56,6 +56,20 @@ namespace SRL
         static constexpr bool Enabled = false;
 #endif
 
+#ifndef SRL_LOG_LEVEL
+      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::INFO;
+#elif SRL_LOG_LEVEL == TRACE
+      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::TRACE;
+#elif SRL_LOG_LEVEL == DEBUG
+      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::DEBUG;
+#elif SRL_LOG_LEVEL == INFO
+      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::INFO;
+#elif SRL_LOG_LEVEL == WARNING
+      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::WARNING;
+#elif SRL_LOG_LEVEL == FATAL
+      static constexpr SRL::Log::Levels minLevel = SRL::Log::Levels::FATAL;      
+#endif
+
       /** @brief Log levels wrapper
        */
         class LogLevels {
@@ -237,17 +251,19 @@ namespace SRL
          * @param message Custom message to show
          */
         inline static void Log(const char *message) {
-            Log(SRL::Log::Levels::INFO, message);
+            Log<SRL::Log::Levels::INFO>(message);
           }
 
         /** @brief Log message
          * @param lvl  Log level
          * @param message Custom message to show
          */
-        inline static void Log(const LogLevels lvl, const char *message) {
+        template <SRL::Log::Levels lvl>
+        inline static void Log(const char *message) {
+          if constexpr (lvl >= minLevel) {
             static const char * separator = " : ";
             volatile uint8_t *addr = (volatile uint8_t *)(CS1);
-            const char *s = lvl.ToString();
+            const char *s = LogLevels(lvl).ToString();
             uint8_t size = 0 ;
             // Write Log level
             while (*s && ++size<SRL_DEBUG_MAX_LOG_LENGTH)
@@ -267,6 +283,7 @@ namespace SRL
             if((uint8_t)*(s-1) != '\n') {
                 *addr = '\n';
             }
+          }
         }
 
         /** @brief Log message
@@ -274,11 +291,13 @@ namespace SRL
          * @param message Custom message to show
          * @param args... Text arguments
          */
-        template <typename ...Args>
-        inline static void Log(const LogLevels lvl, const char *message, Args...args) {
-            static char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = {};
-            snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH-1, message, args ...);
-            Log(lvl, buffer);
+        template <SRL::Log::Levels lvl, typename ...Args>
+        inline static void Log(const char *message, Args...args) {
+            if constexpr (lvl >= minLevel) {
+              static char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = {};
+              snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH-1, message, args ...);
+              Log<lvl>(buffer);
+            }
         }
 
         /** @brief Breaks any further execution and shows assert screen
