@@ -8,6 +8,7 @@
  - [jae686](https://github.com/jae686)
  - [robertoduarte](https://github.com/robertoduarte)
  - [7shades](https://github.com/seven-shades)
+ - [willll](https://github.com/willll)
 
 ## Getting started
 > **Work in progress**
