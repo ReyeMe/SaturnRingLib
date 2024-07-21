@@ -28,7 +28,7 @@ namespace SRL
       */
       constexpr static unsigned long logStartAddress = 0x24000000UL;
 
-      /** @brief Log charcater output address
+      /** @brief Log character output address
       */
       constexpr static unsigned long CS1 = logStartAddress + 0x1000;
 
