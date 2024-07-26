@@ -14,7 +14,7 @@ SGLIDIR = $(SGLDIR)/INC
 LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/LIBSGL.A
 
 # include extra modules
-MODULE_EXTRA_INC = 
+MODULE_EXTRA_INC =
 
 ifneq ($(strip $(MODULES_EXTRA)),)
 	include $(patsubst %, $(SDK_ROOT)/../modules_extra/%/module.mk, $(strip $(MODULES_EXTRA)))
@@ -88,12 +88,18 @@ ifeq ($(strip ${SRL_DEBUG_MAX_PRINT_LENGTH}),)
 	SRL_DEBUG_MAX_PRINT_LENGTH = 45
 endif
 
+ifeq ($(strip ${SRL_DEBUG_MAX_LOG_LENGTH}),)
+	SRL_DEBUG_MAX_LOG_LENGTH = 80
+endif
+
 CCFLAGS += -DSRL_MODE_$(strip ${SRL_MODE}) \
 	-DSRL_MAX_TEXTURES=$(strip ${SRL_MAX_TEXTURES}) \
 	-DSRL_MAX_CD_BACKGROUND_JOBS=$(strip ${SRL_MAX_CD_BACKGROUND_JOBS}) \
 	-DSRL_MAX_CD_FILES=$(strip ${SRL_MAX_CD_FILES}) \
 	-DSRL_MAX_CD_RETRIES=$(strip ${SRL_MAX_CD_RETRIES}) \
 	-DSRL_DEBUG_MAX_PRINT_LENGTH=$(strip ${SRL_DEBUG_MAX_PRINT_LENGTH}) \
+	-DSRL_DEBUG_MAX_LOG_LENGTH=$(strip ${SRL_DEBUG_MAX_LOG_LENGTH}) \
+	-DSRL_LOG_LEVEL=$(strip ${SRL_LOG_LEVEL}) \
 
 # CD assets
 ASSETS_DIR = ./cd/data
@@ -156,6 +162,11 @@ LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_M
 	$(CXX) $< $(CCFLAGS) -std=c++23 -fpermissive -fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -o $@
 
 compile_objects : $(OBJECTS) $(SYSOBJECTS)
+	$(info ****** L@@K ******)
+	$(info Maximum textures : ${SRL_MAX_TEXTURES})
+	$(info Log level selected : ${SRL_LOG_LEVEL})
+	$(info Maximum Log length : ${SRL_DEBUG_MAX_LOG_LENGTH})
+	$(info ******************)
 	mkdir -p $(MUSIC_DIR)
 	mkdir -p $(ASSETS_DIR)
 	mkdir -p $(BUILD_DROP)

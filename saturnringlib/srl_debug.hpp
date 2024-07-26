@@ -24,7 +24,7 @@ namespace SRL
         /** @brief Default print text buffer
          */
         inline static  char lineBuffer[SRL_DEBUG_MAX_PRINT_LENGTH];
-    
+
     public:
 
 #ifdef DEBUG
@@ -82,7 +82,7 @@ namespace SRL
                     character++;
                     screenX++;
                 }
-                
+
                 return line;
             }
 
@@ -206,10 +206,10 @@ namespace SRL
 
             Debug::Print(1,1, "Assert raised");
             uint8_t lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
-            
+
             Debug::Print(1,lines + 4, "Message:");
             Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
-            
+
             //Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
             Debug::Print(1,25, "Free HWRam: %d bytes", SRL::Memory::HighWorkRam::GetFreeSpace());
 
@@ -219,7 +219,7 @@ namespace SRL
             uint8_t frame = 0;
             uint16_t frameCountdown = 3;
             bool breakOut = false;
-            
+
             while (!breakOut)
             {
                 if (frameCountdown == 0)
