@@ -204,18 +204,18 @@ namespace SRL
             SRL::VDP2::SetBackColor(SRL::Types::HighColor::Colors::Red);
             Debug::PrintColorSet(0);
 
-            Debug::Print(1,1, "Assert raised");
+            Debug::Print(1, 1, "Assert raised");
             uint8_t lines = Debug::PrintWithWrap(2, 2, 2, 39, "at %s\nin %s()", file, function);
 
-            Debug::Print(1,lines + 4, "Message:");
+            Debug::Print(1, lines + 4, "Message:");
             Debug::PrintWithWrap(2, lines + 5, 2, 39, message, args...);
 
             //Debug::Print(1,24, "Free texture memory: %d bytes", SRL::VDP1::GetAvailableMemory());
-            Debug::Print(1,25, "Free HWRam: %d bytes", SRL::Memory::HighWorkRam::GetFreeSpace());
+            Debug::Print(1, 25, "Free HWRam: %d bytes", SRL::Memory::HighWorkRam::GetFreeSpace());
 
             // Small animation so we know it did not crash
-            Debug::Print(1,27, "[");
-            Debug::Print(38,27, "]");
+            Debug::Print(1, 27, "[");
+            Debug::Print(38, 27, "]");
             uint8_t frame = 0;
             uint16_t frameCountdown = 3;
             bool breakOut = false;
@@ -262,9 +262,16 @@ namespace SRL
 #endif
         }
 
-        /** @brief Breaks any further execution and shows assert screen
-         * @param message Custom message to show
-         */
-        #define Assert(message, ...) AssertScreen((char*)message, __FILE__, __FUNCTION__ __VA_OPT__(,) __VA_ARGS__);
+#ifdef DEBUG
+
+/** @brief Breaks any further execution and shows assert screen
+ */
+#define Assert(message, ...) AssertScreen((char*)message, __FILE__, __FUNCTION__ __VA_OPT__(,) __VA_ARGS__)
+#else
+
+/** @brief Breaks any further execution and shows assert screen
+ */
+#define Assert(message, ...) AssertScreen(nullptr, nullptr, nullptr)
+#endif
     };
 }
