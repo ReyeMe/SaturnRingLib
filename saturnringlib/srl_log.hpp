@@ -2,15 +2,10 @@
 
 #include "srl_base.hpp"
 
-// Store and clear debug flag here
-#ifdef DEBUG
-#define BACK_DEBUG 1
-#undef DEBUG
-#endif
-
 namespace SRL
 {
     /** @brief Logger namespace that holds the logger functionality
+     * @details This class allows for writing log messages into kronos console
      */
     namespace Logger
     {
@@ -24,7 +19,7 @@ namespace SRL
 
             /** @brief DEBUG Level, debug traces, may disappear at release
              */
-            DEBUG = 1,
+            TESTING = 1,
 
             /** @brief INFO Level, generic information messages
              */
@@ -113,8 +108,8 @@ namespace SRL
                     case SRL::Logger::LogLevels::TRACE:
                         return "TRACE";
 
-                    case SRL::Logger::LogLevels::DEBUG:
-                        return "DEBUG";
+                    case SRL::Logger::LogLevels::TESTING:
+                        return "TESTING";
 
                     case SRL::Logger::LogLevels::INFO:
                         return "INFO";
@@ -226,7 +221,7 @@ namespace SRL
         template <typename ...Args>
         inline void LogDebug(const char* message, Args...args)
         {
-            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::DEBUG>(message, args ...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TESTING>(message, args ...);
         }
 
         /** @brief Log Warning message
@@ -252,13 +247,7 @@ namespace SRL
         template <typename ...Args>
         inline void LogPrint(const char* message, Args...args)
         {
-            SRL::Logger::Log::LogInfo(message, args ...);
+            SRL::Logger::LogInfo(message, args ...);
         }
     };
 }
-
-// Restore debug flag here
-#ifdef BACK_DEBUG
-#undef BACK_DEBUG
-#define DEBUG 1
-#endif

@@ -6,6 +6,7 @@
                 "${workspaceFolder}/../../saturnringlib",
                 "${workspaceFolder}/../../modules/sgl/INC",
                 "${workspaceFolder}/../../modules/danny/**",
+                "${workspaceFolder}/../../modules/tlsf/**",
                 "${workspaceFolder}/../../Compiler/sh2eb-elf/include",
                 "${workspaceFolder}/../../saturnringlib/**"
             ],

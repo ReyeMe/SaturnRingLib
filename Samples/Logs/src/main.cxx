@@ -19,7 +19,7 @@ int main()
 	LogPrint("After Initialize");
 
 	Log::LogPrint<LogLevels::TRACE>("I am a happy TRACE message, but I should not be displayed");
-	Log::LogPrint<LogLevels::DEBUG>("I am a happy DEBUG message, but I should not be displayed");
+	Log::LogPrint<LogLevels::TESTING>("I am a happy DEBUG message, but I should not be displayed");
 	Log::LogPrint<LogLevels::INFO>("I am a happy INFO message");
 	Log::LogPrint<LogLevels::WARNING>("I am a happy WARNING message");
 	Log::LogPrint<LogLevels::FATAL>("I am a happy FATAL message");
