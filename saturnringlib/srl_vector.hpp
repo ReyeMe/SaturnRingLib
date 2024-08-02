@@ -1,6 +1,6 @@
 #pragma once
 
-#include "srl_fxp.hpp"
+#include "srl_math.hpp"
 
 namespace SRL::Types
 {
@@ -620,9 +620,14 @@ namespace SRL::Types
         }
 
         /** @brief Assign one instance to current one
-         * @return Assigned instance
+         * @return Assigned instanceD
          */
         constexpr Vector3D& operator=(const Vector3D&) = default;
+
+        /** @brief Disable assignment from 2D vector to 3D vector
+         * @return nothing
+         */
+        constexpr Vector3D& operator=(const Vector2D&) = delete;
 
         /** @}
          */

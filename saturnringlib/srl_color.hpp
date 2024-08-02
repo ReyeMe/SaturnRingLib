@@ -96,7 +96,7 @@ namespace SRL::Types
          */
         constexpr inline static HighColor FromARGB32(const uint32_t& value)
         {
-            if (((value >> 24) & 0xff) <= 128)
+            if (((value >> 24) & 0xff) > 128)
             {
                 return HighColor::FromRGB555(
                     (((value >> 16) & 0xff) >> 3) & 0x1f,

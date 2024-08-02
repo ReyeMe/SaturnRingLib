@@ -25,7 +25,7 @@ namespace SRL
          * @param slaveOnly Value indicates whether processing of the SRL::Types::Mesh should be handled only on the slave CPU
          * @return True on success
          */
-        static bool DrawMesh(Types::Mesh& mesh, const bool slaveOnly)
+        static bool DrawMesh(Types::Mesh& mesh, const bool slaveOnly = false)
         {
             if (slaveOnly)
             {

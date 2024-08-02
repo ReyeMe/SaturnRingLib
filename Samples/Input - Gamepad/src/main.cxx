@@ -66,7 +66,7 @@ int main()
     LoadGraphics();
 
     // Initialize gamepad on port 0
-    Gamepad port0(0);
+    Digital port0(0);
 
     // Main program loop
 	while(1)
@@ -79,70 +79,70 @@ int main()
         if (port0.IsConnected())
         {
             // Check D-Pad
-            if (port0.IsHeld(Gamepad::Button::Up))
+            if (port0.IsHeld(Digital::Button::Up))
             {
                 SRL::Scene2D::DrawSprite(InputArrow, Vector3D(-65.0, -17.0, 500.0), Angle::FromDegrees(90));
             }
 
-            if (port0.IsHeld(Gamepad::Button::Down))
+            if (port0.IsHeld(Digital::Button::Down))
             {
                 SRL::Scene2D::DrawSprite(InputArrow, Vector3D(-65.0, 17.0, 500.0), Angle::FromDegrees(-90));
             }
 
-            if (port0.IsHeld(Gamepad::Button::Left))
+            if (port0.IsHeld(Digital::Button::Left))
             {
                 SRL::Scene2D::DrawSprite(InputArrow, Vector3D(-85.0, 0.0, 500.0));
             }
 
-            if (port0.IsHeld(Gamepad::Button::Right))
+            if (port0.IsHeld(Digital::Button::Right))
             {
                 SRL::Scene2D::DrawSprite(InputArrow, Vector3D(-50.0, 0.0, 500.0), Angle::FromDegrees(180));
             }
 
             // Check start button
-            if (port0.IsHeld(Gamepad::Button::START))
+            if (port0.IsHeld(Digital::Button::START))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(0.0, 20.0, 500.0));
             }
 
             // Check triggers
-            if (port0.IsHeld(Gamepad::Button::L))
+            if (port0.IsHeld(Digital::Button::L))
             {
                 SRL::Scene2D::DrawSprite(InputArrow, Vector3D(-90.0, -70.0, 500.0), Angle::FromDegrees(-135));
             }
 
-            if (port0.IsHeld(Gamepad::Button::R))
+            if (port0.IsHeld(Digital::Button::R))
             {
                 SRL::Scene2D::DrawSprite(InputArrow, Vector3D(90.0, -70.0, 500.0), Angle::FromDegrees(-45));
             }
 
             // Check other buttons
-            if (port0.IsHeld(Gamepad::Button::A))
+            if (port0.IsHeld(Digital::Button::A))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(45.0, 22.0, 500.0));
             }
             
-            if (port0.IsHeld(Gamepad::Button::B))
+            if (port0.IsHeld(Digital::Button::B))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(69.0, 5.0, 500.0));
             }
             
-            if (port0.IsHeld(Gamepad::Button::C))
+            if (port0.IsHeld(Digital::Button::C))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(98.0, -5.0, 500.0));
             }
 
-            if (port0.IsHeld(Gamepad::Button::X))
+            if (port0.IsHeld(Digital::Button::X))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(37.0, -7.0, 500.0));
             }
             
-            if (port0.IsHeld(Gamepad::Button::Y))
+            if (port0.IsHeld(Digital::Button::Y))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(57.0, -20.0, 500.0));
             }
             
-            if (port0.IsHeld(Gamepad::Button::Z))
+            if (port0.IsHeld(Digital::Button::Z))
             {
                 SRL::Scene2D::DrawSprite(InputButton, Vector3D(80.0, -30.0, 500.0));
             }

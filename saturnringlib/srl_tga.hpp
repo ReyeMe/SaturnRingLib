@@ -115,6 +115,7 @@ namespace SRL::Bitmap
         };
 #pragma pack(pop)
                 
+#pragma pack(push, 1)
         /** @brief Image description
          */
         struct TgaImage
@@ -139,7 +140,9 @@ namespace SRL::Bitmap
                 TgaDescriptor Data;
             } Descriptor;
         };
+#pragma pack(pop)
 
+#pragma pack(push, 1)
         /** @brief TGA image header
          */
         struct TgaHeader
@@ -164,7 +167,9 @@ namespace SRL::Bitmap
              */
             TGA::TgaImage Image;
         };
+#pragma pack(pop)
 
+#pragma pack(push, 1)
         /** @brief Run length encoding packet
          */
         struct TgaRlePacket
@@ -188,6 +193,7 @@ namespace SRL::Bitmap
              */
             uint8_t Count:7;
         };
+#pragma pack(pop)
         
         /** @brief Color palette
          */
@@ -230,6 +236,20 @@ namespace SRL::Bitmap
         constexpr inline static uint32_t DeserializeUint32(uint8_t *buf)
         {
             return (*(buf + 3) << 24) | (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
+        }
+
+        /** @brief Get color from ARGB value
+         * @param argb ARGB value
+         * @return Color value
+         */
+        constexpr inline static SRL::Types::HighColor ParseArgb(uint32_t argb)
+        {
+            if (((argb >> 24) & 0xff) < 128 && (argb & 0x00ffffff) == 0)
+            {
+                return SRL::Types::HighColor();
+            }
+
+            return SRL::Types::HighColor::FromARGB32(argb | 0xff000000);
         }
 
         /** @brief Check if format is wrong or not
@@ -325,7 +345,7 @@ namespace SRL::Bitmap
                         
                     default:
                     case 4:
-                        color = SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint16(pixelData));
+                        color = TGA::ParseArgb(DeserializeUint32(pixelData));
                         break;
                     }
 
@@ -514,7 +534,7 @@ namespace SRL::Bitmap
                     
                 default:
                 case 4:
-                    color = SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(pixelData));
+                    color = TGA::ParseArgb(TGA::DeserializeUint32(pixelData));
                     break;
                 }
                 
@@ -573,7 +593,7 @@ namespace SRL::Bitmap
                             
                         default:
                         case 4:
-                            color = SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(buffer));
+                            color = TGA::ParseArgb(TGA::DeserializeUint32(buffer));
                             break;
                         }
 
@@ -612,7 +632,7 @@ namespace SRL::Bitmap
                         
                     default:
                     case 4:
-                        fill= SRL::Types::HighColor::FromARGB32(TGA::DeserializeUint32(buffer));
+                        fill= TGA::ParseArgb(TGA::DeserializeUint32(buffer));
                         break;
                     }
         
@@ -741,7 +761,7 @@ namespace SRL::Bitmap
                     xLoop.Step = -1;
                     xLoop.End = -1;
                 }
-
+                
                 // Data stream should now be pointing to after the header
                 switch (header.ImageType)
                 {

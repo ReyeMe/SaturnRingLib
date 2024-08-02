@@ -139,7 +139,7 @@ namespace SRL
                 (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
 
                 (Scene2D::Effects.Flip << 4) |
-                FUNC_Sprite |
+                FUNC_Texture |
                 _ZmCC);
             #pragma GCC diagnostic pop
         }
@@ -356,7 +356,7 @@ namespace SRL
             const Types::Angle& angle = Types::Angle::FromRaw(0),
             const Types::Vector2D& scale = Types::Vector2D(1.0, 1.0))
         {
-            if (scale.X != scale.Y)
+            if (scale.X != scale.Y || angle.Value() != 0)
             {
                 // Due to bug in SGL we can't use slDispSpriteHV or slDispSpriteSZ
                 Types::Fxp sin = Math::Sin(angle);

@@ -13,7 +13,7 @@ if not exist ./BuildDrop/*.cue (
 ) else (
     @REM Finding first cue file and running it on mednafen
     FOR %%F IN (./BuildDrop/*.cue) DO (
-        start "" /MIN %MEDNAFEN% ./BuildDrop/%%F
+        start %MEDNAFEN% ./BuildDrop/%%F
         exit /b
     )
 )

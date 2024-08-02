@@ -191,8 +191,6 @@ namespace SRL
 			{
 				uint32_t address = CGADDRESS;
 
-                
-
 				if (VDP1::HeapPointer > 0)
 				{
 					VDP1::Texture previous = VDP1::Textures[VDP1::HeapPointer - 1];

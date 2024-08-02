@@ -37,7 +37,8 @@ int main()
     SRL::Debug::PrintWithWrap(1, 3, 1, 40, "D-Pad to move hand around\nA button to grab corner\nB button to switch between filled and\n  outline");
     
     // Get gamepad on port 0
-    Gamepad gamepad(0);
+    Digital gamepad(0);
+    Pointer mouse(0);
 
     // Load cursor sprites
     LoadCursor();
@@ -94,40 +95,63 @@ int main()
         // Save last cursor location
         lastCursorLocation = cursorLocation;
 
-
         // Move cursor
-        if (gamepad.IsConnected())
+        if (mouse.IsConnected())
         {
-            if (gamepad.IsHeld(Gamepad::Button::Left))
-            {
-                cursorLocation.X -= 0.8;
-            }
-            else if (gamepad.IsHeld(Gamepad::Button::Right))
-            {
-                cursorLocation.X += 0.8;
-            }
-
-            if (gamepad.IsHeld(Gamepad::Button::Up))
-            {
-                cursorLocation.Y -= 0.8;
-            }
-            else if (gamepad.IsHeld(Gamepad::Button::Down))
-            {
-                cursorLocation.Y += 0.8;
-            }
+            cursorLocation = Vector3D(mouse.GetPosition(), 500.0);
 
             // Change polygon fill
-            if (gamepad.WasPressed(Gamepad::Button::B))
+            if (mouse.WasPressed(Pointer::Button::Right))
             {
                 filledPolygon = !filledPolygon;
             }
 
             // Are we dragging handles?
-            if (gamepad.WasPressed(Gamepad::Button::A))
+            if (mouse.WasPressed(Pointer::Button::Left))
             {
                 draggingHandle = currentHandle;
             }
-            else if (gamepad.WasReleased(Gamepad::Button::A))
+            else if (mouse.WasReleased(Pointer::Button::Left))
+            {
+                draggingHandle = -1;
+            }
+            
+            // Clamp cursor to screen
+            cursorLocation.X = SRL::Math::Clamp(minimumWidth, maximumWidth, cursorLocation.X);
+            cursorLocation.Y = SRL::Math::Clamp(minimumHeight, maximumHeight, cursorLocation.Y);
+        }
+        else if (gamepad.IsConnected())
+        {
+            if (gamepad.IsHeld(Digital::Button::Left))
+            {
+                cursorLocation.X -= 0.8;
+            }
+            else if (gamepad.IsHeld(Digital::Button::Right))
+            {
+                cursorLocation.X += 0.8;
+            }
+
+            if (gamepad.IsHeld(Digital::Button::Up))
+            {
+                cursorLocation.Y -= 0.8;
+            }
+            else if (gamepad.IsHeld(Digital::Button::Down))
+            {
+                cursorLocation.Y += 0.8;
+            }
+
+            // Change polygon fill
+            if (gamepad.WasPressed(Digital::Button::B))
+            {
+                filledPolygon = !filledPolygon;
+            }
+
+            // Are we dragging handles?
+            if (gamepad.WasPressed(Digital::Button::A))
+            {
+                draggingHandle = currentHandle;
+            }
+            else if (gamepad.WasReleased(Digital::Button::A))
             {
                 draggingHandle = -1;
             }
@@ -158,6 +182,16 @@ int main()
             SRL::Scene2D::DrawPolygon(handle, false, HighColor::Colors::White, 500.0);
         }
 
+
+            Vector2D handle2[] = 
+            {
+                cursorLocation + Vector2D(-5.0, -5.0),
+                cursorLocation + Vector2D(5.0, -5.0),
+                cursorLocation + Vector2D(5.0, 5.0),
+                cursorLocation + Vector2D(-5.0, 5.0)
+            };
+        SRL::Scene2D::DrawPolygon(handle2, false, HighColor::Colors::White, 500.0);
+        
         // Draw polygon
         SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, 0);
         SRL::Scene2D::DrawPolygon(polygonPoints, filledPolygon, HighColor::Colors::Magenta, 550.0);

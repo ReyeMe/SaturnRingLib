@@ -31,7 +31,7 @@ namespace SRL
         inline static void VblankHandling()
         {
             slGetStatus();
-            SRL::Input::IPeripheral::RefreshPeripherals();
+            SRL::Input::Management::RefreshPeripherals();
             Core::OnVblank.Invoke();
         }
 

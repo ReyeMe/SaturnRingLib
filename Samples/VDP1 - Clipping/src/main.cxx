@@ -62,7 +62,7 @@ int main()
     Vector3D clippingPosition = Vector3D(0.0, 0.0, 500.0);
 
     // Initialize input
-    Gamepad input(0);
+    Digital input(0);
 
     // Initialize movement speed
     Fxp speed = 0.5;
@@ -73,20 +73,20 @@ int main()
         // Move box around
         if (input.IsConnected())
         {
-            if (input.IsHeld(Gamepad::Button::Left) && clippingPosition.X > minimumWidth)
+            if (input.IsHeld(Digital::Button::Left) && clippingPosition.X > minimumWidth)
             {
                 clippingPosition.X -= speed;
             }
-            else if (input.IsHeld(Gamepad::Button::Right) && (clippingPosition.X + clippingSize.X) < maximumWidth)
+            else if (input.IsHeld(Digital::Button::Right) && (clippingPosition.X + clippingSize.X) < maximumWidth)
             {
                 clippingPosition.X += speed;
             }
             
-            if (input.IsHeld(Gamepad::Button::Up) && clippingPosition.Y > minimumHeight)
+            if (input.IsHeld(Digital::Button::Up) && clippingPosition.Y > minimumHeight)
             {
                 clippingPosition.Y -= speed;
             }
-            else if (input.IsHeld(Gamepad::Button::Down) && (clippingPosition.Y + clippingSize.Y) < maximumHeight)
+            else if (input.IsHeld(Digital::Button::Down) && (clippingPosition.Y + clippingSize.Y) < maximumHeight)
             {
                 clippingPosition.Y += speed;
             }

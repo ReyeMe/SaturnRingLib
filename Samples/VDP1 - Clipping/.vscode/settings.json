@@ -31,5 +31,9 @@
     "C_Cpp.vcFormat.newLine.beforeOpenBrace.namespace": "newLine",
     "C_Cpp.vcFormat.newLine.beforeOpenBrace.type": "newLine",
     "C_Cpp.vcFormat.newLine.beforeOpenBrace.lambda": "newLine",
-    "C_Cpp.vcFormat.indent.lambdaBracesWhenParameter": false
+    "C_Cpp.vcFormat.indent.lambdaBracesWhenParameter": false,
+    "C_Cpp.inlayHints.autoDeclarationTypes.enabled": true,
+    "C_Cpp.inlayHints.autoDeclarationTypes.showOnLeft": true,
+    "C_Cpp.inlayHints.referenceOperator.enabled": true,
+    "C_Cpp.inlayHints.referenceOperator.showSpace": true
 }
