@@ -1,7 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include "srl_geo.hpp"
+#include "srl_vector.hpp"
 
 namespace SRL::Types
 {
@@ -55,7 +55,7 @@ namespace SRL::Types
             Direction(0) { }
 
         /** @brief Construct a new Attribute object
-         *  @note TODO: Needs documenting and better contructor!
+         *  @note TODO: Needs documenting and better constructor!
          *  @param visibility 
          *  @param sort 
          *  @param texture 
