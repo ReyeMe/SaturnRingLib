@@ -55,13 +55,12 @@ namespace SRL::Types
 		/** @brief Constructor to create an Fxp object from a floating-point value.
 		 * @param f The floating-point value to convert to fixed-point.
 		 */
-		constexpr Fxp(const double& f) : value(f * 65536.0) {}
+		consteval Fxp(const double& f) : value(f * 65536.0) {}
 
 		/** @brief Constructor to create an Fxp object from a floating-point value.
 		 * @param f The floating-point value to convert to fixed-point.
 		 */
-		constexpr Fxp(const float& f) : value(f * 65536.0f) {}
-
+		consteval Fxp(const float& f) : value(f * 65536.0f) {}
 
 		/** @brief Cast integer as fixed point value
 		 * @param value Integer fixed point value
