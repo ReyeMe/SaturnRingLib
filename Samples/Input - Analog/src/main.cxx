@@ -64,13 +64,13 @@ int main()
    const HighColor redIsDead = HighColor(255, 0, 0);
    const HighColor notBlue = HighColor(0, 255, 0);
 
-   const Fxp initialPadPosition[2] = { Fxp::FromInt(-60), Fxp::FromInt(-45) };
+   const Fxp initialPadPosition[2] = { -60.0, -45.0 };
 
-   const Fxp initialLShoulderPosition[2] = { Fxp::FromInt(-55), Fxp::FromInt(-80) };
-   const Fxp initialRShoulderPosition[2] = {  Fxp::FromInt(55), Fxp::FromInt(-80) };
+   const Fxp initialLShoulderPosition[2] = { -55.0, -80.0 };
+   const Fxp initialRShoulderPosition[2] = {  55.0, -80.0 };
 
-   const Fxp padForceVectorMaxLength = Fxp::FromInt(20);
-   const Fxp shoulderForceVectorMaxLength = Fxp::FromInt(20);
+   const Fxp padForceVectorMaxLength = 20.0;
+   const Fxp shoulderForceVectorMaxLength = 20.0;
 
   LogInfo("SRL::Core::Initialize");
 
@@ -199,19 +199,19 @@ int main()
           Vector2D( initialPadPosition[0] + (padForceVectorMaxLength * Fxp::FromInt(axes[0]) / 128.0f),
                     initialPadPosition[1] + (padForceVectorMaxLength * Fxp::FromInt(axes[1]) / 128.0f)),
           redIsDead,
-          Fxp(Fxp::FromInt(500)));
+          500.0);
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialRShoulderPosition[0], initialRShoulderPosition[1]),
           Vector2D(initialRShoulderPosition[0], ( initialRShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[2]) / 255.0f ) ),
           notBlue,
-          Fxp(Fxp::FromInt(500)));
+          500.0);
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialLShoulderPosition[0], initialLShoulderPosition[1]),
           Vector2D(initialLShoulderPosition[0], ( initialLShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[3]) / 255.0f ) ),
           notBlue,
-          Fxp(500.0));
+          500.0);
     }
 
     // Refresh screen
