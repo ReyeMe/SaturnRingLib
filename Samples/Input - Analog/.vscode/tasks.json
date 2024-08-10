@@ -1,0 +1,63 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run with Mednafen",
+            "type": "shell",
+            "command": "./run_with_mednafen.bat",
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Compile [DEBUG]",
+            "type": "shell",
+            "command": "./compile.bat debug",
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Compile [RELEASE]",
+            "type": "shell",
+            "command": "./compile.bat release",
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Clean",
+            "type": "shell",
+            "command": "./clean.bat",
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+    ]
+}

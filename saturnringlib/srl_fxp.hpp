@@ -55,12 +55,13 @@ namespace SRL::Types
 		/** @brief Constructor to create an Fxp object from a floating-point value.
 		 * @param f The floating-point value to convert to fixed-point.
 		 */
-		consteval Fxp(const double& f) : value(f * 65536.0) {}
+		constexpr Fxp(const double& f) : value(f * 65536.0) {}
 
 		/** @brief Constructor to create an Fxp object from a floating-point value.
 		 * @param f The floating-point value to convert to fixed-point.
 		 */
-		consteval Fxp(const float& f) : value(f * 65536.0f) {}
+		constexpr Fxp(const float& f) : value(f * 65536.0f) {}
+
 
 		/** @brief Cast integer as fixed point value
 		 * @param value Integer fixed point value
@@ -146,7 +147,7 @@ namespace SRL::Types
 
 			return baseEstimation + estimation;
 		}
-		
+
 		/** @brief Calculate the square root of the value.
 		 * @return The square root as an Fxp object.
 		 */
@@ -178,7 +179,7 @@ namespace SRL::Types
 		}
 
 		/** @brief Convert fixed point value to integer by dividing with 65536
-		 * @return Integer value 
+		 * @return Integer value
 		 */
 		constexpr int32_t ToInt() const
 		{
@@ -186,7 +187,7 @@ namespace SRL::Types
 		}
 
 		/** @brief Gets raw value
-		 * @return Raw fixed point value 
+		 * @return Raw fixed point value
 		 */
 		constexpr int32_t Value() const
 		{
@@ -284,7 +285,7 @@ namespace SRL::Types
 				Fxp::AsyncDivisionStart(*this, fxp);
 				this->value = Fxp::AsyncDivisionGet().value;
 			}
-			
+
 			return *this;
 		}
 
@@ -474,7 +475,7 @@ namespace SRL::Types
 			return *this;
 		}
 
-        /** @} 
+        /** @}
          */
 	};
 }
