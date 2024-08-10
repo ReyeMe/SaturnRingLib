@@ -71,7 +71,7 @@ namespace SRL
          * @note If scaling operation is being performed on current matrix, normal vector of the polygon is also being affected,thus brightness will change accordingly.  
          * @param direction Light direction unit vector
          */
-        static void SetDirectionalLight(Types::Vector3D& direction)
+        static void SetDirectionalLight(const Types::Vector3D& direction)
         {
             slLight((FIXED*)&direction);
         }
@@ -139,7 +139,7 @@ namespace SRL
          * @param target Target point
          * @param roll Rotation around the line of sight vector
          */
-        static void LookAt(SRL::Types::Vector3D& camera, SRL::Types::Vector3D& target, SRL::Types::Angle roll)
+        static void LookAt(const SRL::Types::Vector3D& camera, const SRL::Types::Vector3D& target, const SRL::Types::Angle roll)
         {
             slLookAt((FIXED*)&camera, (FIXED*)&target, (ANGLE)roll.Value());
         }
@@ -168,7 +168,7 @@ namespace SRL
          * 6               | 1/64
          * 7               | 1/128
          */
-        static void SetDepthDisplayLevel(uint16_t level)
+        static void SetDepthDisplayLevel(const uint16_t level)
         {
             slZdspLevel(level);
         }

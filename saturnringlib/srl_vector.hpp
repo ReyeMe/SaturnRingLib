@@ -619,6 +619,54 @@ namespace SRL::Types
             return *this;
         }
 
+        /** @brief Compound division assignment operator.
+         * @param vec Vector to divide with.
+         * @return Reference to the modified vector.
+         */
+        constexpr Vector3D& operator/=(const Vector3D& vec)
+        {
+            this->X /= vec.X;
+            this->Y /= vec.Y;
+            this->Z /= vec.Z;
+            return *this;
+        }
+
+        /** @brief Compound division assignment operator.
+         * @param value Value to divide with.
+         * @return Reference to the modified vector.
+         */
+        constexpr Vector3D& operator/=(const Fxp& value)
+        {
+            this->X /= value;
+            this->Y /= value;
+            this->Z /= value;
+            return *this;
+        }
+
+        /** @brief Compound multiplication assignment operator.
+         * @param vec Vector to multiplication with.
+         * @return Reference to the modified vector.
+         */
+        constexpr Vector3D& operator*=(const Vector3D& vec)
+        {
+            this->X *= vec.X;
+            this->Y *= vec.Y;
+            this->Z *= vec.Z;
+            return *this;
+        }
+
+        /** @brief Compound multiplication assignment operator.
+         * @param value Value to multiply with.
+         * @return Reference to the modified vector.
+         */
+        constexpr Vector3D& operator*=(const Fxp& value)
+        {
+            this->X *= value;
+            this->Y *= value;
+            this->Z *= value;
+            return *this;
+        }
+
         /** @brief Assign one instance to current one
          * @return Assigned instanceD
          */
