@@ -7,12 +7,12 @@ using namespace SRL::Types;
 // Using to shorten names for input
 using namespace SRL::Input;
 
+// Using to log debug and info messages
 using namespace SRL::Logger;
 
 // Graphics identifiers
 #define BackgroundPad (0)
 #define BackgroundWire (1)
-
 #define InputArrow (2)
 #define InputButton (3)
 
@@ -186,9 +186,10 @@ int main()
         port0.GetAxis(Analog::Axis::Axis4)
       };
 
-      SRL::Debug::Print(1,2, "Axis1:%03d Axis2:%03d", axes[0], axes[1]);
-      SRL::Debug::Print(1,3, "Axis3:%03d Axis4:%03d", axes[2], axes[3]);
+      SRL::Debug::Print(1, 2, "Axis1:%03d Axis2:%03d", axes[0], axes[1]);
+      SRL::Debug::Print(1, 3, "Axis3:%03d Axis4:%03d", axes[2], axes[3]);
 
+      // Transform d-pad coordonates to [-127;128] range
       for (auto i = 0; i < 2; i++)
       {
         axes[i] -= 128;
@@ -196,20 +197,22 @@ int main()
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialPadPosition[0], initialPadPosition[1]),
-          Vector2D( initialPadPosition[0] + (padForceVectorMaxLength * Fxp::FromInt(axes[0]) / 128.0f),
-                    initialPadPosition[1] + (padForceVectorMaxLength * Fxp::FromInt(axes[1]) / 128.0f)),
+          Vector2D( initialPadPosition[0] + (padForceVectorMaxLength * Fxp::FromInt(axes[0]) / 128.0),
+                    initialPadPosition[1] + (padForceVectorMaxLength * Fxp::FromInt(axes[1]) / 128.0)),
           redIsDead,
           500.0);
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialRShoulderPosition[0], initialRShoulderPosition[1]),
-          Vector2D(initialRShoulderPosition[0], ( initialRShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[2]) / 255.0f ) ),
+          Vector2D(initialRShoulderPosition[0],
+                    (initialRShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[2]) / 255.0 )),
           notBlue,
           500.0);
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialLShoulderPosition[0], initialLShoulderPosition[1]),
-          Vector2D(initialLShoulderPosition[0], ( initialLShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[3]) / 255.0f ) ),
+          Vector2D(initialLShoulderPosition[0],
+                  ( initialLShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[3]) / 255.0 ) ),
           notBlue,
           500.0);
     }
