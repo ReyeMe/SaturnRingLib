@@ -64,13 +64,13 @@ int main()
    const HighColor redIsDead = HighColor(255, 0, 0);
    const HighColor notBlue = HighColor(0, 255, 0);
 
-   const Fxp initialPadPosition[2] = { -60.0f, -45.0f };
+   const Fxp initialPadPosition[2] = { Fxp::FromInt(-60), Fxp::FromInt(-45) };
 
-   const Fxp initialLShoulderPosition[2] = { -55.0f, -80.0f };
-   const Fxp initialRShoulderPosition[2] = {  55.0f, -80.0f };
+   const Fxp initialLShoulderPosition[2] = { Fxp::FromInt(-55), Fxp::FromInt(-80) };
+   const Fxp initialRShoulderPosition[2] = {  Fxp::FromInt(55), Fxp::FromInt(-80) };
 
-   const uint8_t padForceVectorMaxLength = 20;
-   const uint8_t shoulderForceVectorMaxLength = 20;
+   const Fxp padForceVectorMaxLength = Fxp::FromInt(20);
+   const Fxp shoulderForceVectorMaxLength = Fxp::FromInt(20);
 
   LogInfo("SRL::Core::Initialize");
 
@@ -180,8 +180,8 @@ int main()
       }
 
       int16_t axes[4] = {
-        port0.GetAxis(Analog::Axis::Axis1) - 128,
-        port0.GetAxis(Analog::Axis::Axis2) - 128,
+        port0.GetAxis(Analog::Axis::Axis1),
+        port0.GetAxis(Analog::Axis::Axis2),
         port0.GetAxis(Analog::Axis::Axis3),
         port0.GetAxis(Analog::Axis::Axis4)
       };
@@ -189,22 +189,27 @@ int main()
       SRL::Debug::Print(1,2, "Axis1:%03d Axis2:%03d", axes[0], axes[1]);
       SRL::Debug::Print(1,3, "Axis3:%03d Axis4:%03d", axes[2], axes[3]);
 
+      for (auto i = 0; i < 2; i++)
+      {
+        axes[i] -= 128;
+      }
+
       SRL::Scene2D::DrawLine(
           Vector2D(initialPadPosition[0], initialPadPosition[1]),
-          Vector2D( initialPadPosition[0] + Fxp(padForceVectorMaxLength * axes[0] / 128.0f),
-                    initialPadPosition[1] + Fxp(padForceVectorMaxLength * axes[1] / 128.0f)),
+          Vector2D( initialPadPosition[0] + (padForceVectorMaxLength * Fxp::FromInt(axes[0]) / 128.0f),
+                    initialPadPosition[1] + (padForceVectorMaxLength * Fxp::FromInt(axes[1]) / 128.0f)),
           redIsDead,
-          Fxp(500.0));
+          Fxp(Fxp::FromInt(500)));
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialRShoulderPosition[0], initialRShoulderPosition[1]),
-          Vector2D(initialRShoulderPosition[0], ( initialRShoulderPosition[1] - Fxp(shoulderForceVectorMaxLength * axes[2] / 255.0f) ) ),
+          Vector2D(initialRShoulderPosition[0], ( initialRShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[2]) / 255.0f ) ),
           notBlue,
-          Fxp(500.0));
+          Fxp(Fxp::FromInt(500)));
 
       SRL::Scene2D::DrawLine(
           Vector2D(initialLShoulderPosition[0], initialLShoulderPosition[1]),
-          Vector2D(initialLShoulderPosition[0], ( initialLShoulderPosition[1] - Fxp(shoulderForceVectorMaxLength * axes[3] / 255.0f) ) ),
+          Vector2D(initialLShoulderPosition[0], ( initialLShoulderPosition[1] - shoulderForceVectorMaxLength * Fxp::FromInt(axes[3]) / 255.0f ) ),
           notBlue,
           Fxp(500.0));
     }
