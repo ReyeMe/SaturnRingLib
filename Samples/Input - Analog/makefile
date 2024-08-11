@@ -19,7 +19,7 @@ SGL_MAX_EVENTS = 1             	# Number of events that can be used
 SGL_MAX_WORKS = 1             	# Number of works that can be used
 
 # Disk name
-CD_NAME = Input_gamepad
+CD_NAME = Input_analog
 
 # Directory build will be placed into
 BUILD_DROP = ./BuildDrop
