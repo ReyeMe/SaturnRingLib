@@ -13,8 +13,8 @@ int main()
     SRL::Debug::Print(1,1, "VDP1 3D Flat shaded teapot");
 
     // Load teapot
-    // Model was converted with Obj2Nya (see https://github.com/ReyeMe/PawCraft), command parameters were: Obj2Nya "D:\teapot.obj" "D:\POT.PDT"
-    ModelObject teapot = ModelObject("POT.PDT");
+    // Model was converted with Obj2Nya (see https://github.com/ReyeMe/PawCraft), command parameters were: Obj2Nya "D:\teapot.obj" "D:\FPOT.NYA"
+    ModelObject teapot = ModelObject("FPOT.NYA");
 
     // Initialize input
     Digital input(0);

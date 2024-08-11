@@ -255,7 +255,7 @@ namespace SRL::Types
 
         /** @brief Construct a new empty mesh object
          */
-        SmoothMesh() : Normals(), Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr)  { }
+        SmoothMesh() : Normals(nullptr), Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr)  { }
         
         /** @brief Construct a new empty mesh object and initialize its arrays
          * @param vertexCount Number of vertices in the mesh

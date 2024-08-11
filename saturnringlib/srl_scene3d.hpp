@@ -105,6 +105,23 @@ namespace SRL
             slSetGouraudTbl((uint16_t*)table);
         }
 
+        /** @brief Set gouraud color of light source
+         * @note This option will override SRL::Types::LightSetGouraudTable()
+         * @param color Light source color
+         */
+        static void LightSetGouraudColor(const SRL::Types::HighColor color)
+        {
+            slSetGouraudColor(color);
+        }
+
+        /** @brief Set color of the flat light source (UseLight option)
+         * @param color Light source color
+         */
+        static void LightSetColor(const SRL::Types::HighColor color)
+        {
+            slSetFlatColor(color);
+        }
+
         /** @brief Copies gouraud table calculated by the library to VRAM.
          * @code {.cpp}
          * // Attach the function to VBlank
@@ -238,7 +255,21 @@ namespace SRL
          */
         inline static void LoadIdentity()
         {
-            slInitMatrix();
+            slUnitMatrix(CURRENT);
+        }
+
+        /** @brief Sets identity translation matrix
+         */
+        inline static void IdentityTranslationMatrix()
+        {
+            slUnitTranslate(CURRENT);
+        }
+
+        /** @brief Sets identity rotation matrix
+         */
+        inline static void IdentityRotationMatrix()
+        {
+            slUnitAngle(CURRENT);
         }
 
         /** @brief Set current matrix
@@ -278,27 +309,6 @@ namespace SRL
         inline static void MultiplyMatrix(SRL::Types::Matrix& matrix)
         {
             slMultiMatrix((FIXED(*)[3])matrix.SglPtr());
-        }
-
-        /** @brief Will convert current matrix into an unit matrix
-         */
-        inline static void NormalizeMatrix()
-        {
-            slUnitMatrix(CURRENT);
-        }
-
-        /** @brief Will convert translation component of the current matrix into an unit vector
-         */
-        inline static void NormalizeTranslationMatrix()
-        {
-            slUnitTranslate(CURRENT);
-        }
-
-        /** @brief Will convert rotation component of the current matrix into an unit rotation
-         */
-        inline static void NormalizeRotationMatrix()
-        {
-            slUnitAngle(CURRENT);
         }
 
         /** @brief Rotate current matrix around arbitrary axis by specific angle
@@ -403,6 +413,28 @@ namespace SRL
         inline static void Translate(const SRL::Types::Vector3D& delta)
         {
             slTranslate(delta.X.Value(), delta.Y.Value(), delta.Z.Value());
+        }
+
+        /** @brief Transforms point by current transformation matrix
+         * @param point Point to transform
+         * @return Transformed point
+         */
+        static SRL::Types::Vector3D TransformPoint(const SRL::Types::Vector3D& point)
+        {
+            SRL::Types::Vector3D result = SRL::Types::Vector3D();
+            slCalcPoint(point.X.Value(), point.Y.Value(), point.Z.Value(), (FIXED*)&result);
+            return result;
+        }
+
+        /** @brief Transforms direction vector by current transformation matrix
+         * @param point Direction vector to transform
+         * @return Transformed direction vector
+         */
+        static SRL::Types::Vector3D TransformVector(const SRL::Types::Vector3D& point)
+        {
+            SRL::Types::Vector3D result = SRL::Types::Vector3D();
+            slCalcVector((FIXED*)&point, (FIXED*)&result);
+            return result;
         }
 
         /** @} */
