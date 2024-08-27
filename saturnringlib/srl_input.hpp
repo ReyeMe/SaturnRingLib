@@ -1,5 +1,6 @@
 #pragma once
 
+#include "srl_debug.hpp"
 #include "srl_vector.hpp"
 
 /** @brief Input handling
@@ -79,6 +80,10 @@ namespace SRL::Input
          */
         ShuttleMouse = 0xe3,
 
+        /** @brief Megadrive light gun
+         */
+        MDGun = (MEGA_ID_StnShooting | 0xf0),
+
         /** @brief Controller not connected
          */
         NotConnected = 0xff
@@ -91,6 +96,10 @@ namespace SRL::Input
         /** @brief Allow SRL::Input::PeripheralGeneric struct to access private members of this class
          */
         friend struct PeripheralGeneric;
+
+        /** @brief Allow SRL::Input::Gun struct to access private members of this class
+         */
+        friend struct Gun;
 
     public:
 
@@ -211,7 +220,6 @@ namespace SRL::Input
                 *destination++ = *source++;
             }
         }
-
     };
     
     /** @brief Generic peripheral base
@@ -354,6 +362,230 @@ namespace SRL::Input
 
         /** @brief Get the pointer position
          *  @return Vector2D Pointer position
+         */
+        SRL::Types::Vector2D virtual GetPosition()
+        {
+            PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
+            return SRL::Types::Vector2D(SRL::Types::Fxp::FromInt(data->x), SRL::Types::Fxp::FromInt(data->y));
+        }
+    };
+
+    /** @brief Light gun peripheral
+     */
+    struct Gun : public PeripheralGeneric
+    {
+    private:
+
+        /** @brief Indicates whether peripheral control for player 1 light gun is enabled
+         */
+        static inline bool Player1MegadriveGunControl = false;
+
+        /** @brief Indicates whether peripheral control for player 2 light gun is enabled
+         */
+        static inline bool Player2MegadriveGunControl = false;
+
+        /** @brief Get the Mega Drive light gun ID
+         * @param pd1 In direction port data
+         * @param pd0 Out direction port data
+         * @return uint8_t Mega drive light gun ID
+         */
+        static inline uint8_t GetMegaDriveId(uint8_t pd1, uint8_t pd0)
+        {
+            uint8_t mid;
+            pd1  = (pd1 & 0x0a) | ((pd1 & 0x05) << 1);
+            mid  = (pd1 & 0x08) | ((pd1 & 0x02) << 1);
+            pd0  = (pd0 & 0x05) | ((pd0 & 0x0a) >> 1);
+            mid |= (pd0 & 0x01) | ((pd0 & 0x04) >> 1);
+            return mid;
+        }
+
+        /** @brief Check if light gun device is connected
+         * @param port Peripheral port
+         * @return true if connected
+         */
+        static inline bool IsDeviceConnected(uint8_t port)
+        {
+            Input::PeripheralType type = Management::GetType(port);
+            return type == Input::PeripheralType::Gun;
+        }
+
+    public:
+        /** @brief Pointer device buttons
+         */
+        enum Button
+        {
+            /** @brief Left pointer button
+             */
+            Trigger = 1 << 10,
+
+            /** @brief Start button
+             */
+            Start = 1 << 11,
+        };
+
+        /** @brief Construct a new light gun peripheral handler
+         * @param port Light gun peripheral port
+         */
+        Gun(const uint8_t& port) : PeripheralGeneric(port)
+        {
+#ifdef DEBUG
+            if (port != 0 && port != 6)
+            {
+                SRL::Debug::Assert("Light gun can be present only on port 0 or 6 and must be connected directly to the console!");
+            }
+#endif
+        }
+
+        /** @brief Indicates whether peripheral is connected or not
+         * @return true if connected
+         */
+        bool IsConnected() override
+        {
+            return Gun::IsDeviceConnected(this->Port);
+        }
+
+        /** @brief Check if user is holding down a button
+         * @param peripheral Connected peripheral
+         * @param button Button to check
+         * @return true Button was pressed
+         * @return false Button was not pressed
+         */
+        bool virtual IsHeld(const Button& button)
+        {
+            return (this->GetCurrentFrameState()->data & ((uint16_t)button)) == 0;
+        }
+
+        /** @brief Check if user released a button
+         * @param peripheral Connected peripheral
+         * @param button Button to check
+         * @return true Button was released
+         * @return false Button was not released
+         */
+        bool virtual WasReleased(const Button& button)
+        {
+            uint16_t current = this->GetCurrentFrameState()->data;
+            uint16_t last = this->GetPreviousFrameState()->data;
+            return (((current ^ last) & current) & ((uint16_t)button)) != 0;
+        }
+
+        /** @brief Check if user pressed a button
+         * @param peripheral Connected peripheral
+         * @param button Button to check
+         * @return true Button was pressed
+         * @return false Button was not pressed
+         */
+        bool virtual WasPressed(const Button& button)
+        {
+            uint16_t current = this->GetCurrentFrameState()->data;
+            uint16_t last = this->GetPreviousFrameState()->data;
+            return (((current ^ last) & last) & ((uint16_t)button)) != 0;
+        }
+
+        /** @brief Refresh light gun data
+         * @note This should be called at the beginning of every game loop
+         */
+        static inline void Refresh()
+        {
+	        static uint8_t firstPlayerId = PER_ID_StnShooting;
+	        static uint8_t secondPlayerId = PER_ID_StnShooting;
+
+            // Handle light gun
+            if (!slCheckIntBackSet())
+            {
+                if (Gun::Player1MegadriveGunControl)
+                {
+                    slSetPortDir1(0x00);
+                    slSetPortData1(0x7f);
+                    slSetPortSelect1(SMPC_SH2_DIRECT);
+                }
+                else
+                {
+                    slSetPortSelect1(SMPC_CONTROL);
+                    slSetPortExt1(SMPC_EXL_DIS);
+                }
+
+                if (Gun::Player2MegadriveGunControl)
+                {
+                    slSetPortDir2(0x00);
+                    slSetPortData2(0x7f);
+                    slSetPortSelect2(SMPC_SH2_DIRECT);
+                }
+                else
+                {
+                    slSetPortSelect2(SMPC_CONTROL);
+                    slSetPortExt2(SMPC_EXL_DIS);
+                }
+
+                slGetStatus();
+                return;
+            }
+
+            uint8_t firstPlayerIdTemp = Management::Peripherals[0].id;
+
+            if (firstPlayerId != PER_ID_NotConnect && firstPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
+            {
+                Gun::Player2MegadriveGunControl = true;
+		        slIntBackCancel();
+            }
+
+            firstPlayerId = firstPlayerIdTemp;
+            uint8_t secondPlayerIdTemp = Management::Peripherals[0].id;
+
+            if (secondPlayerId != PER_ID_NotConnect && secondPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
+            {
+                Gun::Player2MegadriveGunControl = true;
+		        slIntBackCancel();
+            }
+
+            secondPlayerId = secondPlayerIdTemp;
+        }
+
+        /** @brief Refresh light gun trigger and ID data
+         * @note This should be called at the beginning of every v-blank
+         */
+        static inline void VblankRefresh()
+        {
+            // Handle light gun
+            if (SynchCount)
+            {
+                return;
+            }
+
+            if (Gun::Player1MegadriveGunControl && Management::Peripherals[0].id == (uint8_t)PeripheralType::Gun)
+            {
+	            uint8_t pd1, pd0, mid;
+                slSetPortDir1(0x40);
+                pd1 = slGetPortData1();
+                slSetPortDir1(0x00);
+                pd0 = slGetPortData1();
+                mid = Gun::GetMegaDriveId(pd1, pd0);
+
+                if(mid != MEGA_ID_StnShooting)
+                {
+                    Gun::Player1MegadriveGunControl = false;
+                    slIntBackCancel();
+                }
+            }
+            
+            if (Gun::Player2MegadriveGunControl && Management::Peripherals[6].id == (uint8_t)PeripheralType::Gun)
+            {
+	            uint8_t pd1, pd0, mid;
+                slSetPortDir2(0x40);
+                pd1 = slGetPortData2();
+                slSetPortDir2(0x00);
+                pd0 = slGetPortData2();
+                mid = Gun::GetMegaDriveId(pd1, pd0);
+
+                if(mid != MEGA_ID_StnShooting)
+                {
+                    Gun::Player2MegadriveGunControl = false;
+                    slIntBackCancel();
+                }
+            }
+        }
+
+        /** @brief Get the hit position
+         *  @return Vector2D hit position
          */
         SRL::Types::Vector2D virtual GetPosition()
         {

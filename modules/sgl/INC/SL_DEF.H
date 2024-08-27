@@ -1988,6 +1988,8 @@ extern void gxPutPolygon(gxPDATA *);
 #define PER_ID_ExtMegaDrive 0xe0 /* Extended size mega drive device */
 #define PER_ID_NotConnect 0xff   /* disconnected */
 
+#define MEGA_ID_StnShooting 0x0a /* Mega drive light gun ID */
+
 /* Digital devices */
 #define PER_DGT_KR (1 << 15) /* Right Key */
 #define PER_DGT_KL (1 << 14) /* Left Key */
@@ -2241,6 +2243,10 @@ extern void slSetHelpWindow(uint8_t);
 
 extern void slInitPeripheral(void);
 extern bool slSetResultBuffer(uint8_t *, PerDigital *, uint16_t);
+
+/** @brief Missing in normal release
+ */
+extern bool slCheckIntBackSet(void);
 
 extern bool slIntBackCancel(void);
 extern uint8_t slCheckReset(void);

@@ -9,6 +9,9 @@ extern "C" {
     #include <sega_int.h>
     #include "stdint-gcc.h"
     #include "stddef.h"
+
+    extern int8_t SynchCount;
+    extern uint16_t VDP2_EXTEN;
 }
 
 /** @brief Saturn ring library
