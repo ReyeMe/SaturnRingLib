@@ -35,7 +35,7 @@ namespace SRL::Input
          */
         Unknown = 0xf0,
     };
-    
+
     /** @brief Peripheral type
      */
     enum class PeripheralType : uint8_t
@@ -126,7 +126,7 @@ namespace SRL::Input
         ~Management() = delete;
 
     public:
-    
+
         /** @brief Find port number of nth connected peripheral
          * @param index Index of the peripheral
          * @return Port number of connected peripheral or 0xff if none
@@ -210,7 +210,7 @@ namespace SRL::Input
             {
                 *destination++ = *source++;
             }
-            
+
             // Offset for second multi-tap (see https://github.com/johannes-fetz/joengine/issues/23)
             source += sizeof(PerDigital) * 9;
 
@@ -221,13 +221,13 @@ namespace SRL::Input
             }
         }
     };
-    
+
     /** @brief Generic peripheral base
      */
     struct PeripheralGeneric
     {
     public:
-    
+
         /** @brief Port number peripheral is connected to
          * @note valid number is 0 to 11, see SRL::Input::MaxPeripherals
          */
@@ -281,6 +281,7 @@ namespace SRL::Input
         {
             return Management::GetFamily(this->Port);
         }
+
     };
 
     /** @brief Generic pointing (mouse) peripheral
@@ -486,58 +487,59 @@ namespace SRL::Input
          */
         static inline void Refresh()
         {
-	        static uint8_t firstPlayerId = PER_ID_StnShooting;
-	        static uint8_t secondPlayerId = PER_ID_StnShooting;
+          static uint8_t firstPlayerId = PER_ID_StnShooting;
+          static uint8_t secondPlayerId = PER_ID_StnShooting;
 
-            // Handle light gun
-            if (!slCheckIntBackSet())
+          // Handle light gun
+          if (!slCheckIntBackSet())
+          {
+            if (Gun::Player1MegadriveGunControl)
             {
-                if (Gun::Player1MegadriveGunControl)
-                {
-                    slSetPortDir1(0x00);
-                    slSetPortData1(0x7f);
-                    slSetPortSelect1(SMPC_SH2_DIRECT);
-                }
-                else
-                {
-                    slSetPortSelect1(SMPC_CONTROL);
-                    slSetPortExt1(SMPC_EXL_DIS);
-                }
-
-                if (Gun::Player2MegadriveGunControl)
-                {
-                    slSetPortDir2(0x00);
-                    slSetPortData2(0x7f);
-                    slSetPortSelect2(SMPC_SH2_DIRECT);
-                }
-                else
-                {
-                    slSetPortSelect2(SMPC_CONTROL);
-                    slSetPortExt2(SMPC_EXL_DIS);
-                }
-
-                slGetStatus();
-                return;
+              slSetPortDir1(0x00);
+              slSetPortData1(0x7f);
+              slSetPortSelect1(SMPC_SH2_DIRECT);
+            }
+            else
+            {
+              slSetPortSelect1(SMPC_CONTROL);
+              slSetPortExt1(SMPC_EXL_DIS);
             }
 
-            uint8_t firstPlayerIdTemp = Management::Peripherals[0].id;
-
-            if (firstPlayerId != PER_ID_NotConnect && firstPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
+            if (Gun::Player2MegadriveGunControl)
             {
-                Gun::Player2MegadriveGunControl = true;
-		        slIntBackCancel();
+              slSetPortDir2(0x00);
+              slSetPortData2(0x7f);
+              slSetPortSelect2(SMPC_SH2_DIRECT);
+            }
+            else
+            {
+              slSetPortSelect2(SMPC_CONTROL);
+              slSetPortExt2(SMPC_EXL_DIS);
             }
 
-            firstPlayerId = firstPlayerIdTemp;
-            uint8_t secondPlayerIdTemp = Management::Peripherals[0].id;
+            slGetStatus();
+            return;
+          }
 
-            if (secondPlayerId != PER_ID_NotConnect && secondPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
-            {
-                Gun::Player2MegadriveGunControl = true;
-		        slIntBackCancel();
-            }
+          uint8_t firstPlayerIdTemp = Management::Peripherals[0].id;
 
-            secondPlayerId = secondPlayerIdTemp;
+          if (firstPlayerId != PER_ID_NotConnect && firstPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
+          {
+            Gun::Player1MegadriveGunControl = true;
+            slIntBackCancel();
+          }
+
+          firstPlayerId = firstPlayerIdTemp;
+
+          uint8_t secondPlayerIdTemp = Management::Peripherals[15].id;
+
+          if (secondPlayerId != PER_ID_NotConnect && secondPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
+          {
+            Gun::Player2MegadriveGunControl = true;
+            slIntBackCancel();
+          }
+
+          secondPlayerId = secondPlayerIdTemp;
         }
 
         /** @brief Refresh light gun trigger and ID data
@@ -551,36 +553,38 @@ namespace SRL::Input
                 return;
             }
 
+            Management::RefreshPeripherals();
+
             if (Gun::Player1MegadriveGunControl && Management::Peripherals[0].id == (uint8_t)PeripheralType::Gun)
             {
-	            uint8_t pd1, pd0, mid;
-                slSetPortDir1(0x40);
-                pd1 = slGetPortData1();
-                slSetPortDir1(0x00);
-                pd0 = slGetPortData1();
-                mid = Gun::GetMegaDriveId(pd1, pd0);
+              uint8_t pd1, pd0, mid;
+              slSetPortDir1(0x40);
+              pd1 = slGetPortData1();
+              slSetPortDir1(0x00);
+              pd0 = slGetPortData1();
+              mid = Gun::GetMegaDriveId(pd1, pd0);
 
-                if(mid != MEGA_ID_StnShooting)
-                {
-                    Gun::Player1MegadriveGunControl = false;
-                    slIntBackCancel();
-                }
+              if(mid != MEGA_ID_StnShooting)
+              {
+                Gun::Player1MegadriveGunControl = false;
+                slIntBackCancel();
+              }
             }
-            
+
             if (Gun::Player2MegadriveGunControl && Management::Peripherals[6].id == (uint8_t)PeripheralType::Gun)
             {
-	            uint8_t pd1, pd0, mid;
-                slSetPortDir2(0x40);
-                pd1 = slGetPortData2();
-                slSetPortDir2(0x00);
-                pd0 = slGetPortData2();
-                mid = Gun::GetMegaDriveId(pd1, pd0);
+              uint8_t pd1, pd0, mid;
+              slSetPortDir2(0x40);
+              pd1 = slGetPortData2();
+              slSetPortDir2(0x00);
+              pd0 = slGetPortData2();
+              mid = Gun::GetMegaDriveId(pd1, pd0);
 
-                if(mid != MEGA_ID_StnShooting)
-                {
-                    Gun::Player2MegadriveGunControl = false;
-                    slIntBackCancel();
-                }
+              if(mid != MEGA_ID_StnShooting)
+              {
+                Gun::Player2MegadriveGunControl = false;
+                slIntBackCancel();
+              }
             }
         }
 
@@ -591,6 +595,15 @@ namespace SRL::Input
         {
             PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
             return SRL::Types::Vector2D(SRL::Types::Fxp::FromInt(data->x), SRL::Types::Fxp::FromInt(data->y));
+        }
+
+        /** @brief Get the hit position
+         *  @return Vector2D hit position
+         */
+        uint16_t virtual GetData()
+        {
+            PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
+            return data->data;
         }
     };
 
@@ -762,14 +775,14 @@ namespace SRL::Input
 
             switch (this->GetType())
             {
-            
+
             // Racing wheel data handling
             case Input::PeripheralType::Racing:
                 if (axis == Axis::Axis1) return data->x;
                 break;
 
             // Mission-stick data handling
-            // TODO: Handle extended data (second stick connected) 
+            // TODO: Handle extended data (second stick connected)
             case Input::PeripheralType::AnalogPad:
                 switch (axis)
                 {
