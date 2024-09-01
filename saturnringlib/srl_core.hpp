@@ -25,7 +25,7 @@ namespace SRL
         inline static SRL::Types::Event<> OnVblank;
 
     private:
-        
+
         /** @brief Handle V-Blank events
          */
         inline static void VblankHandling()
@@ -44,7 +44,7 @@ namespace SRL
         {
             SRL::Memory::Initialize();
 
-#if SRL_FRAMERATE > 0
+#if defined(SRL_FRAMERATE) && (SRL_FRAMERATE > 0)
             slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
 #else
             slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), 1);
