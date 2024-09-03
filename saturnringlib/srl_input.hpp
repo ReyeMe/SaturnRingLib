@@ -372,10 +372,28 @@ namespace SRL::Input
     };
 
     /** @brief Light gun peripheral
+     * @note Light gun only works if SRL_FRAMERATE is set to 2 (30fps)
+     * @note Light gun can **NOT** be connected through multi-tap! It must be connected directly to the console. Only valid ports are port 0 and port 6.
      */
     struct Gun : public PeripheralGeneric
     {
     private:
+        
+        /** @brief Player 1 gun port
+         */
+        #define GunPlayer1 (0)
+
+        /** @brief Player 2 gun port
+         */
+        #define GunPlayer2 (6)
+
+        /** @brief VDP2 external signal enable latch
+         */
+        #define ExternalSignalEnable (0x200)
+
+        /** @brief Light gun mega ID
+         */
+        #define GunMegaId (MEGA_ID_StnShooting | 0xf0) 
 
         /** @brief Indicates whether peripheral control for player 1 light gun is enabled
          */
@@ -411,6 +429,7 @@ namespace SRL::Input
         }
 
     public:
+    
         /** @brief Pointer device buttons
          */
         enum Button
@@ -425,14 +444,15 @@ namespace SRL::Input
         };
 
         /** @brief Construct a new light gun peripheral handler
+         * @note Light gun can **NOT** be connected through multi-tap! It must be connected directly to the console. Only valid ports for this constructor are port 0 and port 6.
          * @param port Light gun peripheral port
          */
         Gun(const uint8_t& port) : PeripheralGeneric(port)
         {
 #ifdef DEBUG
-            if (port != 0 && port != 6)
+            if (port != GunPlayer1 && port != GunPlayer2)
             {
-                SRL::Debug::Assert("Light gun can be present only on port 0 or 6 and must be connected directly to the console!");
+                SRL::Debug::Assert("Light gun can be present only on port %d or %d and must be connected directly to the console!", GunPlayer1, GunPlayer2);
             }
 #endif
         }
@@ -482,112 +502,6 @@ namespace SRL::Input
             return (((current ^ last) & last) & ((uint16_t)button)) != 0;
         }
 
-        /** @brief Refresh light gun data
-         * @note This should be called at the beginning of every game loop
-         */
-        static inline void Refresh()
-        {
-          static uint8_t firstPlayerId = PER_ID_StnShooting;
-          static uint8_t secondPlayerId = PER_ID_StnShooting;
-
-          // Handle light gun
-          if (!slCheckIntBackSet())
-          {
-            if (Gun::Player1MegadriveGunControl)
-            {
-              slSetPortDir1(0x00);
-              slSetPortData1(0x7f);
-              slSetPortSelect1(SMPC_SH2_DIRECT);
-            }
-            else
-            {
-              slSetPortSelect1(SMPC_CONTROL);
-              slSetPortExt1(SMPC_EXL_DIS);
-            }
-
-            if (Gun::Player2MegadriveGunControl)
-            {
-              slSetPortDir2(0x00);
-              slSetPortData2(0x7f);
-              slSetPortSelect2(SMPC_SH2_DIRECT);
-            }
-            else
-            {
-              slSetPortSelect2(SMPC_CONTROL);
-              slSetPortExt2(SMPC_EXL_DIS);
-            }
-
-            slGetStatus();
-            return;
-          }
-
-          uint8_t firstPlayerIdTemp = Management::Peripherals[0].id;
-
-          if (firstPlayerId != PER_ID_NotConnect && firstPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
-          {
-            Gun::Player1MegadriveGunControl = true;
-            slIntBackCancel();
-          }
-
-          firstPlayerId = firstPlayerIdTemp;
-
-          uint8_t secondPlayerIdTemp = Management::Peripherals[15].id;
-
-          if (secondPlayerId != PER_ID_NotConnect && secondPlayerIdTemp == (MEGA_ID_StnShooting | 0xf0))
-          {
-            Gun::Player2MegadriveGunControl = true;
-            slIntBackCancel();
-          }
-
-          secondPlayerId = secondPlayerIdTemp;
-        }
-
-        /** @brief Refresh light gun trigger and ID data
-         * @note This should be called at the beginning of every v-blank
-         */
-        static inline void VblankRefresh()
-        {
-            // Handle light gun
-            if (SynchCount)
-            {
-                return;
-            }
-
-            Management::RefreshPeripherals();
-
-            if (Gun::Player1MegadriveGunControl && Management::Peripherals[0].id == (uint8_t)PeripheralType::Gun)
-            {
-              uint8_t pd1, pd0, mid;
-              slSetPortDir1(0x40);
-              pd1 = slGetPortData1();
-              slSetPortDir1(0x00);
-              pd0 = slGetPortData1();
-              mid = Gun::GetMegaDriveId(pd1, pd0);
-
-              if(mid != MEGA_ID_StnShooting)
-              {
-                Gun::Player1MegadriveGunControl = false;
-                slIntBackCancel();
-              }
-            }
-
-            if (Gun::Player2MegadriveGunControl && Management::Peripherals[6].id == (uint8_t)PeripheralType::Gun)
-            {
-              uint8_t pd1, pd0, mid;
-              slSetPortDir2(0x40);
-              pd1 = slGetPortData2();
-              slSetPortDir2(0x00);
-              pd0 = slGetPortData2();
-              mid = Gun::GetMegaDriveId(pd1, pd0);
-
-              if(mid != MEGA_ID_StnShooting)
-              {
-                Gun::Player2MegadriveGunControl = false;
-                slIntBackCancel();
-              }
-            }
-        }
-
         /** @brief Get the hit position
          *  @return Vector2D hit position
          */
@@ -597,127 +511,264 @@ namespace SRL::Input
             return SRL::Types::Vector2D(SRL::Types::Fxp::FromInt(data->x), SRL::Types::Fxp::FromInt(data->y));
         }
 
-        /** @brief Get the hit position
-         *  @return Vector2D hit position
+        /**
+         * @name Internal function
+         * @{
          */
-        uint16_t virtual GetData()
+
+        /** @brief Trigger data synchronization
+         * @details This should be called at the beginning of or at the end of each logic frame
+         * @note Used internally
+         */
+        static inline void Synchronize()
         {
-            PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
-            return data->data;
+            static uint8_t firstPlayerId = PER_ID_StnShooting;
+            static uint8_t secondPlayerId = PER_ID_StnShooting;
+            bool refreshStatus = false;
+
+            // Handle gun re-initialization
+            // Re-initialize external signal register
+            if (VDP2_EXTEN != ExternalSignalEnable &&
+                ((Management::Peripherals[GunPlayer1].id == GunMegaId || Gun::IsDeviceConnected(GunPlayer1)) || ((Management::Peripherals[GunPlayer2].id == GunMegaId || Gun::IsDeviceConnected(GunPlayer2)))))
+            {
+                VDP2_EXTEN = ExternalSignalEnable;
+            }
+
+            // Re-initialize SMPC
+            if ((firstPlayerId != PER_ID_StnShooting && firstPlayerId != GunMegaId) &&
+                Management::Peripherals[GunPlayer1].id == GunMegaId)
+            {
+                firstPlayerId = PER_ID_StnShooting;
+                slSetPortSelect1(SMPC_SH2_DIRECT);
+                slSetPortExt1(SMPC_EXL_ENA);
+                refreshStatus = true;
+            }
+
+            if ((secondPlayerId != PER_ID_StnShooting && secondPlayerId != GunMegaId) &&
+                Management::Peripherals[GunPlayer2].id == GunMegaId)
+            {
+                firstPlayerId = PER_ID_StnShooting;
+                slSetPortSelect2(SMPC_SH2_DIRECT);
+                slSetPortExt2(SMPC_EXL_ENA);
+                refreshStatus = true;
+            }
+
+            if (refreshStatus)
+            {
+                slGetStatus();
+                return;
+            }
+
+            // Handle light gun
+            if (!slCheckIntBackSet())
+            {
+                if (Gun::Player1MegadriveGunControl)
+                {
+                    slSetPortDir1(0x00);
+                    slSetPortData1(0x7f);
+                    slSetPortSelect1(SMPC_SH2_DIRECT);
+                }
+                else
+                {
+                    slSetPortSelect1(SMPC_CONTROL);
+                    slSetPortExt1(SMPC_EXL_DIS);
+                }
+
+                if (Gun::Player2MegadriveGunControl)
+                {
+                    slSetPortDir2(0x00);
+                    slSetPortData2(0x7f);
+                    slSetPortSelect2(SMPC_SH2_DIRECT);
+                }
+                else
+                {
+                    slSetPortSelect2(SMPC_CONTROL);
+                    slSetPortExt2(SMPC_EXL_DIS);
+                }
+
+                slGetStatus();
+                return;
+            }
+
+            uint8_t firstPlayerIdTemp = Management::Peripherals[GunPlayer1].id;
+
+            if (firstPlayerId != PER_ID_NotConnect && firstPlayerIdTemp == GunMegaId)
+            {
+                Gun::Player1MegadriveGunControl = true;
+                slIntBackCancel();
+            }
+
+            uint8_t secondPlayerIdTemp = Management::Peripherals[GunPlayer2].id;
+
+            if (secondPlayerId != PER_ID_NotConnect && secondPlayerIdTemp == GunMegaId)
+            {
+                Gun::Player2MegadriveGunControl = true;
+                slIntBackCancel();
+            }
+
+            firstPlayerId = firstPlayerIdTemp;
+            secondPlayerId = secondPlayerIdTemp;
         }
+
+        /** @brief Refresh light gun trigger and ID data
+         * @details This should be called at the beginning of every v-blank
+         * @note Used internally
+         */
+        static inline void VblankRefresh()
+        {
+            // Handle light gun
+            if (SynchCount)
+            {
+                return;
+            }
+
+            if (Gun::Player1MegadriveGunControl && Management::Peripherals[GunPlayer1].id == (uint8_t)PeripheralType::Gun)
+            {
+                uint8_t pd1, pd0, mid;
+                slSetPortDir1(0x40);
+                pd1 = slGetPortData1();
+                slSetPortDir1(0x00);
+                pd0 = slGetPortData1();
+                mid = Gun::GetMegaDriveId(pd1, pd0);
+
+                if (mid != MEGA_ID_StnShooting)
+                {
+                    Gun::Player1MegadriveGunControl = false;
+                    slIntBackCancel();
+                }
+            }
+
+            if (Gun::Player2MegadriveGunControl && Management::Peripherals[GunPlayer2].id == (uint8_t)PeripheralType::Gun)
+            {
+                uint8_t pd1, pd0, mid;
+                slSetPortDir2(0x40);
+                pd1 = slGetPortData2();
+                slSetPortDir2(0x00);
+                pd0 = slGetPortData2();
+                mid = Gun::GetMegaDriveId(pd1, pd0);
+
+                if (mid != MEGA_ID_StnShooting)
+                {
+                    Gun::Player2MegadriveGunControl = false;
+                    slIntBackCancel();
+                }
+            }
+        }
+        
+        /** @} */
     };
 
     /** @brief Generic digital peripheral
      */
     struct Digital : public PeripheralGeneric
+    {
+        /** @brief Digital gamepad buttons
+         */
+        enum class Button : uint16_t
         {
-            /** @brief Digital gamepad buttons
+            /** @brief D-Pad right direction
              */
-            enum class Button : uint16_t
-            {
-                /** @brief D-Pad right direction
-                 */
-                Right = 1 << 15,
+            Right = 1 << 15,
 
-                /** @brief D-Pad left direction
-                 */
-                Left = 1 << 14,
-
-                /** @brief D-Pad down direction
-                 */
-                Down = 1 << 13,
-
-                /** @brief D-Pad up direction
-                 */
-                Up = 1 << 12,
-
-                /** @brief Start button
-                 */
-                START = 1 << 11,
-
-                /** @brief A button
-                 */
-                A = 1 << 10,
-
-                /** @brief B button
-                 */
-                B = 1 << 8,
-
-                /** @brief C button
-                 */
-                C = 1 << 9,
-
-                /** @brief X button
-                 */
-                X = 1 << 6,
-
-                /** @brief Y button
-                 */
-                Y = 1 << 5,
-
-                /** @brief Z button
-                 */
-                Z = 1 << 4,
-
-                /** @brief Right trigger
-                 */
-                R = 1 << 7,
-
-                /** @brief Left trigger
-                 */
-                L = 1 << 3
-            };
-
-            /** @brief Construct a new Gamepad handler
-             * @param port Gamepad peripheral port
+            /** @brief D-Pad left direction
              */
-            Digital(const uint8_t& port) : PeripheralGeneric(port) { }
+            Left = 1 << 14,
 
-            /** @brief Indicates whether peripheral is connected or not
-             * @return true if connected
+            /** @brief D-Pad down direction
              */
-            bool IsConnected() override
-            {
-                return this->GetFamily() == Input::PeripheralFamily::Digital;
-            }
+            Down = 1 << 13,
 
-            /** @brief Check if user is holding down a button
-             * @param peripheral Connected peripheral
-             * @param button Button to check
-             * @return true Button was pressed
-             * @return false Button was not pressed
+            /** @brief D-Pad up direction
              */
-            bool virtual IsHeld(const Button& button)
-            {
-                return (this->GetCurrentFrameState()->data & ((uint16_t)button)) == 0;
-            }
+            Up = 1 << 12,
 
-            /** @brief Check if user released a button
-             * @param peripheral Connected peripheral
-             * @param button Button to check
-             * @return true Button was released
-             * @return false Button was not released
+            /** @brief Start button
              */
-            bool virtual WasReleased(const Button& button)
-            {
-                uint16_t current = this->GetCurrentFrameState()->data;
-                uint16_t last = this->GetPreviousFrameState()->data;
-                return (((current ^ last) & current) & ((uint16_t)button)) != 0;
-            }
+            START = 1 << 11,
 
-            /** @brief Check if user pressed a button
-             * @param peripheral Connected peripheral
-             * @param button Button to check
-             * @return true Button was pressed
-             * @return false Button was not pressed
+            /** @brief A button
              */
-            bool virtual WasPressed(const Button& button)
-            {
-                uint16_t current = this->GetCurrentFrameState()->data;
-                uint16_t last = this->GetPreviousFrameState()->data;
-                return (((current ^ last) & last) & ((uint16_t)button)) != 0;
-            }
+            A = 1 << 10,
+
+            /** @brief B button
+             */
+            B = 1 << 8,
+
+            /** @brief C button
+             */
+            C = 1 << 9,
+
+            /** @brief X button
+             */
+            X = 1 << 6,
+
+            /** @brief Y button
+             */
+            Y = 1 << 5,
+
+            /** @brief Z button
+             */
+            Z = 1 << 4,
+
+            /** @brief Right trigger
+             */
+            R = 1 << 7,
+
+            /** @brief Left trigger
+             */
+            L = 1 << 3
         };
+
+        /** @brief Construct a new Gamepad handler
+         * @param port Gamepad peripheral port
+         */
+        Digital(const uint8_t& port) : PeripheralGeneric(port) { }
+
+        /** @brief Indicates whether peripheral is connected or not
+         * @return true if connected
+         */
+        bool IsConnected() override
+        {
+            return this->GetFamily() == Input::PeripheralFamily::Digital;
+        }
+
+        /** @brief Check if user is holding down a button
+         * @param peripheral Connected peripheral
+         * @param button Button to check
+         * @return true Button was pressed
+         * @return false Button was not pressed
+         */
+        bool virtual IsHeld(const Button& button)
+        {
+            return (this->GetCurrentFrameState()->data & ((uint16_t)button)) == 0;
+        }
+
+        /** @brief Check if user released a button
+         * @param peripheral Connected peripheral
+         * @param button Button to check
+         * @return true Button was released
+         * @return false Button was not released
+         */
+        bool virtual WasReleased(const Button& button)
+        {
+            uint16_t current = this->GetCurrentFrameState()->data;
+            uint16_t last = this->GetPreviousFrameState()->data;
+            return (((current ^ last) & current) & ((uint16_t)button)) != 0;
+        }
+
+        /** @brief Check if user pressed a button
+         * @param peripheral Connected peripheral
+         * @param button Button to check
+         * @return true Button was pressed
+         * @return false Button was not pressed
+         */
+        bool virtual WasPressed(const Button& button)
+        {
+            uint16_t current = this->GetCurrentFrameState()->data;
+            uint16_t last = this->GetPreviousFrameState()->data;
+            return (((current ^ last) & last) & ((uint16_t)button)) != 0;
+        }
+    };
 
     /** @brief Generic analog peripheral
      */

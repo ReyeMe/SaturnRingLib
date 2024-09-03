@@ -10,6 +10,7 @@ extern "C" {
     #include "stdint-gcc.h"
     #include "stddef.h"
 
+    extern uint8_t SynchConst;
     extern int8_t SynchCount;
     extern uint16_t VDP2_EXTEN;
 }
