@@ -6,18 +6,14 @@
 #include "srl_bitmap.hpp"
 /*TODO think of a better way to convey the options available for tilemap data loading
 in terms of what the options actually provide:
-
-Character Size
-Map Data Size
-Number Of pages per plane
-Number of planes
+-Character Size
+-Map Data Size
+-Number Of pages per plane
+-Number of planes
 */
 namespace SRL::Tilemap
 {
-    enum class MapSetting
-    {
-
-    };
+   
     /** @brief  All the info necessary to properly configure the tilemap data in VRAM
     */
     struct TilemapInfo
@@ -42,7 +38,10 @@ namespace SRL::Tilemap
             this->MapWidth = Width;
             this->CelByteSize = size;
         }
-        uint16_t SGLColorMode()//Dum we need to Get the proper Bit Pattern for VDP2 initialization
+        /** @brief Gets the SGL macro corresponding to ColorMode
+            @return SGL VDP2 color macro 
+        */
+        uint16_t SGLColorMode()
         {
             static const uint8_t SglColor[] = { 0x30,0x30,0x00,0x10,0x10,0x10,0x10 };//bad dum use a switch statement instead  
             return (uint16_t)SglColor[(uint16_t)this->ColorMode];
@@ -121,15 +120,16 @@ namespace SRL::Tilemap
             return this->Info;
         }
     };
-    /*Test implementation of ITilemap interface for Loading Cubecat binary format for cel/map/pal data.
-    This type assumes the raw data is pre-formatted to all VDP2 specifications other than
-    VRAM and Pallet offsets. Furthermore, the stored format is specified in the header.
-    The file layout is:
-        32 byte header- read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
-        32 or 512 bytes palette data(if pallet type is specified in header)
-        Cel Data (size specified in header)
-        Map Data (size specified in header)
-     */
+    /* @brief Test implementation of ITilemap interface for Loading Cubecat binary format for cel/map/pal data.
+    *
+    *This type assumes the raw data is pre-formatted to all VDP2 specifications other than
+    *VRAM and Pallet offsets. Furthermore, the stored format is specified in the header.
+    *The file layout is:
+    *    32 byte header- read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
+    *    32 or 512 bytes palette data(if pallet type is specified in header)
+    *    Cel Data (size specified in header)
+    *    Map Data (size specified in header)
+    */
     struct SGLb : public ITilemap
     {
     private:
@@ -257,186 +257,4 @@ namespace SRL::Tilemap
             return this->Info;
         }
     };
-
-    /** @brief selects the desired size of the Tiles within a Tileset
-    */
-    enum class Tilesize {
-        /** @brief Tiles 8x8 pixels (1x1 Cels)
-        */
-        Tile8x8 = 0x3,
-        /** @brief Tiles are 16x16 pixels (2x2 Cels)
-        */
-        Tile16x16 = 0x7,
-    };
-
-    /** @brief Used to specify preference for the size and functionality of tilemap data
-    * 
-    * Disable/Enable Mirroring Will reduce overall VRAM footprint of map data by half,
-    * so long as the number of tiles in the tileset does not exceed the maximum decribed.
-    * Generally choose between those 2 unless you require the special color calculation/priority features
-    * allowed by EnableFull.
-    */
-    enum class MapOption {
-       
-        /* @brief Map will default to 16 bit data with mirroring unless size of tileset exeeds 512 characters
-        *  otherwise map will use full 32 bit data
-        */
-        EnableMirroring,
-        /* @brief Map Will default to 16 bit data unless size of tileset exceeds 2048 characters
-        *  otherwise map will use full 32 bit data.
-        *  @note this option will not support tile mirroring by default
-        */
-        DisableMirroring,
-        /* @brief Map will default to full 32 bit data. supports horizontal and vertical mirroring plus
-        *  per tile special color calculation and priority. 
-        */
-        EnableFull,
-    };
-    /** Brief Interface to Convert Bitmap Image into Tilemap 
-    */
-    /*struct BitmapTile : public ITilemap
-    {
-    private:
-        uint8_t* CelData;
-        uint8_t* MapData;
-        uint8_t* PalData;
-        TilemapInfo Info;
-
-        uint8_t* Bitmap2Cel(uint8_t* start,uint8_t* Cel, uint32_t ImgWidth, uint8 DataWidth)
-        {
-            for(int i = 0;i<8 ++i)
-            {
-                for(int j = 0; j<DataWidth;++j) Cel++ = start++;
-                start+=ImgWidth;
-            }
-            return Cel;
-        }
-        uint_t8* Bitmap2Char2x2(uint8_t* start,uint8_t* Cel, uint32_t ImgWidth, uint8 DataWidth)
-        {
-            Cel = Bitmap2Cel(start, Cel, ImgWidth, DataWidth);
-            Cel = Bitmap2Cel(start+DataWidth, Cel, ImgWidth, DataWidth);
-            Cel = Bitmap2Cel(start+(ImgWidth<<3), Cel, ImgWidth, DataWidth);
-            Cel = Bitmap2Cel(start+DataWidth+(ImgWidth<<3), Cel, ImgWidth, DataWidth);
-            return Cel;
-        }
-       
-    public:
-        BitmapTile()
-        {
-            this->CelData = NULL;
-            this->MapData = NULL;
-            this->PalData = NULL;
-            this->Info = TilemapInfo();
-        } 
-        BitmapTile(SRL::Bitmap::IBitmap & bmp,Tilesize sz,MapOption opt = MapOption::EnableMirroring )
-        {
-            uint16_t Xcels;
-            uint16_t Ycels;
-            int ByteWidth;
-            BitmapInfo info = bmp.GetInfo();
-            Ycels = info.height>>3;
-            uint8_t ByteCel;
-            uint8_t* CurrentCel = this.CelData;
-            uint8_t* CurrentData = bmp.GetData();
-            switch(info.ColorMode)
-            {
-               case CRAM::TxtureColorMode::Paletted16:
-                   Xcels = info.width>>2;
-                   ByteWidth = info.width>>1;
-                   ByteCel = 4
-               case CRAM::TxtureColorMode::Paletted256:
-                   Xcels = info.width>>3;
-                   ByteWidth = info.width;
-                   ByteCel = 8;
-               default:
-                   Xcels = info.width>>4;
-                   ByteWidth = info.width<<1;
-                   ByteCel = 8;
-            }
-            //check to make sure image dimensions are divisible by tile dimensions:
-            if((ByteWidth&(uint16_t)sz)||(info.Height&(uint16_t)sz))
-            {
-                this->CelData = NULL;
-                this->MapData = NULL;
-                this->PalData = NULL;
-                this->Info = TilemapInfo();
-                debug::assert("Tileset conversion failed- Image dimensions are not divisible by Tilesize");
-                return;
-            } 
-            this->CelData = new uint8_t[ByteWidth*info.height];
-            if(sz==Tilesize::Tile8x8) convert to 8x8 characters
-            {
-                for(int i = 0;i<Ycels;++i)
-                {
-                    for(int j =0 j<Xcels;++j)
-                    {
-                        Bitmap2Cel(CurrentData,CurrentCel,ByteWidth,ByteCel);
-                        CurrentData+=ByteCel;
-
-                    }
-                    CurrentData+=(ByteWidth<<3)-ByteCel;
-                }
-            }
-            else//convert to 16x16 characters
-            {
-                for(int i = 0;i<Ycels;++i)
-                {
-                    for(int j =0 j<Xcels;++j)
-                    {
-                        Bitmap2Char2x2(CurrentData,CurrentCel,ByteWidth,ByteCel);
-                        CurrentData+=(ByteCel<<1);
-                    }
-                    CurrentData+=(ByteWidth<<4)-(ByteCel<<1);
-                }
-            }
-            int MapSize = ((info.height>>9)+1)* ((info.width>>9)+1);
-            if(sz = Tilesize::Tile8x8) MapSize*= 64*64*2;
-            else MapSize*= 32*32*2;
-            if(opt = MapOption::EnableFull)MapSize<<=1;
-
-            
-        }
-
-        ~BitmapTile()
-        {
-            if (this->CelData) delete this->CelData;
-            if (this->MapData) delete this->MapData;
-            if (this->PalData) delete this->PalData;
-        }
-        void* GetCelData() override
-        {
-            return this->CelData;
-        }
-        void* GetMapData() override
-        {
-            return this->MapData;
-        }
-        void* GetPalData() override
-        {
-            return this->PalData;
-        }
-        TilemapInfo GetInfo() override
-        {
-            return this->Info;
-        }
-        int AddPage();
-        int CopyMap();
-        int CopyCel();
-        int ClearPage();
-
-    };*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
