@@ -2,7 +2,7 @@
 
 #include "srl_base.hpp"
 #include "srl_color.hpp"
-#include "srl_vdp2.hpp"
+#include "srl_ascii.hpp"
 #include "srl_memory.hpp"
 #include <std/string.h>
 
@@ -44,7 +44,7 @@ namespace SRL
          */
         inline static void Print(uint8_t x, uint8_t y, const char* text)
         {
-            slPrint((char*)text, slLocate(x, y));
+              SRL::ASCII::Print((char*)text,x,y);
         }
 
         /** @brief Print text on screen at specific location
@@ -158,7 +158,6 @@ namespace SRL
             Debug::printColor = color;
             slCurColor(color);
         }
-
         /** @brief Restore previous print color
          */
         inline static void PrintColorRestore()
@@ -200,8 +199,8 @@ namespace SRL
             // Clear screen
             Debug::PrintClearScreen();
 
-            // Set background to red and font to white
-            SRL::VDP2::SetBackColor(SRL::Types::HighColor::Colors::Red);
+            //Set background to red and font to white
+            //SRL::VDP2::SetBackColor(SRL::Types::HighColor::Colors::Red);
             Debug::PrintColorSet(0);
 
             Debug::Print(1, 1, "Assert raised");
