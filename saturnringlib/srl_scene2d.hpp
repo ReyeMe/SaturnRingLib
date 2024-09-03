@@ -41,14 +41,18 @@ namespace SRL
              */
             uint16_t Flip:2;
 
+            /** @brief Sprite opacity with VDP2 layers 
+            */
+            uint16_t OpacityBank:3;
+
             /** @brief Reserved for future use
              */
-            uint16_t Reserved: 10;
+            uint16_t Reserved:7;
         };
 
         /** @brief Stored effect state
          */
-        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0, 0 };
+        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0, 0, 0 };
 
         /** @brief Is gouraud shading enabled?
          * @return true if gouraud shading is enabled
@@ -102,22 +106,22 @@ namespace SRL
             {
             case SRL::CRAM::TextureColorMode::Paletted256:
                 colorMode = CL256Bnk;
-                palette = paletteId << 8;
+                palette = paletteId << 8| (Scene2D::Effects.OpacityBank << 11);
                 break;
-            
+ 
             case SRL::CRAM::TextureColorMode::Paletted128:
                 colorMode = CL128Bnk;
-                palette = paletteId << 7;
+                palette = paletteId << 7| (Scene2D::Effects.OpacityBank << 11);
                 break;
-            
+ 
             case SRL::CRAM::TextureColorMode::Paletted64:
                 colorMode = CL64Bnk;
-                palette = paletteId << 6;
+                palette = paletteId << 6| (Scene2D::Effects.OpacityBank << 11);
                 break;
-            
+ 
             case SRL::CRAM::TextureColorMode::Paletted16:
                 colorMode = CL16Bnk;
-                palette = paletteId << 4;
+                palette = paletteId << 4| (Scene2D::Effects.OpacityBank << 11);
                 break;
 
             default:
@@ -258,6 +262,14 @@ namespace SRL
              * @endcode
              */
             Flip = 4
+             /** @brief VDP2 color calculation effect
+             * @details Set sprites Color Calculation Ratio to one of 8 stored opacities (Banks 0-7)
+             * @note Only applies to palette color modes
+             * @code {.cpp}
+             * //Set to ratio stored in opacity bank 1 
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::OpacityBank, 1);
+             */
+            OpacityBank = 5
         };
 
         /** @brief Set the Clipping rectangle
@@ -303,7 +315,11 @@ namespace SRL
             case SpriteEffect::Flip:
                 Scene2D::Effects.Flip = data < 0 ? 0 : data & 0x3;
                 break;
-
+                
+            case SpriteEffect::OpacityBank:
+                Scene2D::Effects.OpacityBank = data < 0 ? 0 : data & 0x7;
+                break;
+                
             default:
                 break;
             }
