@@ -57,7 +57,7 @@ namespace SRL
             inline static uint8_t* BankTop[4] = { (uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1,(uint8_t*)(VDP2_VRAM_B1 + 0x18000) };
             inline static uint8_t* CurrentBot[4] = { (uint8_t*)VDP2_VRAM_A0,(uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1 };;
             inline static uint8_t* CurrentTop[4] = { (uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1,(uint8_t*)(VDP2_VRAM_B1 + 0x18000) };
-            inline static uint8_t BankCycles[4] = {0,0,0,0};
+            inline static int8_t BankCycles[4] = {-1,-1,-1,-1};//why can you not initialize to 0?????????
             
             /** @brief Gets current amount of free VRAM in a bank
             *   @param Bank the VRAM bank to get free space in
@@ -79,10 +79,14 @@ namespace SRL
                 //if (size & 0x1f) size += (0x20 - (size & 0x1f));// ensure all allocated chucks will be 32 byte alligned
                 void* MyAddress = nullptr;
                 //ensure allocation is alligned to requested VRAM boundary
-                uint32_t AddrOffset = boundary - ((uint32_t)CurrentBot[(uint16_t)Bank] & (boundary - 1));
+                uint32_t AddrOffset = 0;
+                if((uint32_t)CurrentBot[(uint16_t)Bank] & (boundary - 1))
+                {
+                    AddrOffset = boundary - ((uint32_t)CurrentBot[(uint16_t)Bank] & (boundary - 1));
+                }
                 if (GetAvailable(Bank) > size+AddrOffset )
                 {
-                    if ((BankCycles[(uint16_t)Bank] + cycles) <= 8)
+                    if ((BankCycles[(uint16_t)Bank] + cycles) < 8)
                     {
                         MyAddress = CurrentBot[(uint16_t)Bank]+AddrOffset;
                         CurrentBot[(uint16_t)Bank] += size+AddrOffset;
