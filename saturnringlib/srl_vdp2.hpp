@@ -10,7 +10,7 @@
 #include "srl_tilemap.hpp"
 
 extern FIXED MsScreenDist;
-
+extern uint16_t VDP2_RAMCTL;// SGL variable needed for dumb reasons
 
 
 namespace SRL
@@ -492,6 +492,24 @@ namespace SRL
             static void Planes(void* a, void* b, void* c, void* d) { slMapNbg3(a, b, c, d); }
             static void SetPosition(Types::Vector2D pos) { slScrPosNbg3(pos.X.Value(), pos.Y.Value()); }
         };
+        /** @brief setting for RBG0,1 rotation constraints
+        *   @note more axis require more VRAM resources
+        */
+        enum class RotationMode
+        {
+            /** @brief 2d rotation with only roll
+            *    @note No additional VRAM requirements
+            */
+            OneAxis,
+            /* @brief 3d rotation with pitch and yaw, but no roll
+            *  @note Requires 0x2000-0x18000 bytes in arbitrary VRAM Bank
+            */
+            TwoAxis,
+            /** @brief Full 3d rotation with pitch, yaw and roll
+            *  @note requires 0x2000- 0x18000 bytes in Reserved VRAM bank
+            */
+            ThreeAxis,
+        };
         /** @brief  RBG0 interface
         */
         class RBG0 : public ScrollScreen<RBG0>
@@ -528,6 +546,56 @@ namespace SRL
                 }
                 slPopMatrix();
                 return;
+            }
+
+            /** @brief Select what type of rotation to use for the rotating scroll
+            *   @param Mode The RotationMode to use for this scroll
+            *   @param Vblank chose to update VRAM at VBLANK to reduce amount of coefficient
+            *   data required for rotation(default=true)
+            *   @note when 2 or 3 axis rotation is Selected, VRAM will be allocated to store
+            *   necessary coefficient data. If Vblank is set false, All coefficients will be
+            *   statically stored in VRAM as a 0x18000 byte table. If Vblank is set true, only
+            *   the coefficients necessary for the current frame will be dynamically written
+            *   to VRAM at Vblank, reducing required VRAM footprint to 0x2000 bytes per
+            *   rotation parameter.
+            */
+            inline static void SetRotationMode(VDP2::RotationMode Mode, bool Vblank = true)
+            {
+                slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
+                switch (Mode)
+                {
+                case RotationMode::OneAxis:
+                    slKtableRA(nullptr, K_OFF);
+                    VDP2_RAMCTL &= 0xffcf;//Bypasses bug in slKtableRA-  this never resets if K_DOT is previously specified   
+                    break;
+                case RotationMode::TwoAxis:
+                    if (!Vblank)
+                    {   
+                        KtableAddress = VDP2::VRAM::Allocate(0x18000, 0x20000, VDP2::VramBank::B0, 0);
+                        slMakeKtable((void*)KtableAddress);
+                        slKtableRA((void*)KtableAddress,K_FIX| K_LINE | K_2WORD | K_ON);
+                    }
+                    else
+                    {
+                        KtableAddress = VDP2::VRAM::Allocate(0x2000, 0x20000, VDP2::VramBank::B0, 0);
+                        slKtableRA((void*)KtableAddress, K_LINE | K_2WORD | K_ON);
+                    }
+                    VDP2_RAMCTL &=0xffcf;//Bypasses bug in slKtableRA- this never resets if K_DOT is previously specified 
+                    break;
+                case RotationMode::ThreeAxis:
+                    if(!Vblank)
+                    {
+                        KtableAddress = VDP2::VRAM::Allocate(0x18000, 0x20000, VDP2::VramBank::B0, 8);
+                        slMakeKtable((void*)KtableAddress);
+                        slKtableRA((void*)KtableAddress, K_FIX | K_DOT | K_2WORD | K_ON);
+                    }
+                    else
+                    {
+                        KtableAddress = VDP2::VRAM::Allocate(0x2000, 0x20000, VDP2::VramBank::B0, 8);
+                        slKtableRA((void*)KtableAddress, K_DOT | K_2WORD | K_ON);   
+                    }
+                    break;
+                }
             }
             /* @brief Write the current matrix transform to RBG0 RA Rotation parameters
                to update its perspective on screen
