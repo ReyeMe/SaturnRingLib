@@ -261,7 +261,7 @@ namespace SRL
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip | SRL::Scene2D::FlipEffect::VerticalFlip);
              * @endcode
              */
-            Flip = 4
+            Flip = 4,
              /** @brief VDP2 color calculation effect
              * @details Set sprites Color Calculation Ratio to one of 8 stored opacities (Banks 0-7)
              * @note Only applies to palette color modes
@@ -269,7 +269,7 @@ namespace SRL
              * //Set to ratio stored in opacity bank 1 
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::OpacityBank, 1);
              */
-            OpacityBank = 5
+            OpacityBank = 5,
         };
 
         /** @brief Set the Clipping rectangle
