@@ -655,20 +655,20 @@ namespace SRL
                 VDP2::ColorCalcScrolls &= (~SPRON);
                 slColorCalcOn(VDP2::ColorCalcScrolls);
             }
-           /** @brief Set the opacities that sprites can slect from in CC regesters
+           /** @brief Set the opacities that sprites can select from in CC regesters
            *
            *   This Function takes the opacity specified as a fixed point value and converts it to
            *   one of the 32 color calculation ratios that the system can use (value is floored to the nearest ratio).
            *   It then sets the ratio in the specified sprite cc register (cc register 0 if not specified)
            *   @note Color ratios only apply to highest priority pixels in frame
-           *   @note When Color Calc is ON, max opacity is approx(0.97). Fully opaque sprites must select with color condition 
+           *   @note When Color Calc is ON, max opacity is ~(0.97). Fully opaque sprites must select with color condition 
            *   @note When ColorCalcMode is set to UseColorAddition, The Opacity levels are ignored and Color addition is applied
            *   to all sprites whose priority meets the color condition (see SpriteLayer::SetColorCondition() for details)
            *   @note RGB sprites always use the opacity set in CC register[bank0]
-           *   @note This function does NOT turn color calc ON or OFF for the Sprite Layer (use SpriteLayer::ColorCalcON,OFF())  
+           *   @note Does NOT turn color calc ON or OFF for the Sprite Layer(use SpriteLayer::ColorCalcON,OFF())  
            *   @note available cc registers vary by Pallet code config- default allows all 8 banks
            * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity of the cc register
-           * @param bank (optional) which of the 8 CC registers to Set the opacity in
+           * @param bank (optional) which of the 8 CC registers to Set the opacity in (defaults to 0)
            */
             inline static void SetOpacity(Types::Fxp Opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
             {
