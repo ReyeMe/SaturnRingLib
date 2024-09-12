@@ -4,10 +4,9 @@
             "name": "Saturn",
             "includePath": [
                 "${workspaceFolder}/../../saturnringlib",
-                "${workspaceFolder}/../../modules/dummy",
                 "${workspaceFolder}/../../modules/sgl/INC",
-                "${workspaceFolder}/../../modules/tlsf",
                 "${workspaceFolder}/../../modules/danny/**",
+                "${workspaceFolder}/../../modules/tlsf/**",
                 "${workspaceFolder}/../../Compiler/sh2eb-elf/include",
                 "${workspaceFolder}/../../saturnringlib/**"
             ],
@@ -18,6 +17,7 @@
             "defines": [
                 "__STDC_HOSTED__=0",
                 "SRL_CUSTOM_SGL_WORK_AREA=0",
+                "SRL_MALLOC_MEMORY=131072",
                 "SRL_MAX_TEXTURES=100",
                 "SRL_MODE_PAL",
                 "SRL_FRAMERATE=0",
@@ -27,7 +27,7 @@
 				"SRL_DEBUG_MAX_PRINT_LENGTH=45",
                 "SRL_USE_SGL_SOUND_DRIVER=1",
                 "SRL_ENABLE_FREQ_ANALYSIS=1",
-				"DEBUG=1"
+				"DEBUG"
             ]
         }
     ],

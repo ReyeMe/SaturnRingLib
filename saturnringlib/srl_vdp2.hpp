@@ -74,22 +74,23 @@ namespace SRL
                @param Cycles (Optional) Number of Bank Cycles this data will require to access (0-8). 
             *  @return void* to start of the Allocated region in VRAM (nullptr if allocation failed)
             */
-            inline static void* Allocate(uint32_t size,  uint32_t boundary, VDP2::VramBank Bank, uint8_t cycles= 0)
+            inline static void* Allocate(uint32_t size, uint32_t boundary, VDP2::VramBank Bank, uint8_t cycles = 0)
             {
                 //if (size & 0x1f) size += (0x20 - (size & 0x1f));// ensure all allocated chucks will be 32 byte alligned
                 void* MyAddress = nullptr;
                 //ensure allocation is alligned to requested VRAM boundary
+
                 uint32_t AddrOffset = 0;
-                if((uint32_t)CurrentBot[(uint16_t)Bank] & (boundary - 1))
+                if ((uint32_t)CurrentBot[(uint16_t)Bank] & (boundary - 1))
                 {
                     AddrOffset = boundary - ((uint32_t)CurrentBot[(uint16_t)Bank] & (boundary - 1));
                 }
-                if (GetAvailable(Bank) > size+AddrOffset )
+                if (GetAvailable(Bank) > size + AddrOffset)
                 {
                     if ((BankCycles[(uint16_t)Bank] + cycles) < 8)
                     {
-                        MyAddress = CurrentBot[(uint16_t)Bank]+AddrOffset;
-                        CurrentBot[(uint16_t)Bank] += size+AddrOffset;
+                        MyAddress = CurrentBot[(uint16_t)Bank] + AddrOffset;
+                        CurrentBot[(uint16_t)Bank] += size + AddrOffset;
                         BankCycles[(uint16_t)Bank] += cycles;
                     }
                     //else SRL::Debug::Assert("VDP2 allocation failed: Cycle Pattern Conflict")
@@ -502,7 +503,7 @@ namespace SRL
         enum class RotationMode
         {
             /** @brief 2d rotation with only roll
-            *    @note No additional VRAM requirements
+            *   @note No additional VRAM requirements
             */
             OneAxis,
             /* @brief 3d rotation with pitch and yaw, but no roll
@@ -519,22 +520,23 @@ namespace SRL
         class RBG0 : public ScrollScreen<RBG0>
         {
         public:
-            inline static void* CelAddress = (void*)(VDP2_VRAM_A0-1);
-            inline static void* MapAddress = (void*)(VDP2_VRAM_A0-1);
-            inline static void* KtableAddress = (void*)(VDP2_VRAM_A0-1);   
+            inline static void* CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            inline static void* MapAddress = (void*)(VDP2_VRAM_A0 - 1);
+            inline static void* KtableAddress = (void*)(VDP2_VRAM_A0 - 1);
             /*info of the currently registered map*/
             static inline Tilemap::TilemapInfo Info = Tilemap::TilemapInfo();
+            static inline SRL::CRAM::Palette CurrentPalette = SRL::CRAM::Palette();
             static const int16_t ScreenID = scnRBG0;
             static const uint16_t ScreenON = RBG0ON;
-           
+
             /* Specific SGL Implementations Required for this Scroll Screen */
             inline static void Init(SRL::Tilemap::TilemapInfo& info)
             {
-                slMakeKtable((void*)KtableAddress);
-                slKtableRA((void*)KtableAddress, K_LINE | K_2WORD | K_ON);
+                //slMakeKtable((void*)KtableAddress);
+                //slKtableRA((void*)VDP2_VRAM_B0, K_OFF);
                 //slKtableRA((void*)KtableAddress, K_FIX | K_DOT | K_2WORD | K_ON);
-                            
-                
+
+                slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
                 slRparaMode(RA);
                 slOverRA(0);
                 slCharRbg0(info.SGLColorMode(), info.CharSize);
@@ -543,11 +545,11 @@ namespace SRL
                 sl1MapRA(MapAddress);
                 //Set default Rotation parameters such that calling RBGO::ScrollEnable() without
                 //any perspective applied displays identical to the default display of NBG scrolls
-                slPushMatrix();
-                {
-                    slTranslate(toFIXED(0), toFIXED(0), MsScreenDist);
-                    //RBG0::SetCurrentTransform();
-                }
+                //slPushMatrix();
+                //{
+                //    slTranslate(toFIXED(0), toFIXED(0), MsScreenDist);
+                //    RBG0::SetCurrentTransform();
+                //}
                 slPopMatrix();
                 return;
             }
@@ -574,20 +576,22 @@ namespace SRL
                     break;
                 case RotationMode::TwoAxis:
                     if (!Vblank)
-                    {   
+                    {
                         KtableAddress = VDP2::VRAM::Allocate(0x18000, 0x20000, VDP2::VramBank::B0, 0);
                         slMakeKtable((void*)KtableAddress);
-                        slKtableRA((void*)KtableAddress,K_FIX| K_LINE | K_2WORD | K_ON);
+                        slKtableRA((void*)KtableAddress, K_FIX | K_LINE | K_2WORD | K_ON);
+
                     }
                     else
                     {
                         KtableAddress = VDP2::VRAM::Allocate(0x2000, 0x20000, VDP2::VramBank::B0, 0);
                         slKtableRA((void*)KtableAddress, K_LINE | K_2WORD | K_ON);
+
                     }
-                    VDP2_RAMCTL &=0xffcf;//Bypasses bug in slKtableRA- this never resets if K_DOT is previously specified 
+                    VDP2_RAMCTL &= 0xffcf;//Bypasses bug in slKtableRA- this never resets if K_DOT is previously specified 
                     break;
                 case RotationMode::ThreeAxis:
-                    if(!Vblank)
+                    if (!Vblank)
                     {
                         KtableAddress = VDP2::VRAM::Allocate(0x18000, 0x20000, VDP2::VramBank::B0, 8);
                         slMakeKtable((void*)KtableAddress);
@@ -596,12 +600,15 @@ namespace SRL
                     else
                     {
                         KtableAddress = VDP2::VRAM::Allocate(0x2000, 0x20000, VDP2::VramBank::B0, 8);
-                        slKtableRA((void*)KtableAddress, K_DOT | K_2WORD | K_ON);   
+                        slKtableRA((void*)KtableAddress, K_DOT | K_2WORD | K_ON);
+
                     }
                     break;
                 }
+
             }
-            /* @brief Write the current matrix transform to RBG0 RA Rotation parameters
+
+            /** @brief Write the current matrix transform to RBG0 RA Rotation parameters
                to update its perspective on screen
              */
             inline static void SetCurrentTransform()
@@ -614,7 +621,7 @@ namespace SRL
                 }
                 slPopMatrix();
             }
-            static void Planes(void* a, void* b, void* c, void* d) { sl1MapRA(a);}//does not work for multi plane maps yet
+            static void Planes(void* a, void* b, void* c, void* d) { sl1MapRA(a); }//does not work for multi plane maps yet
 
         };
         enum class ColorCondition : uint16_t
@@ -734,7 +741,7 @@ namespace SRL
             {
                 VDP2::VRAM::CurrentTop[i] = VDP2::VRAM::BankTop[i];
                 VDP2::VRAM::CurrentBot[i] = VDP2::VRAM::BankBot[i];
-                VDP2::VRAM::BankCycles[i] = 0;
+                VDP2::VRAM::BankCycles[i] = -1;
             }
         }
         /** @brief Set the back color

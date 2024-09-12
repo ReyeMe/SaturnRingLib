@@ -266,7 +266,7 @@ namespace SRL
              * @details Set sprites Color Calculation Ratio to one of 8 stored opacities (Banks 0-7)
              * @note Only applies to palette color modes
              * @code {.cpp}
-             * //Set to ratio stored in opacity bank 1 
+             * //Set sprite to use ratio stored in opacity bank 1: 
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::OpacityBank, 1);
              */
             OpacityBank = 5,
