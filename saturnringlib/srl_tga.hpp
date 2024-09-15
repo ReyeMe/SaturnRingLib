@@ -371,8 +371,6 @@ namespace SRL::Bitmap
         inline void DecodePaletted(uint8_t* stream, const TGA::TgaHeader* header, ForRange& xLoop, ForRange& yLoop)
         {
             // Allocated space for image data
-            uint32_t pixels = this->width * this->height;
-            this->imageData = new uint8_t[pixels];
             uint8_t* buffer = (stream + TGA::ImageDataOffset(header));
             int32_t xLocation = xLoop.Start;
             int32_t yLocation = yLoop.Start;
@@ -380,12 +378,18 @@ namespace SRL::Bitmap
             // Read palette data
             if (header->Palette.PaletteLength <= 16)
             {
+                uint32_t pixels = (this->width * this->height) >> 1;
+                this->imageData = new uint8_t[pixels];
+
                 // 16 color palette
                 for (uint32_t index = 0; index < pixels; index++)
                 {
                     uint32_t location = (yLocation * this->width) + xLocation;
-                    this->imageData[location] = ((buffer[index << 1] & 0x0f) << 4) | (buffer[(index << 1) + 1] & 0x0f);
                     xLocation += xLoop.Step;
+                    uint32_t location2 = (yLocation * this->width) + xLocation;
+                    xLocation += xLoop.Step;
+
+                    this->imageData[index] = ((buffer[location] & 0x0f) << 4) | (buffer[location2] & 0x0f);
 
                     if (xLocation == xLoop.End)
                     {
@@ -396,6 +400,9 @@ namespace SRL::Bitmap
             }
             else
             {
+                uint32_t pixels = this->width * this->height;
+                this->imageData = new uint8_t[pixels];
+
                 // 256 color palette
                 for (uint32_t index = 0; index < pixels; index++)
                 {
