@@ -442,25 +442,31 @@ namespace SRL::Bitmap
 
                 switch (packet->Type)
                 {
+                
+                // Decompress pixel colors
                 case TgaRlePacket::PacketType::RawPacket:
                     for (int packed = 0; packed <= packet->Count; packed++)
                     {
-                        uint32_t location = (yLocation * this->width) + xLocation;
-
                         if (header->Palette.PaletteLength <= 16)
                         {
+                            xLocation += xLoop.Step;
+                            uint32_t location = (yLocation * this->width) + xLocation;
+                            xLocation += xLoop.Step;
+
                             // 16 color palette
-                            this->imageData[location] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
+                            this->imageData[location >> 1] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
                             buffer+=2;
                         }
                         else
                         {
+                            uint32_t location = (yLocation * this->width) + xLocation;
+                            xLocation += xLoop.Step;
+
                             // 256 color palette
                             this->imageData[location] = *(buffer++);
                         }
                         
                         pixel++;
-                        xLocation += xLoop.Step;
 
                         if (xLocation == xLoop.End)
                         {
@@ -471,26 +477,30 @@ namespace SRL::Bitmap
 
                     break;
                 
+                // Repeat the pixel color
                 default:
                 case TgaRlePacket::PacketType::RlePacket:
-                    // Repeat the pixel color
                     for (int repeater = 0; repeater <= packet->Count; repeater++)
                     {
-                        uint32_t location = (yLocation * this->width) + xLocation;
-
                         if (header->Palette.PaletteLength <= 16)
                         {
+                            xLocation += xLoop.Step;
+                            uint32_t location = (yLocation * this->width) + xLocation;
+                            xLocation += xLoop.Step;
+
                             // 16 color palette
-                            this->imageData[location] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
+                            this->imageData[location >> 1] = ((buffer[0] & 0x0f) << 4) | (buffer[1] & 0x0f);
                         }
                         else
                         {
+                            uint32_t location = (yLocation * this->width) + xLocation;
+                            xLocation += xLoop.Step;
+
                             // 256 color palette
                             this->imageData[location] = *buffer;
                         }
                         
                         pixel++;
-                        xLocation += xLoop.Step;
 
                         if (xLocation == xLoop.End)
                         {
