@@ -9,9 +9,9 @@ using namespace SRL::Input;
 // Strings to display guns status
 static const char * connected = "Connected";
 static const char * disconnected = "Not Connected";
+static const char * emptyStr = "      ";
 static const char * fire = "FIRE";
 static const char * start = "START";
-static const char * emptyStr = "    ";
 
 /** @brief Helper class to handle Gun
  */
