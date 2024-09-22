@@ -6,12 +6,15 @@ using namespace SRL::Types;
 // Using to shorten names for input
 using namespace SRL::Input;
 
+// Strings to display guns status
 static const char * connected = "Connected";
 static const char * disconnected = "Not Connected";
 static const char * fire = "FIRE";
 static const char * start = "START";
 static const char * emptyStr = "    ";
 
+/** @brief Helper class to handle Gun
+ */
 struct GunStatus {
     const char * status;
     const char * previousStatus;
@@ -19,11 +22,16 @@ struct GunStatus {
     const char * startStatus;
     const Gun & gun;
 
+    /** @brief Constructor
+     * @param gun Gun to monitor
+     */
     GunStatus( const Gun & gun) : gun(gun)
     {
         Reset();
     }
 
+    /** @brief Reset strings pointers
+     */
     void Reset()
     {
         this->status          = nullptr;
@@ -32,6 +40,8 @@ struct GunStatus {
         this->startStatus     = nullptr;
     }
 
+    /** @brief Update strings pointers
+     */
     void Update()
     {
         SetConnected();  
@@ -39,6 +49,8 @@ struct GunStatus {
         SetStart();
     }
 
+    /** @brief Update connection status string pointer 
+     */
     void SetConnected()
     {
         if (const_cast<Gun &>(this->gun).IsConnected())
@@ -51,6 +63,8 @@ struct GunStatus {
         }
     }
 
+    /** @brief Update trigger  state string pointer 
+     */
     void SetFire()
     {
         if (const_cast<Gun &>(this->gun).IsHeld(Gun::Trigger))
@@ -63,11 +77,13 @@ struct GunStatus {
         }
     }
 
+    /** @brief Update start button state string pointer 
+     */
     void SetStart()
     {
         if (const_cast<Gun &>(this->gun).IsHeld(Gun::Start))
         {
-            this->startStatus = startStatus;
+            this->startStatus = start;
         }
         else
         {
@@ -75,6 +91,9 @@ struct GunStatus {
         }
     }
 
+    /** @brief Compare previous and current Gun status
+     * @returns true if change detected, false otherwise
+     */
     bool IsChanged()
     {
         bool bReturn = this->status != this->previousStatus;
@@ -85,6 +104,8 @@ struct GunStatus {
         return bReturn;
     }
 
+    /** @brief Sync previous and current Ung Status 
+     */
     void BackupStatus()
     {
         this->previousStatus = this->status;
