@@ -8,9 +8,9 @@ using namespace SRL::Input;
 
 static const char * connected = "Connected";
 static const char * disconnected = "Not Connected";
+static const char * emptyStr = "      ";
 static const char * fire = "FIRE";
 static const char * start = "START";
-static const char * emptyStr = "     ";
 
 struct GunStatus {
     const char * status;
