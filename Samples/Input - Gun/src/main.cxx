@@ -106,6 +106,8 @@ int main()
     GunStatus gun1Status(gun1);
     GunStatus gun2Status(gun2);
 
+    int32_t cnt = 0;
+
     // Main program loop
     while(1)
     {
@@ -138,6 +140,9 @@ int main()
                             Management::GetType(Gun::GunPlayer2Port), Management::GetRawData(Gun::GunPlayer2Port)->data);
 
         SRL::Debug::Print(5 ,8, "%s : %s", gun2Status.triggerStatus, gun2Status.startStatus);
+
+        SRL::Debug::Print(5, 10, "s: %d         %d", SynchCount, cnt);
+        cnt++;
 
         // Refresh screen
         SRL::Core::Synchronize();

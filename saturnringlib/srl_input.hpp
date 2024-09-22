@@ -424,11 +424,11 @@ namespace SRL::Input
 
       /** @brief Player 1 gun port
        */
-      static const uint8_t GunPlayer1Port = 0;
+      inline static const uint8_t GunPlayer1Port = 0;
 
       /** @brief Player 2 gun port
        */
-      static const uint8_t GunPlayer2Port = 6;
+      inline static const uint8_t GunPlayer2Port = 6;
 
         /** @brief Pointer device buttons
          */
@@ -530,9 +530,9 @@ namespace SRL::Input
             // Re-initialize external signal register
             if (VDP2_EXTEN != ExternalSignalEnable &&
                 ((Management::Peripherals[GunPlayer1Port].id == GunMegaId ||
-                                          Gun::IsDeviceConnected(GunPlayer1Port)) ||
-                                         ((Management::Peripherals[GunPlayer2Port].id == GunMegaId ||
-                                            Gun::IsDeviceConnected(GunPlayer2Port)))))
+                  Gun::IsDeviceConnected(GunPlayer1Port)) ||
+                ((Management::Peripherals[GunPlayer2Port].id == GunMegaId ||
+                  Gun::IsDeviceConnected(GunPlayer2Port)))))
             {
                 VDP2_EXTEN = ExternalSignalEnable;
             }
@@ -544,20 +544,16 @@ namespace SRL::Input
                 firstPlayerId = PER_ID_StnShooting;
                 slSetPortSelect1(SMPC_SH2_DIRECT);
                 slSetPortExt1(SMPC_EXL_ENA);
-                refreshStatus = true;
+                slGetStatus();
+                return;
             }
 
             if ((secondPlayerId != PER_ID_StnShooting && secondPlayerId != GunMegaId) &&
                 Management::Peripherals[GunPlayer2Port].id == GunMegaId)
             {
-                firstPlayerId = PER_ID_StnShooting;
+                secondPlayerId = PER_ID_StnShooting;
                 slSetPortSelect2(SMPC_SH2_DIRECT);
                 slSetPortExt2(SMPC_EXL_ENA);
-                refreshStatus = true;
-            }
-
-            if (refreshStatus)
-            {
                 slGetStatus();
                 return;
             }
