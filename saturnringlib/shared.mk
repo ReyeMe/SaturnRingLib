@@ -40,6 +40,8 @@ else
   endif
 endif
 
+GCCMAJORVERSION = $(shell $(CC) --version | head -n 1 | sed 's/^.* //g' | sed 's/[^0-9].//g')
+
 # Handle defaults for user settings
 ifeq ($(strip ${SRL_MAX_CD_BACKGROUND_JOBS}),)
 	SRL_MAX_CD_BACKGROUND_JOBS=1
@@ -155,6 +157,10 @@ SYSOBJECTS = $(SYSSOURCES:.c=.o)
 # General compilation flags
 CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -ffreestanding -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
+
+ifeq "$(GCCMAJORVERSION)" "14"
+    LDFLAGS += -specs=nosys.specs
+endif
 
 # Compilation tasks
 %.o : %.c

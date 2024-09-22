@@ -231,14 +231,14 @@ namespace SRL::Input
         /** @brief Port number peripheral is connected to
          * @note valid number is 0 to 11, see SRL::Input::MaxPeripherals
          */
-        uint32_t Port = 0;
+        uint8_t Port = 0;
 
     protected:
 
         /** @brief Generic peripheral
          * @param port Peripheral port
          */
-        PeripheralGeneric(uint32_t port) : Port(port) { }
+        PeripheralGeneric(uint8_t port) : Port(port) { }
 
         /** @brief Get state of the peripheral in the previous frame
          * @return PerDigital* Peripheral data
@@ -378,22 +378,14 @@ namespace SRL::Input
     struct Gun : public PeripheralGeneric
     {
     private:
-        
-        /** @brief Player 1 gun port
-         */
-        #define GunPlayer1 (0)
-
-        /** @brief Player 2 gun port
-         */
-        #define GunPlayer2 (6)
 
         /** @brief VDP2 external signal enable latch
          */
-        #define ExternalSignalEnable (0x200)
+        static const uint16_t ExternalSignalEnable = 0x0200;
 
         /** @brief Light gun mega ID
          */
-        #define GunMegaId (MEGA_ID_StnShooting | 0xf0) 
+        static const uint8_t  GunMegaId = (MEGA_ID_StnShooting | 0xf0);
 
         /** @brief Indicates whether peripheral control for player 1 light gun is enabled
          */
@@ -429,7 +421,15 @@ namespace SRL::Input
         }
 
     public:
-    
+
+      /** @brief Player 1 gun port
+       */
+      static const uint8_t GunPlayer1Port = 0;
+
+      /** @brief Player 2 gun port
+       */
+      static const uint8_t GunPlayer2Port = 6;
+
         /** @brief Pointer device buttons
          */
         enum Button
@@ -450,9 +450,9 @@ namespace SRL::Input
         Gun(const uint8_t& port) : PeripheralGeneric(port)
         {
 #ifdef DEBUG
-            if (port != GunPlayer1 && port != GunPlayer2)
+            if (port != GunPlayer1Port && port != GunPlayer2Port)
             {
-                SRL::Debug::Assert("Light gun can be present only on port %d or %d and must be connected directly to the console!", GunPlayer1, GunPlayer2);
+                SRL::Debug::Assert("Light gun can be present only on port %d or %d and must be connected directly to the console!", GunPlayer1Port, GunPlayer2Port);
             }
 #endif
         }
@@ -529,14 +529,17 @@ namespace SRL::Input
             // Handle gun re-initialization
             // Re-initialize external signal register
             if (VDP2_EXTEN != ExternalSignalEnable &&
-                ((Management::Peripherals[GunPlayer1].id == GunMegaId || Gun::IsDeviceConnected(GunPlayer1)) || ((Management::Peripherals[GunPlayer2].id == GunMegaId || Gun::IsDeviceConnected(GunPlayer2)))))
+                ((Management::Peripherals[GunPlayer1Port].id == GunMegaId ||
+                                          Gun::IsDeviceConnected(GunPlayer1Port)) ||
+                                         ((Management::Peripherals[GunPlayer2Port].id == GunMegaId ||
+                                            Gun::IsDeviceConnected(GunPlayer2Port)))))
             {
                 VDP2_EXTEN = ExternalSignalEnable;
             }
 
             // Re-initialize SMPC
             if ((firstPlayerId != PER_ID_StnShooting && firstPlayerId != GunMegaId) &&
-                Management::Peripherals[GunPlayer1].id == GunMegaId)
+                Management::Peripherals[GunPlayer1Port].id == GunMegaId)
             {
                 firstPlayerId = PER_ID_StnShooting;
                 slSetPortSelect1(SMPC_SH2_DIRECT);
@@ -545,7 +548,7 @@ namespace SRL::Input
             }
 
             if ((secondPlayerId != PER_ID_StnShooting && secondPlayerId != GunMegaId) &&
-                Management::Peripherals[GunPlayer2].id == GunMegaId)
+                Management::Peripherals[GunPlayer2Port].id == GunMegaId)
             {
                 firstPlayerId = PER_ID_StnShooting;
                 slSetPortSelect2(SMPC_SH2_DIRECT);
@@ -590,7 +593,7 @@ namespace SRL::Input
                 return;
             }
 
-            uint8_t firstPlayerIdTemp = Management::Peripherals[GunPlayer1].id;
+            uint8_t firstPlayerIdTemp = Management::Peripherals[GunPlayer1Port].id;
 
             if (firstPlayerId != PER_ID_NotConnect && firstPlayerIdTemp == GunMegaId)
             {
@@ -598,7 +601,7 @@ namespace SRL::Input
                 slIntBackCancel();
             }
 
-            uint8_t secondPlayerIdTemp = Management::Peripherals[GunPlayer2].id;
+            uint8_t secondPlayerIdTemp = Management::Peripherals[GunPlayer2Port].id;
 
             if (secondPlayerId != PER_ID_NotConnect && secondPlayerIdTemp == GunMegaId)
             {
@@ -622,7 +625,7 @@ namespace SRL::Input
                 return;
             }
 
-            if (Gun::Player1MegadriveGunControl && Management::Peripherals[GunPlayer1].id == (uint8_t)PeripheralType::Gun)
+            if (Gun::Player1MegadriveGunControl && Management::Peripherals[GunPlayer1Port].id == (uint8_t)PeripheralType::Gun)
             {
                 uint8_t pd1, pd0, mid;
                 slSetPortDir1(0x40);
@@ -638,7 +641,7 @@ namespace SRL::Input
                 }
             }
 
-            if (Gun::Player2MegadriveGunControl && Management::Peripherals[GunPlayer2].id == (uint8_t)PeripheralType::Gun)
+            if (Gun::Player2MegadriveGunControl && Management::Peripherals[GunPlayer2Port].id == (uint8_t)PeripheralType::Gun)
             {
                 uint8_t pd1, pd0, mid;
                 slSetPortDir2(0x40);
@@ -654,7 +657,7 @@ namespace SRL::Input
                 }
             }
         }
-        
+
         /** @} */
     };
 
