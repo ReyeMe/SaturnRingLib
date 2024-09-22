@@ -10,7 +10,7 @@ static const char * connected = "Connected";
 static const char * disconnected = "Not Connected";
 static const char * fire = "FIRE";
 static const char * start = "START";
-static const char * emptyStr = "    ";
+static const char * emptyStr = "     ";
 
 struct GunStatus {
     const char * status;
@@ -67,7 +67,7 @@ struct GunStatus {
     {
         if (const_cast<Gun &>(this->gun).IsHeld(Gun::Start))
         {
-            this->startStatus = startStatus;
+            this->startStatus = start;
         }
         else
         {
