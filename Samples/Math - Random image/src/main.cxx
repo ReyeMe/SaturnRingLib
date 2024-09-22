@@ -107,9 +107,9 @@ int main()
             uint8_t color = rnd.GetNumber(0, 255);
             ((HighColor*)canvas->GetData())[pixel] = HighColor(color, color, color);
         }
-        
+
         // Draw the canvas on screen as VDP1 sprite
-        SRL::Scene2D::DrawSprite(0, Vector3D(0.0, 0.0, 500.0));
+        SRL::Scene2D::DrawSprite(canvasTextureId, Vector3D(0.0, 0.0, 500.0));
 
         SRL::Core::Synchronize();
 	}
