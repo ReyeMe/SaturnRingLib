@@ -17,7 +17,7 @@ namespace std
     template <typename T>
     class vector
     {
-        
+
     private:
         size_t capacity_; /**< The capacity of the vector. */
         size_t size_;     /**< The size of the vector. */
@@ -95,6 +95,14 @@ namespace std
          * @brief Default constructor for the vector.
          */
         vector() : capacity_(0), size_(0), data_(nullptr) {}
+
+        /**
+         * @brief  constructor for the vector with a default capacity
+         */
+        vector(size_t capacity) : capacity_(0), size_(0), data_(nullptr)
+        {
+            reserve(capacity);
+        }
 
         /**
          * @brief Destructor for the vector.
