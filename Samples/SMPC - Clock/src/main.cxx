@@ -1,7 +1,6 @@
 #include <srl.hpp>
 
-
-// Using to shorten names for Time
+// Using to shorten names for DateTime
 using namespace SRL::Types;
 
 // Main program entry
@@ -10,7 +9,7 @@ int main()
     SRL::Core::Initialize(HighColor(20, 10, 50));
     SRL::Debug::Print(1, 1, "Clock");
 
-    // Main program loo
+    // Main program loop
     while (1)
     {
         SRL::Types::DateTime time = SRL::Types::DateTime::Now();
