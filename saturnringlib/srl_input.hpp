@@ -372,8 +372,9 @@ namespace SRL::Input
     };
 
     /** @brief Light gun peripheral
-     * @note Light gun only works if SRL_FRAMERATE is set to 2 (30fps)
+     * @note Light gun only works if SRL_FRAMERATE is set to 2 or higher (>30fps)
      * @note Light gun can **NOT** be connected through multi-tap! It must be connected directly to the console. Only valid ports are port 0 and port 6.
+     * @note Light gun should be calibrated in game, to ensure correct positional data. Calibration should be done by user and result preferably stored to backup memory.
      */
     struct Gun : public PeripheralGeneric
     {
@@ -381,11 +382,19 @@ namespace SRL::Input
 
         /** @brief VDP2 external signal enable latch
          */
-        static const uint16_t ExternalSignalEnable = 0x0200;
+        static inline const uint16_t ExternalSignalEnable = 0x0200;
 
         /** @brief Light gun mega ID
          */
-        static const uint8_t  GunMegaId = (MEGA_ID_StnShooting | 0xf0);
+        static inline const uint8_t GunMegaId = (MEGA_ID_StnShooting | 0xf0);
+
+        /** @brief Player 1 gun port
+         */
+        static inline const uint8_t GunPlayer1Port = 0;
+
+        /** @brief Player 2 gun port
+         */
+        static inline const uint8_t GunPlayer2Port = 6;
 
         /** @brief Indicates whether peripheral control for player 1 light gun is enabled
          */
@@ -420,15 +429,22 @@ namespace SRL::Input
             return type == Input::PeripheralType::Gun;
         }
 
+        /** @brief Construct a new light gun peripheral handler
+         * @note Light gun can **NOT** be connected through multi-tap! It must be connected directly to the console. Only valid ports for this constructor are port 0 and port 6.
+         * @param port Light gun peripheral port
+         */
+        Gun(const uint8_t& port) : PeripheralGeneric(port)
+        {
+            
+#ifdef DEBUG
+            if (port != GunPlayer1Port && port != GunPlayer2Port)
+            {
+                SRL::Debug::Assert("Light gun can be present only on port %d or %d and must be connected directly to the console!", GunPlayer1Port, GunPlayer2Port);
+            }
+#endif
+        }
+
     public:
-
-      /** @brief Player 1 gun port
-       */
-      inline static const uint8_t GunPlayer1Port = 0;
-
-      /** @brief Player 2 gun port
-       */
-      inline static const uint8_t GunPlayer2Port = 6;
 
         /** @brief Pointer device buttons
          */
@@ -443,19 +459,24 @@ namespace SRL::Input
             Start = 1 << 11,
         };
 
-        /** @brief Construct a new light gun peripheral handler
-         * @note Light gun can **NOT** be connected through multi-tap! It must be connected directly to the console. Only valid ports for this constructor are port 0 and port 6.
-         * @param port Light gun peripheral port
+        /** @brief 
          */
-        Gun(const uint8_t& port) : PeripheralGeneric(port)
+        enum Player
         {
-#ifdef DEBUG
-            if (port != GunPlayer1Port && port != GunPlayer2Port)
-            {
-                SRL::Debug::Assert("Light gun can be present only on port %d or %d and must be connected directly to the console!", GunPlayer1Port, GunPlayer2Port);
-            }
-#endif
-        }
+            /** @brief First player on port 0
+             */
+            Player1 = 0,
+
+            /** @brief Second player on port 6
+             */
+            Player2 = 6
+        };
+
+        /** @brief Construct a new light gun peripheral handler
+         * @note Light gun can **NOT** be connected through multi-tap! It must be connected directly to the console.
+         * @param player Light gun player
+         */
+        Gun(const Player& player) : PeripheralGeneric((uint8_t)player) { }
 
         /** @brief Indicates whether peripheral is connected or not
          * @return true if connected

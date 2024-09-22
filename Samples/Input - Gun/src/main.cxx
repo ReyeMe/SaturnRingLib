@@ -98,10 +98,10 @@ int main()
     SRL::Core::Initialize(HighColor::Colors::Blue);
 
     // Initialize light gun on port 0
-    Gun gun1(Gun::GunPlayer1Port);
+    Gun gun1(Gun::Player::Player1);
 
     // Initialize light gun on port 6
-    Gun gun2(Gun::GunPlayer2Port);
+    Gun gun2(Gun::Player::Player2);
 
     GunStatus gun1Status(gun1);
     GunStatus gun2Status(gun2);
@@ -126,7 +126,7 @@ int main()
         SRL::Debug::Print(10,2, 
                             "%s : 0x%x 0x%x",
                             gun1Status.status,
-                            Management::GetType(Gun::GunPlayer1Port), Management::GetRawData(Gun::GunPlayer1Port)->data);
+                            Management::GetType(gun1.Port), Management::GetRawData(gun1.Port)->data);
         Vector2D location1 = gun1.GetPosition();
         SRL::Debug::Print(3 ,3, "X : %03d, Y : %03d", location1.X.ToInt(), location1.Y.ToInt());
         SRL::Debug::Print(5 ,4, "%s : %s", gun1Status.triggerStatus, gun1Status.startStatus);
@@ -137,11 +137,11 @@ int main()
         SRL::Debug::Print(10,7, 
                             "%s : 0x%x 0x%x",
                             gun2Status.status,
-                            Management::GetType(Gun::GunPlayer2Port), Management::GetRawData(Gun::GunPlayer2Port)->data);
+                            Management::GetType(gun2.Port), Management::GetRawData(gun2.Port)->data);
 
         SRL::Debug::Print(5 ,8, "%s : %s", gun2Status.triggerStatus, gun2Status.startStatus);
 
-        SRL::Debug::Print(5, 10, "s: %d         %d", SynchCount, cnt);
+        SRL::Debug::Print(5, 10, "s: %d     counter: %d", SynchCount, cnt);
         cnt++;
 
         // Refresh screen
