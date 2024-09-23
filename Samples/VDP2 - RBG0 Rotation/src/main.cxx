@@ -1,7 +1,7 @@
 /*VDP2 Rotation Demo:
 This Demo Demonstrates how to configure a rotating scroll and provides an interactive
 showcase of the differences in rotation behavior between rotation modes. Since VRAM demands
-increase with the number of rotation axis used, It is recommended to use the minimum
+increase with the number of rotation axis used, It is recommended to select the minimum
 Number of Axis Required for your desired use case.
 */
 #include <srl.hpp>

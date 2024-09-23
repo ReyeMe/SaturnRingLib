@@ -19,18 +19,18 @@ int main()
     //Load Bitmap from CD to Work RAM 
     SRL::Bitmap::TGA* test = new SRL::Bitmap::TGA("FOG.TGA");
     //Copy Bitmap to a Tilemap in Main Work Ram
-    SRL::Tilemap::Bmp2Tile * TestTilebin = new SRL::Tilemap::Bmp2Tile(*test,1);
+    SRL::Tilemap::Bmp2Tile * TestBmp2Tile = new SRL::Tilemap::Bmp2Tile(*test,1);
     delete test;//No need to keep original bitmap after conversion
     
     //manipulate tilemap by copying tiled patterns between its pages:
-    TestTilebin->CopyMap(0, SRL::Tilemap::Co(0, 0), SRL::Tilemap::Co(7, 7), 0, SRL::Tilemap::Co(8, 8));
+    TestBmp2Tile->CopyMap(0, SRL::Tilemap::Co(0, 0), SRL::Tilemap::Co(7, 7), 0, SRL::Tilemap::Co(8, 8));
     
     //Load the Tilemap from Work RAM to VRAM registered with NBG0
-    SRL::VDP2::NBG0::LoadTilemap(*TestTilebin);
+    SRL::VDP2::NBG0::LoadTilemap(*TestBmp2Tile);
     SRL::VDP2::NBG0::SetPriority(SRL::VDP2::Priority::Layer2);//set NBG0 priority
     SRL::VDP2::NBG0::ScrollEnable();//enable display of NBG0 
     
-
+    delete TestBmp2Tile;
 
     //Main Game Loop 
     while(1)

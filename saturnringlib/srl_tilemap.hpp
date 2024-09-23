@@ -122,13 +122,13 @@ namespace SRL::Tilemap
     };
     /* @brief Test implementation of ITilemap interface for Loading Cubecat binary format for cel/map/pal data.
     *
-    *This type assumes the raw data is pre-formatted to all VDP2 specifications other than
-    *VRAM and Pallet offsets. Furthermore, the stored format is specified in the header.
-    *The file layout is:
-    *    32 byte header- read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
-    *    32 or 512 bytes palette data(if pallet type is specified in header)
-    *    Cel Data (size specified in header)
-    *    Map Data (size specified in header)
+    *   This type assumes the raw data is pre-formatted to all VDP2 specifications other than
+    *   VRAM and Pallet offsets. Furthermore, the stored format is specified in the header.
+    *   The file layout is:
+    *   32 byte header- read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
+    *   32 or 512 bytes palette data(if pallet type is specified in ColorMode)
+    *   Cel Data (size specified in header)
+    *   Map Data (size specified in header)
     */
     struct SGLb : public ITilemap
     {
@@ -289,15 +289,15 @@ namespace SRL::Tilemap
         TilemapInfo Info;
         uint16_t numcels;
         uint8_t numpages;
-
+        uint8_t DataAccumulator = 0;//tracks if nonzero data was written to characters
         uint8_t* Bitmap2Cel(uint8_t* start,uint8_t* Cel, uint32_t ImgWidth, uint8_t DataWidth)
         {
-           // uint8_t accumulator = 0;
+            
             for(int i = 0;i<8; ++i)
             {
                 for (int j = 0; j < DataWidth; ++j)
                 {
-                    //accumulaor |= *start;
+                    DataAccumulator |= *start;
                     *Cel++ = *start++;
                 }
                 start+=ImgWidth-DataWidth;
@@ -306,22 +306,24 @@ namespace SRL::Tilemap
             return Cel;
         }
         uint8_t* Bitmap2Char2x2(uint8_t* start,uint8_t* Cel, uint32_t ImgWidth, uint8_t DataWidth)
-        {
+        { 
+            uint8_t* StartCel = Cel;
             Cel = Bitmap2Cel(start, Cel, ImgWidth, DataWidth);
             Cel = Bitmap2Cel(start+  DataWidth, Cel, ImgWidth, DataWidth);
             Cel = Bitmap2Cel(start+(ImgWidth<<3), Cel, ImgWidth, DataWidth);
             Cel = Bitmap2Cel(start+DataWidth+(ImgWidth<<3), Cel, ImgWidth, DataWidth);
+
             return Cel;
         }
         void ConvertBitmap(TilemapInfo config, SRL::Bitmap::IBitmap& bmp, int StartingPage)
         {
             uint16_t Xcels;
             uint16_t Ycels;
-            uint16_t sz = (config.CharSize) ? 0x7 : 0xf;//mask multiples of 8 or 16
+            uint16_t sz = (config.CharSize) ? 0x7 : 0xf;//mask to detect valid multiples of 8 or 16
             //uint8_t celsize = 8*(1+config.CelSize);
             uint8_t MapDataWidth = (config.MapMode) ? 1 : 2;// 1 word or 2 word
            
-            int ByteWidth;//number of bytes in 1 line of pixels from source image(Width* (.5,1,2))
+            int ByteWidth;//number of bytes in 1 line of pixels from source image (Width* (0.5, 1, or 2))
             SRL::Bitmap::BitmapInfo info = bmp.GetInfo();
             Ycels = info.Height>>3;
             Xcels = info.Width >> 3;
@@ -333,17 +335,17 @@ namespace SRL::Tilemap
             switch(config.ColorMode)
             {
                case CRAM::TextureColorMode::Paletted16:
-                   //Xcels = info.Width>>3;
+                  
                    ByteWidth = info.Width>>1;
                    ByteCel = 4;
                    break;
                case CRAM::TextureColorMode::Paletted256:
-                   //Xcels = info.Width>>3;
+                  
                    ByteWidth = info.Width;
                    ByteCel = 8;
                    break;
                default:
-                   //Xcels = info.Width>>4;
+             
                    ByteWidth = info.Width<<1;
                    ByteCel = 16;
                    break;
@@ -358,19 +360,11 @@ namespace SRL::Tilemap
                 SRL::Debug::Assert("Tileset conversion failed- Image Dimensions Not supported");
                 return;
             }
-           
-            //if(!numcels)
-            //{
+ 
             int pix = ((8 * (1 + config.CharSize)) * (ByteCel * (1 + config.CharSize)));
-            SRL::Debug::Print(1, 16, "Pixels: %d", pix);
+          
             for(int i = 0; i <pix;++i) *CurrentCel++ = 0;
             numcels =  (ByteCel >> 2);
-            //}
-            SRL::Debug::Print(1, 13, "CelAddress: 0x%X", (uint32_t)this->CelData);
-            SRL::Debug::Print(1, 14, "CelAddress: 0x%X", (uint32_t)this->MapData);
-            SRL::Debug::Print(1, 10, "X cels: %d", Xcels);
-            SRL::Debug::Print(1, 11, "Y cels: %d", Ycels);
- 
            
             if(config.CharSize==CHAR_SIZE_1x1)// convert to 8x8 characters
             {
@@ -378,11 +372,21 @@ namespace SRL::Tilemap
                 {
                     for(int j =0; j<Xcels;++j)
                     {
+                        DataAccumulator = 0;
                         CurrentCel = Bitmap2Cel(CurrentData,CurrentCel,ByteWidth,ByteCel);
-                        CurrentData+=ByteCel;
+                        CurrentData += ByteCel;
+                       
                         //if(!config.MapMode)++CurrentMap;//add extra word of spacing to character pattern data
-                        *CurrentMap++ = numcels;//write address offset of character from start of CelData
-                        numcels += (ByteCel>>2);
+                        if (DataAccumulator)//if this tile was not blank 
+                        {
+                            *CurrentMap++ = numcels;
+                            numcels += (ByteCel >> 2);
+                        }
+                        else//set to index 0 and do not retain the tile 
+                        {
+                            *CurrentMap++ = 0;
+                            CurrentCel -= (ByteCel << 3);
+                        }
                     }
                     CurrentData += (ByteWidth * 7);// -ByteCel;
                     CurrentMap += (64 - Xcels);
@@ -390,24 +394,30 @@ namespace SRL::Tilemap
             }
             else//convert to 16x16 characters
             {
-                //SRL::Debug::Print(1, 17, "How Many Bytes: %d", ByteCel);
                 for(int i = 0;i<(Ycels>>1);++i)
                 {
                     for(int j =0; j<(Xcels>>1);++j)
                     {
+                        DataAccumulator = 0;
                         CurrentCel = Bitmap2Char2x2(CurrentData,CurrentCel,ByteWidth,ByteCel);
                         CurrentData+=(ByteCel<<1);
                         //if(!config.MapMode)++CurrentMap;//add extra word of spacing to character pattern data
-                        *CurrentMap++ = numcels;//write address offset of character from start of CelData
-                        numcels+=ByteCel>>2;
+                        if (DataAccumulator)//if this tile was not blank
+                        {
+                            *CurrentMap++ = numcels;
+                            numcels += (ByteCel >> 2);
+                        }
+                        else//set to index 0 and do not retain this tile 
+                        {
+                            *CurrentMap++ = 0;
+                            CurrentCel -= (ByteCel << 4);
+                        }
                     }
                     CurrentData += (ByteWidth * 15);//increment to next line of Characters in image
                     CurrentMap+=(32-(Xcels>>1));//increment to next line of the page
                 }
             }
-
         }
-
     public:
         Bmp2Tile()
         {
@@ -444,7 +454,6 @@ namespace SRL::Tilemap
             else if(this->Info.ColorMode ==CRAM::TextureColorMode::RGB555)
             {
                 this->Info.CelByteSize<<=1;
-                //SRL::Debug::Print(1, 15, "RGB COLOR");
             }
             if(this->Info.CelByteSize>0x20000||(NumPages<<10)>0x20000)
             {
@@ -455,7 +464,7 @@ namespace SRL::Tilemap
             
             this->CelData = new uint8_t[this->Info.CelByteSize];
             this->MapData = new uint16_t[this->Info.MapWidth * this->Info.MapHeight];
-            //this->MapData = (uint16_t*) new char[8192];
+            
             if (bmp.GetInfo().Palette != nullptr)
             {
                 uint16_t sz = (this->Info.ColorMode == CRAM::TextureColorMode::Paletted16) ? 16 : 256;
@@ -465,7 +474,7 @@ namespace SRL::Tilemap
             }
             else {
                 this->PalData = nullptr;
-                //SRL::Debug::Print(1, 16, "No Pallet");
+               
             }
             for (int i = 0; i < NumPages; ++i) ClearPage(i);
             ConvertBitmap(this->Info, bmp, 0);
@@ -494,7 +503,6 @@ namespace SRL::Tilemap
         {
             return this->Info;
         }
-        //int AppendMap()
 
         /** @brief copies a rectangular selection of Tilemap data between  2 pages in the tilemap
         *   @param SourcePage Index of the Tilemap Page to copy from
@@ -530,9 +538,6 @@ namespace SRL::Tilemap
             //copy page data
             uint16_t* Src = this->MapData + (PageOffset * SourcePage) + TopLeft.X + ((PageDim+1) * TopLeft.Y);
             uint16_t* Dst = this->MapData + (PageOffset * DestPage) + DestTile.X +((PageDim + 1) * DestTile.Y);
-            SRL::Debug::Print(1, 20, "Source: %X", (uint32_t)Src);
-            SRL::Debug::Print(1, 21, "Dest: %X", (uint32_t)Dst);
-
             for (uint8_t i = TopLeft.Y; i <= BotRight.Y; ++i)
             {
                 for (uint8_t j = TopLeft.X; j <= BotRight.X; ++j) *Dst++ = *Src++;
@@ -550,11 +555,7 @@ namespace SRL::Tilemap
             offset += (uint32_t)x+ (pagedim * (uint32_t)y);
             return this->MapData + offset;
         }
-        /** @brief copies a single tile from one page to another*/
-        //int CopyMap(uint8 SourcePage, Co SourceTile, uint8_t DestPage, Co DestTile)
-        /** @brief Clear the contents of a page in the tilemap data (all data reset to 0)
-            @param PageIndex The Page of the map to clear
-         */
+        
         void ClearPage(int PageIndex)
         {
             if (PageIndex >= this->numpages) return;
@@ -562,6 +563,40 @@ namespace SRL::Tilemap
             if (this->Info.MapMode == PNB_2WORD) PageOffset << 1;
             uint16_t* PageStart = this->MapData +(PageOffset * PageIndex);
             for (int i = 0; i < PageOffset; ++i) *(PageStart++) = 0;
+        }
+        /** @brief Frees The Work Ram associated with Cel Data in cases where it is no longer required.
+        */
+        void FreeCelData()
+        {
+            if (this->CelData) delete this->CelData;
+            this->CelData = NULL;
+        }
+        /** @brief Frees The Work Ram associated with Map Data in cases where it is no longer required.
+        */
+        void FreeMapData()
+        {
+            if (this->MapData) delete this->MapData;
+            this->MapData = NULL;
+        }
+        /** @brief Frees The Work Ram associated with Pal Data in cases where it is no longer required.
+        */
+        void FreePalData()
+        {
+            if (this->PalData) delete this->PalData;
+            this->PalData = NULL;
+        }
+        /** @brief manually apply a cel offset to all map data for cases when bypassing 
+        *   normal VDP2 tilemap loading functions (such as using DMA)
+        *   @param Offset the offset that must be applied to map data (ScrollLayer::GetCelOffset())
+        */ 
+        void ApplyCelOffset(uint32_t Offset)
+        {
+            uint16_t* MapStart = this->MapData;
+            for (int i = 0; i < this->Info.MapHeight * this->Info.MapWidth; ++i)
+            {
+                MapStart[i] += Offset;
+            }
+
         }
         
     };
