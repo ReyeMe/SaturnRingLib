@@ -7,7 +7,7 @@ class Task : public SRL::ITask
 {
 public:
 
-	Task(bool * done) : ITask(done), cpt(0) {}
+	Task() : cpt(0) {}
 
 	void Do()
 	{
@@ -26,10 +26,7 @@ protected:
 // Main program entry
 int main()
 {
-bool done;
-	Task task(&done);
-
-
+	Task task;
 
 	SRL::Core::Initialize(HighColor(20,10,50));
     SRL::Debug::Print(1,1, "SH2 Slave");

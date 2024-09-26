@@ -11,24 +11,24 @@ namespace SRL
     class ITask
     {
         public:
-            ITask(bool * done) : _done(done) {}
+            ITask() : _done(false) {}
             virtual ~ITask() {}
             virtual void Do() = 0;
             virtual void Callback() {}
             virtual bool IsDone()
             {
-              return *_done;
+              return _done;
             }
             virtual void SetDone()
             {
-              *_done = true;
+              _done = true;
             }
             virtual void ResetDone()
             {
-              *_done = false;
+              _done = false;
             }
         protected:
-          bool * _done;
+          bool  _done;
     };
 
     /** @brief Core functions of the library
@@ -40,8 +40,7 @@ namespace SRL
         inline static void SlaveTask(void * pTask)
         {
             ITask * task = static_cast<ITask *>(pTask);
-            task->SetDone();
-            //task->ResetDone();
+            task->ResetDone();
             task->Do();
             task->Callback();
             task->SetDone();
