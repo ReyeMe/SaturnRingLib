@@ -28,7 +28,7 @@ namespace SRL
               _done = false;
             }
         protected:
-          bool  _done;
+          volatile bool  _done;
     };
 
     /** @brief Core functions of the library
