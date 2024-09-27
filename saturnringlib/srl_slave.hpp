@@ -1,62 +1,82 @@
 #pragma once
 
-/** @brief Main SGL namespace
- */
 extern "C" {
-    #include <sgl.h>
+  #include <sgl.h>  // For slSlaveFunc
 }
 
+/** @brief Main SGL namespace
+*/
 namespace SRL
 {
-    class ITask
+  /** @brief Abstract class that defines the class prototype to implement
+  *          a Task that runs on Slave SH2
+  */
+  class ITask
+  {
+  public:
+    /** @brief Constructor
+    */
+    ITask() : _done(false) {}
+
+    /** @brief Destructor
+    */
+    virtual ~ITask() {}
+
+    /** @brief Task Status getter
+    * @returns Task Status
+    */
+    virtual bool IsDone()
     {
-        public:
-            ITask() : _done(false) {}
-            virtual ~ITask() {}
-            virtual void Do() = 0;
-            virtual void Callback() {}
-            virtual bool IsDone()
-            {
-              return _done;
-            }
-            virtual void SetDone()
-            {
-              _done = true;
-            }
-            virtual void ResetDone()
-            {
-              _done = false;
-            }
-        protected:
-          volatile bool  _done;
-    };
+      return _done;
+    }
 
-    /** @brief Core functions of the library
-     */
-    class Slave
+    /** @brief Start the Task on Slave SH2, then set its status to Done
+    */
+    virtual void Start()
     {
-    private:
+      this->Do();
+      _done = true;
+    }
 
-        inline static void SlaveTask(void * pTask)
-        {
-            ITask * task = static_cast<ITask *>(pTask);
-            task->ResetDone();
-            task->Do();
-            task->Callback();
-            task->SetDone();
-        }
+    /** @brief Reset Task Status before running
+    */
+    virtual void ResetTask()
+    {
+      _done = false;
+    }
 
-    public:
+  protected:
+    volatile bool  _done;
 
-        /** @brief ...
-         */
-        inline static void ExecuteOnSlave(ITask * task)
-        {
-            //task->ResetDone();;
-            slSlaveFunc(SlaveTask, static_cast<void *>(task));
-        }
+    /** @brief Absctract method that defines the task's behavior
+    */
+    virtual void Do() = 0;
+  };
 
-    private:
+  /** @brief Core functions of the library
+  */
+  class Slave
+  {
+  private:
 
-    };
+    /** @brief Internal Wrapper function executed on Slave SH2 CPU 
+    */
+    inline static void SlaveTask(void * pTask)
+    {
+      ITask * task = static_cast<ITask *>(pTask);
+      task->Start();
+    }
+
+  public:
+
+    /** @brief API call to execute an ITask onto Slave SH2
+     * @param task ITask object to be executed
+    */
+    inline static void ExecuteOnSlave(ITask & task)
+    {
+      task.ResetTask();
+      slSlaveFunc(SlaveTask, static_cast<void *>(&task));
+    }
+
+  };
 };

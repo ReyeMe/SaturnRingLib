@@ -1,22 +1,26 @@
 #include <srl.hpp>
 
-// Using to shorten names for Vector and HighColor
+// Using to shorten names for HighColor
 using namespace SRL::Types;
 
+/** @brief Task Obeject
+ */
 class Task : public SRL::ITask
 {
 public:
 
+	/** @brief Constructor
+	 */
 	Task() : cpt(0) {}
 
 	void Do()
 	{
-		SRL::Debug::Print(1,4, "%d, %s", cpt++, __FUNCTION__ );
+		SRL::Debug::Print(1,4, "%03d, %s : Line %d : %s()", cpt++, __FILE__, __LINE__ , __func__ );
 	}
 
-	void Callback()
+	uint8_t GetCounter()
 	{
-			SRL::Debug::Print(1,5, "%d, %s", cpt++, __FUNCTION__ );
+		return cpt;
 	}
 
 protected:
@@ -29,20 +33,25 @@ int main()
 	Task task;
 
 	SRL::Core::Initialize(HighColor(20,10,50));
-    SRL::Debug::Print(1,1, "SH2 Slave");
+	SRL::Debug::Print(1,1, "SH2 Slave");
 
-    // Main program loo
+	// Main program loo
 	while(1)
 	{
-			SRL::Debug::PrintClearScreen();
-            // Print new random number
-        SRL::Debug::Print(1,3, "HELLO WORLD !");
+		// Clear the screen
+		SRL::Debug::PrintClearScreen();
 
-				SRL::Slave::ExecuteOnSlave(&task);
+		SRL::Debug::Print(1,3, "SH2 Slave sample");
 
-				while(!task.IsDone());
+		SRL::Slave::ExecuteOnSlave(task);
 
-        SRL::Core::Synchronize();
+		// Wait for the task to be executed
+		while(!task.IsDone());
+
+		// Display the counter increased by the task
+		SRL::Debug::Print(1,5, "Counter increased by Slave : %d", task.GetCounter());
+
+		SRL::Core::Synchronize();
 	}
 
 	return 0;
