@@ -1,11 +1,11 @@
 #include <srl.hpp>
 
-// Using to shorten names for HighColor
+// Using to shorten names for HighColor and ITask
 using namespace SRL::Types;
 
 /** @brief Task Obeject
 */
-class Task : public SRL::ITask
+class Task : public ITask
 {
 public:
 

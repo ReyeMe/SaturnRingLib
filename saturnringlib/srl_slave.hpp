@@ -8,51 +8,54 @@ extern "C" {
 */
 namespace SRL
 {
-    /** @brief Abstract class that defines the class prototype to implement
-    *          a Task that runs on Slave SH2
-    */
-    class ITask
+
+    namespace Types
     {
-    public:
-        /** @brief Constructor
+        /** @brief Abstract class that defines the class prototype to implement
+        *          a Task that runs on Slave SH2
         */
-        ITask() : _done(false) {}
-
-        /** @brief Destructor
-        */
-        virtual ~ITask() {}
-
-        /** @brief Task Status getter
-        * @returns Task Status
-        */
-        virtual bool IsDone()
+        class ITask
         {
-            return _done;
-        }
+        public:
+            /** @brief Destructor
+            */
+            virtual ~ITask() {}
 
-        /** @brief Start the Task on Slave SH2, then set its status to Done
-        */
-        virtual void Start()
-        {
-            this->Do();
-            _done = true;
-        }
+            /** @brief Task Status getter
+            * @returns Task Status
+            */
+            virtual bool IsDone()
+            {
+                return _done;
+            }
 
-        /** @brief Reset Task Status before running
-        */
-        virtual void ResetTask()
-        {
-            _done = false;
-        }
+            /** @brief Start the Task on Slave SH2, then set its status to Done
+            */
+            virtual void Start()
+            {
+                this->Do();
+                _done = true;
+            }
 
-    protected:
-        volatile bool  _done;
+            /** @brief Reset Task Status before running
+            */
+            virtual void ResetTask()
+            {
+                _done = false;
+            }
 
-        /** @brief Absctract method that defines the task's behavior
-        */
-        virtual void Do() = 0;
-    };
+        protected:
+            volatile bool  _done;
 
+            /** @brief Constructor
+            */
+            ITask() : _done(false) {}
+
+            /** @brief Absctract method that defines the task's behavior
+            */
+            virtual void Do() = 0;
+        };
+    }
     /** @brief Core functions of the library
     */
     class Slave
@@ -63,7 +66,7 @@ namespace SRL
         */
         inline static void SlaveTask(void * pTask)
         {
-            ITask * task = static_cast<ITask *>(pTask);
+            Types::ITask * task = static_cast<Types::ITask *>(pTask);
             task->Start();
         }
 
@@ -72,7 +75,7 @@ namespace SRL
         /** @brief API call to execute an ITask onto Slave SH2
         * @param task ITask object to be executed
         */
-        inline static void ExecuteOnSlave(ITask & task)
+        inline static void ExecuteOnSlave(Types::ITask & task)
         {
             task.ResetTask();
             slSlaveFunc(SlaveTask, static_cast<void *>(&task));
