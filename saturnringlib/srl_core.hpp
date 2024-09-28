@@ -8,6 +8,7 @@
 #include "srl_vdp2.hpp"
 #include "srl_input.hpp"
 #include "srl_event.hpp"
+#include "srl_slave.hpp"
 
 #if SRL_USE_SGL_SOUND_DRIVER == 1
     #include "srl_sound.hpp"
