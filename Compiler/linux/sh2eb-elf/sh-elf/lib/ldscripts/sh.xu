@@ -1,0 +1,45 @@
+/* Script for -Ur */
+/* Copyright (C) 2014-2024 Free Software Foundation, Inc.
+   Copying and distribution of this script, with or without modification,
+   are permitted in any medium without royalty provided the copyright
+   notice and this notice are preserved.  */
+OUTPUT_FORMAT("coff-sh")
+OUTPUT_ARCH(sh)
+SECTIONS
+{
+  .text :
+  {
+    *(.text)
+    *(.strings)
+  }
+  .tors :
+  {
+    ___ctors = . ;
+    *(.ctors)
+    ___ctors_end = . ;
+    ___dtors = . ;
+    *(.dtors)
+    ___dtors_end = . ;
+  }
+  .data :
+  {
+    *(.data)
+  }
+  .bss :
+  {
+    *(.bss)
+    *(COMMON)
+  }
+  .stack   :
+  {
+    *(.stack)
+  }
+  .stab 0  :
+  {
+    *(.stab)
+  }
+  .stabstr 0  :
+  {
+    *(.stabstr)
+  }
+}
