@@ -1,7 +1,7 @@
 @goto(){
   # Linux code here
   export COMPILER_DIR=../../Compiler
-  export PATH=${COMPILER_DIR}/sh2eb-elf/bin:${PATH}
+  export PATH=${COMPILER_DIR}/linux/sh2eb-elf/bin:${PATH}
 
   if [[ $# -eq 0 ]]; then
     echo "Not enough arguments"

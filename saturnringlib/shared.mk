@@ -32,7 +32,13 @@ ifdef OS
    LD = sh2eb-elf-gcc.exe
    OBJCOPY = sh2eb-elf-objcopy.exe
 else
-	ifneq ($(strip $(YAUL_INSTALL_ROOT)),)
+	ifeq ($(strip $(YAUL_INSTALL_ROOT)),)
+		CC = sh2eb-elf-gcc
+		CXX = sh2eb-elf-g++
+		LD = sh2eb-elf-gcc
+		OBJCOPY = sh2eb-elf-objcopy
+	else
+		# If YAUL is installed, use its compiler
 		CC = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-gcc
 		CXX = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-g++
 		LD = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-gcc
