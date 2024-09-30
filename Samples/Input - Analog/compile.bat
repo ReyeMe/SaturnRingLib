@@ -9,11 +9,11 @@
   fi
 
   if [[ "$1" -eq "debug" ]]; then
-    make all DEBUG=1 | exit
+    make all DEBUG=1 || exit
   fi
 
   if [[ "$1" -eq "release" ]]; then
-    make all
+    make all || exit
   fi
 }
 

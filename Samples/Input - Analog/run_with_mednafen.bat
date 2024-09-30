@@ -12,8 +12,8 @@
     exit 1
   else
     echo "STARTING ${cue_files[0]} !"
-    mednafen ${cue_files[0]}
-    exit 0
+    mednafen ${cue_files[0]} || exit
+
   fi
 
 }

@@ -4,7 +4,7 @@
   export COMPILER_DIR=../../Compiler
   export PATH=${COMPILER_DIR}/linux/sh2eb-elf/bin:${PATH}
 
-  make clean | exit
+  make clean || exit
 }
 
 @goto $@
