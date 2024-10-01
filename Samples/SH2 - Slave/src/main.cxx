@@ -24,7 +24,7 @@ public:
     }
 
 protected:
-    uint8_t cpt;;
+    uint8_t cpt;
 };
 
 // Main program entry
