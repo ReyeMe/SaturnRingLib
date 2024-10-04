@@ -167,6 +167,14 @@ ifeq "$(GCCMAJORVERSION)" "14"
     LDFLAGS += -specs=nosys.specs
 endif
 
+# Add custom FLAGS
+ifeq ($(strip ${SRL_CUSTOM_CCFLAGS}),)
+	CCFLAGS += $(strip ${SRL_CUSTOM_CCFLAGS})
+endif
+ifeq ($(strip ${SRL_CUSTOM_LDFLAGS}),)
+	LDFLAGS += $(strip ${SRL_CUSTOM_LDFLAGS})
+endif
+
 # Compilation tasks
 %.o : %.c
 	$(CC) $< $(CCFLAGS) -std=c2x -o $@
