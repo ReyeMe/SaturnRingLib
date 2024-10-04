@@ -4,7 +4,7 @@
 #include "srl_color.hpp"
 #include "srl_vdp2.hpp"
 #include "srl_memory.hpp"
-#include <std/string.h>
+#include "srl_string.hpp"
 
 namespace SRL
 {

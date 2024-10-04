@@ -2,7 +2,7 @@
 
 #include "srl_base.hpp"
 #include "srl_memory.hpp"
-#include "std/vector.h"
+#include <vector>
 
 namespace SRL::Types
 {
@@ -48,7 +48,7 @@ namespace SRL::Types
 		 */
 		Event<ArgumentTypes...>& operator+=(void (*callback)(ArgumentTypes...))
 		{
-			auto it = std::find(this->callbacks.begin(), this->callbacks.end(), callback);
+			auto it = std::ranges::find(this->callbacks.begin(), this->callbacks.end(), callback);
 
 			if (it == this->callbacks.end())
 			{
@@ -64,7 +64,7 @@ namespace SRL::Types
 		 */
 		Event<ArgumentTypes...>& operator-=(void (*callback)(ArgumentTypes...))
 		{
-			auto it = std::find(this->callbacks.begin(), this->callbacks.end(), callback);
+			auto it = std::ranges::find(this->callbacks.begin(), this->callbacks.end(), callback);
 
 			if (it != this->callbacks.end())
 			{

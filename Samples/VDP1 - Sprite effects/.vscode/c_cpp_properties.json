@@ -5,12 +5,12 @@
             "includePath": [
                 "${workspaceFolder}/../../saturnringlib",
                 "${workspaceFolder}/../../modules/sgl/INC",
-                "${workspaceFolder}/../../modules/danny/**",
-                "${workspaceFolder}/../../modules/tlsf/**",
-                "${workspaceFolder}/../../Compiler/sh2eb-elf/include",
+                "${workspaceFolder}/../../modules/tlsf",
+                "${workspaceFolder}/../../Compiler/sh2eb-elf/sh-elf/include",
+                "${workspaceFolder}/../../Compiler/sh2eb-elf/sh-elf/include/c++/14.2.0",
                 "${workspaceFolder}/../../saturnringlib/**"
             ],
-            "compilerPath": "${workspaceFolder}/../../Compiler/sh2eb-elf/bin/sh2eb-elf-gcc-13.2.0.exe",
+            "compilerPath": "${workspaceFolder}/../../Compiler/sh2eb-elf/bin/sh-elf-gcc-14.2.0.exe",
             "cStandard": "c23",
             "cppStandard": "c++23",
             "intelliSenseMode": "gcc-x86",
