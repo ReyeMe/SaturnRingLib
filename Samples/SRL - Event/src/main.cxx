@@ -1,5 +1,12 @@
 #include <srl.hpp>
 
+// https://forum.edgeimpulse.com/t/error-with-arduino-library-on-adafruit-nrf-board/422/13
+namespace std {
+  void __throw_length_error(char const*) {
+      while(1);
+  }
+}
+
 // Using to shorten names for DateTime
 using namespace SRL::Types;
 
@@ -38,7 +45,7 @@ void StaticCounter() { cnt++; }
 int main()
 {
     SRL::Core::Initialize(HighColor(20, 10, 50));
-    
+
     MyVblankNeedingObject obj = MyVblankNeedingObject();
     SRL::Core::OnVblank += StaticCounter;
 
