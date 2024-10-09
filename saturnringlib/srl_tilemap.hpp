@@ -5,7 +5,7 @@
 #include "srl_cd.hpp"
 #include "srl_bitmap.hpp"
 /*TODO think of a better way to convey the options available for tilemap data loading
-in terms of what the options actually provide:
+in terms of what the they actually provide:
 -Character Size
 -Map Data Size
 -Number Of pages per plane
@@ -410,7 +410,7 @@ namespace SRL::Tilemap
                         else//set to index 0 and do not retain this tile 
                         {
                             *CurrentMap++ = 0;
-                            CurrentCel -= (ByteCel << 4);
+                            CurrentCel -= (ByteCel << 5);
                         }
                     }
                     CurrentData += (ByteWidth * 15);//increment to next line of Characters in image

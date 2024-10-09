@@ -331,8 +331,8 @@ namespace SRL
             *   Color Calculation is turned on if Opacity < 1.0, or off if Opacity== 1.0  
             *   @note Color ratios only apply to highest priority pixels in frame
             *   @note When ColorCalcMode is set to UseColorAddition, all scrolls with opacity < 1.0 will use color addition
-            *   in place of their ratios.
-            * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity for the scroll screen
+            *   in place of their specified ratios.
+            *   @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity for the scroll screen (Default 1.0)
             */
             inline static void SetOpacity(Types::Fxp Opacity = Types::Fxp(1.0))
             {
@@ -350,7 +350,7 @@ namespace SRL
                 }
             }
             /** @brief Set the Dispay Priority of a Scroll Screen
-            * @note Higher layers display on top of lower layers
+            * @note Higher value layers display on top of lower layers
             * @note When 2 or more scroll screens are assigned the same layer, their priority resolves as
             * SPRITE>RBG0>NBG0>NBG1>NBG2>NBG3
             * @param pr The Priority Layer for the Scroll Screen        

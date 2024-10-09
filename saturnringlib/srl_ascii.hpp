@@ -64,6 +64,15 @@ namespace SRL
         {
             ColorBank = ID << 12;
         }
+        /** @brief Set color in the specified pallet index of the current font pallet
+            @param Color RBG555 color to set in current pallet
+            @param Index Pallet Index to write the color to in the currently active font pallet 
+        */
+        inline static void SetColor(uint16_t Color, uint16_t Index)
+        {
+            uint16_t* ColorAdr = (uint16_t*)(VDP2_COLRAM + (ColorBank >> 6));
+            *ColorAdr = Color;
+        }
         /** @brief Set current font to print with (range 0-5)
             */
         inline static void SetFont(uint16_t ID)

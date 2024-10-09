@@ -55,7 +55,7 @@ int main()
     SRL::Core::Initialize(HighColor(20,10,50));
    
     // Initialize gamepad on port 0
-    Gamepad port0(0);
+   
     int8_t CurrentMode = 0;
 
     //Loading  RBG0 Tilemap
