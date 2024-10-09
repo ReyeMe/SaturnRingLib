@@ -6,72 +6,136 @@
 
 namespace SRL::Types
 {
-	/** @brief Event delegate
-	 * @tparam ArgumentTypes Event arguments
-	 */
-	template<typename ...ArgumentTypes>
-	class Event
-	{
-	private:
+    /** @brief Proxy used to interface with static functions, it is not needed to be used by the user
+     * @tparam ArgumentTypes Function arguments
+     */
+    template<typename ...ArgumentTypes>
+    class AbstractProxy
+    {
+    public:
+        /** @brief Invoke bound function
+         * @param args Function arguments
+         */
+        virtual void Invoke(ArgumentTypes... args) = 0;
+    };
 
-		/** @brief Event callbacks
-		 */
-		std::vector<void (*)(ArgumentTypes...)> callbacks;
+    /** @brief Proxy used to interface with class member functions
+     * @tparam C Member function class
+     * @tparam ArgumentTypes Member function arguments
+     */
+    template<class C, typename ...ArgumentTypes>
+    class MemberProxy : public AbstractProxy<ArgumentTypes...>
+    {
+    public:
+        /** @brief Parent object
+         */
+        C* Object;
 
-	public:
+        /** @brief Function reference
+         */
+        void (C::*Function)(ArgumentTypes...);
 
-		/** @brief Construct a new Event object
-		 */
-		Event() {}
+        /** @brief Construct a new bound function proxy
+         * @param object Bound function parent object
+         * @param function Bound function
+         */
+        MemberProxy(C* object, void (C::*function)(ArgumentTypes...)) : Object(object), Function(function) { }
 
-		/** @brief Destroy the Event object
-		 */
-		~Event() {}
+        /** @brief Destroy the bound function proxy
+         */
+        ~MemberProxy() { }
 
-		/** @brief Invoke event
-		 * @param args Event arguments
-		 */
-		void Invoke(ArgumentTypes... args)
-		{
-			for (auto callback : this->callbacks)
+        /** @brief Invoke bound function
+         * @param args Function arguments
+         */
+        void Invoke(ArgumentTypes... args) override
+        {
+            ((*this->Object).*this->Function)(args...);
+        }
+    };
+
+    /** @brief Event delegate
+     * @tparam ArgumentTypes Event arguments
+     */
+    template<typename ...Args>
+    class Event
+    {
+    public:
+        using CallbackStatic = void(*)(Args...);
+        using CallbackMember = AbstractProxy<Args...>*;
+
+    private:
+        std::vector<CallbackStatic> staticCallbacks;
+        std::vector<CallbackMember> memberCallbacks;
+
+    public:
+
+        // Add static callback
+        Event<Args...>& operator+=(CallbackStatic callback)
+        {
+            auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
+ 
+			if (it == this->staticCallbacks.end())
 			{
-				if (callback != nullptr)
-				{
-					callback(args...);
-				}
+				this->staticCallbacks.push_back(static_cast<CallbackStatic>(callback));
 			}
-		}
-
-		/** @brief Attach callback
-		 * @param callback Event callback
-		 * @return Event<ArgumentTypes...>& Event object
-		 */
-		Event<ArgumentTypes...>& operator+=(void (*callback)(ArgumentTypes...))
-		{
-			auto it = std::ranges::find(this->callbacks.begin(), this->callbacks.end(), callback);
-
-			if (it == this->callbacks.end())
-			{
-				this->callbacks.push_back(static_cast<void (*)(ArgumentTypes...)>(callback));
-			}
-
+ 
 			return *this;
-		}
+        }
 
-		/** @brief Remove callback
-		 * @param callback Event callback
-		 * @return Event<ArgumentTypes...>& Event object
-		 */
-		Event<ArgumentTypes...>& operator-=(void (*callback)(ArgumentTypes...))
-		{
-			auto it = std::ranges::find(this->callbacks.begin(), this->callbacks.end(), callback);
+        // Add member callback
+        Event<Args...>& operator+=(CallbackMember callback) {
+            if (callback) {
+                this->memberCallbacks.push_back(callback);
+            }
 
-			if (it != this->callbacks.end())
+            return *this;
+        }
+
+        // Remove static callback
+        Event<Args...>& operator-=(CallbackStatic callback)
+        {
+			auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
+ 
+			if (it != this->staticCallbacks.end())
 			{
-				this->callbacks.erase(it);
+				this->staticCallbacks.erase(it);
 			}
 
-			return *this;
-		}
-	};
+            return *this;
+        }
+
+        // Remove member callback
+        Event<Args...>& operator-=(CallbackMember callback)
+        {
+			auto it = std::ranges::find(this->memberCallbacks.begin(), this->memberCallbacks.end(), callback);
+ 
+			if (it != this->memberCallbacks.end())
+			{
+				this->memberCallbacks.erase(it);
+			}
+
+            return *this;
+        }
+
+        // Invoke all callbacks
+        void Invoke(Args... args)
+        {
+            for (const auto& callback : this->staticCallbacks)
+            {
+                if (callback)
+                {
+                    callback(args...);
+                }
+            }
+
+            for (const auto& callback : this->memberCallbacks)
+            {
+                if (callback)
+                {
+                    callback->Invoke(args...);
+                }
+            }
+        }
+    };
 }
