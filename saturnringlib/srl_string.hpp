@@ -23,6 +23,8 @@ extern "C" {
     void* memchr(const void* mem, int ptn, size_t len);
 }
 
+#if !DOXYGEN
+
 namespace SRL
 {
     class string
@@ -118,3 +120,5 @@ namespace SRL
         }
     };
 }
+
+#endif

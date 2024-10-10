@@ -2,55 +2,133 @@
 
 #include "srl_base.hpp"
 #include "srl_memory.hpp"
+#include <functional>
 #include <vector>
 
 namespace SRL::Types
 {
-    /** @brief Proxy used to interface with static functions, it is not needed to be used by the user
-     * @tparam ArgumentTypes Function arguments
+    /** @brief This proxy is used to interface with member functions
+     * @tparam Args Member function argument types
      */
-    template<typename ...ArgumentTypes>
-    class AbstractProxy
+    template<typename ...Args>
+    class MemberProxy
     {
-    public:
-        /** @brief Invoke bound function
-         * @param args Function arguments
-         */
-        virtual void Invoke(ArgumentTypes... args) = 0;
-    };
-
-    /** @brief Proxy used to interface with class member functions
-     * @tparam C Member function class
-     * @tparam ArgumentTypes Member function arguments
-     */
-    template<class C, typename ...ArgumentTypes>
-    class MemberProxy : public AbstractProxy<ArgumentTypes...>
-    {
-    public:
-        /** @brief Parent object
-         */
-        C* Object;
+    private:
 
         /** @brief Function reference
          */
-        void (C::*Function)(ArgumentTypes...);
+        std::function<void(Args...)> function;
 
-        /** @brief Construct a new bound function proxy
-         * @param object Bound function parent object
-         * @param function Bound function
+    public:
+
+        /** @brief Destroy the member proxy
          */
-        MemberProxy(C* object, void (C::*function)(ArgumentTypes...)) : Object(object), Function(function) { }
+        ~MemberProxy() = default;
 
-        /** @brief Destroy the bound function proxy
+        /** @brief Construct a new lambda proxy
+         * @details Used to construct a proxy between instance lambda function and event
+         * @code {.cpp}
+         * // Define sample class
+         * class TinyClass {
+         *  uint32_t counter;
+         * public:
+         *  // Define lambda proxy
+         *  SRL::Types::MemberProxy<> Proxy = SRL::Types::MemberProxy([this]() 
+         *  {
+         *      this->counter++;
+         *  });
+         * 
+         *  // Attach to v-blank in constructor
+         *  TinyClass() {
+         *      SRL::Core::OnVblank += &this->Proxy;
+         *  }
+         * 
+         *  // De-attach from v-blank in destructor
+         *  ~TinyClass() {
+         *      SRL::Core::OnVblank -= &this->Proxy;
+         *  }
+         * }
+         * 
+         * // Program start
+         * int main() {
+         *  SRL::Core::Initialize(HighColor::Colors::Black);
+         * 
+         *  // Create object
+         *  TinyClass tiny();
+         * 
+         *  // Game loop
+         *  while(1);
+         * }
+         * @endcode
+         * @tparam Lambda Lambda type
+         * @param lambda Lambda definition
          */
-        ~MemberProxy() { }
+        template<typename Lambda>
+        MemberProxy(Lambda&& lambda)
+        {
+            function = std::forward<Lambda>(lambda);
+        }
 
-        /** @brief Invoke bound function
+        /** @brief Construct a new member proxy
+         * @details Used to construct a proxy between instance member function (class bound function) and event
+         * @code {.cpp}
+         * // Define sample class
+         * class TinyClass {
+         *  uint32_t counter;
+         * public:
+         *  // Define proxy
+         *  SRL::Types::MemberProxy<> Proxy = SRL::Types::MemberProxy(this, &TinyClass::Test);
+         * 
+         *  // Attach to v-blank in constructor
+         *  TinyClass() {
+         *      SRL::Core::OnVblank += &this->Proxy;
+         *  }
+         * 
+         *  // De-attach from v-blank in destructor
+         *  ~TinyClass() {
+         *      SRL::Core::OnVblank -= &this->Proxy;
+         *  }
+         * 
+         *  // Do our stuff inside this function
+         *  void Test() {  
+         *      this->counter++;
+         *  }
+         * }
+         * 
+         * // Program start
+         * int main() {
+         *  SRL::Core::Initialize(HighColor::Colors::Black);
+         * 
+         *  // Create object
+         *  TinyClass tiny();
+         * 
+         *  // Game loop
+         *  while(1);
+         * }
+         * @endcode
+         * @tparam ClassName Member class
+         * @param instance Member class instance
+         * @param memberFunction Member function signature
+         */
+        template<typename ClassName>
+        MemberProxy(ClassName* instance, void (ClassName::* memberFunction)(Args...))
+        {
+            function = [instance, memberFunction](Args... args)
+            {
+                (instance->*memberFunction)(args...);  // Call the member function on the instance
+            };
+        }
+
+        /** @brief Invoke member function
          * @param args Function arguments
          */
-        void Invoke(ArgumentTypes... args) override
+        void Invoke(Args... args)
         {
-            ((*this->Object).*this->Function)(args...);
+            // std::function needs this stupid check or else the compiler explodes
+            if (function)
+            {
+                function(args...);
+            }
         }
     };
 
@@ -61,46 +139,73 @@ namespace SRL::Types
     class Event
     {
     public:
+
+        /** @brief Static function signature
+         */
         using CallbackStatic = void(*)(Args...);
-        using CallbackMember = AbstractProxy<Args...>*;
+
+        /** @brief Member function signature
+         */
+        using CallbackMember = MemberProxy<Args...>*;
 
     private:
+        /** @brief Collection of static function callbacks
+         */
         std::vector<CallbackStatic> staticCallbacks;
+
+        /** @brief Collection of member function callbacks
+         */
         std::vector<CallbackMember> memberCallbacks;
 
     public:
 
-        // Add static callback
-        Event<Args...>& operator+=(CallbackStatic callback)
+        /** @brief Construct a new event
+         */
+        Event()
         {
-            auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
- 
-			if (it == this->staticCallbacks.end())
-			{
-				this->staticCallbacks.push_back(static_cast<CallbackStatic>(callback));
-			}
- 
-			return *this;
+            this->staticCallbacks.reserve(1);
+            this->memberCallbacks.reserve(1);
         }
 
-        // Add member callback
-        Event<Args...>& operator+=(CallbackMember callback) {
-            if (callback) {
-                this->memberCallbacks.push_back(callback);
+        /** @brief Add static function callback
+         * @param callback Static function callback
+         * @return Event<Args...>& event object
+         */
+        Event<Args...>& operator+=(CallbackStatic callback)
+        {
+            if (this->staticCallbacks.size() == this->staticCallbacks.capacity())
+            {
+                this->staticCallbacks.reserve(this->staticCallbacks.size() + 1);
             }
 
+            this->staticCallbacks.push_back(callback);
+            return *this;
+        }
+
+        /** @brief Add member function callback
+         * @param callback Member function proxy
+         * @return Event<Args...>& event object
+         */
+        Event<Args...>& operator+=(CallbackMember callback)
+        {
+            if (this->memberCallbacks.size() == this->memberCallbacks.capacity())
+            {
+                this->memberCallbacks.reserve(this->memberCallbacks.size() + 1);
+            }
+
+            this->memberCallbacks.push_back(callback);
             return *this;
         }
 
         // Remove static callback
         Event<Args...>& operator-=(CallbackStatic callback)
         {
-			auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
- 
-			if (it != this->staticCallbacks.end())
-			{
-				this->staticCallbacks.erase(it);
-			}
+            auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
+
+            if (it != this->staticCallbacks.end())
+            {
+                this->staticCallbacks.erase(it);
+            }
 
             return *this;
         }
@@ -108,12 +213,12 @@ namespace SRL::Types
         // Remove member callback
         Event<Args...>& operator-=(CallbackMember callback)
         {
-			auto it = std::ranges::find(this->memberCallbacks.begin(), this->memberCallbacks.end(), callback);
- 
-			if (it != this->memberCallbacks.end())
-			{
-				this->memberCallbacks.erase(it);
-			}
+            auto it = std::ranges::find(this->memberCallbacks.begin(), this->memberCallbacks.end(), callback);
+
+            if (it != this->memberCallbacks.end())
+            {
+                this->memberCallbacks.erase(it);
+            }
 
             return *this;
         }
