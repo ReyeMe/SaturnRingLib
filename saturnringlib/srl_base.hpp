@@ -15,6 +15,20 @@ extern "C" {
     extern uint16_t VDP2_EXTEN;
 }
 
+#if !DOXYGEN
+namespace std {
+
+    /** @brief Some hacks to make STD behave
+     */
+
+    /** @brief Hack to get rid of exception https://forum.edgeimpulse.com/t/error-with-arduino-library-on-adafruit-nrf-board/422/13
+     */
+    void __throw_length_error(char const*) {
+        while(1);
+    }
+}
+#endif
+
 /** @brief Saturn ring library
  */
 namespace SRL { }

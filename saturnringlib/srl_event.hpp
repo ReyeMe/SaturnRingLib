@@ -2,76 +2,245 @@
 
 #include "srl_base.hpp"
 #include "srl_memory.hpp"
+#include <functional>
 #include <vector>
 
 namespace SRL::Types
 {
-	/** @brief Event delegate
-	 * @tparam ArgumentTypes Event arguments
-	 */
-	template<typename ...ArgumentTypes>
-	class Event
-	{
-	private:
+    /** @brief This proxy is used to interface with member functions
+     * @tparam Args Member function argument types
+     */
+    template<typename ...Args>
+    class MemberProxy
+    {
+    private:
 
-		/** @brief Event callbacks
-		 */
-		std::vector<void (*)(ArgumentTypes...)> callbacks;
+        /** @brief Function reference
+         */
+        std::function<void(Args...)> function;
 
-	public:
+    public:
 
-		/** @brief Construct a new Event object
-		 */
-		Event() {}
+        /** @brief Destroy the member proxy
+         */
+        ~MemberProxy() = default;
 
-		/** @brief Destroy the Event object
-		 */
-		~Event() {}
+        /** @brief Construct a new lambda proxy
+         * @details Used to construct a proxy between instance lambda function and event
+         * @code {.cpp}
+         * // Define sample class
+         * class TinyClass {
+         *  uint32_t counter;
+         * public:
+         *  // Define lambda proxy
+         *  SRL::Types::MemberProxy<> Proxy = SRL::Types::MemberProxy([this]() 
+         *  {
+         *      this->counter++;
+         *  });
+         * 
+         *  // Attach to v-blank in constructor
+         *  TinyClass() {
+         *      SRL::Core::OnVblank += &this->Proxy;
+         *  }
+         * 
+         *  // De-attach from v-blank in destructor
+         *  ~TinyClass() {
+         *      SRL::Core::OnVblank -= &this->Proxy;
+         *  }
+         * }
+         * 
+         * // Program start
+         * int main() {
+         *  SRL::Core::Initialize(HighColor::Colors::Black);
+         * 
+         *  // Create object
+         *  TinyClass tiny();
+         * 
+         *  // Game loop
+         *  while(1);
+         * }
+         * @endcode
+         * @tparam Lambda Lambda type
+         * @param lambda Lambda definition
+         */
+        template<typename Lambda>
+        MemberProxy(Lambda&& lambda)
+        {
+            function = std::forward<Lambda>(lambda);
+        }
 
-		/** @brief Invoke event
-		 * @param args Event arguments
-		 */
-		void Invoke(ArgumentTypes... args)
-		{
-			for (auto callback : this->callbacks)
-			{
-				if (callback != nullptr)
-				{
-					callback(args...);
-				}
-			}
-		}
+        /** @brief Construct a new member proxy
+         * @details Used to construct a proxy between instance member function (class bound function) and event
+         * @code {.cpp}
+         * // Define sample class
+         * class TinyClass {
+         *  uint32_t counter;
+         * public:
+         *  // Define proxy
+         *  SRL::Types::MemberProxy<> Proxy = SRL::Types::MemberProxy(this, &TinyClass::Test);
+         * 
+         *  // Attach to v-blank in constructor
+         *  TinyClass() {
+         *      SRL::Core::OnVblank += &this->Proxy;
+         *  }
+         * 
+         *  // De-attach from v-blank in destructor
+         *  ~TinyClass() {
+         *      SRL::Core::OnVblank -= &this->Proxy;
+         *  }
+         * 
+         *  // Do our stuff inside this function
+         *  void Test() {  
+         *      this->counter++;
+         *  }
+         * }
+         * 
+         * // Program start
+         * int main() {
+         *  SRL::Core::Initialize(HighColor::Colors::Black);
+         * 
+         *  // Create object
+         *  TinyClass tiny();
+         * 
+         *  // Game loop
+         *  while(1);
+         * }
+         * @endcode
+         * @tparam ClassName Member class
+         * @param instance Member class instance
+         * @param memberFunction Member function signature
+         */
+        template<typename ClassName>
+        MemberProxy(ClassName* instance, void (ClassName::* memberFunction)(Args...))
+        {
+            function = [instance, memberFunction](Args... args)
+            {
+                (instance->*memberFunction)(args...);  // Call the member function on the instance
+            };
+        }
 
-		/** @brief Attach callback
-		 * @param callback Event callback
-		 * @return Event<ArgumentTypes...>& Event object
-		 */
-		Event<ArgumentTypes...>& operator+=(void (*callback)(ArgumentTypes...))
-		{
-			auto it = std::ranges::find(this->callbacks.begin(), this->callbacks.end(), callback);
+        /** @brief Invoke member function
+         * @param args Function arguments
+         */
+        void Invoke(Args... args)
+        {
+            // std::function needs this stupid check or else the compiler explodes
+            if (function)
+            {
+                function(args...);
+            }
+        }
+    };
 
-			if (it == this->callbacks.end())
-			{
-				this->callbacks.push_back(static_cast<void (*)(ArgumentTypes...)>(callback));
-			}
+    /** @brief Event delegate
+     * @tparam ArgumentTypes Event arguments
+     */
+    template<typename ...Args>
+    class Event
+    {
+    public:
 
-			return *this;
-		}
+        /** @brief Static function signature
+         */
+        using CallbackStatic = void(*)(Args...);
 
-		/** @brief Remove callback
-		 * @param callback Event callback
-		 * @return Event<ArgumentTypes...>& Event object
-		 */
-		Event<ArgumentTypes...>& operator-=(void (*callback)(ArgumentTypes...))
-		{
-			auto it = std::ranges::find(this->callbacks.begin(), this->callbacks.end(), callback);
+        /** @brief Member function signature
+         */
+        using CallbackMember = MemberProxy<Args...>*;
 
-			if (it != this->callbacks.end())
-			{
-				this->callbacks.erase(it);
-			}
+    private:
+        /** @brief Collection of static function callbacks
+         */
+        std::vector<CallbackStatic> staticCallbacks;
 
-			return *this;
-		}
-	};
+        /** @brief Collection of member function callbacks
+         */
+        std::vector<CallbackMember> memberCallbacks;
+
+    public:
+
+        /** @brief Construct a new event
+         */
+        Event()
+        {
+            this->staticCallbacks.reserve(1);
+            this->memberCallbacks.reserve(1);
+        }
+
+        /** @brief Add static function callback
+         * @param callback Static function callback
+         * @return Event<Args...>& event object
+         */
+        Event<Args...>& operator+=(CallbackStatic callback)
+        {
+            if (this->staticCallbacks.size() == this->staticCallbacks.capacity())
+            {
+                this->staticCallbacks.reserve(this->staticCallbacks.size() + 1);
+            }
+
+            this->staticCallbacks.push_back(callback);
+            return *this;
+        }
+
+        /** @brief Add member function callback
+         * @param callback Member function proxy
+         * @return Event<Args...>& event object
+         */
+        Event<Args...>& operator+=(CallbackMember callback)
+        {
+            if (this->memberCallbacks.size() == this->memberCallbacks.capacity())
+            {
+                this->memberCallbacks.reserve(this->memberCallbacks.size() + 1);
+            }
+
+            this->memberCallbacks.push_back(callback);
+            return *this;
+        }
+
+        // Remove static callback
+        Event<Args...>& operator-=(CallbackStatic callback)
+        {
+            auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
+
+            if (it != this->staticCallbacks.end())
+            {
+                this->staticCallbacks.erase(it);
+            }
+
+            return *this;
+        }
+
+        // Remove member callback
+        Event<Args...>& operator-=(CallbackMember callback)
+        {
+            auto it = std::ranges::find(this->memberCallbacks.begin(), this->memberCallbacks.end(), callback);
+
+            if (it != this->memberCallbacks.end())
+            {
+                this->memberCallbacks.erase(it);
+            }
+
+            return *this;
+        }
+
+        // Invoke all callbacks
+        void Invoke(Args... args)
+        {
+            for (const auto& callback : this->staticCallbacks)
+            {
+                if (callback)
+                {
+                    callback(args...);
+                }
+            }
+
+            for (const auto& callback : this->memberCallbacks)
+            {
+                if (callback)
+                {
+                    callback->Invoke(args...);
+                }
+            }
+        }
+    };
 }
