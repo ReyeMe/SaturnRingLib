@@ -1,7 +1,9 @@
 #include <srl.hpp>
 
-// STL array header
-#include <array>
+// Project includes
+#include "array.h"
+#include "vector.h"
+//#include "string.h"
 
 using namespace SRL::Types;
 
@@ -10,18 +12,17 @@ int main()
 {
   // Initialize library
   SRL::Core::Initialize(HighColor::Colors::Black);
-  SRL::Debug::Print(1, 1, "STL array sample");
+  SRL::Debug::Print(1, 1, "STL samples");
 
-  std::array<int, 5> numbers = { 1, 2, 3, 4, 5 };
-
-  // Access elements using the index operator
-  for (size_t i = 0; i < numbers.size(); ++i)
-  {
-    SRL::Debug::Print(1, i, "Pos %d: value: %d;", i, numbers[i]);
-  }
+  test_array();
+  test_vector();
+  //test_string();
 
   while (1)
   {
+
+
+
     // Refresh screen
     SRL::Core::Synchronize();
   }
