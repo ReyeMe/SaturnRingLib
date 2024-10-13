@@ -3,7 +3,8 @@
 // Project includes
 #include "array.h"
 #include "vector.h"
-#include "string.h"
+//#include "string.h"
+#include "algorithm.h"
 
 using namespace SRL::Types;
 
@@ -17,6 +18,7 @@ int main()
   test_array();
   test_vector();
   //test_string();
+  test_algorithm();
 
   while (1)
   {
