@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <vector>
-#include <numeric> //For accumulate operation
 
 static void test_algorithm()
 {
