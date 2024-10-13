@@ -3,7 +3,7 @@
 // Project includes
 #include "array.h"
 #include "vector.h"
-//#include "string.h"
+#include "string.h"
 
 using namespace SRL::Types;
 

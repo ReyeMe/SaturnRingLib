@@ -139,6 +139,11 @@ else
 	SYSFLAGS += -DSGL_MAX_WORKS=256
 endif
 
+# Add custom FLAGS
+ifneq ($(strip ${SRL_CUSTOM_CCFLAGS}),)
+	CCFLAGS += $(strip ${SRL_CUSTOM_CCFLAGS})
+endif
+
 BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
 BUILD_ISO = $(BUILD_ELF:.elf=.iso)
 BUILD_BIN = $(BUILD_ELF:.elf=.bin)
@@ -168,10 +173,7 @@ ifeq "$(GCCMAJORVERSION)" "14"
 endif
 
 # Add custom FLAGS
-ifeq ($(strip ${SRL_CUSTOM_CCFLAGS}),)
-	CCFLAGS += $(strip ${SRL_CUSTOM_CCFLAGS})
-endif
-ifeq ($(strip ${SRL_CUSTOM_LDFLAGS}),)
+ifneq ($(strip ${SRL_CUSTOM_LDFLAGS}),)
 	LDFLAGS += $(strip ${SRL_CUSTOM_LDFLAGS})
 endif
 

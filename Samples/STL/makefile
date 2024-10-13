@@ -25,8 +25,8 @@ CD_NAME = STL
 BUILD_DROP = ./BuildDrop
 
 # Custom FLAGS
-SRL_CUSTOM_CCFLAGS =
-SRL_CUSTOM_LDFLAGS = -lstdc++
+SRL_CUSTOM_CCFLAGS = -DNO_SGL_STDLIB
+SRL_CUSTOM_LDFLAGS = -lstdc++ 
 
 
 # Find all .c and .cxx files
