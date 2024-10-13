@@ -1,5 +1,5 @@
 
-#if	!defined(_STDLIB_H)
+#if	!defined(_STDLIB_H) && !defined( NO_SGL_STDLIB )
 #define	_STDLIB_H
 
 #ifndef	__SIZE_TYPE__DEF

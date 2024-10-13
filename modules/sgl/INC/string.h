@@ -1,5 +1,5 @@
 /* string.h : for SH */
-#if	!defined(_STRING_H)
+#if	!defined(_STRING_H) && !defined( NO_SGL_STDLIB )
 #define	_STRING_H
 
 #ifndef	__SIZE_TYPE__DEF
