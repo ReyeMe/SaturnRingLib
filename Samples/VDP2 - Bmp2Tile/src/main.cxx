@@ -13,7 +13,7 @@ void LoadRightHand(const char* img)
     //load TGA file:
     SRL::Bitmap::TGA* MyBmp = new SRL::Bitmap::TGA(img);
     
-    //create tilemap from bmp with 5 pages(Source image Pattern+ 1 page per animation frame):
+    //create tilemap from bmp with 5 pages (Source image Pattern + 1 page per animation frame):
     SRL::Tilemap::Bmp2Tile* Tile = new SRL::Tilemap::Bmp2Tile(*MyBmp,5);
     delete MyBmp;//no longer need original bitmap in memory
     
@@ -35,7 +35,7 @@ void LoadRightHand(const char* img)
     SRL::VDP2::NBG1::SetMapLayout(1, 1, 1, 1);
     delete Tile;//Tilemap has been loaded to VRAM, no longer need in work ram (unless you want to edit it further)
 }
-//example animating right weapon 
+//example animating right weapon by swapping the displayed page of tilemap data 
 void SetFrameRight(uint8_t frame)
 {
     SRL::VDP2::NBG1::SetMapLayout(frame, frame, frame, frame);
@@ -48,7 +48,7 @@ int main()
     SRL::VDP2::NBG0::CelAddress = (void*)VDP2_VRAM_A0;
     SRL::VDP2::NBG0::MapAddress = (void*)VDP2_VRAM_A1;
     
- 
+    
     LoadRightHand("WPN.TGA");
    
     SRL::VDP2::NBG1::SetPriority(SRL::VDP2::Priority::Layer2);//set NBG1 priority
