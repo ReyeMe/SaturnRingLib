@@ -1,7 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include "srl_geo.hpp"
+#include "srl_vector.hpp"
 
 namespace SRL::Types
 {
@@ -55,7 +55,7 @@ namespace SRL::Types
             Direction(0) { }
 
         /** @brief Construct a new Attribute object
-         *  @note TODO: Needs documenting and better contructor!
+         *  @note TODO: Needs documenting and better constructor!
          *  @param visibility 
          *  @param sort 
          *  @param texture 
@@ -255,7 +255,7 @@ namespace SRL::Types
 
         /** @brief Construct a new empty mesh object
          */
-        SmoothMesh() : Normals(), Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr)  { }
+        SmoothMesh() : Normals(nullptr), Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr)  { }
         
         /** @brief Construct a new empty mesh object and initialize its arrays
          * @param vertexCount Number of vertices in the mesh

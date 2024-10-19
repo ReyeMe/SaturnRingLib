@@ -35,7 +35,7 @@ namespace SRL::Types
         /** @brief Defines new color from saturn ABGR555 value
          * @param value VAlue in ABGR555
          */
-        constexpr HighColor(const uint16_t& value) :
+        constexpr HighColor(const uint16_t value) :
             Opaque((value >> 15) & 0x1),
             Blue((value >> 10) & 0x1f),
             Green((value >> 5) & 0x1f),
@@ -49,7 +49,7 @@ namespace SRL::Types
          * @param g Green component
          * @param b Blue component
          */
-        constexpr HighColor(const uint8_t& r, const uint8_t& g, const uint8_t& b) :
+        constexpr HighColor(const uint8_t r, const uint8_t g, const uint8_t b) :
             Opaque(1),
             Red((r >> 3) & 0x1f),
             Green((g >> 3) & 0x1f),
@@ -64,7 +64,7 @@ namespace SRL::Types
          * @param b Blue component
          * @return constexpr HighColor 
          */
-        constexpr inline static HighColor FromRGB555(const uint8_t& r, const uint8_t& g, const uint8_t& b)
+        constexpr inline static HighColor FromRGB555(const uint8_t r, const uint8_t g, const uint8_t b)
         {
             return HighColor(0x8000 | ((b & 0x1f) << 10) | ((g & 0x1f) << 5) | (r & 0x1f));
         }
@@ -73,7 +73,7 @@ namespace SRL::Types
          * @param value Value in ARGB555 format
          * @return HighColor color
          */
-        constexpr inline static HighColor FromARGB15(const uint16_t& value)
+        constexpr inline static HighColor FromARGB15(const uint16_t value)
         {
             return ((value >> 15) & 0x1) != 0 ? HighColor::FromRGB555((value >> 10) & 0x1f, (value >> 5) & 0x1f, value & 0x1f) : HighColor();
         }
@@ -82,7 +82,7 @@ namespace SRL::Types
          * @param value Value in ARGB888 format
          * @return HighColor color
          */
-        constexpr inline static HighColor FromRGB24(const uint32_t& value)
+        constexpr inline static HighColor FromRGB24(const uint32_t value)
         {
             return HighColor::FromRGB555(
                 (((value >> 16) & 0xff) >> 3) & 0x1f,
@@ -94,7 +94,7 @@ namespace SRL::Types
          * @param value Value in ARGB888 format
          * @return HighColor color
          */
-        constexpr inline static HighColor FromARGB32(const uint32_t& value)
+        constexpr inline static HighColor FromARGB32(const uint32_t value)
         {
             if (((value >> 24) & 0xff) > 128)
             {
@@ -119,7 +119,7 @@ namespace SRL::Types
         // when '=' operator is 
         // used between C1 and C2. 
     
-        constexpr inline void operator=(const uint16_t& value) 
+        constexpr inline void operator=(const uint16_t value) 
         { 
             this->Opaque = (value >> 15) & 0x1;
             this->Red = value & 0x1f;
@@ -175,6 +175,7 @@ namespace SRL::Types
          */
         static const constexpr Types::HighColor Magenta = Types::HighColor(255, 0, 255);
     };
+
     /** @brief Color in ABGR1888 format
      * @details 32-bit color format where each color channel is 8 bits (values range 0-31) and there is 1 bit for opacity. 7 bits are unused.
      */
@@ -210,7 +211,7 @@ namespace SRL::Types
         /** @brief Defines new color from saturn ABGR1888 value
          * @param value VAlue in ABGR1888
          */
-        constexpr TrueColor(const uint32_t& value) :
+        constexpr TrueColor(const uint32_t value) :
             Opaque(value & 0x80000000 != 0),
             Blue((value >> 16) & 0xff),
             Green((value >> 8) & 0xff),
@@ -225,7 +226,7 @@ namespace SRL::Types
          * @param g Green component
          * @param b Blue component
          */
-        constexpr TrueColor(const uint8_t& r, const uint8_t& g, const uint8_t& b) :
+        constexpr TrueColor(const uint8_t r, const uint8_t g, const uint8_t b) :
             Opaque(1),
             Red(r),
             Green(g),
@@ -239,7 +240,7 @@ namespace SRL::Types
          * @param value Value in ARGB1555 format
          * @return HighColor color
          */
-        constexpr inline static TrueColor FromARGB32(const uint16_t& value)
+        constexpr inline static TrueColor FromARGB32(const uint16_t value)
         {
             return ((value & 0x80000000) != 0) ? TrueColor((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff) : TrueColor();
         }
@@ -248,7 +249,7 @@ namespace SRL::Types
          * @param value Value in ARGB888 format
          * @return HighColor color
          */
-        constexpr inline static TrueColor FromRGB24(const uint32_t& value)
+        constexpr inline static TrueColor FromRGB24(const uint32_t value)
         {
             return TrueColor(
                 (value >> 16) & 0xff,
@@ -284,7 +285,7 @@ namespace SRL::Types
         /** @brief Assign color value to color type
          * @param value Color value
          */
-        constexpr inline void operator=(const uint32_t& value) 
+        constexpr inline void operator=(const uint32_t value) 
         { 
             this->Opaque = value & 0x80000000 != 0;
             this->Red = value & 0xff;

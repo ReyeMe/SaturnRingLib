@@ -8,6 +8,7 @@
 #include "srl_vdp2.hpp"
 #include "srl_input.hpp"
 #include "srl_event.hpp"
+#include "srl_slave.hpp"
 
 #if SRL_USE_SGL_SOUND_DRIVER == 1
     #include "srl_sound.hpp"
@@ -25,13 +26,14 @@ namespace SRL
         inline static SRL::Types::Event<> OnVblank;
 
     private:
-        
+
         /** @brief Handle V-Blank events
          */
         inline static void VblankHandling()
         {
             slGetStatus();
             SRL::Input::Management::RefreshPeripherals();
+            SRL::Input::Gun::VblankRefresh();
             Core::OnVblank.Invoke();
         }
 
@@ -44,11 +46,16 @@ namespace SRL
         {
             SRL::Memory::Initialize();
 
-#if SRL_FRAMERATE > 0
+#if defined(SRL_FRAMERATE) && (SRL_FRAMERATE > 0)
             slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
+#elif defined(SRL_FRAMERATE) && (SRL_FRAMERATE == 0)
+            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), -1);
+            slDynamicFrame(ON);
+            SynchConst = 1;
 #else
-            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), 1);
-            slDynamicFrame(1);
+            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), -SRL_FRAMERATE);
+            slDynamicFrame(ON);
+            SynchConst = (uint8_t)(-SRL_FRAMERATE);
 #endif
             // Initialize CD drive
             SRL:Cd::Initialize();
@@ -83,6 +90,7 @@ namespace SRL
         inline static void Synchronize()
         {
             slSynch();
+            SRL::Input::Gun::Synchronize();
         }
     };
 };

@@ -2,7 +2,6 @@
 
 #include "srl_base.hpp"
 #include "srl_vdp1.hpp"
-#include "srl_geo.hpp"
 #include "srl_angle.hpp"
 
 namespace SRL
@@ -272,58 +271,10 @@ namespace SRL
             OpacityBank = 5,
         };
 
-        /** @brief Set the Clipping rectangle
-         * @param location Rectangle top left corner location in screen coordinates, where top left corner of the screen is (0,0)
-         * @param size Rectangle size
-         * @return true on success
+        /**
+         * @name Draw functions
+         * @{
          */
-        static inline bool SetClippingRectangle(const Types::Vector3D& location, const Types::Vector2D& size)
-        {
-            SPRITE sprite;
-            sprite.CTRL = FUNC_UserClip;
-            sprite.XA = location.X.ToInt();
-            sprite.YA = location.Y.ToInt();
-            sprite.XC = (location.X + size.X).ToInt();
-            sprite.YC = (location.Y + size.Y).ToInt();
-            return slSetSprite(&sprite, location.Z.Value());
-        }
-
-        /** @brief Set sprite effect
-         * @details See @ref SRL::Scene2D::SpriteEffect for valid effect data
-         * @param effect Effect id
-         * @param data Effect parameter
-         */
-        static inline void SetEffect(const SpriteEffect effect, const int32_t data = -1) {
-            switch (effect)
-            {
-            case SpriteEffect::Gouraud:
-                Scene2D::Effects.Gouraud = data >= 0 ? (SRL::Scene2D::GouraudTableBase + ((uint16_t)data & 0xffff)) : 0;
-                break;
-            
-            case SpriteEffect::ScreenDoors:
-                Scene2D::Effects.ScreenDoors = data == 1;
-                break;
-
-            case SpriteEffect::HalfTransparency:
-                Scene2D::Effects.HalfTransparency = data == 1;
-                break;
-
-            case SpriteEffect::Clipping:
-                Scene2D::Effects.Clipping = data < 0 ? 0 : data & 0x3;
-                break;
-
-            case SpriteEffect::Flip:
-                Scene2D::Effects.Flip = data < 0 ? 0 : data & 0x3;
-                break;
-                
-            case SpriteEffect::OpacityBank:
-                Scene2D::Effects.OpacityBank = data < 0 ? 0 : data & 0x7;
-                break;
-                
-            default:
-                break;
-            }
-        }
 
         /** @brief Draw sprite from 4 points
          * @param texture Sprite texture
@@ -482,6 +433,69 @@ namespace SRL
             polygon.YD = points[3].Y.ToInt();
             return slSetSprite(&polygon, sort.Value());
         }
+        
+        /** @} */
+
+        /**
+         * @name Sprite effect functions
+         * @{
+         */
+        
+        /** @brief Set the Clipping rectangle
+         * @param location Rectangle top left corner location in screen coordinates, where top left corner of the screen is (0,0)
+         * @param size Rectangle size
+         * @return true on success
+         */
+        static inline bool SetClippingRectangle(const Types::Vector3D& location, const Types::Vector2D& size)
+        {
+            SPRITE sprite;
+            sprite.CTRL = FUNC_UserClip;
+            sprite.XA = location.X.ToInt();
+            sprite.YA = location.Y.ToInt();
+            sprite.XC = (location.X + size.X).ToInt();
+            sprite.YC = (location.Y + size.Y).ToInt();
+            return slSetSprite(&sprite, location.Z.Value());
+        }
+
+        /** @brief Set sprite effect
+         * @details See @ref SRL::Scene2D::SpriteEffect for valid effect data
+         * @param effect Effect id
+         * @param data Effect parameter
+         */
+        static inline void SetEffect(const SpriteEffect effect, const int32_t data = -1) {
+            switch (effect)
+            {
+            case SpriteEffect::Gouraud:
+                Scene2D::Effects.Gouraud = data >= 0 ? (SRL::Scene2D::GouraudTableBase + ((uint16_t)data & 0xffff)) : 0;
+                break;
+            
+            case SpriteEffect::ScreenDoors:
+                Scene2D::Effects.ScreenDoors = data == 1;
+                break;
+
+            case SpriteEffect::HalfTransparency:
+                Scene2D::Effects.HalfTransparency = data == 1;
+                break;
+
+            case SpriteEffect::Clipping:
+                Scene2D::Effects.Clipping = data < 0 ? 0 : data & 0x3;
+                break;
+
+            case SpriteEffect::Flip:
+                Scene2D::Effects.Flip = data < 0 ? 0 : data & 0x3;
+                break;
+
+            case SpriteEffect::OpacityBank:
+                Scene2D::Effects.OpacityBank = data < 0 ? 0 : data & 0x7;
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        /** @} */
+
     };
 }
 

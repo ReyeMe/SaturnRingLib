@@ -253,6 +253,14 @@ namespace SRL
 			return -1;
 		}
 
+        /** @brief Get the number of currently loaded textures
+         *  @return Number of currently loaded textures
+         */
+        inline static uint16_t GetTextureCount()
+        {
+            return VDP1::HeapPointer;
+        }
+
 		/** @brief Fully reset texture heap
 		 */
 		inline static void ResetTextureHeap()
