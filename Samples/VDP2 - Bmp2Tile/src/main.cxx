@@ -1,13 +1,14 @@
 /*Conversion of Bitmap to VDP2 Tilemap:
 This sample demonstrates how to convert a Bitmap Image into a Tilemap and edit the resulting map
-layout using the Bmp2Tile class. 
+layout using the Bmp2Tile class. Tilemap Editing is used here to create animation frames for 
+weapons in fps style.
 */
 #include <srl.hpp>
  
 using namespace SRL::Types;
 using namespace SRL::Input;
 
-//example loading the weapon sprites for right hand
+//example loading the weapon sprites for right hand animation statically
 void LoadRightHand(const char* img)
 {
     //load TGA file:
@@ -41,6 +42,10 @@ void SetFrameRight(uint8_t frame)
     SRL::VDP2::NBG1::SetMapLayout(frame, frame, frame, frame);
 }
 
+
+
+
+
 int main()
 {
     SRL::Core::Initialize(HighColor(20, 10, 50));
@@ -51,11 +56,11 @@ int main()
     
     LoadRightHand("WPN.TGA");
    
+
     SRL::VDP2::NBG1::SetPriority(SRL::VDP2::Priority::Layer2);//set NBG1 priority
     SRL::VDP2::NBG1::ScrollEnable();//enable display of NBG1
-    
   
-    uint8_t frame = 1;
+    uint8_t frameR = 1;
     SRL::Debug::Print(1, 1, "Tilemap Page Animation");
     SRL::Debug::Print(1, 3, "Press R to Cycle 4 animation frames");
     //Main Game Loop 
@@ -63,11 +68,13 @@ int main()
     {
         if (port0.WasPressed(Digital::Button::R))
         {
-            ++frame;
-            if (frame > 4) frame = 1;
-            SetFrameRight(frame);
+            ++frameR;
+            if (frameR > 4) frameR = 1;
+            SetFrameRight(frameR);
         }
-        
+        if (port0.WasPressed(Digital::Button::L))
+      
+
         SRL::Core::Synchronize();
 
     }

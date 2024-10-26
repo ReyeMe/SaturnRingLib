@@ -60,11 +60,9 @@ int main()
    
     LoadRBG0(0, TestTilebin);
 
-    SRL::VDP2::RBG0::LoadTilemap(*TestTilebin);
     SRL::VDP2::RBG0::SetPriority(SRL::VDP2::Priority::Layer2);//set RBG0 priority
     SRL::VDP2::RBG0::ScrollEnable();//enable display of RBG0 
     
-
     //variables to store current RBG0 rotation
     int16_t angY = (int16_t)DEGtoANG(0.0);
     int16_t angZ = (int16_t)DEGtoANG(0.0);

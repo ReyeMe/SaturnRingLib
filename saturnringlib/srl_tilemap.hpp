@@ -63,7 +63,7 @@ namespace SRL::Tilemap
         {
             return nullptr;
         }
-        /** @brief Get Pal data(Pallet)
+        /** @brief Get Pal data(Palette)
         * @return Pointer to Pal data
         */
         virtual void* GetPalData()
@@ -123,7 +123,7 @@ namespace SRL::Tilemap
     /* @brief Test implementation of ITilemap interface for Loading Cubecat binary format for cel/map/pal data.
     *
     *   This type assumes the raw data is pre-formatted to all VDP2 specifications other than
-    *   VRAM and Pallet offsets. Furthermore, the stored format is specified in the header.
+    *   VRAM and Palette offsets. Furthermore, the stored format is specified in the header.
     *   The file layout is:
     *   32 byte header- read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
     *   32 or 512 bytes palette data(if pallet type is specified in ColorMode)
@@ -186,7 +186,7 @@ namespace SRL::Tilemap
                 this->CelData = new uint8_t[CelSize];
                 this->MapData = new uint8_t[MapSize];
 
-                //Load Pallet Colors if they exist:
+                //Load Palette Colors if they exist:
                 if (Info.ColorMode == SRL::CRAM::TextureColorMode::Paletted16)
                 {
                     this->PalData = new uint8_t[32];
@@ -585,16 +585,18 @@ namespace SRL::Tilemap
             if (this->PalData) delete this->PalData;
             this->PalData = NULL;
         }
-        /** @brief manually apply a cel offset to all map data for cases when bypassing 
-        *   normal VDP2 tilemap loading functions (such as using DMA)
-        *   @param Offset the offset that must be applied to map data (ScrollLayer::GetCelOffset())
+        /** @brief manually apply a cel offset and Palette offset to all map data for cases when bypassing 
+        *   built in VDP2 tilemap loading functions (such as transfers using DMA)
+        *   @param CelOffset Tile address offset to apply (obtain with ScrollLayer::GetCelOffset())
+        *   @param Palette index offset to apply
         */ 
-        void ApplyCelOffset(uint32_t Offset)
+        void ApplyVdp2Offsets(uint32_t CelOffset,uint32_t PalOffset = 0)
         {
             uint16_t* MapStart = this->MapData;
             for (int i = 0; i < this->Info.MapHeight * this->Info.MapWidth; ++i)
             {
-                MapStart[i] += Offset;
+                MapStart[i] += CelOffset;
+                MapStart[i] |= PalOffset;
             }
 
         }

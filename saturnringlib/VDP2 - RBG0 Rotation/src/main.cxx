@@ -11,12 +11,10 @@ using namespace SRL::Input;
 extern uint16_t VDP2_KTCTL;
 
 //demonstration of Loading and Displaying on RBG0 using the 3 different rotation modes 
-static void SetSGLVar(){
-    VDP2_KTCTL = 1;
-}
+
 static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
 {
-    SRL::VDP2::RBG0::ScrollDisable();//turn off scroll display so we dont see junk when loading to VRAM
+    SRL::VDP2::RBG0::ScrollDisable();//turn off scroll display so we don't see junk when loading to VRAM
     slScrAutoDisp(RBG0OFF);
     SRL::VDP2::ClearVRAM();//Clearing VDP2 VRAM because use differs between Rotation Modes
     SRL::VDP2::RBG0::LoadTilemap(*map);//Transfer Tilemap to VRAM again 
@@ -34,7 +32,7 @@ static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
     case 1:
         /*configure RBG0 with 2 Axis rotation:
         -X and Z axis rotation displays correctly while Y rotation causes scaling/skewing
-        -Snes Mode7 style effect like Maio Kart/F-Zero
+        -Snes Mode7 style effect like Mario Kart/F-Zero
         -Works for 3D games where there is no rolling around camera's axis*/
         SRL::VDP2::RBG0::SetRotationMode(SRL::VDP2::RotationMode::TwoAxis);
 
@@ -43,7 +41,7 @@ static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
     case 2:
         /*configure RBG0 with 3 Axis Rotation:
        -Full 3D rotation
-       -Works for 3D flight sims or other games where carmera rolling is desired*/
+       -Works for 3D flight sims or other games where camera rolling is desired*/
         SRL::VDP2::RBG0::SetRotationMode(SRL::VDP2::RotationMode::ThreeAxis);
         break;
     }
@@ -59,24 +57,10 @@ int main()
     int8_t CurrentMode = 0;
 
     //Loading  RBG0 Tilemap
-    //SRL::VDP2::RBG0::MapAddress = (void*)VDP2_VRAM_A0;
-    //SRL::VDP2::RBG0::CelAddress = (void*)VDP2_VRAM_A1;
-    //SRL::VDP2::RBG0::KtableAddress = (void*)VDP2_VRAM_B0;
     SRL::Tilemap::SGLb* TestTilebin = new SRL::Tilemap::SGLb("TESTN2.BIN");//Load tilemap from cd to main RAM
-    //SRL::VDP2::RBG0::LoadTilemap(*TestTilebin);//Transfer Tilemap to VDP2 VRAM and register to RBG0
-    /*TEST ALLOCATION WIthout Loading*/
-    //SRL::Tilemap::TilemapInfo myinfo= TestTilebin->GetInfo();
-    //void* my_address = SRL::VDP2::VRAM::AutoAllocateCel(myinfo, scnRBG0);
-    //SRL::Debug::Print(1, 8, "VRAM ADDRESS = %d", (uint32_t)my_address-VDP2_VRAM_A0);
-    /*normally you should delete ITilemap after loading but because this demo reloads to VRAM when 
-    switching rotation modes, I leave it in RAM*/
-
-    //Configuring intital RBG0 settings
-    //SRL::VDP2::RBG0::KtableAddress = (void*)VDP2_VRAM_B0;
-    //SRL::VDP2::RBG0::SetRotationMode(SRL::VDP2::RotationMode::ThreeAxis);//Set the rotation mode
+   
     LoadRBG0(0, TestTilebin);
-    //slMakeKtable((void*)VDP2_VRAM_B0);
-    //slKtableRA((void*)VDP2_VRAM_B0, K_FIX | K_LINE | K_2WORD | K_ON);
+   
     SRL::VDP2::RBG0::SetPriority(SRL::VDP2::Priority::Layer2);//set RBG0 priority
     SRL::VDP2::RBG0::ScrollEnable();//enable display of RBG0 
  
