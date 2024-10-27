@@ -72,7 +72,6 @@ int main()
             if (frameR > 4) frameR = 1;
             SetFrameRight(frameR);
         }
-        if (port0.WasPressed(Digital::Button::L))
       
 
         SRL::Core::Synchronize();
