@@ -61,7 +61,7 @@ PROJECT_BRIEF          = "SGL wrapper"
 # pixels and the maximum width should not exceed 200 pixels. Doxygen will copy
 # the logo to the output directory.
 
-PROJECT_LOGO           = D:/Saturn/homebrew/SaturnRingLib/Documentation/resources/srl_logo.svg
+PROJECT_LOGO           = Documentation/resources/srl_logo.svg
 
 # With the PROJECT_ICON tag one can specify an icon that is included in the tabs
 # when the HTML document is shown. Doxygen will copy the logo to the output

@@ -738,21 +738,6 @@ inline void operator delete(void* ptr, size_t size)
     SRL::Memory::Free(ptr);
 }
 
-/** @brief Calls appropriate constructor on a specific pre-allocated region
- * @param size Size of the object in that location
- * @param ptr Target location
- * @return New pointer to specified location
- * @section Example
- * @code
- * char buffer[100];
- * int* p = new (buffer) int(42); // placement new
- * @endcode
- */
-inline void* operator new(size_t size, void* ptr)
-{
-    return ptr;
-}
-
 /** @brief Allocate some memory from array
  * @param size Number of bytes to allocate
  * @return Pointer to the allocated space in memory
@@ -797,14 +782,3 @@ inline void operator delete[](void* ptr, size_t size)
 {
     SRL::Memory::Free(ptr);
 }
-
-/** @brief Create new pointer to a specific location
- * @param size Number of bytes to allocate
- * @param ptr Target location
- * @return New pointer to specified location
- */
-inline void* operator new[](size_t size, void* ptr)
-{
-    return ptr;
-}
-

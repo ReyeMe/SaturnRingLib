@@ -1,13 +1,13 @@
 #pragma once
 
 #include "srl_memory.hpp"
+#include "srl_event.hpp"
 #include "srl_tv.hpp"
 #include "srl_color.hpp"
 #include "srl_cd.hpp"
 #include "srl_vdp1.hpp"
 #include "srl_vdp2.hpp"
 #include "srl_input.hpp"
-#include "srl_event.hpp"
 #include "srl_slave.hpp"
 
 #if SRL_USE_SGL_SOUND_DRIVER == 1

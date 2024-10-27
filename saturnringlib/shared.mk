@@ -32,11 +32,16 @@ ifdef OS
    LD = sh2eb-elf-gcc.exe
    OBJCOPY = sh2eb-elf-objcopy.exe
 else
-	ifneq ($(strip $(YAUL_INSTALL_ROOT)),)
-		CC = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-gcc
-		CXX = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-g++
-		LD = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-gcc
-		OBJCOPY = ${YAUL_INSTALL_ROOT}/bin/sh2eb-elf-objcopy
+	ifneq (, $(shell which sh2eb-elf-gcc))
+		CC = sh2eb-elf-gcc
+		CXX = sh2eb-elf-g++
+		LD = sh2eb-elf-gcc
+		OBJCOPY = sh2eb-elf-objcopy
+	else
+		CC = sh-elf-gcc
+		CXX = sh-elf-g++
+		LD = sh-elf-gcc
+		OBJCOPY = sh-elf-objcopy
   endif
 endif
 
@@ -134,6 +139,11 @@ else
 	SYSFLAGS += -DSGL_MAX_WORKS=256
 endif
 
+# Add custom FLAGS
+ifneq ($(strip ${SRL_CUSTOM_CCFLAGS}),)
+	CCFLAGS += $(strip ${SRL_CUSTOM_CCFLAGS})
+endif
+
 BUILD_ELF = $(BUILD_DROP)/$(CD_NAME).elf
 BUILD_ISO = $(BUILD_ELF:.elf=.iso)
 BUILD_BIN = $(BUILD_ELF:.elf=.bin)
@@ -155,11 +165,18 @@ endif
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
-CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing -nostdlib -ffreestanding -I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
-LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map -Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
+CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing \
+					-I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
+LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
+					-Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
 ifeq "$(GCCMAJORVERSION)" "14"
     LDFLAGS += -specs=nosys.specs
+endif
+
+# Add custom FLAGS
+ifneq ($(strip ${SRL_CUSTOM_LDFLAGS}),)
+	LDFLAGS += $(strip ${SRL_CUSTOM_LDFLAGS})
 endif
 
 # Compilation tasks
