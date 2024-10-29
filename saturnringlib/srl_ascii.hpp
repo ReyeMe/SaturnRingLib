@@ -17,21 +17,21 @@ namespace SRL
          */
         inline static uint16_t* tileMap = (uint16_t*)(VDP2_VRAM_B1 + 0x1E000);
         /** @brief index of the current 16 color pallet that font will use, formatted to quickly modify map data
-        */
+         */
         inline static uint16_t  colorBank = 1 << 12;
         /** @brief offset to the tile data of the current font that will print, formatted to quckly modify map data
-        */
+         */
         inline static uint16_t  fontBank = 640;
         /** @brief the current number of fonts that have been loaded to Vdp2 VRAM
-        */
+         */
         inline static uint8_t   numFonts = 1;
     public:
         /** @brief Copies 4bpp Bitmap ASCII table to VRAM as 4bpp tileset
-        *  @param bmp pointer to an Ibitmap interface to load
-        *  @note image layout must be grid of 8x8 pixel characters arranged in ASCII order from left to right,
-        *  top to bottom, with 1 empty 8x8 tile preceeding the characters (see example in VDP2 Samples)
-        *  @param fontId Index in the font table to load this font to (range 0-5)
-        */
+         *  @param bmp pointer to an Ibitmap interface to load
+         *  @note image layout must be grid of 8x8 pixel characters arranged in ASCII order from left to right,
+         *  top to bottom, with 1 empty 8x8 tile preceeding the characters (see example in VDP2 Samples)
+         *  @param fontId Index in the font table to load this font to (range 0-5)
+         */
         inline static void LoadFont(SRL::Bitmap::IBitmap* bmp, uint16_t fontId = 0)
         {
             if (fontId > 5) fontId = 5;
@@ -112,7 +112,7 @@ namespace SRL
          *  @param myString The string to print
          *  @param x Starting tile X coordinate on screen (0-64)
          *  @param y Starting tile Y coordinate on screen (0-64)
-         *  @note tile (0,0) is alligned to the top left corner of the screen
+         *  @note Tile (0,0) is alligned to the top left corner of the screen
          */ 
         inline static void Print(char* myString, uint8_t x, uint8_t y)
         {
