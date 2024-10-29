@@ -83,7 +83,7 @@ namespace SRL
         {
             if (paletteId > 7)paletteId = 7;
             
-            colorBank = paletteId << 12;
+            ASCII::colorBank = paletteId << 12;
         }
 
         /** @brief Set color in the specified pallet index of the current font pallet
@@ -94,7 +94,7 @@ namespace SRL
         {
             if (colorIndex > 15)colorIndex = 15;
             
-            uint16_t* colorAdr = (uint16_t*)(VDP2_COLRAM + (colorBank >> 6));
+            uint16_t* colorAdr = (uint16_t*)(VDP2_COLRAM + (ASCII::colorBank >> 6));
             colorAdr[colorIndex] = color;
         }
         
@@ -105,7 +105,7 @@ namespace SRL
         {
             if (fontId > 5) fontId = 5;
 
-            fontBank = 128 * (5 - fontId);
+            ASCII::fontBank = 128 * (5 - fontId);
         }
 
         /** @brief Display ASCII string on single line. Does not clamp to screen bounds or handle overflow
@@ -123,7 +123,7 @@ namespace SRL
             mapIndex = x+(y<<6);
             while(*myString !='\0')
             {
-                ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset)|colorBank;
+                ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset)|ASCII::colorBank;
             }
         }
         
