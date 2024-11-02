@@ -5,7 +5,6 @@
 
 namespace SRL
 {
-    
     /** @brief Interface for displaying ASCII text. Currently a direct replacement for slPrint.
      *  It removes any possible dependecy on NBG0 system variables and displays 4bpp fonts
      *  to reduce required memory. Allows Storing and displaying up to 6 fonts and 8 color pallets.
@@ -16,12 +15,15 @@ namespace SRL
         /** @brief Pointer to the ASCII map in Vdp2 VRAM 64x64
          */
         inline static uint16_t* tileMap = (uint16_t*)(VDP2_VRAM_B1 + 0x1E000);
+
         /** @brief index of the current 16 color pallet that font will use, formatted to quickly modify map data
          */
         inline static uint16_t  colorBank = 1 << 12;
+
         /** @brief offset to the tile data of the current font that will print, formatted to quckly modify map data
          */
         inline static uint16_t  fontBank = 640;
+
         /** @brief the current number of fonts that have been loaded to Vdp2 VRAM
          */
         inline static uint8_t   numFonts = 1;
@@ -35,8 +37,10 @@ namespace SRL
         inline static void LoadFont(SRL::Bitmap::IBitmap* bmp, uint16_t fontId = 0)
         {
             if (fontId > 5) fontId = 5;
+
             uint8_t* src = bmp->GetData();
-            //Font table starts at top and builds down to stay out of the way of VDP2 allocator
+            
+            // Font table starts at top and builds down to stay out of the way of VDP2 allocator
             uint8_t* dest = (uint8_t*)(VDP2_VRAM_B1 + 0x1D000 + 0x400 - (fontId * 0x1000));
             uint16_t X = bmp->GetInfo().Width >> 1;
             uint16_t Y = bmp->GetInfo().Height >> 3;
@@ -51,24 +55,26 @@ namespace SRL
                         for (int j = 0; j < 4; ++j) *dest++ = *st++;
                         st += (X - 4);
                     }
+                    
                     st = (src += 4);
                 }
+
                 src += (7 * X);
                 st = src;
             }
         }
         
         /** @brief Use to load a 4bpp version of SGLs internal font
-         *  @param source Address storing SGLs 8bpp font
-         *  @param fontId Font index to load to (range 0-5)
-         *   
+         * @param source Address storing SGLs 8bpp font
+         * @param fontId Font index to load to (range 0-5)
          */
         inline static void LoadFontSG(uint8_t* source, uint16_t fontId = 0)
         {
             if (fontId > 5) fontId = 5;
             
-            //Font table starts at top and builds down to stay out of the way of VDP2 allocator
+            // Font table starts at top and builds down to stay out of the way of VDP2 allocator
             uint8_t* dest = (uint8_t*)(VDP2_VRAM_B1 + 0x1D000 + 0x400 - (fontId * 0x1000));
+
             for (int i = 0; i < 0xC00; ++i)
             {
                 *(dest++) = (*source << 4) | *(source + 1);
@@ -117,16 +123,16 @@ namespace SRL
         inline static void Print(char* myString, uint8_t x, uint8_t y)
         {
             int mapIndex;
-            int charOffset = ASCII::fontBank;//128*(5-font);
-            if(x>63) x = 63;
-            if(y>63) y = 63;
-            mapIndex = x+(y<<6);
-            while(*myString !='\0')
+            int charOffset = ASCII::fontBank; // 128*(5-font);
+            if(x > 63) x = 63;
+            if(y > 63) y = 63;
+            mapIndex = x + (y << 6);
+
+            while(*myString != '\0')
             {
-                ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset)|ASCII::colorBank;
+                ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset) | ASCII::colorBank;
             }
         }
-        
     }; 
 }
     

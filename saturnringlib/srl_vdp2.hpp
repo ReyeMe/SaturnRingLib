@@ -7,7 +7,7 @@
 #include "srl_ascii.hpp"
 #include "srl_debug.hpp"
 #include "srl_cd.hpp"
-#include "srl_tilemap.hpp"
+#include "srl_tilemap_interfaces.hpp"
 
 namespace SRL
 {
@@ -54,23 +54,23 @@ namespace SRL
             /** @brief Bottom RAM bank zones
              */
             inline static uint8_t* bankBot[4] = { (uint8_t*)VDP2_VRAM_A0,(uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1 };
-            
+
             /** @brief Top RAM bank zones
              */
             inline static uint8_t* bankTop[4] = { (uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1,(uint8_t*)(VDP2_VRAM_B1 + 0x18000) };
-            
+
             /** @brief Currently allocated bottom RAM bank zones
              */
             inline static uint8_t* currentBot[4] = { (uint8_t*)VDP2_VRAM_A0,(uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1 };;
-            
+
             /** @brief Currently allocated top RAM bank zones
              */
             inline static uint8_t* currentTop[4] = { (uint8_t*)VDP2_VRAM_A1,(uint8_t*)VDP2_VRAM_B0,(uint8_t*)VDP2_VRAM_B1,(uint8_t*)(VDP2_VRAM_B1 + 0x18000) };
-            
+
             /** @brief Number of cycles available for each bank
              * @note Indicates number of cycles that are free in the VRAM bank for per pixel operations
              */
-            inline static int8_t bankCycles[4] = {-1,-1,-1,2};//why will init to 0 not work?
+            inline static int8_t bankCycles[4] = { -1,-1,-1,2 };//why will init to 0 not work?
 
         public:
             /** @brief Gets current amount of free VRAM in a bank
@@ -126,33 +126,33 @@ namespace SRL
 
                 if (screen == scnRBG0) // Reserve all 8 cycles of a bank
                 {
-                   alloc=Allocate(info.CelByteSize, 32,VramBank::A0, 8);
-                   if (alloc==nullptr) alloc = Allocate(info.CelByteSize,32, VramBank::A1, 8);
-                   if (alloc==nullptr) alloc = Allocate(info.CelByteSize,32, VramBank::B0, 8);
-                   if (alloc==nullptr) alloc = Allocate(info.CelByteSize,32, VramBank::B1, 8);
-                   if (alloc == nullptr) SRL::Debug::Assert("RBG Cel Allocation failed: insufficient VRAM");
+                    alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, 8);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, 8);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, 8);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, 8);
+                    if (alloc == nullptr) SRL::Debug::Assert("RBG Cel Allocation failed: insufficient VRAM");
                 }
                 else // Base cycle requirement on color type
                 {
-                    uint8_t ReqCycles = 0;
+                    uint8_t reqCycles = 0;
 
                     switch (info.ColorMode)
                     {
                     case CRAM::TextureColorMode::Paletted16:
-                        ReqCycles = 1;
+                        reqCycles = 1;
                         break;
-                    case CRAM::TextureColorMode::Paletted256 :
-                        ReqCycles = 2;
+                    case CRAM::TextureColorMode::Paletted256:
+                        reqCycles = 2;
                         break;
-                    case CRAM::TextureColorMode::RGB555 :
-                        ReqCycles = 3;
+                    case CRAM::TextureColorMode::RGB555:
+                        reqCycles = 3;
                         break;
                     }
 
-                    alloc = Allocate(info.CelByteSize,32, VramBank::B1, ReqCycles);
-                    if (alloc==nullptr) alloc = Allocate(info.CelByteSize,32, VramBank::B0, ReqCycles);
-                    if (alloc==nullptr) alloc = Allocate(info.CelByteSize,32, VramBank::A1, ReqCycles);
-                    if (alloc==nullptr) alloc = Allocate(info.CelByteSize,32, VramBank::A0, ReqCycles);
+                    alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, ReqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, ReqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, ReqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, ReqCycles);
                     if (alloc == nullptr) SRL::Debug::Assert("NBG Cel Allocation failed: insufficient VRAM");
                 }
 
@@ -183,18 +183,18 @@ namespace SRL
 
                 if (screen == scnRBG0) // Reserve all 8 cycles of a bank
                 {
-                    alloc = Allocate(sz, page_sz, VramBank::A0, 8);
-                    if (alloc== nullptr) alloc = Allocate(sz,page_sz, VramBank::A1, 8);
-                    if (alloc == nullptr) alloc = Allocate(sz,page_sz, VramBank::B0, 8);
-                    if (alloc == nullptr) alloc = Allocate(sz, page_sz, VramBank::B1, 8);
+                    alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 8);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 8);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 8);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 8);
                     if (alloc == nullptr) Debug::Assert("RBG Map Allocation failed: insufficient VRAM");
                 }
                 else // Reserve 1 cycle
                 {
-                    alloc = Allocate(sz, page_sz, VramBank::B1, 1);
-                    if (!alloc) alloc = Allocate(sz, page_sz, VramBank::B0, 1);
-                    if (!alloc) alloc = Allocate(sz, page_sz, VramBank::A1, 1);
-                    if (!alloc) alloc = Allocate(sz, page_sz, VramBank::A0, 1);
+                    alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 1);
+                    if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 1);
+                    if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 1);
+                    if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 1);
                     if (alloc == nullptr) SRL::Debug::Assert("NBG Map Allocation failed: insufficient VRAM");
                 }
 
@@ -203,15 +203,16 @@ namespace SRL
         };
 
         /** @brief Bitfield recording all Currently enabled Scroll Screens*/
-        inline static uint16_t ActiveScrolls = NBG0ON|NBG3ON;
+        inline static uint16_t ActiveScrolls = NBG0ON | NBG3ON;
 
         /** @Brief Bitfield recording all Scroll Screens with VDP2 Color Calculation enabled*/
-        inline static uint16_t ColorCalcScrolls = NBG0ON|NBG3ON|SPRON;
+        inline static uint16_t ColorCalcScrolls = NBG0ON | NBG3ON | SPRON;
 
         /** @brief Functionality available to all Scroll Screen interfaces
          */
         template<class ScreenType, int16_t Id, uint16_t On>
-        class ScrollScreen {
+        class ScrollScreen
+        {
         private:
             /** @brief Initializes the default tiling pattern of the 4 Planes of the Scroll Screen Depending on the
             * height and width of the source Tilemap.
@@ -230,36 +231,36 @@ namespace SRL
             *         |0|0|
             * @note underlying page Size of the 4 planes is specified separately in TileMapInfo::PlaneSize
             */
-            inline static void SetPlanesDefault(Tilemap::TilemapInfo & Info)
+            inline static void SetPlanesDefault(Tilemap::TilemapInfo& info)
             {
                 int mapX, mapY;
                 mapX = mapY = 32;
 
-                if (Info.CharSize == CHAR_SIZE_1x1)
+                if (info.CharSize == CHAR_SIZE_1x1)
                 {
                     mapY <<= 1;
                     mapX <<= 1;
                 }
 
-                if (Info.PlaneSize == PL_SIZE_2x2)
+                if (info.PlaneSize == PL_SIZE_2x2)
                 {
-                   mapY <<= 1;
-                   mapX <<= 1;
+                    mapY <<= 1;
+                    mapX <<= 1;
                 }
-                else if (Info.PlaneSize == PL_SIZE_2x1)
+                else if (info.PlaneSize == PL_SIZE_2x1)
                 {
                     mapX <<= 1;
                 }
 
-                if (Info.MapWidth > mapX)
+                if (info.MapWidth > mapX)
                 {
-                    if (Info.MapHeight > mapY) VDP2::ScrollScreen<ScreenType, Id, On>::SetMapLayout(0, 1, 2, 3);
+                    if (info.MapHeight > mapY) VDP2::ScrollScreen<ScreenType, Id, On>::SetMapLayout(0, 1, 2, 3);
                     else VDP2::ScrollScreen<ScreenType, Id, On>::SetMapLayout(0, 1, 0, 1);
 
                 }
                 else
                 {
-                    if (Info.MapHeight>mapY) VDP2::ScrollScreen<ScreenType, Id, On>::SetMapLayout(0, 0, 1, 1);
+                    if (info.MapHeight > mapY) VDP2::ScrollScreen<ScreenType, Id, On>::SetMapLayout(0, 0, 1, 1);
                     else VDP2::ScrollScreen<ScreenType, Id, On>::SetMapLayout(0, 0, 0, 0);
                 }
             }
@@ -273,9 +274,9 @@ namespace SRL
              */
             static constexpr uint16_t ScreenON = On;
 
-            /** @brief VRAM Address to start of Cel data when displying Tilemap or Bitmap data when using bitmaps
+            /** @brief VRAM Address to start of Cell data when displying Tilemap or Bitmap data when using bitmaps
              */
-            inline static void* CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            inline static void* CellAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             /** @brief  VRAM Address  of ScrollScreen's Map data when displaying Tilemap
              */
@@ -291,7 +292,7 @@ namespace SRL
 
             /** Size of manually allocated VRAM for Cel Data
              */
-            inline static int CelAllocSize = -1;
+            inline static int CellAllocSize = -1;
 
             /** Size of manually allocated VRAM for Map Data
              */
@@ -311,12 +312,12 @@ namespace SRL
              */
             inline static void LoadTilemap(SRL::Tilemap::ITilemap& tilemap)
             {
-                SRL::Tilemap::TilemapInfo MyInfo = tilemap.GetInfo();
+                SRL::Tilemap::TilemapInfo myInfo = tilemap.GetInfo();
                 ScreenType::Info = tilemap.GetInfo();
 
                 if ((uint32_t)ScreenType::CelAddress < VDP2_VRAM_A0)
                 {
-                    ScreenType::CelAddress = VRAM::AutoAllocateCel(MyInfo, ScreenType::ScreenID);
+                    ScreenType::CelAddress = VRAM::AutoAllocateCel(myInfo, ScreenType::ScreenID);
 
                     if ((uint32_t)ScreenType::CelAddress < VDP2_VRAM_A0)
                     {
@@ -332,11 +333,11 @@ namespace SRL
 
                 if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0)
                 {
-                    ScreenType::MapAddress = VRAM::AutoAllocateMap(MyInfo, ScreenType::ScreenID);
+                    ScreenType::MapAddress = VRAM::AutoAllocateMap(myInfo, ScreenType::ScreenID);
                     if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0) return;
 
                 }
-                else if (ScreenType::MapAllocSize < (ScreenType::Info.MapWidth * ScreenType::Info.MapHeight)<<(2-ScreenType::Info.MapMode))
+                else if (ScreenType::MapAllocSize < (ScreenType::Info.MapWidth * ScreenType::Info.MapHeight) << (2 - ScreenType::Info.MapMode))
                 {
                     SRL::Debug::Assert("Tilemap Load Failed- MAP DATA exceeds existing VRAM allocation");
                     return;
@@ -359,17 +360,17 @@ namespace SRL
                 }
 
                 if (ScreenType::ScreenID != scnRBG0) VDP2::ScrollScreen<ScreenType, Id, On>::SetPlanesDefault(ScreenType::Info);
-                
-                VDP2::ScrollScreen<ScreenType, Id, On>::Cel2VRAM((uint8_t*)tilemap.GetCelData(), ScreenType::CelAddress, ScreenType::Info.CelByteSize);
+
+                VDP2::ScrollScreen<ScreenType, Id, On>::Cell2VRAM((uint8_t*)tilemap.GetCellData(), ScreenType::CelAddress, ScreenType::Info.CelByteSize);
                 VDP2::ScrollScreen<ScreenType, Id, On>::Map2VRAM(
                     ScreenType::Info,
                     (uint16_t*)tilemap.GetMapData(),
                     ScreenType::MapAddress,
                     colorID,
-                    VDP2::ScrollScreen<ScreenType, Id, On>::GetCelOffset(ScreenType::Info, ScreenType::CelAddress));
+                    VDP2::ScrollScreen<ScreenType, Id, On>::GetCellOffset(ScreenType::Info, ScreenType::CellAddress));
             }
-            
-            /** @brief Manually Sets VRAM area for Cel Data (Advanced Use Cases)
+
+            /** @brief Manually Sets VRAM area for Cell Data (Advanced Use Cases)
              *
              * @details This function manually sets an area in VRAM for a scrolls Cel Data to be loaded to. Unless the
              * Address is obtained from VDP2::VRAM::Allocate(), the VRAM allocator will be bypassed entirely.
@@ -382,7 +383,7 @@ namespace SRL
              * @param size the size of the allocation
              * @return Echoes Address
              */
-            inline static void* SetCelAddress(void* address, int size)
+            inline static void* SetCellAddress(void* address, int size)
             {
                 ScreenType::CelAddress = address;
                 ScreenType::CelAllocSize = size;
@@ -408,7 +409,7 @@ namespace SRL
                 ScreenType::MapAllocSize = Size;
                 return Address;
             }
-            
+
             /** @brief Registers Scroll in VDP2 cycle pattern to enable display of this Scroll Screen
              *
              * @details Asserts when registration of a scroll fails due to cycle pattern conflicts.
@@ -450,7 +451,7 @@ namespace SRL
              *  @return Address of Cel data
              *  @note Returns starting address of bitmap when displaying Bitmap Scroll
              */
-            inline static  void* GetCelAddress() { return ScreenType::CelAddress; }
+            inline static  void* GetCellAddress() { return ScreenType::CellAddress; }
 
             /** @brief returns the VRAM Address of the specified page number in a scroll's Page Table
             * or nullptr if the requested page is outside of allocated Map Bounds
@@ -460,8 +461,8 @@ namespace SRL
 
             inline static  void* GetPageAddress(uint8_t index)
             {
-                if ((uint32_t)ScreenType::MapAddress<VDP2_VRAM_A0) return nullptr;
-                uint32_t offset = 2048*(uint32_t)index;
+                if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0) return nullptr;
+                uint32_t offset = 2048 * (uint32_t)index;
                 if (ScreenType::Info.CharSize = CHAR_SIZE_1x1) offset <<= 2;
                 if (ScreenType::Info.MapMode = PNB_2WORD) offset <<= 1;
                 return ScreenType::MapAddress + (void*)offset;
@@ -480,7 +481,7 @@ namespace SRL
                 if (ScreenType::Info.MapMode == PNB_2WORD) offset <<= 1;
                 if (ScreenType::Info.PlaneSize == PL_SIZE_2x2)offset <<= 2;
                 else if (ScreenType::Info.PlaneSize == PL_SIZE_2x1)offset <<= 1;
-                return (void*)((uint32_t)ScreenType::MapAddress+offset);
+                return (void*)((uint32_t)ScreenType::MapAddress + offset);
             }
 
             /** @brief Manually set the Plane layout of a Scroll Screen
@@ -539,7 +540,7 @@ namespace SRL
             * @param CelAddress Address of corresponding Cel Data in VRAM (must be a 32 byte boundary)
             * @return The Cel Offset to add to to map data
             */
-            inline static uint32_t GetCelOffset(SRL::Tilemap::TilemapInfo& tile, void* celAddress)
+            inline static uint32_t GetCellOffset(SRL::Tilemap::TilemapInfo& tile, void* celAddress)
             {
                 uint32_t CelOffset;
 
@@ -554,7 +555,7 @@ namespace SRL
                     if (ScreenType::Info.CharSize) CelOffset = ((uint32_t)celAddress - VDP2_VRAM_A0) >> 7; // 2x2
                     else CelOffset = (((uint32_t)celAddress - VDP2_VRAM_A0) & 0x1FFFF) >> 5; // 1x1
                 }
-                
+
                 return CelOffset;
             }
 
@@ -576,17 +577,16 @@ namespace SRL
         private:
 
             /** @brief Copies Cel data to VRAM (adapted from SGL samples).
-            * @param CelData Cel Data to copy.
-            * @param CelAdr VRAM address to copy to.
+            * @param CellData Cell Data to copy.
+            * @param CellAdr VRAM address to copy to.
             * @param Size Number of bytes to copy.
             */
-            inline static void Cel2VRAM(uint8_t* celData, void* celAdr, uint32_t size)
+            inline static void Cell2VRAM(uint8_t* cellData, void* cellAdr, uint32_t size)
             {
-                uint8_t* VRAM;
-                VRAM = (uint8_t*)celAdr;
+                uint8_t* VRAM = (uint8_t*)cellAdr;
 
                 // Note: Consider DMA
-                for (uint32_t i = 0; i < size; i++) *(VRAM++) = *(celData++);
+                for (uint32_t i = 0; i < size; i++) *(VRAM++) = *(cellData++);
             }
 
             /** @brief Copies map data to VRAM and applies necessary offsets (adapted from SGL Samples).
@@ -616,7 +616,8 @@ namespace SRL
 
         /** @brief NBG0 interface
          */
-        class NBG0 : public ScrollScreen<NBG0,scnNBG0,NBG0ON> {
+        class NBG0 : public ScrollScreen<NBG0, scnNBG0, NBG0ON>
+        {
         public:
             /** @brief VRAM address of line scroll table
              */
@@ -625,10 +626,10 @@ namespace SRL
             /** @brief Initializes the ScrollScreen's tilemap specifications
              * @param info Tile map info
              */
-            static void Init(SRL::Tilemap::TilemapInfo & info)
+            static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg0(info.SGLColorMode(), info.CharSize);
-                slPageNbg0(NBG0::CelAddress, 0, info.MapMode);
+                slPageNbg0(NBG0::CellAddress, 0, info.MapMode);
                 slPlaneNbg0(info.PlaneSize);
                 slMapNbg0(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -656,11 +657,12 @@ namespace SRL
 
         /** @brief NBG1 interface
          */
-        class NBG1 : public ScrollScreen<NBG1,scnNBG1,NBG1ON> {
+        class NBG1 : public ScrollScreen<NBG1, scnNBG1, NBG1ON>
+        {
         public:
             /** @brief VRAM address of line scroll table
              */
-            inline static void* LineAddress = (void*)(VDP2_VRAM_A0-1);
+            inline static void* LineAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             /** @brief Initializes the ScrollScreen's tilemap specifications
              * @param info Tile map info
@@ -668,7 +670,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg1(info.SGLColorMode(), info.CharSize);
-                slPageNbg1(NBG1::CelAddress, 0, info.MapMode);
+                slPageNbg1(NBG1::CellAddress, 0, info.MapMode);
                 slPlaneNbg1(info.PlaneSize);
                 slMapNbg1(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -696,7 +698,8 @@ namespace SRL
 
         /** @brief  NBG2 interface
          */
-        class NBG2 : public ScrollScreen<NBG2,scnNBG2,NBG2ON> {
+        class NBG2 : public ScrollScreen<NBG2, scnNBG2, NBG2ON>
+        {
         public:
 
             /** @brief Initializes the ScrollScreen's tilemap specifications
@@ -705,7 +708,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg2(info.SGLColorMode(), info.CharSize);
-                slPageNbg2(NBG2::CelAddress, 0, info.MapMode);
+                slPageNbg2(NBG2::CellAddress, 0, info.MapMode);
                 slPlaneNbg2(info.PlaneSize);
                 slMapNbg2(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -726,7 +729,7 @@ namespace SRL
 
         /** @brief NBG3 interface
          */
-        class NBG3 : public ScrollScreen<NBG3,scnNBG3,NBG3ON>
+        class NBG3 : public ScrollScreen<NBG3, scnNBG3, NBG3ON>
         {
         public:
 
@@ -736,7 +739,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg3(info.SGLColorMode(), info.CharSize);
-                slPageNbg3(NBG3::CelAddress, 0, info.MapMode);
+                slPageNbg3(NBG3::CellAddress, 0, info.MapMode);
                 slPlaneNbg3(info.PlaneSize);
                 slMapNbg3(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -778,7 +781,7 @@ namespace SRL
 
         /** @brief RBG0 interface
          */
-        class RBG0 : public ScrollScreen<RBG0,scnRBG0,RBG0ON>
+        class RBG0 : public ScrollScreen<RBG0, scnRBG0, RBG0ON>
         {
         public:
             /** @brief VRAM Address of RBG0 Coefficient table
@@ -794,7 +797,7 @@ namespace SRL
                 slRparaMode(RA);
                 slOverRA(0);
                 slCharRbg0(info.SGLColorMode(), info.CharSize);
-                slPageRbg0(CelAddress, 0, info.MapMode);
+                slPageRbg0(CellAddress, 0, info.MapMode);
                 slPlaneRA(info.PlaneSize);
                 sl1MapRA(MapAddress);
                 slPopMatrix();
@@ -946,10 +949,13 @@ namespace SRL
              */
             inline static void SetOpacity(Types::Fxp Opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
             {
-                if (Opacity < Types::Fxp(0.0) || Opacity>Types::Fxp(1.0)) return;
+                if (Opacity < Types::Fxp(0.0) || Opacity>Types::Fxp(1.0))
+                {
+                    return;
+                }
                 else
                 {
-                    slColRate((int16_t) bank, 31 - (uint16_t)(Opacity.Value() >> 11));
+                    slColRate((int16_t)bank, 31 - (uint16_t)(Opacity.Value() >> 11));
                 }
             }
 
@@ -965,7 +971,7 @@ namespace SRL
              */
             inline static void SetPriority(SRL::VDP2::Priority pr, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
             {
-                slPriority((int16_t)bank,(uint16_t) pr);
+                slPriority((int16_t)bank, (uint16_t)pr);
             }
 
             /** @brief Set conditions under which VDP2 color calculation is performed on sprites based on their priority.
@@ -981,7 +987,7 @@ namespace SRL
             inline static void SetColorCondition(VDP2::ColorCondition Condition, SRL::VDP2::Priority TestValue)
             {
                 slSpriteCCalcCond((uint16_t)Condition);
-                slSpriteCCalcNum((uint16_t) TestValue);
+                slSpriteCCalcNum((uint16_t)TestValue);
             }
         };
 
@@ -994,7 +1000,7 @@ namespace SRL
         {
             //reset ScrollScreen VRAM References
             VDP2::NBG0::MapAddress = (void*)(VDP2_VRAM_A0 - 1);
-            VDP2::NBG0::CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            VDP2::NBG0::CellAddress = (void*)(VDP2_VRAM_A0 - 1);
             VDP2::NBG0::LineAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             if (VDP2::NBG0::TilePalette.GetData())
@@ -1004,7 +1010,7 @@ namespace SRL
             }
 
             VDP2::NBG1::MapAddress = (void*)(VDP2_VRAM_A0 - 1);
-            VDP2::NBG1::CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            VDP2::NBG1::CellAddress = (void*)(VDP2_VRAM_A0 - 1);
             VDP2::NBG1::LineAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             if (VDP2::NBG1::TilePalette.GetData())
@@ -1014,7 +1020,7 @@ namespace SRL
             }
 
             VDP2::NBG2::MapAddress = (void*)(VDP2_VRAM_A0 - 1);
-            VDP2::NBG2::CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            VDP2::NBG2::CellAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             if (VDP2::NBG2::TilePalette.GetData())
             {
@@ -1023,7 +1029,7 @@ namespace SRL
             }
 
             VDP2::NBG3::MapAddress = (void*)(VDP2_VRAM_A0 - 1);
-            VDP2::NBG3::CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            VDP2::NBG3::CellAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             if (VDP2::NBG3::TilePalette.GetData())
             {
@@ -1032,7 +1038,7 @@ namespace SRL
             }
 
             VDP2::RBG0::MapAddress = (void*)(VDP2_VRAM_A0 - 1);
-            VDP2::RBG0::CelAddress = (void*)(VDP2_VRAM_A0 - 1);
+            VDP2::RBG0::CellAddress = (void*)(VDP2_VRAM_A0 - 1);
             VDP2::RBG0::KtableAddress = (void*)(VDP2_VRAM_A0 - 1);
 
             if (VDP2::RBG0::TilePalette.GetData())
@@ -1111,7 +1117,7 @@ namespace SRL
 
         /** @brief Used to Select behavior of VDP2 Half Transparent Color Calculation
          */
-        enum class ColorCalcMode: uint16_t
+        enum class ColorCalcMode : uint16_t
         {
             /** @brief Blend colors by the ratio specified in Higher priority Pixels
              */
@@ -1123,7 +1129,7 @@ namespace SRL
 
             /** @brief Use additive color blending instead of ratios
              */
-            UseColorAddition  = 0x100,
+            UseColorAddition = 0x100,
         };
 
         /** @brief Sets VDP2 Half Transparent Color Calculation Mode (only one mode can be used at once)

@@ -56,7 +56,7 @@ int main()
     
     int8_t CurrentMode = 0;
    
-    SRL::Tilemap::SGLb* TestTilebin = new SRL::Tilemap::SGLb("FOGRGB.BIN");//Load tilemap from cd to main RAM
+    SRL::Tilemap::Interfaces::CubeTile* TestTilebin = new SRL::Tilemap::Interfaces::CubeTile("FOGRGB.BIN");//Load tilemap from cd to main RAM
    
     LoadRBG0(0, TestTilebin);
 
@@ -75,9 +75,7 @@ int main()
     //Main Game Loop 
     while(1)
     {
-        
         // Handle User Inputs
-        
         if (port0.IsConnected())
         {
             //Switch Rotation mode based on user input
@@ -96,6 +94,7 @@ int main()
                 if (CurrentMode < 0)CurrentMode = 2;
                 LoadRBG0(CurrentMode, TestTilebin);
             }
+
             //Update Rotations based on user input
             if (port0.IsHeld(Digital::Button::X)) angX += DEGtoANG(0.3);
             else if (port0.IsHeld(Digital::Button::A)) angX -= DEGtoANG(0.3);
@@ -107,9 +106,8 @@ int main()
             else if (port0.IsHeld(Digital::Button::C)) angZ -= DEGtoANG(0.3);
             
         }
-        //Rotate current matrix and Set it in rotation parameters 
         
-       
+        //Rotate current matrix and Set it in rotation parameters 
         slPushMatrix();
         {
             slTranslate(toFIXED(0.0), toFIXED(100), MsScreenDist);
