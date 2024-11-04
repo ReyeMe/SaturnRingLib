@@ -115,16 +115,17 @@ namespace SRL::Types
             return *((uint16_t*)this);
         }
 
-        // This is automatically called
-        // when '=' operator is
-        // used between C1 and C2.
-
-        constexpr inline void operator=(const uint16_t value)
+        /** @brief Set HighColor from ABGR555 value
+         * @return Current object sets with ABGR555 value
+         */
+        constexpr inline HighColor & operator=(const uint16_t value)
         {
             this->Opaque = (value >> 15) & 0x1;
             this->Red = value & 0x1f;
             this->Green = (value >> 5) & 0x1f;
             this->Blue = (value >> 10) & 0x1f;
+
+            return *this;
         }
 
         /** @brief Cast to ABGR555
@@ -285,13 +286,16 @@ namespace SRL::Types
 
         /** @brief Assign color value to color type
          * @param value Color value
+         * @return current modified TrueColor object
          */
-        constexpr inline void operator=(const uint32_t value)
+        constexpr inline TrueColor & operator=(const uint32_t value)
         {
             this->Opaque = value & 0x80000000 != 0;
             this->Red = value & 0xff;
             this->Green = (value >> 8) & 0xff;
             this->Blue = (value >> 16) & 0xff;
+
+            return *this;
         }
 
         /** @brief Cast to ABGR1888
