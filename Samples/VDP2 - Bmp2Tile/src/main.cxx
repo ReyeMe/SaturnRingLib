@@ -15,15 +15,15 @@ void LoadRightHand(const char* img)
     SRL::Bitmap::TGA* MyBmp = new SRL::Bitmap::TGA(img);
     
     //create tilemap from bmp with 5 pages (Source image Pattern + 1 page per animation frame):
-    SRL::Tilemap::Bmp2Tile* Tile = new SRL::Tilemap::Bmp2Tile(*MyBmp,5);
+    SRL::Tilemap::Interfaces::Bmp2Tile* Tile = new SRL::Tilemap::Interfaces::Bmp2Tile(*MyBmp,5);
     delete MyBmp;//no longer need original bitmap in memory
     
     //copy map of each individual frame from source page to the top left corner its own dedicated page:
     //(the tiles created are 16*16 pixels , so the 128*128 pixel frames have area of 8x8 tile coordinates)
-    Tile->CopyMap(0, SRL::Tilemap::Co(0, 0), SRL::Tilemap::Co(7, 7), 1, SRL::Tilemap::Co(0, 0));
-    Tile->CopyMap(0, SRL::Tilemap::Co(8, 0), SRL::Tilemap::Co(15, 7), 2, SRL::Tilemap::Co(0, 0));
-    Tile->CopyMap(0, SRL::Tilemap::Co(16,0), SRL::Tilemap::Co(23, 7), 3, SRL::Tilemap::Co(0, 0));
-    Tile->CopyMap(0, SRL::Tilemap::Co(24,0), SRL::Tilemap::Co(31, 7), 4, SRL::Tilemap::Co(0, 0));
+    Tile->CopyMap(0, SRL::Tilemap::Coord(0, 0), SRL::Tilemap::Coord(7, 7), 1, SRL::Tilemap::Coord(0, 0));
+    Tile->CopyMap(0, SRL::Tilemap::Coord(8, 0), SRL::Tilemap::Coord(15, 7), 2, SRL::Tilemap::Coord(0, 0));
+    Tile->CopyMap(0, SRL::Tilemap::Coord(16,0), SRL::Tilemap::Coord(23, 7), 3, SRL::Tilemap::Coord(0, 0));
+    Tile->CopyMap(0, SRL::Tilemap::Coord(24,0), SRL::Tilemap::Coord(31, 7), 4, SRL::Tilemap::Coord(0, 0));
     
     //We will display right hand on NBG1 Layer in this example:
     SRL::VDP2::NBG1::LoadTilemap(*Tile);
@@ -50,7 +50,7 @@ int main()
 {
     SRL::Core::Initialize(HighColor(20, 10, 50));
     Digital port0(0); // Initialize gamepad on port 0
-    SRL::VDP2::NBG0::CelAddress = (void*)VDP2_VRAM_A0;
+    SRL::VDP2::NBG0::CellAddress = (void*)VDP2_VRAM_A0;
     SRL::VDP2::NBG0::MapAddress = (void*)VDP2_VRAM_A1;
     
     

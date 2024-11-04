@@ -78,36 +78,41 @@ namespace SRL::Tilemap
         }
     };
 
-    /** @brief Virtual interface for tilemaps
+    /** @brief Virtual interface for tilemap
      */
     struct ITilemap
     {
-    protected:
-
-        /** @brief Default constructor visible only to children
-         */
-        ITilemap() = default;
-
-    public:
         /** @brief Get Cell data(Tileset)
          * @return Pointer to Cell data
          */
-        virtual void* GetCellData() = 0;
+        virtual void* GetCellData()
+        {
+            return nullptr;
+        }
 
         /** @brief Get Map data(Tilemap)
         * @return Pointer to Map data
         */
-        virtual void* GetMapData() = 0;
+        virtual void* GetMapData()
+        {
+            return nullptr;
+        }
 
         /** @brief Get Palette data
         * @return Pointer to palette data
         */
-        virtual void* GetPalData() = 0;
+        virtual void* GetPalData()
+        {
+            return nullptr;
+        }
 
         /** @brief Get Tilemap Info
         * @return Tilemap Info
         */
-        virtual TilemapInfo* GetInfo() = 0;
+        virtual TilemapInfo GetInfo()
+        {
+            return TilemapInfo();
+        }
     };
 
     /** @brief Unsigned 8 bit coordinates for tiles withing a page of a tilemap
@@ -133,6 +138,6 @@ namespace SRL::Tilemap
          * @param x X coordinate of tile in page
          * @param y Y coordinate of tile in page
          */
-        Coord(uint8_t x, uint8_t y) : X(x), Y(y) {}
+        Coord(uint16_t x, uint16_t y) : X(x), Y(y) {}
     };
 }

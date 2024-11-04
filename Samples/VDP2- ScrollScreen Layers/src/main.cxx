@@ -13,17 +13,17 @@ int main()
     SRL::Core::Initialize(HighColor(20,10,50));
     Digital port0(0); // Initialize gamepad on port 0
     
-    SRL::Tilemap::SGLb* TestTilebin = new SRL::Tilemap::SGLb("TESTN2.BIN");//Load tilemap from cd to main RAM
+    SRL::Tilemap::Interfaces::CubeTile* TestTilebin = new SRL::Tilemap::Interfaces::CubeTile("TESTN2.BIN");//Load tilemap from cd to main RAM
     SRL::VDP2::NBG0::LoadTilemap(*TestTilebin);
     delete TestTilebin;
 
    
-    TestTilebin = new SRL::Tilemap::SGLb("FOGRGB.BIN");//Load tilemap from cd to main RAM
+    TestTilebin = new SRL::Tilemap::Interfaces::CubeTile("FOGRGB.BIN");//Load tilemap from cd to main RAM
     SRL::VDP2::NBG1::LoadTilemap(*TestTilebin);
     delete TestTilebin;
 
-    SRL::Debug::Print(2, 4, "%x", SRL::VDP2::NBG0::GetCelAddress());
-    SRL::Debug::Print(2, 5, "%x", SRL::VDP2::NBG1::GetCelAddress());
+    SRL::Debug::Print(2, 4, "%x", SRL::VDP2::NBG0::GetCellAddress());
+    SRL::Debug::Print(2, 5, "%x", SRL::VDP2::NBG1::GetCellAddress());
     SRL::Debug::Print(2, 6, "%x", SRL::VDP2::NBG0::GetMapAddress());
     SRL::Debug::Print(2, 7, "%x", SRL::VDP2::NBG1::GetMapAddress());
     SRL::VDP2::NBG0::SetPriority(SRL::VDP2::Priority::Layer6);//set NBG0 priority

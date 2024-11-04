@@ -84,11 +84,11 @@ namespace SRL
 
             /** @brief Linearly Allocates Vram in a bank
             * @param size Number of bytes to allocate
-            * @param boundary Byte Boundary that the allocation should be alligned to (must be multiple of 32 for all VDP2 Data types)
+            * @param boundary Byte Boundary that the allocation should be aligned to (must be multiple of 32 for all VDP2 Data types)
             * @param Bank The VRAM bank to allocate in
             * @param Cycles (Optional) Number of Bank Cycles this data will require to access (0-8).
             * @return void* start of the Allocated region in VRAM (nullptr if allocation failed)
-            * @note  Any VRAM skipped to maintain allignment to a boundary is rendered inaccessible to futher allocations until reset
+            * @note  Any VRAM skipped to maintain alignment to a boundary is rendered inaccessible to further allocations until reset
             */
             inline static void* Allocate(uint32_t size, uint32_t boundary, VDP2::VramBank bank, uint8_t cycles = 0)
             {
@@ -97,18 +97,18 @@ namespace SRL
                 // Ensure allocation is aligned to requested VRAM boundary:
                 uint32_t addrOffset = 0;
 
-                if ((uint32_t)currentBot[(uint16_t)bank] & (boundary - 1))
+                if ((uint32_t)VRAM::currentBot[(uint16_t)bank] & (boundary - 1))
                 {
                     addrOffset = boundary - ((uint32_t)currentBot[(uint16_t)bank] & (boundary - 1));
                 }
 
                 if (VDP2::VRAM::GetAvailable(bank) > size + addrOffset)
                 {
-                    if ((bankCycles[(uint16_t)bank] + cycles) < 8)
+                    if ((VRAM::bankCycles[(uint16_t)bank] + cycles) < 8)
                     {
-                        myAddress = currentBot[(uint16_t)bank] + addrOffset;
-                        currentBot[(uint16_t)bank] += size + addrOffset;
-                        bankCycles[(uint16_t)bank] += cycles;
+                        myAddress = VRAM::currentBot[(uint16_t)bank] + addrOffset;
+                        VRAM::currentBot[(uint16_t)bank] += size + addrOffset;
+                        VRAM::bankCycles[(uint16_t)bank] += cycles;
                     }
                 }
 
@@ -120,7 +120,7 @@ namespace SRL
              * @param screen The screen identifier
              * @return Pointer to the allocated memory
              */
-            inline static void* AutoAllocateCel(Tilemap::TilemapInfo& info, uint16_t screen)
+            inline static void* AutoAllocateCell(Tilemap::TilemapInfo& info, uint16_t screen)
             {
                 void* alloc;
 
@@ -149,10 +149,10 @@ namespace SRL
                         break;
                     }
 
-                    alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, ReqCycles);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, ReqCycles);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, ReqCycles);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, ReqCycles);
+                    alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, reqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, reqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, reqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, reqCycles);
                     if (alloc == nullptr) SRL::Debug::Assert("NBG Cel Allocation failed: insufficient VRAM");
                 }
 
@@ -315,17 +315,17 @@ namespace SRL
                 SRL::Tilemap::TilemapInfo myInfo = tilemap.GetInfo();
                 ScreenType::Info = tilemap.GetInfo();
 
-                if ((uint32_t)ScreenType::CelAddress < VDP2_VRAM_A0)
+                if ((uint32_t)ScreenType::CellAddress < VDP2_VRAM_A0)
                 {
-                    ScreenType::CelAddress = VRAM::AutoAllocateCel(myInfo, ScreenType::ScreenID);
+                    ScreenType::CellAddress = VRAM::AutoAllocateCell(myInfo, ScreenType::ScreenID);
 
-                    if ((uint32_t)ScreenType::CelAddress < VDP2_VRAM_A0)
+                    if ((uint32_t)ScreenType::CellAddress < VDP2_VRAM_A0)
                     {
                         SRL::Debug::Assert("Tilemap Load Failed- CEL DATA exceeds existing VRAM allocation");
                         return;
                     }
                 }
-                else if (ScreenType::CelAllocSize < ScreenType::Info.CelByteSize)
+                else if (ScreenType::CellAllocSize < ScreenType::Info.CellByteSize)
                 {
                     SRL::Debug::Assert("Tilemap Load Failed- CEL DATA exceeds existing VRAM allocation");
                     return;
@@ -361,7 +361,7 @@ namespace SRL
 
                 if (ScreenType::ScreenID != scnRBG0) VDP2::ScrollScreen<ScreenType, Id, On>::SetPlanesDefault(ScreenType::Info);
 
-                VDP2::ScrollScreen<ScreenType, Id, On>::Cell2VRAM((uint8_t*)tilemap.GetCellData(), ScreenType::CelAddress, ScreenType::Info.CelByteSize);
+                VDP2::ScrollScreen<ScreenType, Id, On>::Cell2VRAM((uint8_t*)tilemap.GetCellData(), ScreenType::CellAddress, ScreenType::Info.CellByteSize);
                 VDP2::ScrollScreen<ScreenType, Id, On>::Map2VRAM(
                     ScreenType::Info,
                     (uint16_t*)tilemap.GetMapData(),
@@ -512,9 +512,9 @@ namespace SRL
             */
             inline static void SetOpacity(Types::Fxp opacity = 1.0)
             {
-                if (opacity < 0.0) return;
+                if (opacity < Types::Fxp(0.0)) return;
 
-                else if (opacity >= 1.0)
+                else if (opacity >= Types::Fxp(1.0))
                 {
                     VDP2::ColorCalcScrolls &= ~(ScreenType::ScreenON);
                     slColorCalcOn(VDP2::ColorCalcScrolls);
@@ -537,42 +537,42 @@ namespace SRL
 
             /** @brief Compute the offset that must be added to map data When Corresponding Cel Data does not start on a VRAM bank boundary
             * @param tile The data configuration of the tilemap
-            * @param CelAddress Address of corresponding Cel Data in VRAM (must be a 32 byte boundary)
+            * @param cellAddress Address of corresponding Cel Data in VRAM (must be a 32 byte boundary)
             * @return The Cel Offset to add to to map data
             */
-            inline static uint32_t GetCellOffset(SRL::Tilemap::TilemapInfo& tile, void* celAddress)
+            inline static uint32_t GetCellOffset(SRL::Tilemap::TilemapInfo& tile, void* cellAddress)
             {
-                uint32_t CelOffset;
+                uint32_t cellOffset;
 
-                if (!ScreenType::Info.MapMode) CelOffset = ((uint32_t)celAddress - VDP2_VRAM_A0) >> 5; // 2WORD
+                if (!ScreenType::Info.MapMode) cellOffset = ((uint32_t)cellAddress - VDP2_VRAM_A0) >> 5; // 2WORD
                 else if (ScreenType::Info.MapMode == 0x8000) // 1WORD MODE 0
                 {
-                    if (ScreenType::Info.CharSize) CelOffset = (((uint32_t)celAddress - VDP2_VRAM_A0) & 0x1FFFF) >> 7; // 2x2
-                    else CelOffset = (((uint32_t)celAddress - VDP2_VRAM_A0) & 0x7FFF) >> 5; // 1x1
+                    if (ScreenType::Info.CharSize) cellOffset = (((uint32_t)cellAddress - VDP2_VRAM_A0) & 0x1FFFF) >> 7; // 2x2
+                    else cellOffset = (((uint32_t)cellAddress - VDP2_VRAM_A0) & 0x7FFF) >> 5; // 1x1
                 }
                 else // 1WORD MODE 1
                 {
-                    if (ScreenType::Info.CharSize) CelOffset = ((uint32_t)celAddress - VDP2_VRAM_A0) >> 7; // 2x2
-                    else CelOffset = (((uint32_t)celAddress - VDP2_VRAM_A0) & 0x1FFFF) >> 5; // 1x1
+                    if (ScreenType::Info.CharSize) cellOffset = ((uint32_t)cellAddress - VDP2_VRAM_A0) >> 7; // 2x2
+                    else cellOffset = (((uint32_t)cellAddress - VDP2_VRAM_A0) & 0x1FFFF) >> 5; // 1x1
                 }
 
-                return CelOffset;
+                return cellOffset;
             }
 
             /** @brief Gets the Pallet Bank That must be included in Map Data to Reference a Palette in CRAM
-             * @param PaletteID (optional) specify to reference an arbitrary palette, otherwise uses Id from ScrollScreen::TilePalette
+             * @param paletteID (optional) specify to reference an arbitrary palette, otherwise uses Id from ScrollScreen::TilePalette
              * @return The Formatted Palette ID to be included in Map Indicies to reference a specified palette
              */
             inline static uint32_t GetPalOffset(int8_t paletteID = -1)
             {
-                uint32_t PaletteOffset;
+                uint32_t paletteOffset;
 
                 if (paletteID < 0) paletteID = ScreenType::TilePalette.GetId();
 
-                if (ScreenType::Info.MapMode) PaletteOffset = paletteID << 12;
-                else PaletteOffset = paletteID << 24;
+                if (ScreenType::Info.MapMode) paletteOffset = paletteID << 12;
+                else paletteOffset = paletteID << 24;
 
-                return PaletteOffset;
+                return paletteOffset;
             }
         private:
 

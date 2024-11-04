@@ -19,4 +19,3 @@ make all
 GOTO end
 
 :end
-pause

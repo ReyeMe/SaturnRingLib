@@ -6,265 +6,6 @@
 
 namespace SRL::Tilemap::Interfaces
 {
-    /** @brief SGL tilemap interface using the (cell, map, palette) arrays in a .C file
-     */
-    struct SGLTile : public ITilemap
-    {
-    private:
-        /** @brief Pointer to Cell data table
-         */
-        void* cellData;
-
-        /** @brief Pointer to Map data table
-         */
-        void* mapData;
-
-        /** @brief Pointer to Palette data table
-         */
-        void* palData;
-
-        /** @brief Tilemap configuration
-         */
-        TilemapInfo info;
-
-    public:
-
-        /** @brief Initialize with SGLTile data tables and Tilemap config
-         * @param cellData SGLTile cell data table
-         * @param mapData SGLTile map data table
-         * @param palData SGLTile palette data table
-         * @param myInfo TilemapInfo Describing configuration of the SGLTile data
-         */
-        SGLTile(const void* cellData, const void* mapData, const void* palData, const TilemapInfo& info) :
-            cellData(cellData), mapData(mapData), palData(palData), info(info)
-        {
-        }
-
-        /** @brief Get Cell data(Tileset)
-         * @return Pointer to Cel data
-         */
-        void* GetCellData() override
-        {
-            return this->CellData;
-        }
-
-        /** @brief Get Map data(Tilemap)
-         * @return Pointer to Map data
-         */
-        void* GetMapData() override
-        {
-            return this->MapData;
-        }
-
-        /** @brief Get Palette data
-         * @return Pointer to palette data
-         */
-        void* GetPalData() override
-        {
-            return this->PalData;
-        }
-
-        /** @brief Get Tilemap Info
-         * @return Tilemap Info
-         */
-        TilemapInfo* GetInfo() override
-        {
-            return &this->Info;
-        }
-    };
-
-    /** @brief Test implementation of ITilemap interface for Loading Cubecat binary format for cel/map/pal data.
-     *
-     *  @details This type assumes the raw data is pre-formatted to all VDP2 specifications other than
-     *  VRAM and Palette offsets. Furthermore, the stored format is specified in the file header to build TilemapInfo.
-     *  The file layout is as follows (all data is stored as big endian:
-     *      32 byte header read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
-     *      32 or 512 bytes palette data(if a palette type is specified in ColorMode)
-     *      Cel Data (size specified in header)
-     *      Map Data (size specified in header)
-     */
-    struct CubeTile : public ITilemap
-    {
-    private:
-
-        /** @brief Pointer to Cel data table
-         */
-        void* celData;
-
-        /** @brief Pointer to Map data table
-         */
-        void* mapData;
-
-        /** @brief Pointer to Palette data table
-         */
-        void* palData;
-
-        /** @brief Tilemap configuration
-         */
-        TilemapInfo info;
-
-        /** @brief loads SGLb file from CD and Initializes Tilemap Info based on the file header
-         * @param file The CubeTile format file to load from CD
-         */
-        void LoadData(SRL::Cd::File* file)
-        {
-            uint8_t* stream = new uint8_t[file->Size.Bytes + 1];
-            int32_t read = file->LoadBytes(0, file->Size.Bytes, stream);
-
-            if (read == file->Size.Bytes)
-            {
-                // Load file
-                uint8_t* imageData = (uint8_t*)(stream + 32);
-                uint32_t* headerData = (uint32_t*)stream;
-                uint32_t celSize = this->info.CelByteSize = headerData[1];
-                uint32_t mapSize = headerData[2];
-
-                //decode color mode
-                switch (headerData[4])
-                {
-                case 0x0:
-                    this->info.ColorMode = SRL::CRAM::TextureColorMode::Paletted16;
-                    break;
-                case 0x10:
-                    this->info.ColorMode = SRL::CRAM::TextureColorMode::Paletted256;
-                    break;
-                case 0x30:
-                    this->info.ColorMode = SRL::CRAM::TextureColorMode::RGB555;
-                    break;
-                }
-
-                this->info.CharSize = (uint16_t)headerData[3];
-                this->info.PlaneSize = (uint16_t)headerData[5];
-                this->info.MapMode = (uint16_t)headerData[6];
-
-                if (headerData[7] > 4)//if header formatted to allow differing height and width
-                {
-                    this->info.MapWidth = (uint16_t)((headerData[7] & 0xffff) * 32);
-                    this->info.MapHeight = (uint16_t)((headerData[7] >> 16) * 32);
-                }
-                else // Old format for compatibility
-                {
-                    this->info.MapHeight = this->info.MapWidth = (uint16_t)(headerData[7] * 32);
-                }
-
-                if (this->info.CharSize == CHAR_SIZE_1x1)
-                {
-                    this->info.MapHeight <<= 1;
-                    this->info.MapWidth <<= 1;
-                }
-
-                if (this->info.PlaneSize == PL_SIZE_2x2)
-                {
-                    this->info.MapHeight <<= 1;
-                    this->info.MapWidth <<= 1;
-                }
-                else if (this->info.PlaneSize == PL_SIZE_2x1)
-                {
-                    this->info.MapWidth <<= 1;
-                }
-
-                this->celData = new uint8_t[celSize];
-                this->mapData = new uint8_t[mapSize];
-
-                // Load Palette Colors if they exist:
-                if (this->Info.ColorMode == SRL::CRAM::TextureColorMode::Paletted16)
-                {
-                    this->palData = new uint8_t[32];
-
-                    for (int i = 0; i < 32; ++i)
-                    {
-                        this->palData[i] = *imageData++;
-                    }
-                }
-                else if (this->info.ColorMode == SRL::CRAM::TextureColorMode::Paletted256)
-                {
-                    this->palData = new uint8_t[512];
-
-                    for (int i = 0; i < 512; ++i)
-                    {
-                        this->palData[i] = *(imageData++);
-                    }
-                }
-
-                // Load map data:
-                for (uint32_t j = 0; j < mapSize; ++j)
-                {
-                    this->mapData[j] = *(imageData++);
-
-                }
-
-                // Load cel data            
-                for (uint32_t k = 0; k < celSize; ++k)
-                {
-                    this->celData[k] = *(imageData++);
-
-                }
-            }
-
-            delete stream;
-        }
-
-    public:
-
-        /** @brief Initialize with CubeTile filename to load
-         * @details Allocates and loads specified CubeTile file to work ram.
-         * @param filename Name of the CubeTile file to load.
-         */
-        CubeTile(const char* filename)
-        {
-            SRL::Cd::File file = SRL::Cd::File(filename);
-
-            if (file.Exists())
-            {
-                this->LoadData(&file);
-            }
-            else
-            {
-                SRL::Debug::Assert("File '%s' is missing!", filename);
-            }
-        }
-
-        /** @brief Free all allocated resources and destroy CubeTile object
-         */
-        ~CubeTile()
-        {
-            if (this->celData) delete this->celData;
-            if (this->mapData) delete this->mapData;
-            if (this->palData) delete this->palData;
-        }
-
-        /** @brief Get Cell data(Tileset)
-         * @return Pointer to Cel data
-         */
-        void* GetCellData() override
-        {
-            return this->cellData;
-        }
-
-        /** @brief Get Map data(Tilemap)
-         * @return Pointer to Map data
-         */
-        void* GetMapData() override
-        {
-            return this->mapData;
-        }
-
-        /** @brief Get Palette data
-         * @return Pointer to palette data
-         */
-        void* GetPalData() override
-        {
-            return this->palData;
-        }
-
-        /** @brief Get Tilemap Info
-         * @return Tilemap Info
-         */
-        TilemapInfo* GetInfo() override
-        {
-            return &this->info;
-        }
-    };
 
     /** @brief Interface to Convert Bitmap Image into Tilemap
      * @note Maximum Size of bitmap to convert is 0x20000 bytes (512x512 @ 4bpp, 512x256 @ 8bpp, or 512x128 @ 16bppp).
@@ -275,15 +16,15 @@ namespace SRL::Tilemap::Interfaces
     private:
         /** @brief Pointer to Cell data table
          */
-        void* cellData;
+        uint8_t* cellData;
 
         /** @brief Pointer to Map data table
          */
-        void* mapData;
+        uint16_t* mapData;
 
         /** @brief Pointer to Palette data table
          */
-        void* palData;
+        uint16_t* palData;
 
         /** @brief Tilemap configuration
          */
@@ -293,7 +34,7 @@ namespace SRL::Tilemap::Interfaces
         */
         uint16_t numCells;
 
-        /** @brief Number of pages of map data that will be alllocated for this tilemap.
+        /** @brief Number of pages of map data that will be allocated for this tilemap.
         */
         uint8_t numPages;
 
@@ -359,7 +100,7 @@ namespace SRL::Tilemap::Interfaces
             uint16_t yCells = bitmapInfo.Height >> 3;
             uint16_t xCells = bitmapInfo.Width >> 3;
             uint8_t* currentCell = this->cellData;
-            uint8_t* currentData = bitmapInfo.GetData();
+            uint8_t* currentData = bmp.GetData();
             uint16_t* currentMap = this->mapData;
 
             // Set data width of a line of Cel data base on the color mode of the image data
@@ -383,9 +124,9 @@ namespace SRL::Tilemap::Interfaces
 
             // Check to make sure image dimensions are compatible:
             if ((byteWidth & (uint16_t)sz) ||
-                (info.Height & (uint16_t)sz) ||
-                info.Height > 512 ||
-                info.Width > 512)
+                (bitmapInfo.Height & (uint16_t)sz) ||
+                bitmapInfo.Height > 512 ||
+                bitmapInfo.Width > 512)
             {
                 this->cellData = NULL;
                 this->mapData = NULL;
@@ -406,9 +147,9 @@ namespace SRL::Tilemap::Interfaces
 
             if (config.CharSize == CHAR_SIZE_1x1) // Convert to 8x8 characters
             {
-                for (int32_t i = 0;i < yCels; ++i)
+                for (int32_t i = 0;i < yCells; ++i)
                 {
-                    for (int32_t j = 0; j < xCels; ++j)
+                    for (int32_t j = 0; j < xCells; ++j)
                     {
                         this->dataAccumulator = 0;
                         currentCell = this->Bitmap2Cell(currentData, currentCell, byteWidth, byteCell);
@@ -416,12 +157,12 @@ namespace SRL::Tilemap::Interfaces
 
                         if (!config.MapMode) ++currentMap; // Add extra word of spacing to character pattern data
 
-                        if (this->dataAccumulator) // If this tile was not blank keep it 
+                        if (this->dataAccumulator) // If this tile was not blank keep it
                         {
                             *currentMap++ = this->numCells;
                             this->numCells += (byteCell >> 2);
                         }
-                        else // Set map to index 0 and do not retain the tile 
+                        else // Set map to index 0 and do not retain the tile
                         {
                             *currentMap++ = 0;
                             currentCell -= (byteCell << 3);
@@ -447,13 +188,13 @@ namespace SRL::Tilemap::Interfaces
 
                         if (this->dataAccumulator) // If this tile was not blank
                         {
-                            *currentmap++ = this->numCels;
-                            this->numCels += (byteCel >> 2);
+                            *currentMap++ = this->numCells;
+                            this->numCells += (byteCell >> 2);
                         }
-                        else // Set to index 0 and do not retain this tile 
+                        else // Set to index 0 and do not retain this tile
                         {
-                            *currentmap++ = 0;
-                            currentCel -= (byteCel << 5);
+                            *currentMap++ = 0;
+                            currentCell -= (byteCell << 5);
                         }
                     }
 
@@ -472,7 +213,8 @@ namespace SRL::Tilemap::Interfaces
         * Contains at least 1 page with the default mapping of all tiles extracted from the bitmap,
         * but more pages can be reserved here for further use
         */
-        Bmp2Tile(SRL::Bitmap::IBitmap& bmp, uint8_t pages = 1)
+        Bmp2Tile(SRL::Bitmap::IBitmap& bmp, uint8_t pages = 1) :
+            cellData(nullptr), mapData(nullptr), palData(nullptr), info(TilemapInfo()), numCells(0), numPages(0), dataAccumulator(0)
         {
             if (pages < 1) pages = 1;
 
@@ -484,11 +226,11 @@ namespace SRL::Tilemap::Interfaces
             this->info.PlaneSize = PL_SIZE_1x1;
             this->info.MapHeight = (this->info.CharSize) ? (32 * pages) : (64 * pages);
             this->info.MapWidth = (this->info.CharSize) ? 32 : 64;
-            uint8_t bitdepth = 1;
-            this->Info.CellByteSize = bmp.GetInfo().Height * bmp.GetInfo().Width;
+            uint8_t bitDepth = 1;
+            this->info.CellByteSize = bmp.GetInfo().Height * bmp.GetInfo().Width;
 
             // Add enough space for empty tile at start of set
-            this->info.CellByteSize += (Info.CharSize) ? 256 : 64;
+            this->info.CellByteSize += (this->info.CharSize) ? 256 : 64;
 
             if (this->info.ColorMode == CRAM::TextureColorMode::Paletted16)
             {
@@ -519,13 +261,11 @@ namespace SRL::Tilemap::Interfaces
             else
             {
                 this->palData = nullptr;
-
             }
 
             for (int i = 0; i < numPages; ++i) this->ClearPage(i);
 
             this->ConvertBitmap(this->info, bmp, 0);
-
         }
 
         /** @brief Free allocated resources and destroy Bmp2Tile object
@@ -564,9 +304,9 @@ namespace SRL::Tilemap::Interfaces
         /** @brief Get Tilemap Info
          * @return Tilemap Info
          */
-        TilemapInfo* GetInfo() override
+        TilemapInfo GetInfo() override
         {
-            return &this->info;
+            return this->info;
         }
 
         /** @brief Copies a rectangular selection of Tilemap data between  2 pages in the tilemap
@@ -576,10 +316,10 @@ namespace SRL::Tilemap::Interfaces
         * @param destPage Index of the Tilemap page being copied to
         * @param DestTile Starting Coordinate to copy to in the destination page (the new Top left)
         */
-        void CopyMap(uint8_t sourcePage, Tilemap::Coord& topLeft, Tilemap::Coord& botRight, uint8_t destPage, Tilemap::Coord& destTile)
+        void CopyMap(uint8_t sourcePage, Tilemap::Coord topLeft, Tilemap::Coord botRight, uint8_t destPage, Tilemap::Coord destTile)
         {
 
-            // Check that requested page indecies exist in this map:
+            // Check that requested page indicies exist in this map:
             if (!this->mapData || sourcePage >= this->numPages || destPage >= numPages)
             {
                 return;
@@ -598,7 +338,7 @@ namespace SRL::Tilemap::Interfaces
             if (botRight.X > pageDim) botRight.X = pageDim;
             if (botRight.Y > pageDim) botRight.Y = pageDim;
 
-            if (DestTile.X + (botRight.X - topLeft.X) > pageDim)
+            if (destTile.X + (botRight.X - topLeft.X) > pageDim)
             {
                 botRight.X -= (destTile.X + (botRight.X - topLeft.X) - pageDim);
             }
@@ -643,9 +383,9 @@ namespace SRL::Tilemap::Interfaces
         void ClearPage(int pageIndex)
         {
             if (pageIndex >= this->numPages) return;
-            int pageOffset = (this->Info.CharSize) ? 1024 : 4096;
-            if (this->Info.MapMode == PNB_2WORD) pageOffset << 1;
-            uint16_t* PageStart = this->MapData + (pageOffset * pageIndex);
+            int pageOffset = (this->info.CharSize) ? 1024 : 4096;
+            if (this->info.MapMode == PNB_2WORD) pageOffset << 1;
+            uint16_t* PageStart = this->mapData + (pageOffset * pageIndex);
             for (int i = 0; i < pageOffset; ++i) *(PageStart++) = 0;
         }
 
@@ -688,6 +428,261 @@ namespace SRL::Tilemap::Interfaces
                 mapStart[i] += celOffset;
                 mapStart[i] |= palOffset;
             }
+        }
+    };
+
+    /** @brief Test implementation of ITilemap interface for Loading Cubecat binary format for cel/map/pal data.
+     *
+     *  @details This type assumes the raw data is pre-formatted to all VDP2 specifications other than
+     *  VRAM and Palette offsets. Furthermore, the stored format is specified in the file header to build TilemapInfo.
+     *  The file layout is as follows (all data is stored as big endian:
+     *      32 byte header read as 8 uint32_t values [TypeID, Sizeof(CelData), Sizeof(Mapdata),CharSize,ColorMode,PlaneSize,MapMode,MapSize]
+     *      32 or 512 bytes palette data(if a palette type is specified in ColorMode)
+     *      Cel Data (size specified in header)
+     *      Map Data (size specified in header)
+     */
+    struct CubeTile : public ITilemap
+    {
+    private:
+
+        /** @brief Pointer to Cel data table
+         */
+        uint8_t* cellData;
+
+        /** @brief Pointer to Map data table
+         */
+        uint8_t* mapData;
+
+        /** @brief Pointer to Palette data table
+         */
+        uint8_t* palData;
+
+        /** @brief Tilemap configuration
+         */
+        TilemapInfo info;
+
+        /** @brief loads SGLb file from CD and Initializes Tilemap Info based on the file header
+         * @param file The CubeTile format file to load from CD
+         */
+        void LoadData(SRL::Cd::File* file)
+        {
+            uint8_t* stream = new uint8_t[file->Size.Bytes + 1];
+            int32_t read = file->LoadBytes(0, file->Size.Bytes, stream);
+
+            if (read == file->Size.Bytes)
+            {
+                // Load file
+                uint8_t* imageData = (uint8_t*)(stream + 32);
+                uint32_t* headerData = (uint32_t*)stream;
+                this->info.CellByteSize = headerData[1];
+                uint32_t celSize = this->info.CellByteSize;
+                uint32_t mapSize = headerData[2];
+
+                //decode color mode
+                switch (headerData[4])
+                {
+                case 0x0:
+                    this->info.ColorMode = SRL::CRAM::TextureColorMode::Paletted16;
+                    break;
+
+                case 0x10:
+                    this->info.ColorMode = SRL::CRAM::TextureColorMode::Paletted256;
+                    break;
+
+                case 0x30:
+                    this->info.ColorMode = SRL::CRAM::TextureColorMode::RGB555;
+                    break;
+                }
+
+                this->info.CharSize = (uint16_t)headerData[3];
+                this->info.PlaneSize = (uint16_t)headerData[5];
+                this->info.MapMode = (uint16_t)headerData[6];
+                if (headerData[7] > 4) // If header formatted to allow differing height and width
+                {
+                    this->info.MapWidth = (uint16_t)((headerData[7] & 0xffff) * 32);
+
+                    this->info.MapHeight = (uint16_t)((headerData[7] >> 16) * 32);
+                }
+                else this->info.MapHeight = this->info.MapWidth = (uint16_t)(headerData[7] * 32); // Old format for compatibility
+
+                if (this->info.CharSize == CHAR_SIZE_1x1)
+                {
+                    this->info.MapHeight <<= 1;
+                    this->info.MapWidth <<= 1;
+                }
+
+                if (this->info.PlaneSize == PL_SIZE_2x2)
+                {
+                    this->info.MapHeight <<= 1;
+                    this->info.MapWidth <<= 1;
+                }
+                else if (this->info.PlaneSize == PL_SIZE_2x1)
+                {
+                    this->info.MapWidth <<= 1;
+                }
+
+                this->cellData = new uint8_t[celSize];
+                this->mapData = new uint8_t[mapSize];
+
+                // Load Palette Colors if they exist:
+                if (this->info.ColorMode == SRL::CRAM::TextureColorMode::Paletted16)
+                {
+                    this->palData = new uint8_t[32];
+
+                    for (int i = 0; i < 32; ++i) this->palData[i] = *imageData++;
+                }
+                else if (this->info.ColorMode == SRL::CRAM::TextureColorMode::Paletted256)
+                {
+                    this->palData = new uint8_t[512];
+
+                    for (int i = 0; i < 512; ++i) this->palData[i] = *(imageData++);
+                }
+
+                // Load map data:
+                for (uint32_t j = 0; j < mapSize; ++j)
+                {
+                    this->mapData[j] = *(imageData++);
+
+                }
+
+                // Load cel data
+                for (uint32_t k = 0; k < celSize; ++k)
+                {
+                    this->cellData[k] = *(imageData++);
+
+                }
+            }
+
+            delete stream;
+        }
+
+    public:
+
+        /** @brief Initialize with CubeTile filename to load
+         * @details Allocates and loads specified CubeTile file to work ram.
+         * @param filename Name of the CubeTile file to load.
+         */
+        CubeTile(const char* filename) :
+            cellData(nullptr), mapData(nullptr), palData(nullptr), info(TilemapInfo())
+        {
+            SRL::Cd::File file = SRL::Cd::File(filename);
+
+            if (file.Exists())
+            {
+                this->LoadData(&file);
+            }
+            else
+            {
+                SRL::Debug::Assert("File '%s' is missing!", filename);
+            }
+        }
+
+        /** @brief Free all allocated resources and destroy CubeTile object
+         */
+        ~CubeTile()
+        {
+            if (this->cellData) delete this->cellData;
+            if (this->mapData) delete this->mapData;
+            if (this->palData) delete this->palData;
+        }
+
+        /** @brief Get Cell data(Tileset)
+         * @return Pointer to Cel data
+         */
+        void* GetCellData() override
+        {
+            return this->cellData;
+        }
+
+        /** @brief Get Map data(Tilemap)
+         * @return Pointer to Map data
+         */
+        void* GetMapData() override
+        {
+            return this->mapData;
+        }
+
+        /** @brief Get Palette data
+         * @return Pointer to palette data
+         */
+        void* GetPalData() override
+        {
+            return this->palData;
+        }
+
+        /** @brief Get Tilemap Info
+         * @return Tilemap Info
+         */
+        TilemapInfo GetInfo() override
+        {
+            return this->info;
+        }
+    };
+
+    /** @brief SGL tilemap interface using the (cell, map, palette) arrays in a .C file
+     */
+    struct SGLTile : public ITilemap
+    {
+    private:
+        /** @brief Pointer to Cell data table
+         */
+        void* cellData;
+
+        /** @brief Pointer to Map data table
+         */
+        void* mapData;
+
+        /** @brief Pointer to Palette data table
+         */
+        void* palData;
+
+        /** @brief Tilemap configuration
+         */
+        TilemapInfo info;
+
+    public:
+
+        /** @brief Initialize with SGLTile data tables and Tilemap config
+         * @param cellData SGLTile cell data table
+         * @param mapData SGLTile map data table
+         * @param palData SGLTile palette data table
+         * @param myInfo TilemapInfo Describing configuration of the SGLTile data
+         */
+        SGLTile(void* cellData, void* mapData, void* palData, const TilemapInfo& info) :
+            cellData(cellData), mapData(mapData), palData(palData), info(info)
+        {
+        }
+
+        /** @brief Get Cell data(Tileset)
+         * @return Pointer to Cel data
+         */
+        void* GetCellData() override
+        {
+            return this->cellData;
+        }
+
+        /** @brief Get Map data(Tilemap)
+         * @return Pointer to Map data
+         */
+        void* GetMapData() override
+        {
+            return this->mapData;
+        }
+
+        /** @brief Get Palette data
+         * @return Pointer to palette data
+         */
+        void* GetPalData() override
+        {
+            return this->palData;
+        }
+
+        /** @brief Get Tilemap Info
+         * @return Tilemap Info
+         */
+        TilemapInfo GetInfo() override
+        {
+            return this->info;
         }
     };
 }
