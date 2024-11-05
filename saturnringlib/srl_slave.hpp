@@ -4,7 +4,9 @@ extern "C" {
     #include <sgl.h>  // For slSlaveFunc
 }
 
-namespace SRL::Types
+namespace SRL
+{
+    namespace Types
     {
         /** @brief Abstract class that defines the class prototype to implement a Task that runs on Slave SH2
          */

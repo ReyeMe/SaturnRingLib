@@ -288,7 +288,7 @@ namespace SRL
         static bool DrawSprite(
             const uint16_t texture,
             SRL::CRAM::Palette* texturePalette,
-            const Types::Vector2D location[4],
+            const Types::Vector2D points[4],
             const Types::Fxp depth)
         {
             // Sprite attributes and command points
@@ -296,7 +296,8 @@ namespace SRL
             #pragma GCC diagnostic ignored "-Wnarrowing"
             SPR_ATTR attr = Scene2D::GetSpriteAttribute(texture, texturePalette);
 
-            return slDispSprite4P((FIXED*)location, depth.Value(), &attr);
+            return slDispSprite4P((FIXED*)points, depth.Value(), &attr);
+            #pragma GCC diagnostic pop
         }
 
         /** @brief Draw sprite from 4 points
@@ -305,9 +306,9 @@ namespace SRL
          * @param depth Depth sort value
          * @return True on success
          */
-        static bool DrawSprite(const uint16_t texture, const Types::Vector2D location[4], const Types::Fxp depth)
+        static bool DrawSprite(const uint16_t texture, const Types::Vector2D points[4], const Types::Fxp depth)
         {
-            return Scene2D::DrawSprite(texture, nullptr, location, depth);
+            return Scene2D::DrawSprite(texture, nullptr, points, depth);
         }
 
         /** @brief Draw simple sprite
