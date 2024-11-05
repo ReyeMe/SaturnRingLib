@@ -13,6 +13,8 @@ extern "C" {
     extern uint8_t SynchConst;
     extern int8_t SynchCount;
     extern uint16_t VDP2_EXTEN;
+    extern FIXED MsScreenDist;
+    extern uint16_t VDP2_RAMCTL;
 }
 
 #if !DOXYGEN
