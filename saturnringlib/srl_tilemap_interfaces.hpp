@@ -6,7 +6,6 @@
 
 namespace SRL::Tilemap::Interfaces
 {
-
     /** @brief Interface to Convert Bitmap Image into Tilemap
      * @note Maximum Size of bitmap to convert is 0x20000 bytes (512x512 @ 4bpp, 512x256 @ 8bpp, or 512x128 @ 16bppp).
      * @note empty tiles in the source image are detected and removed from the tileset, but duplicate and mirrored tiles are not.
@@ -84,10 +83,9 @@ namespace SRL::Tilemap::Interfaces
             return bitmapCell;
         }
 
-        /** @brief Splits source bitmap into 8x8 or 16x16 pixel tiles while ignoring empty tiles, and builds a default
-         * @page of map data that reproduces the layout of the original image.
+        /** @brief Splits source bitmap into 8x8 or 16x16 pixel tiles while ignoring empty tiles, and builds a default of map data that reproduces the layout of the original image.
          * @param config Desired data configuration of the resulting tilemap
-         * @param bmp the Soure bitmap image
+         * @param bmp the Source bitmap image
          * @param startingPage Which page in the tilemap to write the default map layout to
          */
         void ConvertBitmap(TilemapInfo& config, SRL::Bitmap::IBitmap& bmp, int startingPage)
@@ -314,7 +312,7 @@ namespace SRL::Tilemap::Interfaces
         * @param topLeft Page Coordinates of Top left of region to Copy
         * @param botRight Page Coordinates of Bottom Right of region Copy
         * @param destPage Index of the Tilemap page being copied to
-        * @param DestTile Starting Coordinate to copy to in the destination page (the new Top left)
+        * @param destTile Starting Coordinate to copy to in the destination page (the new Top left)
         */
         void CopyMap(uint8_t sourcePage, Tilemap::Coord topLeft, Tilemap::Coord botRight, uint8_t destPage, Tilemap::Coord destTile)
         {
@@ -365,6 +363,7 @@ namespace SRL::Tilemap::Interfaces
         }
 
         /** @brief Get address of tilemap page
+         * @param page Page index
          * @param coord Page coordinate
          * @return Page address
          */
@@ -646,7 +645,7 @@ namespace SRL::Tilemap::Interfaces
          * @param cellData SGLTile cell data table
          * @param mapData SGLTile map data table
          * @param palData SGLTile palette data table
-         * @param myInfo TilemapInfo Describing configuration of the SGLTile data
+         * @param info TilemapInfo Describing configuration of the SGLTile data
          */
         SGLTile(void* cellData, void* mapData, void* palData, const TilemapInfo& info) :
             cellData(cellData), mapData(mapData), palData(palData), info(info)

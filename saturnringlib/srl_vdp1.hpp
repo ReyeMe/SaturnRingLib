@@ -125,6 +125,7 @@ namespace SRL
 			}
 
 			/** @brief Construct a new Texture Metadata object
+             * @param texture Texture info
 			 * @param colorMode Texture color mode
 			 * @param palette Id of the pallet (not used in RGB555 mode)
 			 */

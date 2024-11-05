@@ -261,12 +261,14 @@ namespace SRL
              * @endcode
              */
             Flip = 4,
+
              /** @brief VDP2 color calculation effect
              * @details Set sprites Color Calculation Ratio to one of 8 stored opacities (Banks 0-7)
-             * @note Only applies to palette color modes
              * @code {.cpp}
              * //Set sprite to use ratio stored in opacity bank 1: 
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::OpacityBank, 1);
+             * @endcode
+             * @note Only applies to palette color modes
              */
             OpacityBank = 5,
         };

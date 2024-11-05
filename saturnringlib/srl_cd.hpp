@@ -89,7 +89,7 @@ namespace SRL
             File(GfsHn handle, int32_t fid, bool getSize = true) : Handle(handle), Size(getSize ? FileSize(handle) : FileSize()), identifier(fid) { }
 
             /** @brief Open a file on CD
-             * @param handle File handle
+             * @param name File name
              */
             File(const char* name) : Handle(nullptr), Size(0), identifier(-1)
             {
@@ -353,8 +353,10 @@ namespace SRL
                  */
                 unsigned char Number;
 
+                /** @brief Track location
+                 */
                 union {
-                    /** @brief Track location
+                    /** @brief Track location address
                      */
                     short Location;
                     struct {
@@ -374,6 +376,8 @@ namespace SRL
             struct Session
             {
 
+                /** @brief Session control flags
+                 */
                 unsigned int Control:4;
 
                 /** @brief Track address

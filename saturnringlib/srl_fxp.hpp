@@ -288,7 +288,6 @@ namespace SRL::Types
 		}
 
 		/** @brief Copy assignment operator.
-		 * @param fxp The Fxp object to copy.
 		 * @return A reference to this object.
 		 */
 		constexpr Fxp& operator=(const Fxp&) = default;

@@ -817,7 +817,7 @@ namespace SRL::Bitmap
     public:
 
         /** @brief Construct RGB555 TGA image from file
-         * @param filename TGA file name
+         * @param data TGA file
          * @param settings TGA loader settings
          */
         TGA(Cd::File* data, TGA::LoaderSettings settings = TGA::LoaderSettings()) : imageData(nullptr), palette(nullptr)

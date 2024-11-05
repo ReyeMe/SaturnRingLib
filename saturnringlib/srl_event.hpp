@@ -197,7 +197,10 @@ namespace SRL::Types
             return *this;
         }
 
-        // Remove static callback
+        /** @brief Remove static callback
+         * @param callback Static callback
+         * @return Event<Args...>& Event class
+         */
         Event<Args...>& operator-=(CallbackStatic callback)
         {
             auto it = std::ranges::find(this->staticCallbacks.begin(), this->staticCallbacks.end(), callback);
@@ -210,7 +213,10 @@ namespace SRL::Types
             return *this;
         }
 
-        // Remove member callback
+        /** @brief Remove member callback
+         * @param callback Member callback proxy
+         * @return Event<Args...>& Event class
+         */
         Event<Args...>& operator-=(CallbackMember callback)
         {
             auto it = std::ranges::find(this->memberCallbacks.begin(), this->memberCallbacks.end(), callback);
@@ -223,7 +229,9 @@ namespace SRL::Types
             return *this;
         }
 
-        // Invoke all callbacks
+        /** @brief Invoke all callbacks
+         * @param args Invocation parameters
+         */
         void Invoke(Args... args)
         {
             for (const auto& callback : this->staticCallbacks)

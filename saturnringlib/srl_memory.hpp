@@ -746,7 +746,6 @@ namespace SRL
          * @param destination Destination to set
          * @param value Value to set
          * @param length Data length to set
-         * @return Pointer to the allocated space in memory
          */
         inline static void MemSet(void* destination, const uint8_t value, const size_t length)
         {

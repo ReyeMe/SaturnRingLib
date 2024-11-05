@@ -144,7 +144,6 @@ namespace SRL::Types
         }
 
         /** @brief Set value of another instance to current instance
-         * @param angle Other angle
          * @return Computation result 
          */
         constexpr Angle& operator=(const Angle&) = default;

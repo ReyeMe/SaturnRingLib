@@ -74,7 +74,7 @@ namespace SRL
 
         public:
             /** @brief Gets current amount of free VRAM in a bank
-            * @param Bank the VRAM bank to get free space in
+            * @param bank the VRAM bank to get free space in
             * @return number of available bytes in bank
             */
             inline static uint32_t GetAvailable(VDP2::VramBank bank)
@@ -85,8 +85,8 @@ namespace SRL
             /** @brief Linearly Allocates Vram in a bank
             * @param size Number of bytes to allocate
             * @param boundary Byte Boundary that the allocation should be aligned to (must be multiple of 32 for all VDP2 Data types)
-            * @param Bank The VRAM bank to allocate in
-            * @param Cycles (Optional) Number of Bank Cycles this data will require to access (0-8).
+            * @param bank The VRAM bank to allocate in
+            * @param cycles (Optional) Number of Bank Cycles this data will require to access (0-8).
             * @return void* start of the Allocated region in VRAM (nullptr if allocation failed)
             * @note  Any VRAM skipped to maintain alignment to a boundary is rendered inaccessible to further allocations until reset
             */
@@ -205,7 +205,8 @@ namespace SRL
         /** @brief Bitfield recording all Currently enabled Scroll Screens*/
         inline static uint16_t ActiveScrolls = NBG0ON | NBG3ON;
 
-        /** @Brief Bitfield recording all Scroll Screens with VDP2 Color Calculation enabled*/
+        /** @brief Bitfield recording all Scroll Screens with VDP2 Color Calculation enabled
+         */
         inline static uint16_t ColorCalcScrolls = NBG0ON | NBG3ON | SPRON;
 
         /** @brief Functionality available to all Scroll Screen interfaces
@@ -294,7 +295,7 @@ namespace SRL
              */
             inline static int CellAllocSize = -1;
 
-            /** Size of manually allocated VRAM for Map Data
+            /** @brief Size of manually allocated VRAM for Map Data
              */
             inline static int MapAllocSize = -1;
 
@@ -722,7 +723,7 @@ namespace SRL
             static void SetPlanes(void* a, void* b, void* c, void* d) { slMapNbg2(a, b, c, d); }
 
             /** @brief Sets the Screen Position of NBG Scroll Screen
-             * @param ppPos Fixed Point X and Y  Screen Position
+             * @param pos Fixed Point X and Y Screen Position
              */
             static void SetPosition(Types::Vector2D& pos) { slScrPosNbg2(pos.X.Value(), pos.Y.Value()); }
         };
@@ -947,15 +948,15 @@ namespace SRL
              * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity of the cc register
              * @param bank (optional) which of the 8 CC registers to Set the opacity in (defaults to 0)
              */
-            inline static void SetOpacity(Types::Fxp Opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
+            inline static void SetOpacity(Types::Fxp opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
             {
-                if (Opacity < Types::Fxp(0.0) || Opacity>Types::Fxp(1.0))
+                if (opacity < Types::Fxp(0.0) || opacity>Types::Fxp(1.0))
                 {
                     return;
                 }
                 else
                 {
-                    slColRate((int16_t)bank, 31 - (uint16_t)(Opacity.Value() >> 11));
+                    slColRate((int16_t)bank, 31 - (uint16_t)(opacity.Value() >> 11));
                 }
             }
 

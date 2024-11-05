@@ -81,7 +81,7 @@ namespace SRL::Types
          * @param origin Origin point
          * @param axisX X axis
          * @param axisY Y axis
-         * @param axisY Z axis
+         * @param axisZ Z axis
          */
         constexpr Matrix(const Vector3D& origin, const Vector3D& axisX, const Vector3D& axisY, const Vector3D& axisZ)
         {

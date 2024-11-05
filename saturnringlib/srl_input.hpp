@@ -325,7 +325,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user is holding down a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was pressed
          * @return false Button was not pressed
@@ -336,7 +335,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user released a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was released
          * @return false Button was not released
@@ -349,7 +347,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user pressed a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was pressed
          * @return false Button was not pressed
@@ -459,7 +456,7 @@ namespace SRL::Input
             Start = 1 << 11,
         };
 
-        /** @brief 
+        /** @brief Player port
          */
         enum Player
         {
@@ -487,7 +484,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user is holding down a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was pressed
          * @return false Button was not pressed
@@ -498,7 +494,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user released a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was released
          * @return false Button was not released
@@ -511,7 +506,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user pressed a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was pressed
          * @return false Button was not pressed
@@ -753,7 +747,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user is holding down a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was pressed
          * @return false Button was not pressed
@@ -764,7 +757,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user released a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was released
          * @return false Button was not released
@@ -777,7 +769,6 @@ namespace SRL::Input
         }
 
         /** @brief Check if user pressed a button
-         * @param peripheral Connected peripheral
          * @param button Button to check
          * @return true Button was pressed
          * @return false Button was not pressed

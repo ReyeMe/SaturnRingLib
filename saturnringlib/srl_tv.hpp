@@ -6,8 +6,17 @@
  */
 namespace SRL
 {
+    /** @brief Contains TV resolutions
+     */
     class TV
     {
+        /** @brief Make class purely static
+         */
+        TV() = delete;
+
+        /** @brief Make class purely static
+         */
+        ~TV() = delete;
     public:
 
         /** @brief Available TV resolutions

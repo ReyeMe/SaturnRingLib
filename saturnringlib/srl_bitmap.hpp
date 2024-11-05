@@ -106,7 +106,7 @@ namespace SRL::Bitmap
         }
     };
 
-    /** @brief 
+    /** @brief Basic bitmap interface
      */
     struct IBitmap
     {

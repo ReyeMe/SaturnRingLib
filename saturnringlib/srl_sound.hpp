@@ -484,8 +484,7 @@ namespace SRL::Sound
              */
             uint16_t sampleRate = 11020;
 
-            /** @brief Loads new sound from a file
-             * @param file Sound file (.wav)
+            /** @brief  Initializes an empty instance
              */
             IPcmFile() { }
 

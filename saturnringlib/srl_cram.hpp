@@ -218,7 +218,7 @@ namespace SRL
         }
 
         /** @brief Get the Free color RAM bank
-         * @param mode Color palette size
+         * @param size Color palette size
          * @return -1 if no free bank was found, or Color bank index
          */
         static int32_t GetFreeBank(CRAM::TextureColorMode size)

@@ -4,55 +4,51 @@ extern "C" {
     #include <sgl.h>  // For slSlaveFunc
 }
 
-/** @brief Main SGL namespace
-*/
-namespace SRL
-{
-
-    namespace Types
+namespace SRL::Types
     {
-        /** @brief Abstract class that defines the class prototype to implement
-        *          a Task that runs on Slave SH2
-        */
+        /** @brief Abstract class that defines the class prototype to implement a Task that runs on Slave SH2
+         */
         class ITask
         {
         public:
             /** @brief Destructor
-            */
+             */
             virtual ~ITask() {}
 
             /** @brief Task Status getter
-            * @returns Task Status
-            */
+             * @returns Task Status
+             */
             virtual bool IsDone()
             {
-                return _done;
+                return this->done;
             }
 
             /** @brief Start the Task on Slave SH2, then set its status to Done
-            */
+             */
             virtual void Start()
             {
                 this->Do();
-                _done = true;
+                this->done = true;
             }
 
             /** @brief Reset Task Status before running
-            */
+             */
             virtual void ResetTask()
             {
-                _done = false;
+                this->done = false;
             }
 
         protected:
-            volatile bool  _done;
+            /** @brief Holds a value indicating whether task has been completed
+             */
+            volatile bool done;
 
             /** @brief Constructor
-            */
-            ITask() : _done(false) {}
+             */
+            ITask() : done(false) {}
 
-            /** @brief Absctract method that defines the task's behavior
-            */
+            /** @brief Abstract method that defines the task's behavior
+             */
             virtual void Do() = 0;
         };
     }
