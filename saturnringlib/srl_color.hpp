@@ -5,7 +5,7 @@
 namespace SRL::Types
 {
     /** @brief Color in ABGR1555 format
-     * @details 16-bit color format where each color channel is 5 bits (values range 0-31) and there is 1 bit for opacity
+     * @details 16-bit color format where each color channel is 5 bits (values range 0-31) and 1 bit for opacity
      */
     struct HighColor
     {
@@ -16,11 +16,11 @@ namespace SRL::Types
         /** @brief Blue color channel
          */
         uint16_t Blue : 5;
-        
+
         /** @brief Green color channel
          */
         uint16_t Green : 5;
-        
+
         /** @brief Red color channel
          */
         uint16_t Red : 5;
@@ -31,9 +31,9 @@ namespace SRL::Types
         {
             // Do nothing
         }
-        
-        /** @brief Defines new color from saturn ABGR555 value
-         * @param value VAlue in ABGR555
+
+        /** @brief Defines new color from Saturn ABGR555 value
+         * @param value color encoded in ABGR555 format
          */
         constexpr HighColor(const uint16_t value) :
             Opaque((value >> 15) & 0x1),
@@ -43,7 +43,7 @@ namespace SRL::Types
         {
             // Do nothing
         }
-        
+
         /** @brief Defines new color (components are in rage of 0-255 but are divided by 8)
          * @param r Red component
          * @param g Green component
@@ -58,11 +58,11 @@ namespace SRL::Types
             // Do nothing
         }
 
-        /** @brief Get color from RGB555 (components are in range o 0-31)
+        /** @brief Get color from RGB555 (components are within the range 0-31)
          * @param r Red component
          * @param g Green component
          * @param b Blue component
-         * @return constexpr HighColor 
+         * @return constexpr HighColor
          */
         constexpr inline static HighColor FromRGB555(const uint8_t r, const uint8_t g, const uint8_t b)
         {
@@ -77,7 +77,7 @@ namespace SRL::Types
         {
             return ((value >> 15) & 0x1) != 0 ? HighColor::FromRGB555((value >> 10) & 0x1f, (value >> 5) & 0x1f, value & 0x1f) : HighColor();
         }
-        
+
         /** @brief Get from RGB888
          * @param value Value in ARGB888 format
          * @return HighColor color
@@ -89,7 +89,7 @@ namespace SRL::Types
                 (((value >> 8) & 0xff) >> 3) & 0x1f,
                 ((value & 0xff) >> 3) & 0x1f);
         }
-        
+
         /** @brief Get from ARGB888
          * @param value Value in ARGB888 format
          * @return HighColor color
@@ -106,7 +106,7 @@ namespace SRL::Types
 
             return HighColor();
         }
-        
+
         /** @brief Get color represented as ABGR555 value
          * @return Single ABGR555 value
          */
@@ -114,24 +114,25 @@ namespace SRL::Types
         {
             return *((uint16_t*)this);
         }
-        
-        // This is automatically called 
-        // when '=' operator is 
-        // used between C1 and C2. 
-    
-        constexpr inline void operator=(const uint16_t value) 
-        { 
+
+        /** @brief Set HighColor from ABGR555 value
+         * @return Current object sets with ABGR555 value
+         */
+        constexpr inline HighColor & operator=(const uint16_t value)
+        {
             this->Opaque = (value >> 15) & 0x1;
             this->Red = value & 0x1f;
             this->Green = (value >> 5) & 0x1f;
-            this->Blue = (value >> 10) & 0x1f; 
-        } 
-  
+            this->Blue = (value >> 10) & 0x1f;
+
+            return *this;
+        }
+
         /** @brief Cast to ABGR555
          * @return ABGR value
          */
         constexpr inline operator uint16_t&() { return *((uint16_t*)this); }
-        
+
         /** @brief Cast to ABGR555
          * @return ABGR value
          */
@@ -150,34 +151,35 @@ namespace SRL::Types
         /** @brief White color
          */
         static const constexpr Types::HighColor White = Types::HighColor(0xffff);
-        
-        /** @brief White color
+
+        /** @brief Black color
          */
         static const constexpr Types::HighColor Black = Types::HighColor(0x8000);
 
         /** @brief Red color
          */
         static const constexpr Types::HighColor Red = Types::HighColor(255, 0, 0);
-        
+
         /** @brief Green color
          */
         static const constexpr Types::HighColor Green = Types::HighColor(0, 255, 0);
-        
+
         /** @brief Blue color
          */
         static const constexpr Types::HighColor Blue = Types::HighColor(0, 0, 255);
-        
+
         /** @brief Yellow color
          */
         static const constexpr Types::HighColor Yellow = Types::HighColor(255, 255, 0);
-        
+
         /** @brief Magenta color
          */
         static const constexpr Types::HighColor Magenta = Types::HighColor(255, 0, 255);
     };
 
     /** @brief Color in ABGR1888 format
-     * @details 32-bit color format where each color channel is 8 bits (values range 0-31) and there is 1 bit for opacity. 7 bits are unused.
+     * @details 32-bit color format where each color channel is 8 bits (values within range 0-31)
+     * and there is 1 bit for opacity. 7 bits are left unused.
      */
     struct TrueColor
     {
@@ -192,11 +194,11 @@ namespace SRL::Types
         /** @brief Blue color channel
          */
         uint8_t Blue;
-        
+
         /** @brief Green color channel
          */
         uint8_t Green;
-        
+
         /** @brief Red color channel
          */
         uint8_t Red;
@@ -207,9 +209,9 @@ namespace SRL::Types
         {
             // Do nothing
         }
-        
+
         /** @brief Defines new color from saturn ABGR1888 value
-         * @param value VAlue in ABGR1888
+         * @param value Value in ABGR1888
          */
         constexpr TrueColor(const uint32_t value) :
             Opaque(value & 0x80000000 != 0),
@@ -220,7 +222,7 @@ namespace SRL::Types
         {
             // Do nothing
         }
-        
+
         /** @brief Defines new color
          * @param r Red component
          * @param g Green component
@@ -244,7 +246,7 @@ namespace SRL::Types
         {
             return ((value & 0x80000000) != 0) ? TrueColor((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff) : TrueColor();
         }
-        
+
         /** @brief Get from RGB888
          * @param value Value in ARGB888 format
          * @return HighColor color
@@ -256,7 +258,7 @@ namespace SRL::Types
                 (value >> 8) & 0xff,
                 value & 0xff);
         }
-        
+
         /** @brief Get from ARGB888
          * @param value Value in ARGB888 format
          * @return HighColor color
@@ -273,7 +275,7 @@ namespace SRL::Types
 
             return TrueColor();
         }
-        
+
         /** @brief Get color represented as ABGR1888 value
          * @return Single ABGR1888 value
          */
@@ -281,33 +283,36 @@ namespace SRL::Types
         {
             return *((uint32_t*)this);
         }
-        
+
         /** @brief Assign color value to color type
          * @param value Color value
+         * @return current modified TrueColor object
          */
-        constexpr inline void operator=(const uint32_t value) 
-        { 
+        constexpr inline TrueColor & operator=(const uint32_t value)
+        {
             this->Opaque = value & 0x80000000 != 0;
             this->Red = value & 0xff;
             this->Green = (value >> 8) & 0xff;
-            this->Blue = (value >> 16) & 0xff; 
-        } 
-  
+            this->Blue = (value >> 16) & 0xff;
+
+            return *this;
+        }
+
         /** @brief Cast to ABGR1888
          * @return ABGR value
          */
         constexpr inline operator uint32_t&() { return *((uint32_t*)this); }
-        
+
         /** @brief Cast to ABGR1888
          * @return ABGR value
          */
         constexpr inline operator uint32_t() const { return *((uint32_t*)this); }
-        
+
         /** @brief Predefined colors
          */
         class Colors;
     };
-    
+
     /** @brief Predefined colors
      */
     class TrueColor::Colors
@@ -316,27 +321,27 @@ namespace SRL::Types
         /** @brief White color
          */
         static const constexpr Types::TrueColor White = Types::TrueColor(0xffff);
-        
-        /** @brief White color
+
+        /** @brief Black color
          */
         static const constexpr Types::TrueColor Black = Types::TrueColor(0x8000);
 
         /** @brief Red color
          */
         static const constexpr Types::TrueColor Red = Types::TrueColor(255, 0, 0);
-        
+
         /** @brief Green color
          */
         static const constexpr Types::TrueColor Green = Types::TrueColor(0, 255, 0);
-        
+
         /** @brief Blue color
          */
         static const constexpr Types::TrueColor Blue = Types::TrueColor(0, 0, 255);
-        
+
         /** @brief Yellow color
          */
         static const constexpr Types::TrueColor Yellow = Types::TrueColor(255, 255, 0);
-        
+
         /** @brief Magenta color
          */
         static const constexpr Types::TrueColor Magenta = Types::TrueColor(255, 0, 255);
