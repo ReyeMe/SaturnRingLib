@@ -93,7 +93,7 @@ namespace SRL
          * @param x Offset from left of the screen
          * @param y Offset from top of the screen
          * @param text Text to print
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline static void Print(uint8_t x, uint8_t y, const char* text, Args...args)
@@ -121,7 +121,7 @@ namespace SRL
          * @param fromLeft Where to start next line from on screen
          * @param fromRight Where to start wrapping to next line
          * @param text Text to print
-         * @param args... Text arguments
+         * @param args Text arguments
          * @return Number of lines printed
          */
         template <typename ...Args>
@@ -190,7 +190,7 @@ namespace SRL
          * @param message Custom message to show
          * @param file File the assert happened in
          * @param function Function that threw the exception
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline static void AssertScreen(const char* message, const char* file, const char* function, Args...args)

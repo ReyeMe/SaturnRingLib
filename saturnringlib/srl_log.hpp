@@ -24,15 +24,15 @@ namespace SRL
             /** @brief INFO Level, generic information messages
              */
             INFO = 2,
-            
+
             /** @brief WARNING Level, warning messages
              */
             WARNING = 3,
-            
+
             /** @brief FATAL Level, message display before a crash
              */
             FATAL = 4,
-            
+
             /** @brief NONE Level, used to disable logging
              */
             NONE = 99
@@ -132,7 +132,7 @@ namespace SRL
             };
 
             /** @brief Log message
-             * @param lvl  Log level
+             * @tparam lvl  Log level
              * @param message Custom message to show
              */
             template <SRL::Logger::LogLevels lvl>
@@ -169,7 +169,7 @@ namespace SRL
 
             /** @brief Log message
              * @param message Custom message to show
-             * @param args... Text arguments
+             * @param args Text arguments
              */
             template <typename ...Args>
             inline static void LogPrint(const char* message, Args...args)
@@ -178,9 +178,9 @@ namespace SRL
             }
 
             /** @brief Log message
-             * @param lvl  Log level
+             * @tparam lvl  Log level
              * @param message Custom message to show
-             * @param args... Text arguments
+             * @param args Text arguments
              */
             template <SRL::Logger::LogLevels lvl, typename ...Args>
             inline static void LogPrint(const char* message, Args...args)
@@ -196,7 +196,7 @@ namespace SRL
 
         /** @brief Log Trace message
          * @param message Custom message to show
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline void LogTrace(const char* message, Args...args)
@@ -206,7 +206,7 @@ namespace SRL
 
         /** @brief Log Info message
          * @param message Custom message to show
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline void LogInfo(const char* message, Args...args)
@@ -216,7 +216,7 @@ namespace SRL
 
         /** @brief Log Debug message
          * @param message Custom message to show
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline void LogDebug(const char* message, Args...args)
@@ -226,7 +226,7 @@ namespace SRL
 
         /** @brief Log Warning message
          * @param message Custom message to show
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline void LogWarning(const char* message, Args...args)
@@ -234,6 +234,10 @@ namespace SRL
             SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::WARNING>(message, args ...);
         }
 
+        /** @brief Log Fatal message
+         * @param message Custom message to show
+         * @param args Text arguments
+         */
         template <typename ...Args>
         inline void LogFatal(const char* message, Args...args)
         {
@@ -242,7 +246,7 @@ namespace SRL
 
         /** @brief Log message
          * @param message Custom message to show
-         * @param args... Text arguments
+         * @param args Text arguments
          */
         template <typename ...Args>
         inline void LogPrint(const char* message, Args...args)
