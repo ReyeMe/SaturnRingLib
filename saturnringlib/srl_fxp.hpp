@@ -184,6 +184,22 @@ namespace SRL::Types
 			return this->value >> 16;
 		}
 
+		/** @brief Convert fixed point value to float by dividing with 65536
+		 * @return float value
+		 */
+		constexpr float ToFloat() const
+		{
+			return this->value / 65536.0f;
+		}
+
+		/** @brief Convert fixed point value to double by dividing with 65536
+		 * @return double value
+		 */
+		constexpr double ToDouble() const
+		{
+			return this->value / 65536.0;
+		}
+
 		/** @brief Gets raw value
 		 * @return Raw fixed point value
 		 */
@@ -192,9 +208,9 @@ namespace SRL::Types
 			return this->value;
 		}
 
-        /** @name Operators
-         * @{
-         */
+    /** @name Operators
+     * @{
+     */
 
 		/** @brief Add and assign another Fxp object to this object.
 		 * @param fxp The Fxp object to add.
@@ -472,7 +488,7 @@ namespace SRL::Types
 			return *this;
 		}
 
-        /** @}
-         */
+    /** @}
+     */
 	};
 }

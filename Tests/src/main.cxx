@@ -4,88 +4,18 @@
 // https://github.com/siu/minunit
 #include "minunit.h"
 
+#include "testsAngle.h"
+#include "testsFxp.h"
+
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-	static int foo = 0;
-	static int bar = 0;
-	static double dbar = 0.1;
-	static const char* foostring = "Thisstring";
 
-	void test_setup(void) {
-		foo = 7;
-		bar = 4;
-	}
+	const uint8_t buffer_size = 255;
+	char buffer[buffer_size] = {};
 
-	void test_teardown(void) {
-		/* Nothing */
-	}
-
-	MU_TEST(test_check) {
-		mu_check(foo == 7);
-	}
-
-	MU_TEST(test_check_fail) {
-		mu_check(foo != 7);
-	}
-
-	MU_TEST(test_assert) {
-		mu_assert(foo == 7, "foo should be 7");
-	}
-
-	MU_TEST(test_assert_fail) {
-		mu_assert(foo != 7, "foo should be <> 7");
-	}
-
-	MU_TEST(test_assert_int_eq) {
-		mu_assert_int_eq(4, bar);
-	}
-
-	MU_TEST(test_assert_int_eq_fail) {
-		mu_assert_int_eq(5, bar);
-	}
-
-	MU_TEST(test_assert_double_eq) {
-		mu_assert_double_eq(0.1, dbar);
-	}
-
-	MU_TEST(test_assert_double_eq_fail) {
-		mu_assert_double_eq(0.2, dbar);
-	}
-
-	MU_TEST(test_fail) {
-		mu_fail("Fail now!");
-	}
-
-	MU_TEST(test_string_eq){
-		mu_assert_string_eq("Thisstring", foostring);
-	}
-
-	MU_TEST(test_string_eq_fail){
-		mu_assert_string_eq("Thatstring", foostring);
-	}
-
-
-	MU_TEST_SUITE(test_suite) {
-		MU_SUITE_CONFIGURE(&test_setup, &test_teardown);
-
-		MU_RUN_TEST(test_check);
-		MU_RUN_TEST(test_assert);
-		MU_RUN_TEST(test_assert_int_eq);
-		MU_RUN_TEST(test_assert_double_eq);
-
-		MU_RUN_TEST(test_check_fail);
-		MU_RUN_TEST(test_assert_fail);
-		MU_RUN_TEST(test_assert_int_eq_fail);
-		MU_RUN_TEST(test_assert_double_eq_fail);
-
-		MU_RUN_TEST(test_string_eq);
-		MU_RUN_TEST(test_string_eq_fail);
-
-		MU_RUN_TEST(test_fail);
-	}
 }
 
 // Main program entry
@@ -93,9 +23,8 @@ int main()
 {
 	SRL::Core::Initialize(HighColor(20,10,50));
 
-	LogPrint("UTs");
-
-	MU_RUN_SUITE(test_suite);
+	MU_RUN_SUITE(angle_test_suite);
+	MU_RUN_SUITE(fxp_test_suite);
 	MU_REPORT();
 
 	// Main program loop
