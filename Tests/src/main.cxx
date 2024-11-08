@@ -23,12 +23,13 @@ int main()
 {
 	SRL::Core::Initialize(HighColor(20,10,50));
 
+    LogInfo("***UT_START***");
 	MU_RUN_SUITE(angle_test_suite);
 	MU_RUN_SUITE(fxp_test_suite);
 	MU_REPORT();
-
+    LogInfo("***UT_END***");
 	// Main program loop
-	while(1)
+	//while(1)
 	{
 		SRL::Core::Synchronize();
 	}
