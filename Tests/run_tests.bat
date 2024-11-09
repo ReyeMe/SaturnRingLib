@@ -1,11 +1,11 @@
 
 @goto(){
   # Linux code here
-  command="prog -foo -whatever"
-  log="prog.log"
-  match="this is the what i want to match"
+  command="kronos -a -ns -i BuildDrop/UTs.cue"
+  log="uts.log"
+  match="***UT_END***"
 
-  $command > "$log" 2>&1 &
+  $command 2>&1 > "$log" &
   pid=$!
 
   while sleep 60

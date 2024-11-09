@@ -34,6 +34,7 @@
 
 /[Tt]ests/**/[Bb]uild[Dd]rop/**
 /[Tt]ests/**/*.o
+/[Tt]ests/**/*.log
 
 /Projects/**
 !/Projects/Put_your_projects_here.txt
