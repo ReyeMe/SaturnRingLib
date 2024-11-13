@@ -497,6 +497,37 @@ namespace SRL
             }
         }
 
+        /** @brief Get currently set effect value
+         * @details See @ref SRL::Scene2D::SpriteEffect for valid effect data
+         * @param effect Effect id
+         * @return Currently set effect value, see @ref SRL::Scene2D::SpriteEffect for expected return values
+         */
+        static inline int32_t GetEffect(const SpriteEffect effect) {
+            switch (effect)
+            {
+            case SpriteEffect::Gouraud:
+                return Scene2D::Effects.Gouraud > 0 ? Scene2D::Effects.Gouraud - SRL::Scene2D::GouraudTableBase : 0;
+            
+            case SpriteEffect::ScreenDoors:
+                return Scene2D::Effects.ScreenDoors;
+
+            case SpriteEffect::HalfTransparency:
+                return Scene2D::Effects.HalfTransparency;
+
+            case SpriteEffect::Clipping:
+                return Scene2D::Effects.Clipping;
+
+            case SpriteEffect::Flip:
+                return Scene2D::Effects.Flip;
+
+            case SpriteEffect::OpacityBank:
+                return Scene2D::Effects.OpacityBank;
+
+            default:
+                return -1;
+            }
+        }
+
         /** @} */
 
     };

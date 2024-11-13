@@ -61,6 +61,12 @@ namespace SRL::Types
          */
         constexpr Vector2D(const Fxp& x, const Fxp& y) : X(x), Y(y) { }
 
+        /** @brief Constructor to create a new 2D vector out of fixed point values
+         * @param x X component
+         * @param y Y component
+         */
+        constexpr Vector2D(const int& x, const int& y) : X(SRL::Types::Fxp::FromInt(x)), Y(SRL::Types::Fxp::FromInt(y)) { }
+
         /** @brief Get approximate length of the vector
          * @return Vector length
          */
@@ -293,6 +299,12 @@ namespace SRL::Types
          */
         constexpr Vector3D(const Vector2D& vector, const Fxp& depth = 0.0) : Vector2D(vector.X, vector.Y), Z(depth) { }
         
+        /** @brief Construct a new Vector3D object from 2D vector
+         * @param vector Other vector
+         * @param depth Z value
+         */
+        constexpr Vector3D(const Vector2D& vector, const int& depth = 0) : Vector2D(vector.X, vector.Y), Z(SRL::Types::Fxp::FromInt(depth)) { }
+        
         /** @brief Construct a new Vector3D object
          * @param vector Other vector
          */
@@ -338,6 +350,13 @@ namespace SRL::Types
          * @param z Z component
          */
         constexpr Vector3D(const Fxp& x, const Fxp& y, const Fxp& z = 0.0) : Vector2D(x, y), Z(z) { }
+        
+        /** @brief Constructor to create a new 3D vector out of fixed point values
+         * @param x X component
+         * @param y Y component
+         * @param z Z component
+         */
+        constexpr Vector3D(const int& x, const int& y, const int& z = 0) : Vector2D(x, y), Z(SRL::Types::Fxp::FromInt(z)) { }
         
         /** @brief Get approximate length of the vector
          * @return Vector length
