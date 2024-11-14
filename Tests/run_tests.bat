@@ -5,18 +5,16 @@
   log="uts.log"
   match="***UT_END***"
 
-  $command 2>&1 > "$log" &
-  pid=$!
+  $command 2>&1 | tee "$log" &
 
-  while sleep 60
+  while sleep 1
   do
       if fgrep --quiet "$match" "$log"
       then
-          kill $pid
+          pkill -9 kronos
           exit 0
       fi
   done
-
 }
 
 @goto $@
