@@ -28,8 +28,9 @@ int main()
 	MU_RUN_SUITE(fxp_test_suite);
 	MU_REPORT();
     LogInfo("***UT_END***");
+    
 	// Main program loop
-	//while(1)
+	while(1)
 	{
 		SRL::Core::Synchronize();
 	}
