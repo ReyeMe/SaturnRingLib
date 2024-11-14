@@ -63,7 +63,7 @@ extern "C" {
 
     MU_TEST(fxp_test_7) {
 		Fxp a1(10.0);
-        Fxp b1(20);
+        Fxp b1(20.0f);
 		snprintf(buffer, buffer_size, "%f == %d", a1, b1);
 		mu_assert(a1 != b1, buffer);
 	}
