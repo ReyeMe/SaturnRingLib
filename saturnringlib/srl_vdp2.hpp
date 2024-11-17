@@ -221,11 +221,11 @@ namespace SRL
         };
 
         /** @brief Bitfield recording all Currently enabled Scroll Screens*/
-        inline static uint16_t ActiveScrolls = NBG0ON | NBG3ON;
+        inline static uint16_t ActiveScrolls =  NBG3ON| SPRON;
 
         /** @brief Bitfield recording all Scroll Screens with VDP2 Color Calculation enabled
          */
-        inline static uint16_t ColorCalcScrolls = NBG0ON | NBG3ON | SPRON;
+        inline static uint16_t ColorCalcScrolls =  NBG3ON | SPRON;
         
         /** @brief Bitfield recording all Scroll Screens using Color Offset A
          */
@@ -1183,23 +1183,23 @@ namespace SRL
             int16_t Red;
             int16_t Green;
             int16_t Blue;
+            
             ColorOffset()
             {
                 Red = 0;
                 Green = 0;
                 Blue = 0;
             }
-            ColorOffset(int16_t red, int16_t green, int16_t blue )
+            /** @brief initialize red green and blue channel offsets
+             *  @param red offset for red channel
+             *  @param green offset for green channel
+             *  @param blue offset for blue channel
+             */
+            ColorOffset(int16_t red, int16_t green, int16_t blue)
+                : Red(SRL::Math::Clamp<int16_t>( -255, 255,red)),
+                  Green(SRL::Math::Clamp<int16_t>( -255, 255,green)),
+                  Blue(SRL::Math::Clamp<int16_t>( -255, 255,blue))
             {
-                Red = red;
-                Green = green;
-                Blue = blue;
-                Red = Red > 255 ? 255 : Red;
-                Red = Red < -255 ? -255 : Red;
-                Green = Green > 255 ? 255 : Green;
-                Green = Green < -255 ? -255 : Green;
-                Blue = Blue > 255 ? 255 : Blue;
-                Blue = Blue < -255 ? -255 : Blue;
             }
 
         };
@@ -1243,11 +1243,16 @@ namespace SRL
         };
 
         /** @brief Sets VDP2 Half Transparent Color Calculation Mode (only one mode can be used at once)
-         * @param Mode The VDP2 color calculation mode to use
+         * @param mode The VDP2 color calculation mode to use
+         * @param extend Designates whether to extend color calculation to the top 3 Layer Priories instead of just top 2
+         * @note Extended color calculation has many restrictions detailed in VDP2 users manual- not all color modes can support
+         * extension simultaneously. If supported, 3rd priority pixels will blend with second at a 50:50 ratio before the result is 
+         * blended with top priority pixels. If unsupported the end behavior is identical to non extended color calculation. 
          */
-        inline static void SetColorCalcMode(VDP2::ColorCalcMode Mode = VDP2::ColorCalcMode::UseColorRatiosTop)
+        inline static void SetColorCalcMode(VDP2::ColorCalcMode mode = VDP2::ColorCalcMode::UseColorRatiosTop, bool extend = false)
         {
-            slColorCalc((uint16_t)Mode);
+            uint16_t flags = (uint16_t)mode | (uint16_t)extend;
+            slColorCalc((uint16_t)flags);
         }
     };
 }
