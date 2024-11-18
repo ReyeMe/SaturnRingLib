@@ -181,9 +181,7 @@ namespace SRL
 		/** @brief Try to load a texture
 		 * @param width Texture width
 		 * @param height Texture height
-		 * @param colorMode Color
-		 
-		 mode
+		 * @param colorMode Color mode
 		 * @param palette Palette start identifier in color RAM (not used in RGB555 mode)
 		 * @param data Texture data
 		 * @return Index of the loaded texture
