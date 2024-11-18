@@ -705,7 +705,6 @@ namespace SRL::Bitmap
 
     private:
 
-
         /** @brief Load image data
          * @param file Image file
          * @param settings Loader settings

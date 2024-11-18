@@ -1038,7 +1038,7 @@ namespace SRL
              *  assigning it to use a Priority Bank containing a priority layer that does not satisfy the Color Condition.
              *  The default VDP2 initialization uses ColorCondition::PriorityEquals Priority::Layer4,
              *  with SpriteBank0 set to Layer3 and SpriteBank1 set to Layer4. With this config RGB sprites recieve no
-             *  color calculation, while Palette sprites only recieve color calculation when select priority from bank1
+             *  color calculation, while Palette sprites only recieve color calculation when they select priority from SpriteBank1
              * @param Condition The type of condition that VDP2 Color Calculation will follow
              * @param TestValue The Layer that a sprite's priority will be tested against in the condition
              */
@@ -1051,7 +1051,7 @@ namespace SRL
 
         /** @brief Clear all VDP2 VRAM allocations and reset all Scroll Screen VRAM References, as well
          *  as all CRAM allocations associated with VDP2 Scroll Screens
-         * @note, When Loading a new set Data and Configurations for Scroll Screens with auto allocation, Call this first
+         * @note, When Loading a new set of Data and Configurations for Scroll Screens with auto allocation, Call this first
          *  to ensure old data is freed
          */
         inline static void ClearVRAM()
@@ -1172,7 +1172,8 @@ namespace SRL
             // Fix param table at top of VRAM outside range of allocator - now user calls to slPerspective will always update here:
             slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
         }
-        /** @brief data sturcture of a VDP2 color offset to be set in Offset A or Offset B
+
+        /** @brief data strUcture of a VDP2 color offset to be set in Offset A or Offset B
          *  @details The offset data that will be set is a signed 9 bit value per color channel.
          *  The valid range of inputs is -255 to +255. The sign determines whether the color offset 
          *  is additive or subtractive. Values outside the range will be clamped to it when
@@ -1180,8 +1181,16 @@ namespace SRL
          */
         struct ColorOffset
         {
+            /** @brief  Red channel offset/
+             */ 
             int16_t Red;
+
+            /** @brief  Green channel offset/
+            */
             int16_t Green;
+
+            /** @brief  Blue channel offset/
+            */
             int16_t Blue;
             
             ColorOffset()
@@ -1190,6 +1199,7 @@ namespace SRL
                 Green = 0;
                 Blue = 0;
             }
+
             /** @brief initialize red green and blue channel offsets
              *  @param red offset for red channel
              *  @param green offset for green channel
@@ -1203,6 +1213,7 @@ namespace SRL
             }
 
         };
+
         /** @brief Sets RGB color channel offset A
          *  @details VDP2 supports 2 RGB color offsets stored in special registers 
          *  that any ScrollScreen or SpriteLayer can use. When registered all non-transparent
@@ -1214,6 +1225,7 @@ namespace SRL
         {
             slColOffsetA(offset.Red, offset.Green, offset.Blue);
         }
+
         /** @brief Sets RGB color channel offset B
          *  @details VDP2 supports 2 RGB color offsets stored in special registers
          *  that any ScrollScreen or SpriteLayer can use. When registered all non-transparent
@@ -1225,6 +1237,7 @@ namespace SRL
         {
             slColOffsetB(offset.Red, offset.Green, offset.Blue);
         }
+
         /** @brief Used to Select behavior of VDP2 Half Transparent Color Calculation
          */
         enum class ColorCalcMode : uint16_t
