@@ -736,8 +736,7 @@ namespace SRL::Bitmap
                 header.Image.Descriptor.Value = *(data + 17);
                 
                 // Lets check whether the header makes sense
-                if (header.Image.Size.X == 0 || header.Image.Size.Y == 0 ||
-                    header.Image.Size.X > 512 || header.Image.Size.Y > 482)
+                if (header.Image.Size.X == 0 || header.Image.Size.Y == 0)
                 {
                     // Image has no size or is too big
                     SRL::Debug::Assert("Image has no size or is too big!\nWidth=%d\nHeight=%d", header.Image.Size.X, header.Image.Size.Y);

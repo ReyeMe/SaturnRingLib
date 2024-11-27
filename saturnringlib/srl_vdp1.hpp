@@ -227,7 +227,6 @@ namespace SRL
 			{
 				int16_t palette = 0;
 				SRL::Bitmap::BitmapInfo info = bitmap->GetInfo();
-				uint32_t address = CGADDRESS;
 
 				if (info.Palette != nullptr)
 				{
@@ -247,6 +246,23 @@ namespace SRL
 					}
 				}
 
+				return VDP1::TryLoadTexture(info.Width, info.Height, (CRAM::TextureColorMode)info.ColorMode, palette, bitmap->GetData());
+			}
+
+			// There is no free space left
+			return -1;
+		}
+
+		/** @brief Try to load a texture
+		 * @param bitmap Texture to load
+		 * @param palette Color palette number
+		 * @return Index of the loaded texture
+		 */
+		inline static int32_t TryLoadTexture(SRL::Bitmap::IBitmap* bitmap, const int16_t& palette)
+		{
+			if (VDP1::HeapPointer < SRL_MAX_TEXTURES)
+			{
+				SRL::Bitmap::BitmapInfo info = bitmap->GetInfo();
 				return VDP1::TryLoadTexture(info.Width, info.Height, (CRAM::TextureColorMode)info.ColorMode, palette, bitmap->GetData());
 			}
 
