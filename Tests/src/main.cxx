@@ -6,6 +6,7 @@
 
 #include "testsAngle.h"
 #include "testsFxp.h"
+#include "testsCD.h"
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
@@ -26,9 +27,10 @@ int main()
     LogInfo("***UT_START***");
 	MU_RUN_SUITE(angle_test_suite);
 	MU_RUN_SUITE(fxp_test_suite);
+    MU_RUN_SUITE(cd_test_suite);
 	MU_REPORT();
     LogInfo("***UT_END***");
-    
+
 	// Main program loop
 	while(1)
 	{
