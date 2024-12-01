@@ -27,6 +27,15 @@ namespace SRL
         /** @brief the current number of fonts that have been loaded to Vdp2 VRAM
          */
         inline static uint8_t   numFonts = 1;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxXPosition = 63;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxYPosition = 63;
+
     public:
         /** @brief Copies 4bpp Bitmap ASCII table to VRAM as 4bpp tileset
          *  @param bmp pointer to an IBitmap interface to load
@@ -116,22 +125,42 @@ namespace SRL
 
         /** @brief Display ASCII string on single line. Does not clamp to screen bounds or handle overflow
          *  @param myString The string to print
-         *  @param x Starting tile X coordinate on screen (0-64)
-         *  @param y Starting tile Y coordinate on screen (0-64)
+         *  @param x Starting tile X coordinate on screen (0-63)
+         *  @param y Starting tile Y coordinate on screen (0-63)
+         *  @returns false if positions are out-of-range, true otherwise
          *  @note Tile (0,0) is aligned to the top left corner of the screen
          */
-        inline static void Print(char* myString, uint8_t x, uint8_t y)
+        inline static bool Print(const char* myString, uint8_t x, uint8_t y)
         {
+            return Print(const_cast<char*>(myString), x, y);
+        }
+
+        /** @brief Display ASCII string on single line. Does not clamp to screen bounds or handle overflow
+         *  @param myString The string to print
+         *  @param x Starting tile X coordinate on screen (0-63)
+         *  @param y Starting tile Y coordinate on screen (0-63)
+         *  @returns false if positions are out-of-range, true otherwise
+         *  @note Tile (0,0) is aligned to the top left corner of the screen
+         */
+        inline static bool Print(char* myString, uint8_t x, uint8_t y)
+        {
+            bool status = true;
             int mapIndex;
             int charOffset = ASCII::fontBank; // 128*(5-font);
-            if(x > 63) x = 63;
-            if(y > 63) y = 63;
+            if(x > 63 || y > 63)
+                status = false;
+
+            x =  std::min(x, maxXPosition);
+            y =  std::min(y, maxYPosition);
+
             mapIndex = x + (y << 6);
 
             while(*myString != '\0')
             {
                 ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset) | ASCII::colorBank;
             }
+
+            return status;
         }
     };
 }
