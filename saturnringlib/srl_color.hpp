@@ -115,6 +115,28 @@ namespace SRL::Types
             return *((uint16_t*)this);
         }
 
+        // Blend function
+        HighColor Blend(const HighColor& other) const {
+            HighColor result;
+
+            // Calculate effective alpha for both colors (1 if opaque, 0 if not)
+            float alpha1 = this->Opaque ? 1.0f : 0.0f;
+            float alpha2 = other.Opaque ? 1.0f : 0.0f;
+
+            // Blend each channel
+            result.Red = static_cast<uint16_t>(
+                (this->Red * alpha1 + other.Red * alpha2) / (alpha1 + alpha2));
+            result.Green = static_cast<uint16_t>(
+                (this->Green * alpha1 + other.Green * alpha2) / (alpha1 + alpha2));
+            result.Blue = static_cast<uint16_t>(
+                (this->Blue * alpha1 + other.Blue * alpha2) / (alpha1 + alpha2));
+
+            // Result is opaque if either input is opaque
+            result.Opaque = this->Opaque || other.Opaque;
+
+            return result;
+        }
+
         /** @brief Set HighColor from ABGR555 value
          * @return Current object sets with ABGR555 value
          */
