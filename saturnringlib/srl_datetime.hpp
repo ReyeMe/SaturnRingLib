@@ -152,34 +152,6 @@ namespace SRL::Types
             );
         }
 
-        // Convert from seconds since BaseYear to DateTime
-        static DateTime FromSeconds(uint32_t seconds) {
-            DateTime dt;
-            dt.Year = BaseYear;
-
-            while (seconds >= SecondsPerDay * (IsLeapYear(dt.Year) ? 366 : 365)) {
-                seconds -= SecondsPerDay * (IsLeapYear(dt.Year) ? 366 : 365);
-                dt.Year++;
-            }
-
-            for (dt.Month = 1; dt.Month <= 12; dt.Month++) {
-                uint32_t monthSeconds = SecondsPerDay * DaysInMonth(dt.Year, dt.Month);
-                if (seconds < monthSeconds) {
-                    break;
-                }
-                seconds -= monthSeconds;
-            }
-
-            dt.Day = seconds / SecondsPerDay + 1;
-            seconds %= SecondsPerDay;
-            dt.Hour = seconds / SecondsPerHour;
-            seconds %= SecondsPerHour;
-            dt.Minute = seconds / SecondsPerMinute;
-            dt.Second = seconds % SecondsPerMinute;
-
-            return dt;
-        }
-
         /** @brief Gets date year
          * @return Date year
          */
@@ -250,52 +222,6 @@ namespace SRL::Types
                 this->minute,
                 this->week
             };
-        }
-
-        // Check if the current DateTime is valid
-        bool IsValid() const {
-            if (Year < BaseYear || Month < 1 || Month > 12 || Day < 1 || Day > DaysInMonth(Year, Month)) {
-                return false;
-            }
-            if (Hour >= 24 || Minute >= 60 || Second >= 60) {
-                return false;
-            }
-            return true;
-        }
-
-        // Convert to seconds since BaseYear
-        uint32_t ToSeconds() const {
-            uint32_t seconds = 0;
-
-            for (uint16_t y = BaseYear; y < Year; y++) {
-                seconds += SecondsPerDay * (IsLeapYear(y) ? 366 : 365);
-            }
-
-            for (uint8_t m = 1; m < Month; m++) {
-                seconds += SecondsPerDay * DaysInMonth(Year, m);
-            }
-
-            seconds += (Day - 1) * SecondsPerDay;
-            seconds += Hour * SecondsPerHour;
-            seconds += Minute * SecondsPerMinute;
-            seconds += Second;
-
-            return seconds;
-        }
-
-        // Get the number of days in a given month
-        static uint8_t DaysInMonth(uint16_t year, uint8_t month) {
-            static constexpr uint8_t DaysInMonths[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-            uint8_t days = DaysInMonths[month - 1];
-            if (month == 2 && IsLeapYear(year)) {
-                days = 29;
-            }
-            return days;
-        }
-
-        // Check if a year is a leap year
-        static bool IsLeapYear(uint16_t year) {
-            return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
         }
 
         /** @name Operators
