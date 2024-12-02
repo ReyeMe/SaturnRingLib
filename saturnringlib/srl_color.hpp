@@ -2,6 +2,8 @@
 
 #include "srl_base.hpp"
 
+#include <initializer_list>
+
 namespace SRL::Types
 {
     /** @brief Color in ABGR1555 format
@@ -30,6 +32,18 @@ namespace SRL::Types
         constexpr HighColor() : Opaque(0), Blue(0), Green(0), Red(0)
         {
             // Do nothing
+        }
+
+        /** @brief Defines new transparent color
+         */
+        constexpr HighColor(std::initializer_list<uint16_t> list)
+        {
+            // list.size() >= 4 !
+            const uint16_t* it = list.begin();
+            this->Opaque = *it++;
+            this->Blue = *it++;
+            this->Green = *it++;
+            this->Red = *it;
         }
 
         /** @brief Defines new color from Saturn ABGR555 value

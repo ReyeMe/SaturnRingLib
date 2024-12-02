@@ -73,7 +73,8 @@ namespace SRL::Types
          * @brief Returns the maximum representable value for the fixed-point type.
          * @return Fxp The maximum value.
          */
-        static Fxp MaxValue() {
+        static constexpr Fxp MaxValue()
+        {
             return Fxp(static_cast<uint32_t>((1 << (TotalBits - FractionBits)) - 1)); // Maximum integer value
         }
 
@@ -81,9 +82,30 @@ namespace SRL::Types
          * @brief Returns the minimum representable value for the fixed-point type.
          * @return Fxp The minimum value.
          */
-        static Fxp MinValue() {
+        static constexpr Fxp MinValue()
+        {
             return Fxp(static_cast<uint32_t>(-(1 << (TotalBits - FractionBits - 1)))); // Minimum integer value
         }
+
+        /**
+         * @brief ...
+         * @return ...
+         */
+        static constexpr Fxp Mod(const Fxp& a, const Fxp& b)
+        {
+            // b should not be 0-
+            return Fxp::FromRaw(a.Value() % b.Value());
+        }
+
+        /**
+         * @brief ...
+         * @return ...
+         */
+        static constexpr Fxp Abs(const Fxp& a)
+        {
+            return Fxp::FromRaw(a.Value() & ~0x80000000);
+        }
+
 
 		/** @brief Cast integer as fixed point value
 		 * @param value Integer fixed point value

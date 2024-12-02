@@ -235,14 +235,14 @@ extern "C" {
 
     MU_TEST(angle_test_arithmetic_multiplication) {
         Angle a1 = Angle::FromDegrees(Fxp(30.0));
-        Angle result = a1 * 2; // Assuming multiplication is supported
+        Angle result = a1 * Angle::FromDegrees(Fxp::FromInt(2)); // Assuming multiplication is supported
         snprintf(buffer, buffer_size, "Multiplication failed: %d != 60", result.AsDegrees());
         mu_assert(result.AsDegrees() == 60.0, buffer);
     }
 
     MU_TEST(angle_test_arithmetic_division) {
         Angle a1 = Angle::FromDegrees(Fxp(60.0));
-        Angle result = a1 / 2; // Assuming division is supported
+        Angle result = a1 / Angle::FromDegrees(Fxp::FromInt(2)); // Assuming division is supported
         snprintf(buffer, buffer_size, "Division failed: %d != 30", result.AsDegrees());
         mu_assert(result.AsDegrees() == 30.0, buffer);
     }
@@ -265,14 +265,14 @@ extern "C" {
         Angle a1 = Angle::FromDegrees(Fxp(180.0));
         Fxp radians = a1.AsRadians();
         snprintf(buffer, buffer_size, "Conversion to radians failed: %f != 3.14159", radians);
-        mu_assert(fabs(radians - 3.14159) < 1e-5, buffer);
+        mu_assert(Fxp::Abs(radians - 3.14159) < 1e-5, buffer);
     }
 
     MU_TEST(angle_test_conversion_to_degrees) {
         Angle a1 = Angle::FromRadians(Fxp(3.14159));
         Fxp degrees = a1.AsDegrees();
         snprintf(buffer, buffer_size, "Conversion to degrees failed: %f != 180", degrees);
-        mu_assert(fabs(degrees - 180.0) < 1e-5, buffer);
+        mu_assert(Fxp::Abs(degrees - 180.0) < 1e-5, buffer);
     }
 
     MU_TEST(angle_test_edge_case_zero) {

@@ -27,10 +27,10 @@ namespace SRL::Types
          */
         int16_t value;
 
-        /** @brief Construct a new instance from raw value
+        /** @brief Construct a new instance from existing instance
          */
         constexpr Angle(const int16_t& inValue) : value(inValue) {}
-        
+
         /** @brief Construct a new empty instance
          */
         constexpr Angle() : value(0) {}
@@ -94,12 +94,23 @@ namespace SRL::Types
         }
 
         /** @brief Get raw value
-         * @return Raw value 
+         * @return Raw value
          */
         constexpr int16_t Value() const
         {
             return this->value;
         }
+
+        // Normalize the angle to the range [0, 360)
+        Angle Normalize() const
+        {
+            Fxp normalizedValue = Fxp::Mod(this->AsDegrees(), Fxp(360.0)); // Compute remainder
+            if (normalizedValue < 0) {
+                normalizedValue += 360.0; // Adjust to be positive
+            }
+            return Angle::FromDegrees(normalizedValue);
+        }
+
 
         /** @name Operators
          * @{
@@ -107,25 +118,44 @@ namespace SRL::Types
 
         /** @brief Add two angles together
          * @param angle Other angle
-         * @return Computation result 
+         * @return Computation result
          */
         constexpr Angle operator+(const Angle& angle) const
         {
-            return Angle((int16_t)(this->value + angle.value));
+            return Angle(static_cast<int16_t>(this->value + angle.value));
         }
 
         /** @brief Subtract two angles from each other
          * @param angle Other angle
-         * @return Computation result 
+         * @return Computation result
          */
         constexpr Angle operator-(const Angle& angle) const
         {
-            return Angle((int16_t)(this->value - angle.value));
+            return Angle(static_cast<int16_t>(this->value - angle.value));
         }
+
+        /** @brief Multiplies two angles together
+         * @param angle Other angle
+         * @return Computation result
+         */
+        constexpr Angle operator*(const Angle& angle) const
+        {
+            return Angle(static_cast<int16_t>(this->value * angle.value));
+        }
+
+        /** @brief Divides two angles from each other
+         * @param angle Other angle
+         * @return Computation result
+         */
+        constexpr Angle operator/(const Angle& angle) const
+        {
+            return Angle(static_cast<int16_t>(this->value / angle.value));
+        }
+
 
         /** @brief Add two angles together and set the result to current instance
          * @param angle Other angle
-         * @return Computation result 
+         * @return Computation result
          */
         constexpr Angle& operator+=(const Angle& angle)
         {
@@ -135,7 +165,7 @@ namespace SRL::Types
 
         /** @brief Subtract two angles from each other and set the result to current instance
          * @param angle Other angle
-         * @return Computation result 
+         * @return Computation result
          */
         constexpr Angle& operator-=(const Angle& angle)
         {
@@ -144,7 +174,7 @@ namespace SRL::Types
         }
 
         /** @brief Set value of another instance to current instance
-         * @return Computation result 
+         * @return Computation result
          */
         constexpr Angle& operator=(const Angle&) = default;
 
@@ -153,7 +183,7 @@ namespace SRL::Types
          */
         constexpr Angle operator-() const
         {
-            return (int16_t)-this->value;
+            return this->value ^ 0x8000;
         }
 
         /** @brief Compare whether current angle is bigger than other angle
@@ -209,7 +239,7 @@ namespace SRL::Types
         {
             return this->value != angle.value;
         }
-        
+
         /** @}
          */
     };
