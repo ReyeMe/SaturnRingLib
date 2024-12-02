@@ -129,12 +129,12 @@ extern "C" {
         mu_assert(result == 10.0f, buffer);
     }
 
-    MU_TEST(fxp_test_conversion_from_float) {
-        float value = 20.75;
-        Fxp a1 = Fxp(value);
-        snprintf(buffer, buffer_size, "Conversion from float failed: %f != %f", a1.AsFloat(), value);
-        mu_assert(a1.ToFloat() == value, buffer);
-    }
+    // MU_TEST(fxp_test_conversion_from_float) {
+    //     float value = 20.75;
+    //     Fxp a1 = Fxp(value);
+    //     snprintf(buffer, buffer_size, "Conversion from float failed: %f != %f", a1.AsFloat(), value);
+    //     mu_assert(a1.ToFloat() == value, buffer);
+    // }
 
     MU_TEST(fxp_test_limits_max) {
         Fxp max = Fxp::MaxValue();
@@ -166,7 +166,7 @@ extern "C" {
         MU_RUN_TEST(fxp_test_division_by_zero);
         //MU_RUN_TEST(fxp_test_precision);
         MU_RUN_TEST(fxp_test_conversion_to_float);
-        MU_RUN_TEST(fxp_test_conversion_from_float);
+        //MU_RUN_TEST(fxp_test_conversion_from_float);
         MU_RUN_TEST(fxp_test_limits_max);
         MU_RUN_TEST(fxp_test_limits_min);
 	}

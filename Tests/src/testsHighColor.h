@@ -84,7 +84,7 @@ extern "C" {
     // Test: Conversion to 16-bit integer
     MU_TEST(highcolor_test_to_integer) {
         HighColor color = {1, 31, 31, 31}; // Max color
-        uint16_t intValue = color.ToInteger(); // Assuming ToInteger is implemented
+        uint16_t intValue = color.GetABGR();
         snprintf(buffer, buffer_size, "ToInteger failed: %d != 0xFFFF", intValue);
         mu_assert(intValue == 0xFFFF, buffer);
     }
@@ -92,7 +92,7 @@ extern "C" {
     // Test: Conversion from 16-bit integer
     MU_TEST(highcolor_test_from_integer) {
         uint16_t intValue = 0xFFFF; // Max color
-        HighColor color = HighColor::FromInteger(intValue); // Assuming FromInteger is implemented
+        HighColor color = HighColor::FromARGB15(intValue); // Assuming FromInteger is implemented
         snprintf(buffer, buffer_size, "FromInteger failed: Blue != 31");
         mu_assert(color.Blue == 31, buffer);
         snprintf(buffer, buffer_size, "FromInteger failed: Green != 31");
