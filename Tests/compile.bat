@@ -8,11 +8,11 @@
     exit 1
   fi
 
-  if [[ "$1" -eq "debug" ]]; then
+  if [[ "$1" = "debug" ]]; then
+    echo "BUILD IN DEBUG : $1"
     make all DEBUG=1 || exit
-  fi
-
-  if [[ "$1" -eq "release" ]]; then
+  elif [[ "$1" = "release" ]]; then
+    echo "BUILD IN RELEASE"
     make all || exit
   fi
 }

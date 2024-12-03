@@ -14,11 +14,11 @@ extern "C" {
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    void cram_test_setup() {
+    void cram_test_setup(void) {
         // Setup for CRAM tests, if necessary
     }
 
-    void cram_test_teardown() {
+    void cram_test_teardown(void) {
         // Cleanup for CRAM tests, if necessary
     }
 

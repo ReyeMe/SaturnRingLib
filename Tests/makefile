@@ -8,6 +8,8 @@ SRL_MAX_CD_FILES = 0          	# Maximum number of files on a CD
 SRL_MAX_CD_RETRIES = 0          # Number of times to retry on unsuccessful read
 SRL_LOG_LEVEL = INFO          	# Maximum log level to display
 
+# Increase Log output buffer to avoid overflow
+SRL_DEBUG_MAX_LOG_LENGTH = 255
 
 # Sound driver specific configuration
 SRL_USE_SGL_SOUND_DRIVER = 0    # Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
