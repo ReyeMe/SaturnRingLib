@@ -50,6 +50,14 @@ namespace SRL::Types
 
 	public:
 
+        /** @brief MAX valie
+         */
+        static inline constexpr uint32_t FxpMax = static_cast<uint32_t>((1 << (TotalBits - FractionBits)) - 1);
+
+        /** @brief MIN valie
+         */
+        static inline constexpr uint32_t FxpMin = static_cast<uint32_t>(-(1 << (TotalBits - FractionBits - 1)));
+
 		/** @brief Default constructor, initializes the value to 0.
 		 */
 		constexpr Fxp() : value(0) {}
@@ -75,7 +83,7 @@ namespace SRL::Types
          */
         static constexpr Fxp MaxValue()
         {
-            return Fxp(static_cast<uint32_t>((1 << (TotalBits - FractionBits)) - 1)); // Maximum integer value
+            return Fxp(FxpMax); // Maximum integer value
         }
 
         /**
@@ -84,7 +92,7 @@ namespace SRL::Types
          */
         static constexpr Fxp MinValue()
         {
-            return Fxp(static_cast<uint32_t>(-(1 << (TotalBits - FractionBits - 1)))); // Minimum integer value
+            return Fxp(FxpMin); // Minimum integer value
         }
 
         /**

@@ -10,21 +10,25 @@
 using namespace SRL;
 using namespace SRL::Types;
 
-extern "C" {
+extern "C"
+{
 
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    void math_test_setup(void) {
+    void math_test_setup(void)
+    {
         // Setup for Math tests, if necessary
     }
 
-    void math_test_teardown(void) {
+    void math_test_teardown(void)
+    {
         // Cleanup for Math tests, if necessary
     }
 
     // Test: Sin function for standard angles
-    MU_TEST(math_test_sin_standard_angles) {
+    MU_TEST(math_test_sin_standard_angles)
+    {
         Fxp sin_0 = Math::Sin(Angle::FromDegrees(0));
         Fxp sin_90 = Math::Sin(Angle::FromDegrees(90));
         Fxp sin_180 = Math::Sin(Angle::FromDegrees(180));
@@ -44,7 +48,8 @@ extern "C" {
     }
 
     // Test: Cos function for standard angles
-    MU_TEST(math_test_cos_standard_angles) {
+    MU_TEST(math_test_cos_standard_angles)
+    {
         Fxp cos_0 = Math::Cos(Angle::FromDegrees(0));
         Fxp cos_90 = Math::Cos(Angle::FromDegrees(90));
         Fxp cos_180 = Math::Cos(Angle::FromDegrees(180));
@@ -64,7 +69,8 @@ extern "C" {
     }
 
     // Test: Sin and Cos for negative angles
-    MU_TEST(math_test_negative_angles) {
+    MU_TEST(math_test_negative_angles)
+    {
         Fxp sin_neg90 = Math::Sin(Angle::FromDegrees(-90));
         Fxp cos_neg90 = Math::Cos(Angle::FromDegrees(-90));
 
@@ -76,7 +82,8 @@ extern "C" {
     }
 
     // Test: Sin and Cos for large angles
-    MU_TEST(math_test_large_angles) {
+    MU_TEST(math_test_large_angles)
+    {
         Fxp sin_large = Math::Sin(Angle::FromDegrees(450)); // 450° = 90° normalized
         Fxp cos_large = Math::Cos(Angle::FromDegrees(450));
 
@@ -88,7 +95,8 @@ extern "C" {
     }
 
     // Test: Sin and Cos for small angles
-    MU_TEST(math_test_small_angles) {
+    MU_TEST(math_test_small_angles)
+    {
         Fxp sin_small = Math::Sin(Angle::FromDegrees(0.1));
         Fxp cos_small = Math::Cos(Angle::FromDegrees(0.1));
 
@@ -99,7 +107,8 @@ extern "C" {
         mu_assert(fabs(cos_small.ToFloat() - 0.999998) < 1e-5, buffer);
     }
 
-    MU_TEST_SUITE(math_test_suite) {
+    MU_TEST_SUITE(math_test_suite)
+    {
         MU_SUITE_CONFIGURE(&math_test_setup, &math_test_teardown);
 
         MU_RUN_TEST(math_test_sin_standard_angles);

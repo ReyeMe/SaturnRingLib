@@ -6,21 +6,25 @@
 
 using namespace SRL;
 
-extern "C" {
+extern "C"
+{
 
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    void cd_test_setup(void) {
+    void cd_test_setup(void)
+    {
         // Setup for CD tests, if necessary
     }
 
-    void cd_test_teardown(void) {
+    void cd_test_teardown(void)
+    {
         // Cleanup for CD tests, if necessary
     }
 
     // Test: Initialize CD system
-    MU_TEST(cd_test_initialize) {
+    MU_TEST(cd_test_initialize)
+    {
         Cd cdSystem;
         bool success = cdSystem.Initialize();
         snprintf(buffer, buffer_size, "CD system initialization failed");
@@ -111,7 +115,8 @@ extern "C" {
     //     mu_assert(!success, buffer);
     // }
 
-    MU_TEST_SUITE(cd_test_suite) {
+    MU_TEST_SUITE(cd_test_suite)
+    {
         MU_SUITE_CONFIGURE(&cd_test_setup, &cd_test_teardown);
 
         MU_RUN_TEST(cd_test_initialize);

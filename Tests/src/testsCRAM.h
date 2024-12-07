@@ -9,27 +9,29 @@
 
 using namespace SRL;
 
-extern "C" {
+extern "C"
+{
 
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    void cram_test_setup(void) {
+    void cram_test_setup(void)
+    {
         // Setup for CRAM tests, if necessary
     }
 
-    void cram_test_teardown(void) {
+    void cram_test_teardown(void)
+    {
         // Cleanup for CRAM tests, if necessary
     }
 
     // Test: BaseAddress initialization
     MU_TEST(cram_test_base_address)
     {
-        void* baseAddress = (void*)CRAM::BaseAddress;
+        void *baseAddress = (void *)CRAM::BaseAddress;
         snprintf(buffer, buffer_size, "BaseAddress not initialized correctly: %p", baseAddress);
         mu_assert(baseAddress != nullptr, buffer);
     }
-
 
     // Test: Setting and getting a color in CRAM
     // MU_TEST(cram_test_set_get_color)
@@ -100,14 +102,15 @@ extern "C" {
     //               retrievedColor.Opaque == color.Opaque, buffer);
     // }
 
-    MU_TEST_SUITE(cram_test_suite) {
+    MU_TEST_SUITE(cram_test_suite)
+    {
         MU_SUITE_CONFIGURE(&cram_test_setup, &cram_test_teardown);
 
         MU_RUN_TEST(cram_test_base_address);
-        //MU_RUN_TEST(cram_test_set_get_color);
-        //MU_RUN_TEST(cram_test_texture_color_mode);
-        //MU_RUN_TEST(cram_test_invalid_color_index);
-        //MU_RUN_TEST(cram_test_invalid_texture_mode);
-        //MU_RUN_TEST(cram_test_max_color_index);
+        // MU_RUN_TEST(cram_test_set_get_color);
+        // MU_RUN_TEST(cram_test_texture_color_mode);
+        // MU_RUN_TEST(cram_test_invalid_color_index);
+        // MU_RUN_TEST(cram_test_invalid_texture_mode);
+        // MU_RUN_TEST(cram_test_max_color_index);
     }
 }
