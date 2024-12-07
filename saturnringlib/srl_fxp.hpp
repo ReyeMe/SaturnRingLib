@@ -34,6 +34,14 @@ namespace SRL::Types
 		 */
         static constexpr int FractionBits = 16;
 
+        /** @brief MAX valie
+         */
+        static inline constexpr uint32_t FxpMax = static_cast<uint32_t>((1 << (TotalBits - FractionBits)) - 1);
+
+        /** @brief MIN valie
+         */
+        static inline constexpr uint32_t FxpMin = static_cast<uint32_t>(-(1 << (TotalBits - FractionBits - 1)));
+
 		/** @brief Fixed point value
 		 */
 		int32_t value;
@@ -49,14 +57,6 @@ namespace SRL::Types
 		constexpr Fxp(const uint32_t& inValue) : value(inValue) {}
 
 	public:
-
-        /** @brief MAX valie
-         */
-        static inline constexpr uint32_t FxpMax = static_cast<uint32_t>((1 << (TotalBits - FractionBits)) - 1);
-
-        /** @brief MIN valie
-         */
-        static inline constexpr uint32_t FxpMin = static_cast<uint32_t>(-(1 << (TotalBits - FractionBits - 1)));
 
 		/** @brief Default constructor, initializes the value to 0.
 		 */
