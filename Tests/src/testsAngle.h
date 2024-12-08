@@ -12,6 +12,7 @@ extern "C"
 
     extern const uint8_t buffer_size;
     extern char buffer[];
+    extern uint32_t suite_error_counter;
 
     void angle_test_setup(void)
     {
@@ -21,6 +22,14 @@ extern "C"
     void angle_test_teardown(void)
     {
         /* Nothing */
+    }
+
+    void angle_test_output_header(void)
+    {
+        if(!suite_error_counter++)
+        {
+            LogInfo("****UT_ANGLE_ERROR(S)****");
+        }
     }
 
     MU_TEST(angle_test_initialization_zero)
@@ -202,7 +211,9 @@ extern "C"
 
     MU_TEST_SUITE(angle_test_suite)
     {
-        MU_SUITE_CONFIGURE(&angle_test_setup, &angle_test_teardown);
+        MU_SUITE_CONFIGURE_WITH_HEADER(&angle_test_setup,
+                                        &angle_test_teardown,
+                                        &angle_test_output_header);
 
         MU_RUN_TEST(angle_test_initialization_zero);
         MU_RUN_TEST(angle_test_subtraction_half_circle_minus_quarter_circle);

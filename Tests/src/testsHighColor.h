@@ -23,6 +23,14 @@ extern "C"
         // Cleanup for HighColor tests, if necessary
     }
 
+    void highcolor_test_output_header(void)
+    {
+        if(!suite_error_counter++)
+        {
+            LogInfo("****UT_HIGHCOLOR_ERROR(S)****");
+        }
+    }
+
     // Test: Initialize HighColor with specific values
     MU_TEST(highcolor_test_initialization)
     {
@@ -113,7 +121,9 @@ extern "C"
 
     MU_TEST_SUITE(highcolor_test_suite)
     {
-        MU_SUITE_CONFIGURE(&highcolor_test_setup, &highcolor_test_teardown);
+        MU_SUITE_CONFIGURE_WITH_HEADER(&highcolor_test_setup,
+                                        &highcolor_test_teardown,
+                                        &highcolor_test_output_header);
 
         MU_RUN_TEST(highcolor_test_initialization);
         MU_RUN_TEST(highcolor_test_max_values);

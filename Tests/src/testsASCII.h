@@ -23,6 +23,14 @@ extern "C"
         // Cleanup logic, if necessary
     }
 
+    void ascii_test_output_header(void)
+    {
+        if(!suite_error_counter++)
+        {
+            LogInfo("****UT_ASCII_ERROR(S)****");
+        }
+    }
+
     MU_TEST(ascii_test_display_simple_text)
     {
         ASCII display;
@@ -78,7 +86,9 @@ extern "C"
 
     MU_TEST_SUITE(ascii_test_suite)
     {
-        MU_SUITE_CONFIGURE(&ascii_test_setup, &ascii_test_teardown);
+        MU_SUITE_CONFIGURE_WITH_HEADER(&ascii_test_setup,
+                                        &ascii_test_teardown,
+                                        &ascii_test_output_header);
 
         MU_RUN_TEST(ascii_test_display_simple_text);
         MU_RUN_TEST(ascii_test_display_out_of_bounds);

@@ -44,6 +44,7 @@ static int minunit_run = 0;
 static int minunit_assert = 0;
 static int minunit_fail = 0;
 static int minunit_status = 0;
+static uint32_t suite_error_counter = 0;
 
 /*  Timers */
 static double minunit_real_timer = 0;
@@ -55,6 +56,7 @@ static char minunit_last_message[MINUNIT_MESSAGE_LEN];
 /*  Test setup and teardown function pointers */
 static void (*minunit_setup)(void) = NULL;
 static void (*minunit_teardown)(void) = NULL;
+static void (*minunit_output_header)(void) = NULL;
 
 /*  Definitions */
 #define MU_TEST(method_name) static void method_name(void)
@@ -69,12 +71,23 @@ static void (*minunit_teardown)(void) = NULL;
 	suite_name();\
 	minunit_setup = NULL;\
 	minunit_teardown = NULL;\
+    minunit_output_header = NULL;\
 )
 
 /*  Configure setup and teardown functions */
 #define MU_SUITE_CONFIGURE(setup_fun, teardown_fun) MU__SAFE_BLOCK(\
+    suite_error_counter = 0;\
 	minunit_setup = setup_fun;\
 	minunit_teardown = teardown_fun;\
+    minunit_output_header = NULL;\
+)
+
+/*  Configure setup and teardown functions */
+#define MU_SUITE_CONFIGURE_WITH_HEADER(setup_fun, teardown_fun, output_header) MU__SAFE_BLOCK(\
+    suite_error_counter = 0;\
+	minunit_setup = setup_fun;\
+	minunit_teardown = teardown_fun;\
+    minunit_output_header = output_header;\
 )
 
 /*  Test runner */
@@ -89,6 +102,7 @@ static void (*minunit_teardown)(void) = NULL;
 	minunit_run++;\
 	if (minunit_status) {\
 		minunit_fail++;\
+        if (minunit_output_header) (*minunit_output_header)();\
 		Log::LogPrint<LogLevels::FATAL>("FAIL : %s", minunit_last_message);\
 	}\
 	if (minunit_teardown) (*minunit_teardown)();\

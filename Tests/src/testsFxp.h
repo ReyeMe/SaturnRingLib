@@ -26,6 +26,14 @@ extern "C"
         /* Nothing */
     }
 
+    void fxp_test_output_header(void)
+    {
+        if(!suite_error_counter++)
+        {
+            LogInfo("****UT_FXP_ERROR(S)****");
+        }
+    }
+
     MU_TEST(fxp_initialization_zero)
     {
         Fxp a1 = Fxp::FromInt(0);
@@ -627,7 +635,9 @@ extern "C"
 
     MU_TEST_SUITE(fxp_test_suite)
     {
-        MU_SUITE_CONFIGURE(&fxp_test_setup, &fxp_test_teardown);
+        MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
+                                    &fxp_test_teardown,
+                                    &fxp_test_output_header);
 
         MU_RUN_TEST(fxp_initialization_zero);
         MU_RUN_TEST(fxp_initialization_one);

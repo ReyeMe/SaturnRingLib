@@ -35,6 +35,7 @@ int main()
 	MU_RUN_SUITE(cram_test_suite);
 	MU_RUN_SUITE(fxp_test_suite);
 	MU_RUN_SUITE(highcolor_test_suite);
+    MU_RUN_SUITE(math_test_suite);
 	MU_REPORT();
 	LogInfo("***UT_END***");
 

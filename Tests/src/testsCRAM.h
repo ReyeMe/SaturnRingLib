@@ -25,6 +25,14 @@ extern "C"
         // Cleanup for CRAM tests, if necessary
     }
 
+    void cram_test_output_header(void)
+    {
+        if(!suite_error_counter++)
+        {
+            LogInfo("****UT_CRAM_ERROR(S)****");
+        }
+    }
+
     // Test: BaseAddress initialization
     MU_TEST(cram_test_base_address)
     {
@@ -104,7 +112,9 @@ extern "C"
 
     MU_TEST_SUITE(cram_test_suite)
     {
-        MU_SUITE_CONFIGURE(&cram_test_setup, &cram_test_teardown);
+        MU_SUITE_CONFIGURE_WITH_HEADER(&cram_test_setup,
+                                    &cram_test_teardown,
+                                    &cram_test_output_header);
 
         MU_RUN_TEST(cram_test_base_address);
         // MU_RUN_TEST(cram_test_set_get_color);
