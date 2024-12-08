@@ -4,8 +4,8 @@ SRL_MODE = NTSC                 # Valid options are PAL or NTSC
 SRL_HIGH_RES = 0                # 480i mode
 SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
 SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
-SRL_MAX_CD_FILES = 0          	# Maximum number of files on a CD
-SRL_MAX_CD_RETRIES = 0          # Number of times to retry on unsuccessful read
+SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
+SRL_MAX_CD_RETRIES = 3          # Number of times to retry on unsuccessful read
 SRL_LOG_LEVEL = INFO          	# Maximum log level to display
 
 # Increase Log output buffer to avoid overflow
