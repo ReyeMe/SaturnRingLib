@@ -167,13 +167,16 @@ extern "C"
     // Test: File reading
     MU_TEST(cd_test_read_file2)
     {
-        const char *filename = "ROOT/FILE.TXT";
+        char *dirname = "ROOT";
+        const char *filename = "FILE.TXT";
         static const uint16_t file_buffer_size = 255;
 
         const char *lines[] = {"ExpectedContent"};
 
         // Already initialized into main
         // SRL::Cd::Initialize();
+
+        SRL::Cd::ChangeDir(dirname);
 
         SRL::Cd::File file(filename);
 
@@ -266,7 +269,7 @@ extern "C"
     // Test: Handle missing file
     MU_TEST(cd_test_missing_file)
     {
-        const char *filename = "ROOT/MISSING.TXT";
+        const char *filename = "MISSING.TXT";
         SRL::Cd::File file(filename);
         bool exists = file.Exists();
         snprintf(buffer, buffer_size, "File '%s' does exist but should not", filename);
