@@ -24,7 +24,7 @@ extern "C"
 
     void cd_test_output_header(void)
     {
-        if(!suite_error_counter++)
+        if (!suite_error_counter++)
         {
             LogInfo("****UT_CD_ERROR(S)****");
         }
@@ -126,8 +126,8 @@ extern "C"
     MU_TEST_SUITE(cd_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&cd_test_setup,
-                                        &cd_test_teardown,
-                                        &cd_test_output_header);
+                                       &cd_test_teardown,
+                                       &cd_test_output_header);
 
         MU_RUN_TEST(cd_test_initialize);
         // MU_RUN_TEST(cd_test_directory_listing);

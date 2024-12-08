@@ -2,7 +2,7 @@
 #include <srl_log.hpp>
 
 #include <climits>
-#include <limits>       // std::numeric_limits
+#include <limits> // std::numeric_limits
 
 // https://github.com/siu/minunit
 #include "minunit.h"
@@ -28,7 +28,7 @@ extern "C"
 
     void fxp_test_output_header(void)
     {
-        if(!suite_error_counter++)
+        if (!suite_error_counter++)
         {
             LogInfo("****UT_FXP_ERROR(S)****");
         }
@@ -170,13 +170,13 @@ extern "C"
         Fxp b1 = Fxp::FromInt(3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
         a1 = Fxp::FromInt(20);
         b1 = Fxp::FromInt(5);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(0), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
     // Test: Negative dividend
@@ -186,13 +186,13 @@ extern "C"
         Fxp b1 = Fxp::FromInt(3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(-1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
 
         a1 = Fxp::FromInt(-20);
         b1 = Fxp::FromInt(5);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(0), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
     // Test: Negative divisor
@@ -202,13 +202,13 @@ extern "C"
         Fxp b1 = Fxp::FromInt(-3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
         a1 = Fxp::FromInt(20);
         b1 = Fxp::FromInt(-5);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(0), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
     // Test: Negative dividend and divisor
@@ -218,13 +218,13 @@ extern "C"
         Fxp b1 = Fxp::FromInt(-3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(-1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
 
         a1 = Fxp::FromInt(-20);
         b1 = Fxp::FromInt(-5);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(0), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
     // Test: Division by zero
@@ -250,13 +250,13 @@ extern "C"
         Fxp b1 = Fxp::FromInt(3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
         a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
         b1 = Fxp::FromInt(3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(-1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
     }
 
     // Test: Edge cases (smallest/largest integers)
@@ -266,13 +266,13 @@ extern "C"
         Fxp b1 = Fxp::FromInt(2);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
         a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
         b1 = Fxp::FromInt(2);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(-1), buffer);
+        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
     }
 
     // Test: Positive numbers
@@ -525,7 +525,6 @@ extern "C"
     //     EXPECT_FALSE(NAN > NAN);
     // }
 
-
     // Test: Integer and negative float comparisons
     MU_TEST(fxp_GreaterThanMixedTest_IntAndNegativeFloat)
     {
@@ -636,8 +635,8 @@ extern "C"
     MU_TEST_SUITE(fxp_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
-                                    &fxp_test_teardown,
-                                    &fxp_test_output_header);
+                                       &fxp_test_teardown,
+                                       &fxp_test_output_header);
 
         MU_RUN_TEST(fxp_initialization_zero);
         MU_RUN_TEST(fxp_initialization_one);
@@ -651,7 +650,7 @@ extern "C"
         MU_RUN_TEST(fxp_arithmetic_subtraction);
         MU_RUN_TEST(fxp_arithmetic_multiplication);
         MU_RUN_TEST(fxp_arithmetic_division);
-        //MU_RUN_TEST(fxp_division_by_zero_handling);
+        // MU_RUN_TEST(fxp_division_by_zero_handling);
         MU_RUN_TEST(fxp_conversion_to_float);
         MU_RUN_TEST(fxp_max_value_check);
         MU_RUN_TEST(fxp_min_value_check);

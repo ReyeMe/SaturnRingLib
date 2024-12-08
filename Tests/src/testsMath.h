@@ -28,12 +28,11 @@ extern "C"
 
     void math_test_output_header(void)
     {
-        if(!suite_error_counter++)
+        if (!suite_error_counter++)
         {
             LogInfo("****UT_MATH_ERROR(S)****");
         }
     }
-
 
     // Test: Sin function for standard angles
     MU_TEST(math_test_sin_standard_angles)
@@ -119,8 +118,8 @@ extern "C"
     MU_TEST_SUITE(math_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&math_test_setup,
-                                        &math_test_teardown,
-                                        &math_test_output_header);
+                                       &math_test_teardown,
+                                       &math_test_output_header);
 
         MU_RUN_TEST(math_test_sin_standard_angles);
         MU_RUN_TEST(math_test_cos_standard_angles);

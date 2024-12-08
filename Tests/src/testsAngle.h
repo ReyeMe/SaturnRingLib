@@ -26,7 +26,7 @@ extern "C"
 
     void angle_test_output_header(void)
     {
-        if(!suite_error_counter++)
+        if (!suite_error_counter++)
         {
             LogInfo("****UT_ANGLE_ERROR(S)****");
         }
@@ -212,8 +212,8 @@ extern "C"
     MU_TEST_SUITE(angle_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&angle_test_setup,
-                                        &angle_test_teardown,
-                                        &angle_test_output_header);
+                                       &angle_test_teardown,
+                                       &angle_test_output_header);
 
         MU_RUN_TEST(angle_test_initialization_zero);
         MU_RUN_TEST(angle_test_subtraction_half_circle_minus_quarter_circle);
