@@ -58,7 +58,7 @@ namespace SRL
             SynchConst = (uint8_t)(-SRL_FRAMERATE);
 #endif
             // Initialize CD drive
-            SRL:Cd::Initialize();
+            SRL::Cd::Initialize();
 
             // Initialize callbacks
             slIntFunction(Core::VblankHandling);
