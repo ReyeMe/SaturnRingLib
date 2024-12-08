@@ -69,6 +69,7 @@ extern "C"
         mu_assert(isopen, buffer);
 
         file.Close();
+
         isopen = file.IsOpen();
         snprintf(buffer, buffer_size, "File '%s' is open but should not", filename);
         mu_assert(!isopen, buffer);
@@ -79,16 +80,93 @@ extern "C"
     }
 
     // Test: File reading
-    // MU_TEST(cd_test_read_file) {
-    //     Cd cdSystem;
-    //     cdSystem.Initialize();
-    //     char fileContent[1024];
-    //     bool success = cdSystem.ReadFile("root/file.txt", fileContent, sizeof(fileContent));
-    //     snprintf(buffer, buffer_size, "File 'root/file.txt' could not be read");
-    //     mu_assert(success, buffer);
-    //     snprintf(buffer, buffer_size, "Unexpected file content: %s", fileContent);
-    //     mu_assert(strcmp(fileContent, "ExpectedContent") == 0, buffer);
-    // }
+    MU_TEST(cd_test_read_file) {
+        const char * filename = "CD_UT.TXT";
+        static const uint16_t file_buffer_size = 255;
+
+        const char * lines[] = {"UT1", "UT12", "UT123"};
+
+        // Already initialized into main
+        //SRL::Cd::Initialize();
+
+        SRL::Cd::File file(filename);
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
+        char byteBuffer[file_buffer_size];
+
+        // Clear buffer
+        SRL::Memory::MemSet(byteBuffer, '\0', buffer_size);
+
+        // Read from file into a buffer
+        int32_t size = file.Read(file_buffer_size, byteBuffer);
+
+        snprintf(buffer, file_buffer_size, "File '%s' : Read did not return any data", filename);
+        mu_assert(size > 0, buffer);
+
+        char * pch=byteBuffer;
+
+        for (auto line : lines)
+        {
+
+            snprintf(buffer,
+                    buffer_size,
+                    "Read Buffer error ! : %s",
+                    byteBuffer);
+            mu_assert(pch != NULL, buffer);
+
+            int cmp = strncmp(line, pch, strlen(line));
+
+            snprintf(buffer,
+                    buffer_size,
+                    "File '%s' : Read did not return %s, but %s instead",
+                    filename,
+                    line,
+                    pch);
+            mu_assert(cmp == 0, buffer);
+
+            pch=strchr(pch+1,'\n');
+
+            snprintf(buffer,
+                    buffer_size,
+                    "Read Buffer error ! : %s",
+                    byteBuffer);
+            mu_assert(pch != NULL, buffer);
+
+            pch++;
+        }
+    }
+
+    MU_TEST(cd_test_null_file) {
+        SRL::Cd::File file(nullptr);
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File NULL does exist but should not");
+        mu_assert(!exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File NULL does open but should not");
+        mu_assert(!open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File NULL is  open but should not");
+        mu_assert(!isopen, buffer);
+
+        file.Close();
+
+        isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File NULL is open but should not");
+        mu_assert(!isopen, buffer);
+
+    }
 
     // Test: Handle missing file
     // MU_TEST(cd_test_missing_file) {
@@ -153,7 +231,8 @@ extern "C"
         //MU_RUN_TEST(cd_test_initialize);
         //MU_RUN_TEST(cd_test_directory_listing);
          MU_RUN_TEST(cd_test_file_exists);
-        // MU_RUN_TEST(cd_test_read_file);
+         MU_RUN_TEST(cd_test_read_file);
+         MU_RUN_TEST(cd_test_null_file);
         // MU_RUN_TEST(cd_test_missing_file);
         // MU_RUN_TEST(cd_test_max_files);
         // MU_RUN_TEST(cd_test_background_jobs);
