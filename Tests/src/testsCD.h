@@ -33,8 +33,8 @@ extern "C"
     // Test: Initialize CD system
     MU_TEST(cd_test_initialize)
     {
-        Cd cdSystem;
-        bool success = cdSystem.Initialize();
+        SRL::Memory::Initialize();
+        bool success = SRL::Cd::Initialize();
         snprintf(buffer, buffer_size, "CD system initialization failed");
         mu_assert(success, buffer);
     }
@@ -49,13 +49,35 @@ extern "C"
     // }
 
     // Test: File existence
-    // MU_TEST(cd_test_file_exists) {
-    //     Cd cdSystem;
-    //     cdSystem.Initialize();
-    //     bool exists = cdSystem.FileExists("root/file.txt");
-    //     snprintf(buffer, buffer_size, "File 'root/file.txt' does not exist but should");
-    //     mu_assert(exists, buffer);
-    // }
+    MU_TEST(cd_test_file_exists) {
+        const char * filename = "CD_UT_SMP.TXT";
+
+        bool success = SRL::Cd::Initialize();
+        snprintf(buffer, buffer_size, "CD system initialization failed");
+        mu_assert(success, buffer);
+
+        SRL::Cd::File file(filename);
+        // bool exists = file.Exists();
+        // snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        // mu_assert(exists, buffer);
+
+        // bool open = file.Open();
+        // snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        // mu_assert(open, buffer);
+        //
+        // bool isopen = file.IsOpen();
+        // snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        // mu_assert(isopen, buffer);
+        //
+        // file.Close();
+        // isopen = file.IsOpen();
+        // snprintf(buffer, buffer_size, "File '%s' is open but should not", filename);
+        // mu_assert(!isopen, buffer);
+        //
+        // exists = file.Exists();
+        // snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        // mu_assert(exists, buffer);
+    }
 
     // Test: File reading
     // MU_TEST(cd_test_read_file) {
@@ -130,8 +152,8 @@ extern "C"
                                        &cd_test_output_header);
 
         MU_RUN_TEST(cd_test_initialize);
-        // MU_RUN_TEST(cd_test_directory_listing);
-        // MU_RUN_TEST(cd_test_file_exists);
+        //MU_RUN_TEST(cd_test_directory_listing);
+         MU_RUN_TEST(cd_test_file_exists);
         // MU_RUN_TEST(cd_test_read_file);
         // MU_RUN_TEST(cd_test_missing_file);
         // MU_RUN_TEST(cd_test_max_files);
