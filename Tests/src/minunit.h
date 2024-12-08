@@ -103,7 +103,7 @@ extern "C"
 		minunit_fail++;                                                     \
 		if (minunit_output_header)                                          \
 			(*minunit_output_header)();                                     \
-		Log::LogPrint<LogLevels::FATAL>("FAIL : %s", minunit_last_message); \
+		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
 	} if (minunit_teardown)(*minunit_teardown)();)
 
 /*  Report */
