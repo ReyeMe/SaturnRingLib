@@ -129,6 +129,10 @@ namespace SRL
              */
             FileSize Size;
 
+            /** @brief disable default constructor
+             */
+            File() = delete;
+
             /** @brief Construct a new File object from Gfs handle and identifier
              * @param handle Gfs handle
              * @param fid File identifier
@@ -139,7 +143,12 @@ namespace SRL
                                                                    identifier(fid),
                                                                    readBuffer(nullptr),
                                                                    readSectorBytes(0),
-                                                                   readBytes(0) {}
+                                                                   readBytes(0)
+            {
+                #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
+                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instanciate this class");
+                #endif
+            }
 
             /** @brief Open a file on CD
              * @param name File name
@@ -151,6 +160,10 @@ namespace SRL
                                      readSectorBytes(0),
                                      readBytes(0)
             {
+                #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
+                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instanciate this class");
+                #endif
+
                 if (name != nullptr)
                 {
                     int32_t sectorSize;
