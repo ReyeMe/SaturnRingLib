@@ -101,17 +101,6 @@ namespace SRL::Types
             return this->value;
         }
 
-        // Normalize the angle to the range [0, 360)
-        Angle NormalizeDegree() const
-        {
-            Fxp normalizedValue = Fxp::Mod(this->AsDegrees(), Fxp(360.0)); // Compute remainder
-            if (normalizedValue < Fxp(0.0)) {
-                normalizedValue += Fxp(360.0); // Adjust to be positive
-            }
-            return Angle::FromDegrees(normalizedValue);
-        }
-
-
         /** @name Operators
          * @{
          */
