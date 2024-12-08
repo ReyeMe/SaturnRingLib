@@ -2,6 +2,8 @@
 
 #include "srl_base.hpp"
 
+#include <limits>       // std::numeric_limits
+
 namespace SRL::Types
 {
 	/** @brief Fixed point type and math by https://github.com/robertoduarte
@@ -36,15 +38,19 @@ namespace SRL::Types
 
         /** @brief MAX valie
          */
-        static inline constexpr uint32_t FxpMax = static_cast<uint32_t>((1 << (TotalBits - FractionBits)) - 1);
+        static inline constexpr uint32_t FxpMax = std::numeric_limits<uint32_t>::max();
 
         /** @brief MIN valie
          */
-        static inline constexpr uint32_t FxpMin = static_cast<uint32_t>(-(1 << (TotalBits - FractionBits - 1)));
+        static inline constexpr uint32_t FxpMin = std::numeric_limits<uint32_t>::min();
 
 		/** @brief Fixed point value
 		 */
 		int32_t value;
+
+        static inline constexpr uint32_t FxpMinInt = std::numeric_limits<int16_t>::min();
+
+        static inline constexpr uint32_t FxpMaxInt = std::numeric_limits<int16_t>::max();
 
 		/** @brief Private constructor for creating Fxp objects from an int32_t value.
 		 * @param inValue The int32_t value to store.
@@ -128,9 +134,9 @@ namespace SRL::Types
 		 * @param value Integer value
 		 * @return Fixed point value
 		 */
-		static constexpr Fxp FromInt(const int32_t& value)
+		static constexpr Fxp FromInt(const int16_t& value)
 		{
-			return Fxp(value << FractionBits);
+			return Fxp(static_cast<int32_t>(value << FractionBits));
 		}
 
 		/** @brief Starts division of two fixed point numbers

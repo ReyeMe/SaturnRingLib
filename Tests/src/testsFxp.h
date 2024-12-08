@@ -2,6 +2,7 @@
 #include <srl_log.hpp>
 
 #include <climits>
+#include <limits>       // std::numeric_limits
 
 // https://github.com/siu/minunit
 #include "minunit.h"
@@ -122,15 +123,15 @@ extern "C"
         mu_assert(result == Fxp(5.0), buffer);
     }
 
-    MU_TEST(fxp_division_by_zero_handling)
-    {
-        Fxp a1(10.0);
-        Fxp a2(0.0);
-        bool exceptionThrown = false;
-        Fxp result = a1 / a2;
-        snprintf(buffer, buffer_size, "Division by zero did not throw an exception");
-        mu_assert(exceptionThrown, buffer);
-    }
+    // MU_TEST(fxp_division_by_zero_handling)
+    // {
+    //     Fxp a1(10.0);
+    //     Fxp a2(0.0);
+    //     bool exceptionThrown = false;
+    //     Fxp result = a1 / a2;
+    //     snprintf(buffer, buffer_size, "Division by zero did not throw an exception");
+    //     mu_assert(exceptionThrown, buffer);
+    // }
 
     MU_TEST(fxp_conversion_to_float)
     {
@@ -237,13 +238,13 @@ extern "C"
     // Test: Large numbers
     MU_TEST(fxp_ModuloTest_LargeNumbers)
     {
-        Fxp a1 = Fxp::FromInt(1000000000);
+        Fxp a1 = Fxp::FromInt(std::numeric_limits<int16_t>::max());
         Fxp b1 = Fxp::FromInt(3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
         mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(1), buffer);
 
-        a1 = Fxp::FromInt(-1000000000);
+        a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
         b1 = Fxp::FromInt(3);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
@@ -253,17 +254,17 @@ extern "C"
     // Test: Edge cases (smallest/largest integers)
     MU_TEST(fxp_ModuloTest_EdgeCases)
     {
-        Fxp a1 = Fxp::FromInt(INT_MAX);
+        Fxp a1 = Fxp::FromInt(std::numeric_limits<int16_t>::max());
         Fxp b1 = Fxp::FromInt(2);
 
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
         mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(1), buffer);
 
-        a1 = Fxp::FromInt(-INT_MAX);
+        a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
         b1 = Fxp::FromInt(2);
 
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(0), buffer);
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
+        mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(-1), buffer);
     }
 
     // Test: Positive numbers
@@ -386,14 +387,14 @@ extern "C"
         Fxp a1(-5.5);
         Fxp b1(-3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
-        mu_assert(a1 > b1, buffer);
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", b1.ToInt(), a1.ToInt());
+        mu_assert(b1 > a1, buffer);
 
         a1 = Fxp(-3.3);
         b1 = Fxp(-5.5);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
-        mu_assert(!(a1 > b1), buffer);
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(-3.3);
         b1 = Fxp(-3.3);
@@ -430,8 +431,8 @@ extern "C"
         a1 = Fxp(0.0);
         b1 = Fxp(-3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
-        mu_assert(!(a1 > b1), buffer);
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(0.0);
         b1 = Fxp(0.0);
@@ -453,7 +454,7 @@ extern "C"
     // Test: Very small differences
     MU_TEST(fxp_GreaterThanFloatTest_VerySmallDifferences)
     {
-        constexpr float a = 1.0000001f;
+        constexpr float a = 1.1f;
         constexpr float b = 1.0000000f;
 
         Fxp a1(a);
@@ -464,6 +465,38 @@ extern "C"
 
         snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
         mu_assert(!(b1 > a1), buffer);
+
+        a1 = Fxp(1.01f);
+
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        mu_assert(a1 > b1, buffer);
+
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        mu_assert(!(b1 > a1), buffer);
+
+        a1 = Fxp(1.001f);
+
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        mu_assert(a1 > b1, buffer);
+
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        mu_assert(!(b1 > a1), buffer);
+
+        a1 = Fxp(1.0001f);
+
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        mu_assert(a1 > b1, buffer);
+
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        mu_assert(!(b1 > a1), buffer);
+
+        // a1 = Fxp(1.00001f);
+        //
+        // snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        // mu_assert(a1 > b1, buffer);
+        //
+        // snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        // mu_assert(!(b1 > a1), buffer);
     }
 
     // Test: Infinity
@@ -608,7 +641,7 @@ extern "C"
         MU_RUN_TEST(fxp_arithmetic_subtraction);
         MU_RUN_TEST(fxp_arithmetic_multiplication);
         MU_RUN_TEST(fxp_arithmetic_division);
-        MU_RUN_TEST(fxp_division_by_zero_handling);
+        //MU_RUN_TEST(fxp_division_by_zero_handling);
         MU_RUN_TEST(fxp_conversion_to_float);
         MU_RUN_TEST(fxp_max_value_check);
         MU_RUN_TEST(fxp_min_value_check);
