@@ -18,8 +18,12 @@
 /[Cc]ompiler/msys2/tmp/*
 !/[Cc]ompiler/msys2/tmp/.gitkeep
 
-/[Ee]mulators/[Mm]ednafen/**
+# just to get rid of the old txt
 !/[Ee]mulators/[Mm]ednafen/put_mednafen_here.txt
+
+# Emulator folder
+/[Ee]mulators/*/**
+!/[Ee]mulators/*/put_emulator_here.txt
 
 **/cd/data/ABS.TXT
 **/cd/data/BIB.TXT

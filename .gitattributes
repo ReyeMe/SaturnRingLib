@@ -1,0 +1,2 @@
+tools/scripts/run.sh eol=lf
+tools/scripts/make.sh eol=lf

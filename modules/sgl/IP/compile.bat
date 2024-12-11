@@ -1,8 +1,3 @@
+:; "../../../tools/scripts/make.sh" $1 ../../../Compiler; exit;
 @ECHO Off
-
-SET COMPILER_DIR=../../../Compiler/
-SET PATH=%COMPILER_DIR%\Other Utilities;%PATH%
-SET PATH=%COMPILER_DIR%\msys2\usr\bin;%PATH%
-SET PATH=%COMPILER_DIR%\sh2eb-elf\bin;%PATH%
-
-make all
+"../../../tools/scripts/make.bat" %1 ../../../Compiler
