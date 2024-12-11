@@ -1,2 +1,3 @@
 tools/scripts/run.sh eol=lf
 tools/scripts/make.sh eol=lf
+tools/scripts/getcompiler.sh eol=lf
