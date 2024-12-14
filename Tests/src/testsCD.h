@@ -167,7 +167,7 @@ extern "C"
     // Test: File reading
     MU_TEST(cd_test_read_file2)
     {
-        char *dirname = "ROOT";
+        const char *dirname = "ROOT";
         const char *filename = "FILE.TXT";
         static const uint16_t file_buffer_size = 255;
 
