@@ -91,18 +91,18 @@ extern "C"
 	minunit_output_header = output_header;)
 
 /*  Test runner */
-#define MU_RUN_TEST(test) MU__SAFE_BLOCK(                                   \
-	if (minunit_real_timer == 0 && minunit_proc_timer == 0) {               \
-		minunit_real_timer = mu_timer_real();                               \
-		minunit_proc_timer = mu_timer_cpu();                                \
-	} if (minunit_setup) (*minunit_setup)();                                \
-	minunit_status = 0;                                                     \
-	test();                                                                 \
-	minunit_run++;                                                          \
-	if (minunit_status) {                                                   \
-		minunit_fail++;                                                     \
-		if (minunit_output_header)                                          \
-			(*minunit_output_header)();                                     \
+#define MU_RUN_TEST(test) MU__SAFE_BLOCK(                            \
+	if (minunit_real_timer == 0 && minunit_proc_timer == 0) {        \
+		minunit_real_timer = mu_timer_real();                        \
+		minunit_proc_timer = mu_timer_cpu();                         \
+	} if (minunit_setup) (*minunit_setup)();                         \
+	minunit_status = 0;                                              \
+	test();                                                          \
+	minunit_run++;                                                   \
+	if (minunit_status) {                                            \
+		minunit_fail++;                                              \
+		if (minunit_output_header)                                   \
+			(*minunit_output_header)();                              \
 		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
 	} if (minunit_teardown)(*minunit_teardown)();)
 

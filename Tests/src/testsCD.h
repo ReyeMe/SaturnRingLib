@@ -12,16 +12,19 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
+    // UT setup function, called before every tests
     void cd_test_setup(void)
     {
         // Setup for CD tests, if necessary
     }
 
+    // UT teardown function, called after every tests
     void cd_test_teardown(void)
     {
         // Cleanup for CD tests, if necessary
     }
 
+    // UT output header function, called on the first test failure
     void cd_test_output_header(void)
     {
         if (!suite_error_counter++)

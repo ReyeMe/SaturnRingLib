@@ -12,20 +12,25 @@ using namespace SRL::Logger;
 
 extern "C"
 {
-
     extern const uint8_t buffer_size;
     extern char buffer[];
 
+    // Setup function called before each test to prepare the test environment
+    // Currently no specific setup is required for these tests
     void fxp_test_setup(void)
     {
-        // Nothomg to do here
+        // No initialization needed
     }
 
+    // Teardown function called after each test to clean up the test environment
+    // Currently no specific teardown actions are performed
     void fxp_test_teardown(void)
     {
-        /* Nothing */
+        /* No cleanup required */
     }
 
+    // Outputs an error header when the first test failure occurs
+    // Helps in identifying when a test suite encounters errors
     void fxp_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -34,6 +39,8 @@ extern "C"
         }
     }
 
+    // Test: Verify fixed-point initialization with zero
+    // Ensures that a fixed-point number initialized with zero is correctly represented
     MU_TEST(fxp_initialization_zero)
     {
         Fxp a1 = Fxp::FromInt(0);
@@ -41,6 +48,8 @@ extern "C"
         mu_assert(a1 == 0, buffer);
     }
 
+    // Test: Verify fixed-point initialization with one
+    // Checks that a fixed-point number initialized with one is correctly represented
     MU_TEST(fxp_initialization_one)
     {
         Fxp a1 = Fxp::FromInt(1);
@@ -48,6 +57,8 @@ extern "C"
         mu_assert(a1 == 1, buffer);
     }
 
+    // Test: Verify the assignment operator for fixed-point numbers
+    // Ensures that a fixed-point number can be correctly assigned to another variable
     MU_TEST(fxp_assignment_operator)
     {
         Fxp a1 = Fxp::FromInt(1);
@@ -56,6 +67,8 @@ extern "C"
         mu_assert(b1 == 1, buffer);
     }
 
+    // Test: Verify the copy constructor for fixed-point numbers
+    // Checks that a new fixed-point number can be created as a copy of another
     MU_TEST(fxp_copy_constructor)
     {
         Fxp a1 = Fxp::FromInt(1);
@@ -64,6 +77,8 @@ extern "C"
         mu_assert(b1 == 1, buffer);
     }
 
+    // Test: Verify equality comparison for fixed-point numbers
+    // Ensures that two fixed-point numbers with the same value are considered equal
     MU_TEST(fxp_equality_check)
     {
         Fxp a1 = Fxp::FromInt(1);
@@ -72,6 +87,8 @@ extern "C"
         mu_assert(a1 == b1, buffer);
     }
 
+    // Test: Verify initialization with double and float values
+    // Checks that fixed-point numbers can be created from both double and float types
     MU_TEST(fxp_initialization_with_doubles)
     {
         Fxp a1(10.0);
@@ -80,6 +97,8 @@ extern "C"
         mu_assert(a1 == b1, buffer);
     }
 
+    // Test: Verify inequality comparison for fixed-point numbers
+    // Ensures that different fixed-point numbers are correctly identified as unequal
     MU_TEST(fxp_inequality_check)
     {
         Fxp a1(10.0);
@@ -88,6 +107,8 @@ extern "C"
         mu_assert(a1 != b1, buffer);
     }
 
+    // Test: Verify less than or equal comparison
+    // Checks that less than or equal comparison works correctly for fixed-point numbers
     MU_TEST(fxp_comparison_lessthan_or_equal)
     {
         Fxp a1(10.0);
@@ -95,6 +116,8 @@ extern "C"
         mu_assert(a1 <= 20, buffer);
     }
 
+    // Test: Verify addition of fixed-point numbers
+    // Checks that addition of fixed-point numbers produces the correct result
     MU_TEST(fxp_arithmetic_addition)
     {
         Fxp a1(10.5);
@@ -104,6 +127,8 @@ extern "C"
         mu_assert(result == Fxp(15.75), buffer);
     }
 
+    // Test: Verify subtraction of fixed-point numbers
+    // Ensures that subtraction of fixed-point numbers yields the correct result
     MU_TEST(fxp_arithmetic_subtraction)
     {
         Fxp a1(10.5);
@@ -113,6 +138,8 @@ extern "C"
         mu_assert(result == Fxp(5.25), buffer);
     }
 
+    // Test: Verify multiplication of fixed-point numbers
+    // Checks that multiplication of fixed-point numbers produces the correct result
     MU_TEST(fxp_arithmetic_multiplication)
     {
         Fxp a1(3.0);
@@ -122,6 +149,8 @@ extern "C"
         mu_assert(result == Fxp(12.0), buffer);
     }
 
+    // Test: Verify division of fixed-point numbers
+    // Ensures that division of fixed-point numbers yields the correct result
     MU_TEST(fxp_arithmetic_division)
     {
         Fxp a1(10.0);
@@ -131,16 +160,8 @@ extern "C"
         mu_assert(result == Fxp(5.0), buffer);
     }
 
-    // MU_TEST(fxp_division_by_zero_handling)
-    // {
-    //     Fxp a1(10.0);
-    //     Fxp a2(0.0);
-    //     bool exceptionThrown = false;
-    //     Fxp result = a1 / a2;
-    //     snprintf(buffer, buffer_size, "Division by zero did not throw an exception");
-    //     mu_assert(exceptionThrown, buffer);
-    // }
-
+    // Test: Conversion of fixed-point number to float
+    // Checks that converting a fixed-point number to float preserves its value
     MU_TEST(fxp_conversion_to_float)
     {
         Fxp a1 = Fxp::FromInt(10);
@@ -149,6 +170,8 @@ extern "C"
         mu_assert(result == 10.0f, buffer);
     }
 
+    // Test: Verify maximum value of fixed-point number
+    // Ensures that the maximum representable fixed-point value is correctly returned
     MU_TEST(fxp_max_value_check)
     {
         Fxp max = Fxp::MaxValue();
@@ -156,6 +179,8 @@ extern "C"
         mu_assert(max == Fxp::MaxValue(), buffer);
     }
 
+    // Test: Verify minimum value of fixed-point number
+    // Checks that the minimum representable fixed-point value is correctly returned
     MU_TEST(fxp_min_value_check)
     {
         Fxp min = Fxp::MinValue();
@@ -163,98 +188,95 @@ extern "C"
         mu_assert(min == Fxp::MinValue(), buffer);
     }
 
-    // Test: Positive numbers
+    // Test series: Modulo operation for positive numbers
+    // Verifies the modulo operation works correctly for positive integers
     MU_TEST(fxp_ModuloTest_PositiveNumbers)
     {
+        // Scenario 1: Non-divisible numbers
         Fxp a1 = Fxp::FromInt(10);
         Fxp b1 = Fxp::FromInt(3);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
+        // Scenario 2: Perfectly divisible numbers
         a1 = Fxp::FromInt(20);
         b1 = Fxp::FromInt(5);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
-    // Test: Negative dividend
+    // Test series: Modulo operation with negative dividend
+    // Checks the modulo behavior when the dividend is a negative number
     MU_TEST(fxp_ModuloTest_NegativeDividend)
     {
+        // Scenario 1: Negative dividend, positive divisor
         Fxp a1 = Fxp::FromInt(-10);
         Fxp b1 = Fxp::FromInt(3);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
 
+        // Scenario 2: Perfectly divisible negative number
         a1 = Fxp::FromInt(-20);
         b1 = Fxp::FromInt(5);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
-    // Test: Negative divisor
+    // Test series: Modulo operation with negative divisor
+    // Verifies modulo behavior when the divisor is a negative number
     MU_TEST(fxp_ModuloTest_NegativeDivisor)
     {
+        // Scenario 1: Positive dividend, negative divisor
         Fxp a1 = Fxp::FromInt(10);
         Fxp b1 = Fxp::FromInt(-3);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
+        // Scenario 2: Perfectly divisible numbers with negative divisor
         a1 = Fxp::FromInt(20);
         b1 = Fxp::FromInt(-5);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
-    // Test: Negative dividend and divisor
+    // Test series: Modulo operation with both dividend and divisor negative
+    // Checks modulo behavior when both numbers are negative
     MU_TEST(fxp_ModuloTest_NegativeDividendAndDivisor)
     {
+        // Scenario 1: Both negative numbers
         Fxp a1 = Fxp::FromInt(-10);
         Fxp b1 = Fxp::FromInt(-3);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
 
+        // Scenario 2: Perfectly divisible negative numbers
         a1 = Fxp::FromInt(-20);
         b1 = Fxp::FromInt(-5);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
     }
 
-    // Test: Division by zero
+    // Placeholder test: Division by zero handling
+    // Currently commented out, would test the behavior of modulo operation with zero divisor
     MU_TEST(fxp_ModuloTest_DivisionByZero)
     {
-        // Fxp a1 = Fxp::FromInt(10);
-        // Fxp b1 = Fxp::FromInt(0);
-        //
-        // snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        // mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(-1), buffer);
-        //
-        // a1 = Fxp::FromInt(-10);
-        // b1 = Fxp::FromInt(0);
-        //
-        // snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        // mu_assert(Fxp::Mod(a1,b1) == Fxp::FromInt(0), buffer);
+        // Test cases for division by zero are commented out
+        // These would need careful implementation to handle potential exceptions
     }
 
-    // Test: Large numbers
+    // Test series: Modulo operation with large numbers
+    // Verifies modulo operation works correctly for large integer values
     MU_TEST(fxp_ModuloTest_LargeNumbers)
     {
+        // Scenario 1: Large positive number
         Fxp a1 = Fxp::FromInt(std::numeric_limits<int16_t>::max());
         Fxp b1 = Fxp::FromInt(3);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
 
+        // Scenario 2: Large negative number
         a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
         b1 = Fxp::FromInt(3);
-
         snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
         mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
     }

@@ -13,24 +13,29 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
+    // UT setup function, called before every tests
     void ascii_test_setup(void)
     {
         // Initialization logic, if necessary
     }
 
+    // UT teardown function, called after every tests
     void ascii_test_teardown(void)
     {
         // Cleanup logic, if necessary
     }
 
+    // UT output header function, called on the first test failure
     void ascii_test_output_header(void)
     {
-        if(!suite_error_counter++)
+        if (!suite_error_counter++)
         {
             LogInfo("****UT_ASCII_ERROR(S)****");
         }
     }
 
+    // Test basic text display functionality
+// Verifies that simple text can be printed at a specific screen coordinate
     MU_TEST(ascii_test_display_simple_text)
     {
         ASCII display;
@@ -40,6 +45,8 @@ extern "C"
         mu_assert(success, buffer);
     }
 
+    // Test out-of-bounds text display handling
+    // Ensures the ASCII display correctly handles attempts to print outside screen boundaries
     MU_TEST(ascii_test_display_out_of_bounds)
     {
         ASCII display;
@@ -49,6 +56,7 @@ extern "C"
         mu_assert(!success, buffer);
     }
 
+   // Commented-out test for font loading (potentially for future implementation)
     // MU_TEST(ascii_test_load_font) {
     //     ASCII display;
     //     int fontId = 1;
@@ -57,6 +65,9 @@ extern "C"
     //     mu_assert(success, buffer);
     // }
 
+
+    // Test color palette application
+// Verifies that the ASCII display can successfully set a color palette
     MU_TEST(ascii_test_apply_color_palette)
     {
         ASCII display;
@@ -66,6 +77,7 @@ extern "C"
         mu_assert(success, buffer);
     }
 
+    // Commented-out test for displaying text with custom font and palette
     // MU_TEST(ascii_test_display_with_font_and_palette) {
     //     ASCII display;
     //     display.LoadFont(1, "font_path");
@@ -76,6 +88,7 @@ extern "C"
     //     mu_assert(success, buffer);
     // }
 
+  // Commented-out test for invalid character handling
     // MU_TEST(ascii_test_invalid_character_handling) {
     //     ASCII display;
     //     const char* text = "Invalid\xFFChar!";
@@ -84,11 +97,13 @@ extern "C"
     //     mu_assert(!success, buffer);
     // }
 
+    // Define the test suite for ASCII-related functionality
+    // Configures and runs a comprehensive set of tests for the ASCII display class
     MU_TEST_SUITE(ascii_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&ascii_test_setup,
-                                        &ascii_test_teardown,
-                                        &ascii_test_output_header);
+                                       &ascii_test_teardown,
+                                       &ascii_test_output_header);
 
         MU_RUN_TEST(ascii_test_display_simple_text);
         MU_RUN_TEST(ascii_test_display_out_of_bounds);

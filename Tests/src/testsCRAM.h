@@ -15,25 +15,58 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
+    /**
+     * @brief Set up routine for CRAM unit tests
+     *
+     * This function is called before each test in the CRAM test suite.
+     * Currently, it does not perform any specific setup operations,
+     * but provides a hook for future initialization requirements.
+     */
     void cram_test_setup(void)
     {
-        // Setup for CRAM tests, if necessary
+        // Placeholder for any necessary test initialization
+        // Future implementations might include resetting CRAM state,
+        // clearing buffers, or preparing test environments
     }
 
+    /**
+     * @brief Tear down routine for CRAM unit tests
+     *
+     * This function is called after each test in the CRAM test suite.
+     * Currently, it does not perform any specific cleanup operations,
+     * but provides a hook for future resource release or state reset.
+     */
     void cram_test_teardown(void)
     {
-        // Cleanup for CRAM tests, if necessary
+        // Placeholder for any necessary test cleanup
+        // Future implementations might include freeing resources,
+        // resetting global state, or clearing temporary data
     }
 
+    /**
+     * @brief Output header for test suite error reporting
+     *
+     * This function is called on the first test failure to print
+     * a header indicating that CRAM unit test errors have occurred.
+     * It increments a global error counter to ensure the header
+     * is printed only once per test suite run.
+     */
     void cram_test_output_header(void)
     {
+        // Print error header only on the first test failure
         if (!suite_error_counter++)
         {
             LogInfo("****UT_CRAM_ERROR(S)****");
         }
     }
 
-    // Test: BaseAddress initialization
+    /**
+     * @brief Test the base address initialization of the CRAM
+     *
+     * Verifies that the CRAM base address is properly initialized
+     * and is not a null pointer. This ensures that the memory
+     * address for CRAM operations is valid before further testing.
+     */
     MU_TEST(cram_test_base_address)
     {
         void *baseAddress = (void *)CRAM::BaseAddress;
@@ -110,12 +143,21 @@ extern "C"
     //               retrievedColor.Opaque == color.Opaque, buffer);
     // }
 
+    /**
+     * @brief CRAM test suite configuration and test case registration
+     *
+     * Configures the test suite with setup, teardown, and error reporting functions.
+     * Registers individual test cases to be executed during the test run.
+     * Currently only runs the base address initialization test.
+     */
     MU_TEST_SUITE(cram_test_suite)
     {
+        // Configure test suite with setup, teardown, and error reporting functions
         MU_SUITE_CONFIGURE_WITH_HEADER(&cram_test_setup,
                                        &cram_test_teardown,
                                        &cram_test_output_header);
 
+        // Register test cases to be executed
         MU_RUN_TEST(cram_test_base_address);
         // MU_RUN_TEST(cram_test_set_get_color);
         // MU_RUN_TEST(cram_test_texture_color_mode);

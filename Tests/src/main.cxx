@@ -27,7 +27,7 @@ int main()
 {
 	SRL::Core::Initialize(HighColor(20, 10, 50));
 
-	// Tag the begining of the tests, will be used from script to detect the begin of 
+	// Tag the begining of the tests, will be used from script to detect the begin of
 	//	the tests and filter out  everything above
 	LogInfo("***UT_START***");
 
@@ -37,12 +37,12 @@ int main()
 	MU_RUN_SUITE(cram_test_suite);
 	MU_RUN_SUITE(fxp_test_suite);
 	MU_RUN_SUITE(highcolor_test_suite);
-    MU_RUN_SUITE(math_test_suite);
+	MU_RUN_SUITE(math_test_suite);
 
 	// Generate tests report
 	MU_REPORT();
-	
-	// Tag the end of the tests, will be used from script to detect the end of 
+
+	// Tag the end of the tests, will be used from script to detect the end of
 	//	the tests and filter out everything below
 	LogInfo("***UT_END***");
 
