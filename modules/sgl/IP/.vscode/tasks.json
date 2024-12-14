@@ -6,7 +6,7 @@
         {
             "label": "Compile",
             "type": "shell",
-            "command": "./compile.bat",
+            "command": "./compile.bat release",
             "problemMatcher": [],
             "presentation": {
                 "showReuseMessage": false,

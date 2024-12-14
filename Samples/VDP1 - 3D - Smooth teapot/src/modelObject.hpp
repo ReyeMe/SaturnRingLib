@@ -156,24 +156,24 @@ private:
      * @param entryId Entry index
      * @param header File header
      */
-    void LoadFlatMesh(char* iterator, size_t entryId, ModelHeader* header)
+    void LoadFlatMesh(char** iterator, size_t entryId, ModelHeader* header)
     {
         // Get mesh header
-        MeshHeader* meshHeader = GetAndIterate<MeshHeader>(iterator);
+        MeshHeader* meshHeader = GetAndIterate<MeshHeader>(*iterator);
         uint16_t lastTextureIndex = SRL::VDP1::GetTextureCount();
 
         SRL::Types::Mesh mesh = SRL::Types::Mesh(meshHeader->PointCount, meshHeader->PolygonCount);
         
-        SRL::Types::Vector3D* points = GetAndIterate<SRL::Types::Vector3D>(iterator, meshHeader->PointCount);
+        SRL::Types::Vector3D* points = GetAndIterate<SRL::Types::Vector3D>(*iterator, meshHeader->PointCount);
         slDMACopy(points, mesh.Vertices, sizeof(SRL::Types::Vector3D) * meshHeader->PointCount);
 
-        SRL::Types::Polygon* faces = GetAndIterate<SRL::Types::Polygon>(iterator, meshHeader->PolygonCount);
+        SRL::Types::Polygon* faces = GetAndIterate<SRL::Types::Polygon>(*iterator, meshHeader->PolygonCount);
         slDMACopy(faces, mesh.Faces, sizeof(SRL::Types::Polygon) * meshHeader->PolygonCount);
 
         for (size_t attributeIndex = 0; attributeIndex < meshHeader->PolygonCount; attributeIndex++)
         {
             // Read mesh attributes
-            Attribute* attributeHeader = GetAndIterate<Attribute>(iterator);
+            Attribute* attributeHeader = GetAndIterate<Attribute>(*iterator);
 
             // Set attributes
             uint16_t textureIndex = No_Texture;
@@ -207,25 +207,25 @@ private:
      * @param entryId Entry index
      * @param header File header
      */
-    void LoadSmoothMesh(char* iterator, size_t entryId, ModelHeader* header)
+    void LoadSmoothMesh(char** iterator, size_t entryId, ModelHeader* header)
     {
         // Get mesh header
-        MeshHeader* meshHeader = GetAndIterate<MeshHeader>(iterator);
+        MeshHeader* meshHeader = GetAndIterate<MeshHeader>(*iterator);
         uint16_t lastTextureIndex = SRL::VDP1::GetTextureCount();
 
         SRL::Types::SmoothMesh mesh = SRL::Types::SmoothMesh(meshHeader->PointCount, meshHeader->PolygonCount);
         
-        SRL::Types::Vector3D* points = GetAndIterate<SRL::Types::Vector3D>(iterator, meshHeader->PointCount);
+        SRL::Types::Vector3D* points = GetAndIterate<SRL::Types::Vector3D>(*iterator, meshHeader->PointCount);
         slDMACopy(points, mesh.Vertices, sizeof(SRL::Types::Vector3D) * meshHeader->PointCount);
 
-        SRL::Types::Polygon* faces = GetAndIterate<SRL::Types::Polygon>(iterator, meshHeader->PolygonCount);
+        SRL::Types::Polygon* faces = GetAndIterate<SRL::Types::Polygon>(*iterator, meshHeader->PolygonCount);
         slDMACopy(faces, mesh.Faces, sizeof(SRL::Types::Polygon) * meshHeader->PolygonCount);
         int gouraudIndex = 0xe000 + this->gouraudOffset;
 
         for (size_t attributeIndex = 0; attributeIndex < meshHeader->PolygonCount; attributeIndex++)
         {
             // Read mesh attributes
-            Attribute* attributeHeader = GetAndIterate<Attribute>(iterator);
+            Attribute* attributeHeader = GetAndIterate<Attribute>(*iterator);
 
             // Set attributes
             uint16_t textureIndex = No_Texture;
@@ -252,7 +252,7 @@ private:
         }
 
         // Mesh contains XPDATA normals
-        SRL::Types::Vector3D* vertexNormals = GetAndIterate<SRL::Types::Vector3D>(iterator, meshHeader->PointCount);
+        SRL::Types::Vector3D* vertexNormals = GetAndIterate<SRL::Types::Vector3D>(*iterator, meshHeader->PointCount);
         slDMACopy(vertexNormals, mesh.Normals, sizeof(SRL::Types::Vector3D) * meshHeader->PointCount);
 
         ((SRL::Types::SmoothMesh*)this->meshes)[entryId] = std::move(mesh);
@@ -280,7 +280,7 @@ public:
         this->textureCount = header->TextureCount;
         this->meshCount = header->MeshCount;
         this->type = header->Type;
-        this->gouraudOffset = gouraudOffset;
+        this->gouraudOffset = gouraudTableStart;
 
         this->meshes = header->Type == 1 ? (void*)new SRL::Types::SmoothMesh[this->meshCount] : (void*)new SRL::Types::Mesh[this->meshCount];
 
@@ -288,14 +288,14 @@ public:
         {
             for (size_t meshIndex = 0; meshIndex < this->meshCount; meshIndex++)
             {
-                this->LoadSmoothMesh(iterator, meshIndex, header);
+                this->LoadSmoothMesh(&iterator, meshIndex, header);
             }
         }
         else
         {
             for (size_t meshIndex = 0; meshIndex < this->meshCount; meshIndex++)
             {
-                this->LoadFlatMesh(iterator, meshIndex, header);
+                this->LoadFlatMesh(&iterator, meshIndex, header);
             }
         }
 
@@ -409,6 +409,18 @@ public:
         return this->startTextureIndex;
     }
 
+    /** @brief Get the mesh data
+     * @tparam ReturnValue SRL::Types::Mesh or SRL::Types::SmoothMesh
+     * @param id Mesh id
+     * @return Pointer to mesh data in specified type
+     */
+    template<typename ReturnValue>
+    ReturnValue* GetMesh(size_t id)
+    {
+        static_assert(std::is_base_of<SRL::Types::SmoothMesh, ReturnValue>::value || std::is_base_of<SRL::Types::Mesh, ReturnValue>::value, "ReturnValue must inherit from SmoothMesh or Mesh");
+        return &((ReturnValue*)this->meshes)[id];
+    }
+
     /** @brief Gets number of loaded meshes
      * @return Number of loaded meshes
      */
@@ -433,5 +445,13 @@ public:
         }
 
         return result;
+    }
+
+    /** @brief Get a value indicating whether we are dealing with smooth mesh
+     * @return true if its a smooth mesh
+     */
+    bool IsSmooth()
+    {
+        return this->type == 1;
     }
 };
