@@ -472,6 +472,14 @@ namespace SRL
         /** @brief Change current directory
          * @param name Directory name (NULL for root directory)
          */
+        inline static void ChangeDir(const char *name)
+        {
+            ChangeDir(const_cast<char *>(name));
+        }
+
+        /** @brief Change current directory
+         * @param name Directory name (NULL for root directory)
+         */
         inline static void ChangeDir(char *name)
         {
             if (name == nullptr)
