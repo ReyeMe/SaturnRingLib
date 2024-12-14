@@ -27,7 +27,7 @@ namespace SRL::Types
          */
         int16_t value;
 
-        /** @brief Construct a new instance from existing instance
+        /** @brief Construct a new instance from raw value
          */
         constexpr Angle(const int16_t& inValue) : value(inValue) {}
 

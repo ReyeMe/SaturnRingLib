@@ -464,7 +464,7 @@ namespace SRL
                 GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
                 GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
                 GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
-                isInitialized = GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &GfsDirectories) <= 2;
+                isInitialized = (GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &GfsDirectories) <= 2);
             }
             return isInitialized;
         }
