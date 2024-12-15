@@ -2,6 +2,8 @@
 
 #include "srl_base.hpp"
 
+#include <limits>       // std::numeric_limits
+
 namespace SRL::Types
 {
 	/** @brief Fixed point type and math by https://github.com/robertoduarte
@@ -26,9 +28,29 @@ namespace SRL::Types
 		 */
 		static inline auto& DivisionResultRegister = *reinterpret_cast<volatile uint32_t*>(CpuAddress + 0x0F14UL);
 
+        /** @brief Total number of bits
+		 */
+        static constexpr int TotalBits = sizeof(int32_t) << 3;
+
+        /** @brief Number of bits for the fractional part
+		 */
+        static constexpr int FractionBits = 16;
+
+        /** @brief MAX valie
+         */
+        static inline constexpr uint32_t FxpMax = std::numeric_limits<uint32_t>::max();
+
+        /** @brief MIN valie
+         */
+        static inline constexpr uint32_t FxpMin = std::numeric_limits<uint32_t>::min();
+
 		/** @brief Fixed point value
 		 */
 		int32_t value;
+
+        static inline constexpr uint32_t FxpMinInt = std::numeric_limits<int16_t>::min();
+
+        static inline constexpr uint32_t FxpMaxInt = std::numeric_limits<int16_t>::max();
 
 		/** @brief Private constructor for creating Fxp objects from an int32_t value.
 		 * @param inValue The int32_t value to store.
@@ -61,6 +83,44 @@ namespace SRL::Types
 		 */
 		consteval Fxp(const float& f) : value(f * 65536.0f) {}
 
+        /**
+         * @brief Returns the maximum representable value for the fixed-point type.
+         * @return Fxp The maximum value.
+         */
+        static constexpr Fxp MaxValue()
+        {
+            return Fxp(FxpMax); // Maximum integer value
+        }
+
+        /**
+         * @brief Returns the minimum representable value for the fixed-point type.
+         * @return Fxp The minimum value.
+         */
+        static constexpr Fxp MinValue()
+        {
+            return Fxp(FxpMin); // Minimum integer value
+        }
+
+        /**
+         * @brief ...
+         * @return ...
+         */
+        static constexpr Fxp Mod(const Fxp& a, const Fxp& b)
+        {
+            // b should not be 0-
+            return Fxp::FromRaw(a.Value() % b.Value());
+        }
+
+        /**
+         * @brief ...
+         * @return ...
+         */
+        static constexpr Fxp Abs(const Fxp& a)
+        {
+            return Fxp::FromRaw(a.Value() & ~0x80000000);
+        }
+
+
 		/** @brief Cast integer as fixed point value
 		 * @param value Integer fixed point value
 		 * @return Fixed point value
@@ -74,9 +134,9 @@ namespace SRL::Types
 		 * @param value Integer value
 		 * @return Fixed point value
 		 */
-		static constexpr Fxp FromInt(const int32_t& value)
+		static constexpr Fxp FromInt(const int16_t& value)
 		{
-			return Fxp(value << 16);
+			return Fxp(static_cast<int32_t>(value << FractionBits));
 		}
 
 		/** @brief Starts division of two fixed point numbers
@@ -95,7 +155,7 @@ namespace SRL::Types
 
 			Fxp::DividendRegister = dividendh;
 			Fxp::DivisorRegister = divisor.value;
-			Fxp::DivisionResultRegister = dividend.value << 16;
+			Fxp::DivisionResultRegister = dividend.value << FractionBits;
 		}
 
 		/** @brief Retires result of async division
@@ -181,7 +241,23 @@ namespace SRL::Types
 		 */
 		constexpr int32_t ToInt() const
 		{
-			return this->value >> 16;
+			return this->value >> FractionBits;
+		}
+
+		/** @brief Convert fixed point value to float by dividing with 65536
+		 * @return float value
+		 */
+		constexpr float ToFloat() const
+		{
+			return this->value / 65536.0f;
+		}
+
+		/** @brief Convert fixed point value to double by dividing with 65536
+		 * @return double value
+		 */
+		constexpr double ToDouble() const
+		{
+			return this->value / 65536.0;
 		}
 
 		/** @brief Gets raw value
@@ -192,9 +268,9 @@ namespace SRL::Types
 			return this->value;
 		}
 
-        /** @name Operators
-         * @{
-         */
+    /** @name Operators
+     * @{
+     */
 
 		/** @brief Add and assign another Fxp object to this object.
 		 * @param fxp The Fxp object to add.
@@ -307,7 +383,7 @@ namespace SRL::Types
 		 */
 		constexpr bool operator>(const int32_t& integer) const
 		{
-			return this->value > (integer << 16);
+			return this->value > (integer << FractionBits);
 		}
 
 		/** @brief Compare fixed point value to the integer value
@@ -317,7 +393,7 @@ namespace SRL::Types
 		 */
 		constexpr bool operator>=(const int32_t& integer) const
 		{
-			return this->value >= (integer << 16);
+			return this->value >= (integer << FractionBits);
 		}
 
 		/** @brief Compare fixed point value to the integer value
@@ -327,7 +403,7 @@ namespace SRL::Types
 		 */
 		constexpr bool operator<(const int32_t& integer) const
 		{
-			return this->value < (integer << 16);
+			return this->value < (integer << FractionBits);
 		}
 
 		/** @brief Compare fixed point value to the integer value
@@ -337,7 +413,7 @@ namespace SRL::Types
 		 */
 		constexpr bool operator<=(const int32_t& integer) const
 		{
-			return this->value <= (integer << 16);
+			return this->value <= (integer << FractionBits);
 		}
 
 		/** @brief Compare fixed point value to the integer value
@@ -347,7 +423,7 @@ namespace SRL::Types
 		 */
 		constexpr bool operator==(const int32_t& integer) const
 		{
-			return this->value == (integer << 16);
+			return this->value == (integer << FractionBits);
 		}
 
 		/** @brief Compare fixed point value to the integer value
@@ -357,7 +433,7 @@ namespace SRL::Types
 		 */
 		constexpr bool operator!=(const int32_t& integer) const
 		{
-			return this->value != (integer << 16);
+			return this->value != (integer << FractionBits);
 		}
 
 		/** @brief Add another Fxp object to this object.
@@ -472,7 +548,7 @@ namespace SRL::Types
 			return *this;
 		}
 
-        /** @}
-         */
+    /** @}
+     */
 	};
 }

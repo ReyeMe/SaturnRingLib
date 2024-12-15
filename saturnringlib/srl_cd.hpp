@@ -21,10 +21,18 @@ namespace SRL
          */
         inline static char GfsWork[GFS_WORK_SIZE(SRL_MAX_CD_BACKGROUND_JOBS)];
 
+        /** @brief initialization status
+         */
+        inline static bool isInitialized = false;
+
     public:
         /** @brief Number of tracks CD can have
          */
         static const int MaxTrackCount = 99;
+
+        /** @brief disable default constructor
+         */
+        Cd() = delete;
 
         /** @brief CD seek mode
          */
@@ -121,6 +129,10 @@ namespace SRL
              */
             FileSize Size;
 
+            /** @brief disable default constructor
+             */
+            File() = delete;
+
             /** @brief Construct a new File object from Gfs handle and identifier
              * @param handle Gfs handle
              * @param fid File identifier
@@ -131,7 +143,12 @@ namespace SRL
                                                                    identifier(fid),
                                                                    readBuffer(nullptr),
                                                                    readSectorBytes(0),
-                                                                   readBytes(0) {}
+                                                                   readBytes(0)
+            {
+                #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
+                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instanciate this class");
+                #endif
+            }
 
             /** @brief Open a file on CD
              * @param name File name
@@ -143,6 +160,10 @@ namespace SRL
                                      readSectorBytes(0),
                                      readBytes(0)
             {
+                #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
+                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instanciate this class");
+                #endif
+
                 if (name != nullptr)
                 {
                     int32_t sectorSize;
@@ -281,7 +302,7 @@ namespace SRL
                 {
                     int32_t chunkBytes = 0;
                     bool firstRead = this->readBuffer == nullptr;
-                    
+
                     if (firstRead)
                     {
                         this->readBuffer = new uint8_t[this->Size.SectorSize + 1];
@@ -316,7 +337,7 @@ namespace SRL
                         {
                             read = remaining;
                         }
-                        
+
                         // Clamp to target buffer size
                         if (read > size)
                         {
@@ -357,15 +378,15 @@ namespace SRL
                         this->readBuffer = new uint8_t[this->Size.SectorSize + 1];
                     }
                     else if ((this->readBytes - this->readSectorBytes) < offset &&
-                        ((this->readBytes - this->readSectorBytes) + this->Size.SectorSize) > offset)
+                             ((this->readBytes - this->readSectorBytes) + this->Size.SectorSize) > offset)
                     {
                         this->readSectorBytes = offset - (this->readBytes - this->readSectorBytes);
                         this->readBytes = offset;
                         return this->readBytes;
                     }
-                    
+
                     int32_t sector = this->GetSectorCount(offset);
-    
+
                     if (sector >= 0)
                     {
                         // Seek to predefined location
@@ -373,7 +394,7 @@ namespace SRL
 
                         // Refresh buffer
                         if (result >= 0 &&
-                            GFS_Fread(this->Handle, 1, this->readBuffer, this->Size.SectorSize) >=0)
+                            GFS_Fread(this->Handle, 1, this->readBuffer, this->Size.SectorSize) >= 0)
                         {
                             this->readBytes = offset;
                             this->readSectorBytes = offset % this->Size.SectorSize;
@@ -388,7 +409,7 @@ namespace SRL
 
                 return result;
             }
-            
+
             /**
              * @}
              */
@@ -398,7 +419,7 @@ namespace SRL
              * @{
              */
 
-            /** @brief 
+            /** @brief
              * @return Current state of file access pointer
              */
             int32_t GetCurrentAccessPointer()
@@ -438,10 +459,22 @@ namespace SRL
          */
         inline static bool Initialize()
         {
-            GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
-            GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
-            GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
-            return GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &GfsDirectories) <= 2;
+            if (!isInitialized)
+            {
+                GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
+                GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
+                GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
+                isInitialized = (GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &GfsDirectories) <= 2);
+            }
+            return isInitialized;
+        }
+
+        /** @brief Change current directory
+         * @param name Directory name (NULL for root directory)
+         */
+        inline static void ChangeDir(const char *name)
+        {
+            ChangeDir(const_cast<char *>(name));
         }
 
         /** @brief Change current directory

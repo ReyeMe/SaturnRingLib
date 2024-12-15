@@ -24,15 +24,15 @@ namespace SRL::Types
         /** @brief Number of seconds in a minute
          */
         static constexpr const uint16_t FromMinute = 60;
-        
+
         /** @brief Number of seconds in a hour
          */
         static constexpr const uint16_t FromHour = 3600;
-        
+
         /** @brief Number of seconds in a day
          */
         static constexpr const uint32_t FromDay = 86400;
-        
+
         /** @brief Current year
          */
         uint16_t year;
@@ -60,7 +60,7 @@ namespace SRL::Types
         /** @brief Current number of seconds
          */
         uint8_t second;
-        
+
         /** @brief Does the year number points to a leap year
          * @return true if is leap year
          */
@@ -74,7 +74,7 @@ namespace SRL::Types
         DateTime() : year(DateTime::BaseYear), month(1), week(0), day(1), hour(0), minute(0), second(0) { }
 
         /** @brief Gets number of seconds elapsed since start of the year
-         * @return uint32_t 
+         * @return uint32_t
          */
         static uint32_t GetSecondsThisYear(const DateTime& date)
         {
@@ -93,7 +93,7 @@ namespace SRL::Types
         }
 
     public:
-    
+
         /** @brief Construct a new time object
          */
         DateTime(uint8_t second, uint8_t minute, uint8_t hour, uint8_t day, uint8_t week, uint8_t month, uint16_t year) :
@@ -110,7 +110,7 @@ namespace SRL::Types
                 SRL::Debug::Assert("Year value is out of range!\nMinimal possible year is 1980");
                 year = DateTime::BaseYear;
             }
-            
+
             if (month < 1)
             {
                 SRL::Debug::Assert("Month value is out of range!\nMinimal possible month is 1");
@@ -121,7 +121,7 @@ namespace SRL::Types
                 SRL::Debug::Assert("Month value is out of range!\nMaximal possible month is 12");
                 month = 1;
             }
-            
+
             if (day < 1)
             {
                 SRL::Debug::Assert("Day value is out of range!\nMinimal possible day is 1");

@@ -1,0 +1,40 @@
+# Configuration
+SRL_MAX_TEXTURES = 1            # Number of VDP1 texture slots
+SRL_MODE = NTSC                 # Valid options are PAL or NTSC
+SRL_HIGH_RES = 0                # 480i mode
+SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
+SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
+SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
+SRL_MAX_CD_RETRIES = 3          # Number of times to retry on unsuccessful read
+SRL_LOG_LEVEL = INFO          	# Maximum log level to display
+
+# Increase Log output buffer to avoid overflow
+SRL_DEBUG_MAX_LOG_LENGTH = 255
+
+# Sound driver specific configuration
+SRL_USE_SGL_SOUND_DRIVER = 0    # Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
+SRL_ENABLE_FREQ_ANALYSIS = 0    # Set to 1 if you want to enable frequency analysis for CD audio, this will load a DSP program into effect slot 1, SGL sound driver must be enabled
+
+# SGL configuration
+SGL_MAX_VERTICES = 0         # Number of vertices that can be used
+SGL_MAX_POLYGONS = 0         # Number of polygons that can be used
+SGL_MAX_EVENTS = 1             	# Number of events that can be used
+SGL_MAX_WORKS = 1             	# Number of works that can be used
+
+# Disk name
+CD_NAME = UTs
+
+# Directory build will be placed into
+BUILD_DROP = ./BuildDrop
+
+# Custom FLAGS
+SRL_CUSTOM_CCFLAGS = -DNO_SGL_STDLIB
+SRL_CUSTOM_LDFLAGS = -lstdc++
+
+# Find all .c and .cxx files
+SOURCES = $(patsubst ./%,%,$(shell find src/ -name '*.c'))
+SOURCES += $(patsubst ./%,%,$(shell find src/ -name '*.cxx'))
+
+# Include shared makefile
+SDK_ROOT = ../saturnringlib
+include $(SDK_ROOT)/shared.mk

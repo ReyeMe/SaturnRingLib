@@ -117,6 +117,7 @@
         "rope": "cpp",
         "slist": "cpp",
         "generator": "cpp",
-        "text_encoding": "cpp"
+        "text_encoding": "cpp",
+        "climits": "cpp"
     }
 }

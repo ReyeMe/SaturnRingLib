@@ -27,6 +27,27 @@ namespace SRL
         /** @brief the current number of fonts that have been loaded to Vdp2 VRAM
          */
         inline static uint8_t   numFonts = 1;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxXPosition = 63;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxYPosition = 63;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxFont = 5;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxColorIndex = 15;
+
+        /** @brief ...
+         */
+        inline static uint8_t   maxPaletteIndex = 7;
+
     public:
         /** @brief Copies 4bpp Bitmap ASCII table to VRAM as 4bpp tileset
          *  @param bmp pointer to an IBitmap interface to load
@@ -34,7 +55,7 @@ namespace SRL
          *  top to bottom, with 1 empty 8x8 tile preceding the characters (see example in VDP2 Samples)
          *  @param fontId Index in the font table to load this font to (range 0-5)
          */
-        inline static void LoadFont(SRL::Bitmap::IBitmap* bmp, uint16_t fontId = 0)
+        inline static void LoadFont(SRL::Bitmap::IBitmap* bmp, uint8_t fontId = 0)
         {
             if (fontId > 5) fontId = 5;
 
@@ -68,12 +89,12 @@ namespace SRL
          * @param source Address storing SGLs 8bpp font
          * @param fontId Font index to load to (range 0-5)
          */
-        inline static void LoadFontSG(uint8_t* source, uint16_t fontId = 0)
+        inline static void LoadFontSG(uint8_t* source, uint8_t fontId = 0)
         {
             if (fontId > 5) fontId = 5;
 
             // Font table starts at top and builds down to stay out of the way of VDP2 allocator
-            uint8_t* dest = (uint8_t*)(VDP2_VRAM_B1 + 0x1D000 + 0x400 - (fontId * 0x1000));
+            uint8_t* dest = reinterpret_cast<uint8_t *>(VDP2_VRAM_B1 + 0x1D000 + 0x400 - (fontId * 0x1000));
 
             for (int i = 0; i < 0xC00; ++i)
             {
@@ -84,54 +105,96 @@ namespace SRL
 
         /** @brief Set current color pallet to print with (range 0-7)
          *  @param paletteId index of the 16 color pallet in CRAM (limited to the first 8 pallets)
+         *  @returns false if paletteId are out-of-range, true otherwise
          */
-        inline static void SetPalette(uint16_t paletteId)
+        inline static bool SetPalette(uint8_t paletteId)
         {
-            if (paletteId > 7)paletteId = 7;
+            bool status = true;
+
+            if (paletteId > maxPaletteIndex) status = false;
+
+            paletteId =  std::min(paletteId, maxPaletteIndex);
 
             ASCII::colorBank = paletteId << 12;
+
+            return status;
         }
 
         /** @brief Set color in the specified palette index of the current font pallet
          *  @param color RGB555 color to set in current pallet
          *  @param colorIndex index to write the color to in the currently active font pallet (Clamped to 16 color palette)
+         *  @returns false if colorIndex are out-of-range, true otherwise
          */
-        inline static void SetColor(uint16_t color, uint8_t colorIndex)
+        inline static bool SetColor(uint16_t color, uint8_t colorIndex)
         {
-            if (colorIndex > 15)colorIndex = 15;
+            bool status = true;
 
-            uint16_t* colorAdr = (uint16_t*)(VDP2_COLRAM + (ASCII::colorBank >> 6));
+            if (colorIndex > maxColorIndex) status = false;
+
+            colorIndex =  std::min(colorIndex, maxColorIndex);
+
+            uint16_t* colorAdr = reinterpret_cast<uint16_t *>(VDP2_COLRAM + (ASCII::colorBank >> 6));
             colorAdr[colorIndex] = color;
+
+            return status;
         }
 
         /** @brief Set current font to print with (range 0-5)
          *  @param fontId Index of the desired font in font table
+         *  @returns false if fontId are out-of-range, true otherwise
          */
-        inline static void SetFont(uint16_t fontId)
+        inline static bool SetFont(uint8_t fontId)
         {
-            if (fontId > 5) fontId = 5;
+            bool status = true;
 
-            ASCII::fontBank = 128 * (5 - fontId);
+            if (fontId > maxFont) status = false;
+
+            fontId =  std::min(fontId, maxFont);
+
+            ASCII::fontBank = 128 * (maxFont - fontId);
+
+            return status;
         }
 
         /** @brief Display ASCII string on single line. Does not clamp to screen bounds or handle overflow
          *  @param myString The string to print
-         *  @param x Starting tile X coordinate on screen (0-64)
-         *  @param y Starting tile Y coordinate on screen (0-64)
+         *  @param x Starting tile X coordinate on screen (0-63)
+         *  @param y Starting tile Y coordinate on screen (0-63)
+         *  @returns false if positions are out-of-range, true otherwise
          *  @note Tile (0,0) is aligned to the top left corner of the screen
          */
-        inline static void Print(char* myString, uint8_t x, uint8_t y)
+        inline static bool Print(const char* myString, uint8_t x, uint8_t y)
         {
+            return Print(const_cast<char*>(myString), x, y);
+        }
+
+        /** @brief Display ASCII string on single line. Does not clamp to screen bounds or handle overflow
+         *  @param myString The string to print
+         *  @param x Starting tile X coordinate on screen (0-63)
+         *  @param y Starting tile Y coordinate on screen (0-63)
+         *  @returns false if positions are out-of-range, true otherwise
+         *  @note Tile (0,0) is aligned to the top left corner of the screen
+         */
+        inline static bool Print(char* myString, uint8_t x, uint8_t y)
+        {
+            bool status = true;
             int mapIndex;
             int charOffset = ASCII::fontBank; // 128*(5-font);
-            if(x > 63) x = 63;
-            if(y > 63) y = 63;
+
+            if(x > maxXPosition || y > maxXPosition)
+                status = false;
+
+            x =  std::min(x, maxXPosition);
+            y =  std::min(y, maxYPosition);
+
             mapIndex = x + (y << 6);
 
             while(*myString != '\0')
             {
                 ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset) | ASCII::colorBank;
             }
+
+            return status;
         }
     };
 }
