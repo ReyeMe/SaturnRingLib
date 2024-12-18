@@ -7,8 +7,8 @@
 namespace SRL::Tilemap::Interfaces
 {
     /** @brief Interface to Convert Bitmap Image into Tilemap
-     * @note Maximum Size of bitmap to convert is 0x20000 bytes (512x512 @ 4bpp, 512x256 @ 8bpp, or 512x128 @ 16bppp).
-     * @note empty tiles in the source image are detected and removed from the tileset, but duplicate and mirrored tiles are not.
+     * @note Maximum Size of bitmap to convert is 0x20000 bytes (512x512 @ 4bpp, 512x256 @ 8bpp, or 286x256 @ 16bppp).
+     * @note Empty tiles in the source image are detected and removed from the tileset, but duplicate and mirrored tiles are not.
      */
     struct Bmp2Tile : public ITilemap
     {
@@ -87,8 +87,9 @@ namespace SRL::Tilemap::Interfaces
          * @param config Desired data configuration of the resulting tilemap
          * @param bmp the Source bitmap image
          * @param startingPage Which page in the tilemap to write the default map layout to
+         * @param tile0 designates whether to create an extra empty tile at index 0 or use image data for index 0         *
          */
-        void ConvertBitmap(TilemapInfo& config, SRL::Bitmap::IBitmap& bmp, int startingPage)
+        void ConvertBitmap(TilemapInfo& config, SRL::Bitmap::IBitmap& bmp, int startingPage, bool tile0)
         {
             uint16_t sz = (config.CharSize) ? 0x7 : 0xf; // Mask to detect valid multiples of 8 or 16
             uint8_t mapDataWidth = (config.MapMode) ? 1 : 2; // 1 word or 2 word map data
@@ -135,14 +136,17 @@ namespace SRL::Tilemap::Interfaces
             }
 
             int32_t pix = ((8 * (1 + config.CharSize)) * (byteCell * (1 + config.CharSize)));
-
-            for (int32_t i = 0; i < pix; ++i)
+            if (tile0)
             {
-                *currentCell++ = 0;
+                for (int32_t i = 0; i < pix; ++i)
+                {
+                    *currentCell++ = 0;
+                }
+
+                this->numCells = (byteCell >> 2);
             }
-
-            this->numCells = (byteCell >> 2);
-
+            else this->numCells = 0;
+       
             if (config.CharSize == CHAR_SIZE_1x1) // Convert to 8x8 characters
             {
                 for (int32_t i = 0;i < yCells; ++i)
@@ -226,28 +230,25 @@ namespace SRL::Tilemap::Interfaces
             this->info.MapWidth = (this->info.CharSize) ? 32 : 64;
             uint8_t bitDepth = 1;
             this->info.CellByteSize = bmp.GetInfo().Height * bmp.GetInfo().Width;
-
-            // Add enough space for empty tile at start of set
-            this->info.CellByteSize += (this->info.CharSize) ? 256 : 64;
+            int tileSize = (this->info.CharSize) ? 256 : 64;
 
             if (this->info.ColorMode == CRAM::TextureColorMode::Paletted16)
             {
                 this->info.CellByteSize >>= 1;
+                tileSize >>= 1;
             }
             else if (this->info.ColorMode == CRAM::TextureColorMode::RGB555)
             {
                 this->info.CellByteSize <<= 1;
+                tileSize <<= 1;
             }
 
             if (this->info.CellByteSize > 0x20000 || (numPages << 10) > 0x20000)
             {
-                SRL::Debug::Assert("Size Unsupported- Maximum Tileset/Map data Size is 0x20000 bytes each");
+                SRL::Debug::Assert("Size Unsupported- %x",this->info.CellByteSize);
                 return;
             }
-
-            this->cellData = new uint8_t[this->info.CellByteSize];
-            this->mapData = new uint16_t[this->info.MapWidth * this->info.MapHeight];
-
+           
             if (bmp.GetInfo().Palette != nullptr)
             {
                 uint16_t sz = (this->info.ColorMode == CRAM::TextureColorMode::Paletted16) ? 16 : 256;
@@ -260,10 +261,22 @@ namespace SRL::Tilemap::Interfaces
             {
                 this->palData = nullptr;
             }
-
+            
+            this->mapData = new uint16_t[this->info.MapWidth * this->info.MapHeight];
             for (int i = 0; i < numPages; ++i) this->ClearPage(i);
-
-            this->ConvertBitmap(this->info, bmp, 0);
+            
+            //see if there is room for empty tile and add enough space at start of set
+            if (this->info.CellByteSize + tileSize <= 0x20000)
+            {
+                this->info.CellByteSize += tileSize;
+                this->cellData = new uint8_t[this->info.CellByteSize];
+                this->ConvertBitmap(this->info, bmp, 0, true);
+            }
+            else
+            {
+                this->cellData = new uint8_t[this->info.CellByteSize];
+                this->ConvertBitmap(this->info, bmp, 0, false);
+            }
         }
 
         /** @brief Free allocated resources and destroy Bmp2Tile object

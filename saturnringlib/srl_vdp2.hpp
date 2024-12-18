@@ -49,6 +49,7 @@ namespace SRL
              */
             OffsetB,
         };
+
         /** @brief used to specify the 4 VRAM banks that are available for VDP2 allocation
          */
         enum class VramBank : uint16_t
@@ -120,7 +121,7 @@ namespace SRL
                     addrOffset = boundary - ((uint32_t)currentBot[(uint16_t)bank] & (boundary - 1));
                 }
 
-                if (VDP2::VRAM::GetAvailable(bank) > size + addrOffset)
+                if (VDP2::VRAM::GetAvailable(bank) >= size + addrOffset)
                 {
                     if ((VRAM::bankCycles[(uint16_t)bank] + cycles) < 8)
                     {
@@ -398,7 +399,6 @@ namespace SRL
             }
 
             /** @brief Manually Sets VRAM area for Cell Data (Advanced Use Cases)
-             *
              * @details This function manually sets an area in VRAM for a scrolls Cel Data to be loaded to. Unless the
              * Address is obtained from VDP2::VRAM::Allocate(), the VRAM allocator will be bypassed entirely.
              * No Checks are performed for proper data allignment or cycle conflicts. For advanced use cases only.
@@ -418,7 +418,6 @@ namespace SRL
             }
 
             /** @brief Manually Sets VRAM area for Map Data (Advanced Use Cases)
-             *
              * @details This function manually sets an area in VRAM for a scroll's Map Data to be loaded to. Unless the
              * Address is obtained from VDP2::VRAM::Allocate() the VRAM allocator will be bypassed entirely.
              * No Checks are performed for proper data alignment or cycle conflicts. For advanced use cases only.
@@ -438,7 +437,6 @@ namespace SRL
             }
 
             /** @brief Registers Scroll in VDP2 cycle pattern to enable display of this Scroll Screen
-             *
              * @details Asserts when registration of a scroll fails due to cycle pattern conflicts.
              * Possible causes:
              *     -Too many Scroll Layers with higher bit depth are storing data in the same VRAM bank
@@ -446,7 +444,6 @@ namespace SRL
              *     -NBG Data was stored in a bank reserved by RBG0
              * Potential conflicts are minimized when using Automatic Allocation and setting the
              * desired scale limits of NBG0/NBG1 beforehand.
-             *
              */
             inline static void ScrollEnable()
             {
@@ -456,7 +453,6 @@ namespace SRL
             }
 
             /** @brief Removes the Scroll Screen from VDP2 cycle pattern register to disable display
-             *
              * @details Asserts when registration of a scroll fails due to cycle pattern conflicts.
              * Possible causes:
              * Assert should never occur here unless the user independently invoked SGL's slScrAutoDisp() with
@@ -512,8 +508,7 @@ namespace SRL
             }
 
             /** @brief Manually set the Plane layout of a Scroll Screen
-             *
-             * This function manually sets the 4 planes comprising a NBG scroll screen
+             * @details This function manually sets the 4 planes comprising a NBG scroll screen
              * in cases when the default plane tiling pattern is not desired.
              * @param a,b,c,d the plane indicies of the 4 planes that will display in the normal scroll
              * @note RBG0 does not currently support multi plane patterns, so only plane [a] will be used
@@ -528,14 +523,13 @@ namespace SRL
             }
 
             /** @brief Set the opacity of a scroll screen
-             *
-             * This Function takes the opacity specified as a fixed point value and converts it to
-             * one of the 32 color calculation ratios that a scroll screen can use (value is floored to the nearest ratio).
-             * Color Calculation is turned on if Opacity < 1.0, or off if Opacity>= 1.0. Color calculation is unchanged if value is negative.
-             * @note Color ratios only apply to highest priority pixels in frame
-             * @note When ColorCalcMode is set to UseColorAddition, all scrolls with opacity < 1.0 will use color addition
-             * in place of their specified ratios.
-             * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity for the scroll screen (Default 1.0)
+             *  @details This Function takes the opacity specified as a fixed point value and converts it to
+             *  one of the 32 color calculation ratios that a scroll screen can use (value is floored to the nearest ratio).
+             *  Color Calculation is turned on if Opacity < 1.0, or off if Opacity>= 1.0. Color calculation is unchanged if value is negative.
+             *  @note Color ratios only apply to highest priority pixels in frame
+             *  @note When VDP2 ColorCalcMode is set to UseColorAddition, all scrolls with opacity < 1.0 will use color addition
+             *  in place of their specified ratios.
+             *  @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity for the scroll screen (Default 1.0)
              */
             inline static void SetOpacity(Types::Fxp opacity = 1.0)
             {
@@ -1186,13 +1180,15 @@ namespace SRL
             int16_t Red;
 
             /** @brief  Green channel offset/
-            */
+             */
             int16_t Green;
 
             /** @brief  Blue channel offset/
-            */
+             */
             int16_t Blue;
             
+            /** @brief Initialize with all channel offsets set to 0 (No Offset)
+             */
             ColorOffset()
             {
                 Red = 0;
@@ -1259,12 +1255,13 @@ namespace SRL
          * @param mode The VDP2 color calculation mode to use
          * @param extend Designates whether to extend color calculation to the top 3 Layer Priories instead of just top 2
          * @note Extended color calculation has many restrictions detailed in VDP2 users manual- not all color modes can support
-         * extension simultaneously. If supported, 3rd priority pixels will blend with second at a 50:50 ratio before the result is 
-         * blended with top priority pixels. If unsupported the end behavior is identical to non extended color calculation. 
+         * extension simultaneously. If supported, 3rd priority pixels will blend with 2nd priority at a 50:50 ratio before the result is 
+         * blended with top priority pixels. If unsupported the behavior is identical to non-extended color calculation. 
          */
         inline static void SetColorCalcMode(VDP2::ColorCalcMode mode = VDP2::ColorCalcMode::UseColorRatiosTop, bool extend = false)
         {
-            uint16_t flags = (uint16_t)mode | (uint16_t)extend;
+            uint16_t flags = (uint16_t)mode;
+            if(extend) flags |= CC_EXT;
             slColorCalc((uint16_t)flags);
         }
     };
