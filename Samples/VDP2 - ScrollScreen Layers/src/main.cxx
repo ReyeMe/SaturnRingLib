@@ -1,5 +1,5 @@
 /*VDP2 Scroll Layer Demo:
-This Demo Shows how to Load Tilemaps to display on ScrollScreens and adjust their display settings
+This Demo Shows how to Load Tilemaps to display on VDP2 ScrollScreens and adjust their display settings
 */
 #include <srl.hpp>
  
@@ -13,7 +13,7 @@ int main()
     
     SRL::Core::Initialize(HighColor(20,10,50));
     Digital port0(0); // Initialize gamepad on port 0
-    
+  
     SRL::Tilemap::Interfaces::CubeTile* TestTilebin = new SRL::Tilemap::Interfaces::CubeTile("SPACE.BIN");//Load tilemap from cd to work RAM
     SRL::VDP2::NBG0::LoadTilemap(*TestTilebin);//Transfer tilemap from work RAM to VDP2 VRAM and register with NBG0
     delete TestTilebin;//free work RAM
