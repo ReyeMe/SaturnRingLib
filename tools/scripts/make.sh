@@ -7,7 +7,7 @@ else
 fi
  
 if [[ $(uname -m) == "arm64" ]]; then
-  # If on Mac (Apple Silicon)
+  # If on Mac (Apple Silicon) ((Intel will be added too))
   export PATH=${COMPILER_DIR}/Mac/sh2eb-elf/bin:${PATH}
 else
   # Default to Linux compiler path
