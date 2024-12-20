@@ -5,14 +5,8 @@ if [[ $# -eq 2 ]]; then
 else
   export COMPILER_DIR=../../Compiler;
 fi
- 
-if [[ $(uname -m) == "arm64" ]]; then
-  # If on Mac (Apple Silicon)
-  export PATH=${COMPILER_DIR}/Mac/sh2eb-elf/bin:${PATH}
-else
-  # Default to Linux compiler path
-  export PATH=${COMPILER_DIR}/linux/sh2eb-elf/bin:${PATH}
-fi
+
+export PATH=${COMPILER_DIR}/linux/sh2eb-elf/bin:${PATH};
 
 if [[ $# -eq 0 ]]; then
   printf "\033[91mNo target specified! Defaulting to debug...\033[0m\r\n"
