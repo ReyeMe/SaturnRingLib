@@ -7,8 +7,10 @@
 namespace SRL::Tilemap::Interfaces
 {
     /** @brief Interface to Convert Bitmap Image into Tilemap
-     * @note Maximum Size of bitmap to convert is 0x20000 bytes (512x512 @ 4bpp, 512x256 @ 8bpp, or 286x256 @ 16bppp).
+     * @note Maximum Size of bitmap to convert is 0x20000 bytes (512x512 @ 4bpp, 512x256 @ 8bpp, or 256x256 @ 16bppp).
      * @note Empty tiles in the source image are detected and removed from the tileset, but duplicate and mirrored tiles are not.
+     * @note In cases where bitmap is below maximum size or contains empty tiles, a default empty tile is written at start
+     * of tileset.
      */
     struct Bmp2Tile : public ITilemap
     {
@@ -56,7 +58,7 @@ namespace SRL::Tilemap::Interfaces
             {
                 for (int j = 0; j < dataWidth; ++j)
                 {
-                    this->dataAccumulator |= *start;
+                    this->dataAccumulator |= *start;// track if non zero data is written 
                     *bitmapCell++ = *start++;
                 }
 
@@ -87,7 +89,7 @@ namespace SRL::Tilemap::Interfaces
          * @param config Desired data configuration of the resulting tilemap
          * @param bmp the Source bitmap image
          * @param startingPage Which page in the tilemap to write the default map layout to
-         * @param tile0 designates whether to create an extra empty tile at index 0 or use image data for index 0         *
+         * @param tile0 designates whether to create an extra empty tile at index 0 or use image data in index 0         *
          */
         void ConvertBitmap(TilemapInfo& config, SRL::Bitmap::IBitmap& bmp, int startingPage, bool tile0)
         {
@@ -102,7 +104,7 @@ namespace SRL::Tilemap::Interfaces
             uint8_t* currentData = bmp.GetData();
             uint16_t* currentMap = this->mapData;
 
-            // Set data width of a line of Cel data base on the color mode of the image data
+            // Set data width of a line of Cel data based on the color mode of the image data
             switch (config.ColorMode)
             {
             case CRAM::TextureColorMode::Paletted16:
@@ -185,10 +187,10 @@ namespace SRL::Tilemap::Interfaces
                         currentCell = this->Bitmap2Char2x2(currentData, currentCell, byteWidth, byteCell);
                         currentData += (byteCell << 1);
 
-                        // Add extra word of spacing to character pattern data
+                        // Add extra word of spacing to character pattern data when 32 bit
                         if (!config.MapMode) ++currentMap;
 
-                        if (this->dataAccumulator) // If this tile was not blank
+                        if (this->dataAccumulator) // If this tile was not empty
                         {
                             *currentMap++ = this->numCells;
                             this->numCells += (byteCell >> 2);
@@ -245,7 +247,7 @@ namespace SRL::Tilemap::Interfaces
 
             if (this->info.CellByteSize > 0x20000 || (numPages << 10) > 0x20000)
             {
-                SRL::Debug::Assert("Size Unsupported- %x",this->info.CellByteSize);
+                SRL::Debug::Assert("Bmp Size %x bytes exceeds 0x20000 maximum",this->info.CellByteSize);
                 return;
             }
            
