@@ -23,7 +23,7 @@ namespace SRL::Bitmap
 
         /** @brief Known types
          */
-        enum class TgaTypes
+        enum class TgaTypes : int8_t 
         {
             TgaNone = 0,
             TgaPaletted = 1,
@@ -260,20 +260,20 @@ namespace SRL::Bitmap
         {
             uint8_t bitDepth = header->Image.PixelColorDepth >> 3;
 
-            switch (header->ImageType)
+            switch (static_cast<TgaTypes>(header->ImageType))
             {
-            case ((int8_t)TGA::TgaTypes::TgaGrayscale):
-            case ((int8_t)TGA::TgaTypes::TgaRleGrayscale):
+            case TGA::TgaTypes::TgaGrayscale:
+            case TGA::TgaTypes::TgaRleGrayscale:
                 if (bitDepth != 1 || header->HasPalette) return false;
                 break;
             
-            case ((int8_t)TGA::TgaTypes::TgaTrueColor):
-            case ((int8_t)TGA::TgaTypes::TgaRleTrueColor):
+            case TGA::TgaTypes::TgaTrueColor:
+            case TGA::TgaTypes::TgaRleTrueColor:
                 if ((bitDepth != 2 && bitDepth != 3 && bitDepth != 4) || header->HasPalette) return false;
                 break;
             
-            case ((int8_t)TGA::TgaTypes::TgaPaletted):
-            case ((int8_t)TGA::TgaTypes::TgaRlePaletted):
+            case TGA::TgaTypes::TgaPaletted:
+            case TGA::TgaTypes::TgaRlePaletted:
                 if (header->Palette.PaletteStart >= header->Palette.PaletteLength || !header->HasPalette) return false;
 
                 switch (header->Palette.PaletteColorDepth)
@@ -779,23 +779,23 @@ namespace SRL::Bitmap
                 }
                 
                 // Data stream should now be pointing to after the header
-                switch (header.ImageType)
+                switch (static_cast<TgaTypes>(header.ImageType))
                 {
-                case ((int8_t)TGA::TgaTypes::TgaPaletted):
+                case TGA::TgaTypes::TgaPaletted:
                     this->palette = TGA::DecodePalette(stream, &header, settings->TransparentColorIndex);
                     this->DecodePaletted(stream, &header, xLoop, yLoop);
                     break;
 
-                case ((int8_t)TGA::TgaTypes::TgaRlePaletted):
+                case TGA::TgaTypes::TgaRlePaletted:
                     this->palette = TGA::DecodePalette(stream, &header, settings->TransparentColorIndex);
                     this->DecodeRlePaletted(stream, &header, xLoop, yLoop);
                     break;
 
-                case ((int8_t)TGA::TgaTypes::TgaTrueColor):
+                case TGA::TgaTypes::TgaTrueColor:
                     this->DecodeTrueColor(stream, &header, xLoop, yLoop, settings->TransparentColor);
                     break;
 
-                case ((int8_t)TGA::TgaTypes::TgaRleTrueColor):
+                case TGA::TgaTypes::TgaRleTrueColor:
                     this->DecodeTrueColorRle(stream, &header, xLoop, yLoop, settings->TransparentColor);
                     break;
                 
