@@ -8,13 +8,14 @@ run_medanfen() {
   fi
 
   cue_files=( ./BuildDrop/*.cue )
-  
+
   if [[ ${#cue_files[@]} -eq 0 ]]; then
     echo "Stop it VBT !"
     exit 1
   else
     echo "STARTING ${cue_files[0]} !"
     mednafen ${cue_files[0]} || exit
+    exit 0
   fi
 }
 
@@ -34,6 +35,7 @@ run_kronos() {
   else
     echo "STARTING ${cue_files[0]} !"
     kronos -a -i ${cue_files[0]} || exit
+    exit 0
   fi
 
 }
@@ -54,6 +56,7 @@ run_yabause() {
   else
     echo "STARTING ${cue_files[0]} !"
     yabause -a -i ${cue_files[0]} || exit
+    exit 0
   fi
 
 }
