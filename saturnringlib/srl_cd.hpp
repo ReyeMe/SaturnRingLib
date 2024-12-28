@@ -2,6 +2,8 @@
 
 #include "srl_base.hpp"
 
+#include <limits> // for std::numeric_limits
+
 namespace SRL
 {
     /** @brief File and CD access wrapper
@@ -40,15 +42,128 @@ namespace SRL
         {
             /** @brief Seek to absolute location
              */
-            Absolute = 0,
+            Absolute = GFS_SEEK_SET,
 
             /** @brief Seek relative to current location
              */
-            Relative,
+            Relative = GFS_SEEK_CUR,
 
-            /** @brief Seek to the end
+            /** @brief Seek from the end
              */
-            EndOfFile
+            EndOfFile = GFS_SEEK_END
+        };
+
+        /** @brief access errors
+         */
+        enum ErrorCode : int32_t
+        {
+            /** @brief Whatever that means
+             */
+            ErrorOk = GFS_ERR_OK,
+
+            /** @brief Whatever that means
+             */
+            ErrorCDRD = GFS_ERR_CDRD,
+
+            /** @brief Whatever that means
+             */
+            ErrorCDNoDisc = GFS_ERR_CDNODISC,
+
+            /** @brief Whatever that means
+             */
+            ErrorCDRom = GFS_ERR_CDROM,
+
+            /** @brief Whatever that means
+             */
+            ErrorDirTLD = GFS_ERR_DIRTBL,
+
+            /** @brief Whatever that means
+             */
+            ErrorOenMax = GFS_ERR_OPENMAX,
+
+            /** @brief Whatever that means
+             */
+            ErrorDir = GFS_ERR_DIR,
+
+            /** @brief Whatever that means
+             */
+            ErrorCDBFS = GFS_ERR_CDBFS,
+
+            /** @brief Whatever that means
+             */
+            ErrorNoName = GFS_ERR_NONAME,
+
+            /** @brief Whatever that means
+             */
+            ErrorNExit = GFS_ERR_NEXIST,
+
+            /** @brief Whatever that means
+             */
+            ErrorFID = GFS_ERR_FID,
+
+            /** @brief Whatever that means
+             */
+            ErrorHandle = GFS_ERR_HNDL,
+
+            /** @brief Whatever that means
+             */
+            ErrorSeek = GFS_ERR_SEEK,
+
+            /** @brief Whatever that means
+             */
+            ErrorOrg = GFS_ERR_ORG,
+
+            /** @brief Whatever that means
+             */
+            ErrorNum = GFS_ERR_NUM,
+
+            /** @brief Whatever that means
+             */
+            ErrorOFS = GFS_ERR_OFS,
+
+            /** @brief Whatever that means
+             */
+            ErrorFBusy = GFS_ERR_FBUSY,
+
+            /** @brief Whatever that means
+             */
+            ErrorPara = GFS_ERR_PARA,
+
+            /** @brief Whatever that means
+             */
+            ErrorBusy = GFS_ERR_BUSY,
+
+            /** @brief Whatever that means
+             */
+            ErrorNoHandler = GFS_ERR_NOHNDL,
+
+            /** @brief Whatever that means
+             */
+            ErrorPUINUSE = GFS_ERR_PUINUSE,
+
+            /** @brief Whatever that means
+             */
+            ErrorAlign = GFS_ERR_ALIGN,
+
+            /** @brief Whatever that means
+             */
+            ErrorTimeout = GFS_ERR_TMOUT,
+
+            /** @brief Whatever that means
+             */
+            ErrorCDOpen = GFS_ERR_CDOPEN,
+
+            /** @brief Whatever that means
+             */
+            ErrorBufferFull = GFS_ERR_BFUL,
+
+            /** @brief Whatever that means
+             */
+            ErrorFatal = GFS_ERR_FATAL,
+
+            /** @brief Whatever that means
+             */
+            ErrorEOF = std::numeric_limits<int32_t>::min(),
         };
 
         /** @brief File size
@@ -132,6 +247,14 @@ namespace SRL
             /** @brief disable default constructor
              */
             File() = delete;
+
+            /** @brief disable copy constructor
+             */
+            File(const File &) = delete;
+
+            /** @brief disable assignment operator
+             */
+            File &operator=(const File &temp_obj) = delete;
 
             /** @brief Construct a new File object from Gfs handle and identifier
              * @param handle Gfs handle
@@ -236,7 +359,7 @@ namespace SRL
             /** @brief File exists
              * @return True if exists
              */
-            constexpr bool Exists()
+            constexpr bool Exists() const
             {
                 return this->identifier >= 0;
             }
@@ -244,9 +367,17 @@ namespace SRL
             /** @brief File is open
              * @return True if file is open
              */
-            constexpr bool IsOpen()
+            constexpr bool IsOpen() const
             {
                 return this->Exists() && this->Handle != nullptr;
+            }
+
+            /** @brief EOF has been reached
+             * @return true if EOF, false otherwise
+             */
+            constexpr bool IsEOF()
+            {
+                return (GFS_IsEof(Handle) == TRUE);
             }
 
             /**
@@ -288,6 +419,11 @@ namespace SRL
                     }
                 }
 
+                if (result != size && IsEOF())
+                {
+                    result = ErrorCode::ErrorEOF;
+                }
+
                 return result;
             }
 
@@ -327,7 +463,14 @@ namespace SRL
                         // We got an error
                         if (read < 0)
                         {
-                            return read;
+                            if (IsEOF())
+                            {
+                                return ErrorCode::ErrorEOF;
+                            }
+                            else
+                            {
+                                return read;
+                            }
                         }
 
                         // Clamp to target end of file
@@ -356,14 +499,14 @@ namespace SRL
                     return chunkBytes;
                 }
 
-                return -1;
+                return ErrorCode::ErrorEOF;
             }
 
             /** @brief Seek file access pointer to specific byte
              * @param offset offset from start of the file
              * @return New position of the access pointer otherwise negative on error
              */
-            int32_t Seek(int32_t offset)
+            int32_t Seek(int32_t offset, SeekMode mode = Cd::SeekMode::Absolute)
             {
                 int32_t result = -1;
 
@@ -390,7 +533,7 @@ namespace SRL
                     if (sector >= 0)
                     {
                         // Seek to predefined location
-                        result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
+                        result = GFS_Seek(this->Handle, sector, mode);
 
                         // Refresh buffer
                         if (result >= 0 &&
