@@ -149,6 +149,16 @@ namespace SRL::Bitmap
             RLE = 0x01,
         };
 
+        /* for the 24 bit demuxing */
+        enum class PlaneColor : uint8_t
+        {
+            PlaneRed = 0x00,
+
+            PlaneGreen = 0x01,
+
+            PlaneBlue = 0x02,
+        };
+
 #pragma pack(push, 1)
         /** @brief TGA image header
          */
@@ -179,28 +189,6 @@ namespace SRL::Bitmap
                                */
             uint16_t hScreenSize;  /* horizontal screen size */
             uint16_t vScreenSize;  /* vertical screen size */
-            // uint8_t filler[54];    /* padding to 128 bytes */
-        };
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-        /** @brief Palette description
-         */
-        struct PCXColor
-        {
-            /** @brief Start of the palette data
-             */
-            int8_t Red;
-
-            /** @brief Length of the palette data
-             */
-            int8_t Green;
-
-            /** @brief Color bit depth of the palette entry
-             */
-            int8_t Blue;
-
-            // TBD : Missing padding ??
         };
 #pragma pack(pop)
 
@@ -208,7 +196,7 @@ namespace SRL::Bitmap
 
         /** @brief Color palette
          */
-        SRL::Bitmap::Palette * palette;
+        SRL::Bitmap::Palette *palette;
 
         /** @brief Width of the bitmap
          */
@@ -237,12 +225,12 @@ namespace SRL::Bitmap
 
             if (!file)
             {
-                SRL::Logger::LogFatal("Invalid file pointer.");
+                SRL::Logger::LogFatal("%s(l%d) : Invalid file pointer", __FUNCTION__, __LINE__);
                 return false;
             }
 
             if (this->hdr.bitsPerPixel == BitsPerPixel::BitsPerPixel1 &&
-                     this->hdr.nplanes == 4)
+                this->hdr.nplanes == 4)
             {
                 SRL::Logger::LogInfo("PCX without a palette detected");
                 /* copy over the default palette to the header */
@@ -306,188 +294,196 @@ namespace SRL::Bitmap
             return true;
         }
 
+        bool LoadPix(Cd::File *file)
+        {
+            int i;
+            uint32_t l;
+            int chr, cnt;
+            unsigned char *bpos;
 
-        // bool LoadPix(Cd::File *file)
-        // {
-        //   uint8_t* stream = new uint8_t[file->Size.Bytes - - HeaderSize + 1];
-        //   int32_t read = file->LoadBytes(HeaderSize, file->Size.Bytes - HeaderSize, stream);
-
-        //   int         i, w, h;
-
-        //   h = this->height;
-        //   w = this->width;
-
-        //   uint8_t* outpix = this->imageData;
-        //   uint8_t* data = stream;
-
-        //   while (h-- > 0)
-        //       {
-        //           uint8_t   c;
-        //           uint8_t  *outpt;
-        //           int    np = 0;
-
-        //           outpt = outpix;
-
-        //           memset(outpix, 0, w);
-
-        //           for (np = 0; np < this->hdr.nplanes; np++)
-        //           {
-        //               i = 0;
-        //               outpix = outpt;
-
-        //               do
-        //               {
-        //                   c = *data++;
-
-        //                   if ((c & 0xC0) != 0xC0)
-        //                   {
-        //                       if (this->hdr.bitsPerPixel == BitsPerPixel::BitsPerPixel1)
-        //                       {
-        //                           int k;
-        //                           for (k = 7; k >= 0; k--)
-        //                               *outpix++ |= ((c >> k) & 1) << np;
-        //                           i += 8;
-        //                       }
-
-        //                       else
-        //                       {
-        //                           *outpix++ = c;
-        //                           i++;
-        //                       }
-        //                   }
-
-        //                   else
-        //                   {
-        //                       uint8_t v;
-        //                       v = *data++;
-        //                       c &= ~0xC0;
-
-        //                       while (c > 0 && i < w)
-        //                       {
-        //                           if (this->hdr.bitsPerPixel == BitsPerPixel::BitsPerPixel1)
-        //                           {
-        //                               int k;
-
-        //                               for (k = 7; k >= 0; k--)
-        //                                   *outpix++ |= ((v >> k) & 1) << np;
-
-        //                               i += 8;
-        //                           }
-
-        //                           else
-        //                           {
-        //                               *outpix++ = v;
-        //                               i++;
-        //                           }
-
-        //                           c--;
-        //                       }
-        //                   }
-        //               }
-        //               while (i < w);
-        //           }
-        //       }
-
-        //         delete stream;
-
-        //       return true;
-        // }
-
-bool LoadPix(Cd::File *file)
-{
-    int i;
-    long l;
-    int chr, cnt;
-    unsigned char * bpos;
-
-             if (!file)
+            if (!file)
             {
-                SRL::Logger::LogFatal("Invalid File pointer.");
+                SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __FUNCTION__, __LINE__);
                 return false;
             }
 
-    /* Here's a program fragment using PCX_encget.  This reads an
-	entire file and stores it in a (large) buffer, pointed
-	to by the variable "bufr". "fp" is the file pointer for
-	the image */
+            /* Here's a program fragment using PCX_encget.  This reads an
+            entire file and stores it in a (large) buffer, pointed
+            to by the variable "bufr". "fp" is the file pointer for
+            the image */
 
-    this->bufrSize =  this->hdr.bytesPerLine
-		   * this->hdr.nplanes
-		   * (1 + this->hdr.yMax - this->hdr.yMin);
+            this->bufrSize = this->hdr.bytesPerLine * this->hdr.nplanes * (1 + this->hdr.yMax - this->hdr.yMin);
 
+            SRL::Logger::LogDebug("%s(l%d) : bufrSize = %d", __FUNCTION__, __LINE__, this->bufrSize);
 
-       file->Seek(HeaderSize);
+            file->Seek(HeaderSize);
 
-   //   uint8_t* stream = new uint8_t[file->Size.Bytes - - HeaderSize + 1];
+            //   uint8_t* stream = new uint8_t[file->Size.Bytes - - HeaderSize + 1];
 
-    /* first, we need to go to the right point in the file */
-    //fseek( fp, 128, SEEK_SET ); /* oh yeah. this is important */
+            /* first, we need to go to the right point in the file */
+            // fseek( fp, 128, SEEK_SET ); /* oh yeah. this is important */
 
-        //   int32_t read = file->LoadBytes(HeaderSize, file->Size.Bytes - HeaderSize, stream);
+            //   int32_t read = file->LoadBytes(HeaderSize, file->Size.Bytes - HeaderSize, stream);
 
+            // if( pi->bufr )  free( pi->bufr );
 
-    //if( pi->bufr )  free( pi->bufr );
+            this->bufr = new uint8_t[this->bufrSize];
 
-    this->bufr = new uint8_t[this->bufrSize];
+            bpos = this->bufr;
 
+            for (l = 0; l < this->bufrSize;) /* increment by cnt below */
+            {
+                int32_t ret = PCX_encget(&chr, &cnt, file);
 
-    bpos = this->bufr;
+                if (ret < 0)
+                {
+                    break;
+                }
 
-    for (l = 0; l < this->bufrSize; )  /* increment by cnt below */
-    {
-	if (EOF == PCX_encget(&chr, &cnt, file))
-	    break;
+                for (i = 0; i < cnt; i++)
+                    *bpos++ = chr;
 
-	for (i = 0; i < cnt; i++)
-	    *bpos++ = chr;
+                l += cnt;
+            }
 
-	l += cnt;
-    }
+            return true;
+        }
 
-}
+        ////////////////////////////////////////////////////////////////////////////////
 
-////////////////////////////////////////////////////////////////////////////////
+        /*
+         * PCX_encget
+         *
+         *  This procedure reads one encoded block from the image
+         *  file and stores a count and data byte.
+         */
+        int32_t PCX_encget(
+            int *pbyt,     /* where to place data */
+            int *pcnt,     /* where to place count */
+            Cd::File *file /* image file handle */
+        )
+        {
+            uint8_t i;
+            int32_t read;
+            *pcnt = 1; /* assume a "run" length of one */
 
+            /* check for EOF */
+            read = file->Read(1, &i);
 
+            if (read < 0)
+            {
+                return read;
+            }
 
-/*
- * PCX_encget
- *
- *  This procedure reads one encoded block from the image
- *  file and stores a count and data byte.
- */
-int
-PCX_encget(
-	int * pbyt,	/* where to place data */
-	int * pcnt,	/* where to place count */
-	Cd::File *file	/* image file handle */
-)
-{
-    uint8_t i;
-    int32_t  read;
-    *pcnt = 1;        /* assume a "run" length of one */
+            if (0xC0 == (0xC0 & i)) /* is it a RLE repeater */
+            {
+                /* YES.  set the repeat count */
+                *pcnt = 0x3F & i;
 
-    /* check for EOF */
-    read = file->Read(1, i);
+                read = file->Read(1, &i);
 
-    if (EOF == (i = getc(fid)))
-	return (EOF);
+                if (read < 0)
+                {
+                    return read;
+                }
+            }
+            /* set the byte */
+            *pbyt = i;
 
-    if (0xC0 == (0xC0 & i)) /* is it a RLE repeater */
-    {
-	/* YES.  set the repeat count */
-	*pcnt = 0x3F & i;
+            /* return an 'OK' */
+            return (SRL::Cd::ErrorCode::ErrorOk);
+        }
 
-	/* doublecheck the next byte for EOF */
-	if (EOF == (i = getc(fid)))
-	    return (EOF);
-    }
-    /* set the byte */
-    *pbyt = i;
+        int32_t PCX_toImage()
+        {
+            int pcx_pos, image_pos, set_aside;
+            size_t x, y, p;
+            // IMAGE * i = NULL;
 
-    /* return an 'OK' */
-    return( 0 );
-}
+            // if( !pi )  return( NULL );
+
+            // i = Image_Create( pi->width, pi->height, pi->hdr.bitsPerPixel );
+
+            if (this->hdr.nplanes == 1)
+            {
+                /* paletted image! */
+                pcx_pos = image_pos = 0;
+                for (y = 0; y < this->height; y++)
+                {
+                    for (x = 0; x < this->hdr.bytesPerLine; x++)
+                    {
+                        /* the width might be different than 'bytesPerLine */
+                        if (x < this->width)
+                        {
+
+                            // SRL::Types::HighColor color;
+                            //
+                            // switch (this->hdr.bitsPerPixel)
+                            // {
+                            // case BitsPerPixel::BitsPerPixel2:
+                            //     color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(pixelData));
+                            //     break;
+
+                            // case BitsPerPixel3:
+                            //     color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(pixelData));
+                            //     break;
+
+                            // default:
+                            // case BitsPerPixel::BitsPerPixel4:
+                            //     color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(pixelData));
+                            //     break;
+                            // }
+
+                            // i->data[image_pos].r = this->pal[ this->bufr[pcx_pos] ].r;
+                            // i->data[image_pos].g = this->pal[ this->bufr[pcx_pos] ].g;
+                            // i->data[image_pos].b = this->pal[ this->bufr[pcx_pos] ].b;
+                            // i->data[image_pos].a = this->bufr[pcx_pos];
+                            image_pos++;
+                        }
+                        pcx_pos++;
+                    }
+                }
+            }
+            else
+            {
+
+                /* 24 bit image */
+                pcx_pos = image_pos = 0;
+                for (y = 0; y < this->height; y++)
+                {
+                    set_aside = image_pos; /* since they're muxed weird */
+                    for (p = 0; p < this->hdr.nplanes; p++)
+                    {
+                        image_pos = set_aside;
+                        for (x = 0; x < this->hdr.bytesPerLine; x++)
+                        {
+                            /* the width might be different than 'bytesPerLine */
+                            if (x < this->width)
+                            {
+                                switch (PlaneColor(p))
+                                {
+                                case PlaneColor::PlaneRed:
+                                    i->data[image_pos].r = this->bufr[pcx_pos];
+                                    break;
+
+                                case PlaneColor::PlaneGreen:
+                                    i->data[image_pos].g = this->bufr[pcx_pos];
+                                    break;
+
+                                default:
+                                case PlaneColor::PlaneBlue:
+                                    i->data[image_pos].b = this->bufr[pcx_pos];
+                                    break;
+                                }
+                                image_pos++;
+                            }
+                            pcx_pos++;
+                        }
+                    }
+                }
+            }
+            return (i);
+        }
 
         bool LoadData(Cd::File *file)
         {
@@ -495,11 +491,11 @@ PCX_encget(
 
             if (!file)
             {
-                SRL::Logger::LogFatal("Invalid File pointer.");
+                SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __FUNCTION__, __LINE__);
                 return false;
             }
 
-            uint8_t stream[HeaderSize+1];
+            uint8_t stream[HeaderSize + 1];
             int32_t read = file->LoadBytes(0, HeaderSize, stream);
 
             // Open file
@@ -545,13 +541,13 @@ PCX_encget(
             }
             else
             {
-                SRL::Logger::LogFatal("Cannot read .PCX");
+                SRL::Logger::LogFatal("%s(l%d) : Cannot read .PCX", __FUNCTION__, __LINE__);
                 return false;
             }
 
             if (!IsFormatValid())
             {
-                SRL::Logger::LogFatal("Invalid File");
+                SRL::Logger::LogFatal("%s(l%d) : Invalid File", __FUNCTION__, __LINE__);
                 return false;
             }
 
@@ -560,7 +556,7 @@ PCX_encget(
             // Load the palette
             if (!LoadPalette(file))
             {
-                SRL::Logger::LogFatal("Cannot load palette");
+                SRL::Logger::LogFatal("%s(l%d) : Cannot load palette", __FUNCTION__, __LINE__);
                 return false;
             }
 

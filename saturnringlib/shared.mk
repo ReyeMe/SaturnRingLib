@@ -78,6 +78,10 @@ ifeq ($(strip ${DEBUG}), 1)
 	CCFLAGS += -DDEBUG
 endif
 
+ifneq ($(strip ${SRL_LOG_LEVEL}),)
+	CCFLAGS += -DSRL_LOG_LEVEL=$(strip ${SRL_LOG_LEVEL})
+endif
+
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
 	CCFLAGS += -DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
 	LIBS += $(SGLLDIR)/LIBSND.A
@@ -108,7 +112,6 @@ CCFLAGS += -DSRL_MODE_$(strip ${SRL_MODE}) \
 	-DSRL_MAX_CD_RETRIES=$(strip ${SRL_MAX_CD_RETRIES}) \
 	-DSRL_DEBUG_MAX_PRINT_LENGTH=$(strip ${SRL_DEBUG_MAX_PRINT_LENGTH}) \
 	-DSRL_DEBUG_MAX_LOG_LENGTH=$(strip ${SRL_DEBUG_MAX_LOG_LENGTH}) \
-	-DSRL_LOG_LEVEL=$(strip ${SRL_LOG_LEVEL}) \
 
 # CD assets
 ASSETS_DIR = ./cd/data

@@ -68,8 +68,9 @@ namespace SRL
 #ifndef SRL_LOG_LEVEL
             /** @brief Minimum log level to be output
              */
-            static constexpr SRL::Logger::LogLevels MinLevel = SRL::Logger::LogLevels::INFO;
+            static constexpr SRL::Logger::LogLevels MinLevel = SRL::Logger::LogLevels::NONE;
 #else
+
 #define Stringify(U) SRL::Logger::LogLevels::U
 
             /** @brief Minimum log level to be output

@@ -24,7 +24,7 @@ namespace SRL::Bitmap
 
         /** @brief Known types
          */
-        enum class TgaTypes : int8_t 
+        enum class TgaTypes : int8_t
         {
             TgaNone = 0,
             TgaPaletted = 1,
@@ -212,33 +212,6 @@ namespace SRL::Bitmap
          */
         uint8_t* imageData;
 
-        /** @brief Deserialize number
-         * @param buf Value buffer
-         * @return Deserialized value
-         */
-        constexpr inline static uint16_t DeserializeUint16(uint8_t *buf)
-        {
-            return (*(buf + 1) << 8) | *(buf);
-        }
-
-        /** @brief Deserialize number
-         * @param buf Value buffers
-         * @return Deserialized value
-         */
-        constexpr inline static uint32_t DeserializeUint24(uint8_t *buf)
-        {
-            return (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
-        }
-
-        /** @brief Deserialize number
-         * @param buf Value buffer
-         * @return Deserialized value
-         */
-        constexpr inline static uint32_t DeserializeUint32(uint8_t *buf)
-        {
-            return (*(buf + 3) << 24) | (*(buf + 2) << 16) | (*(buf + 1) << 8) | *(buf);
-        }
-
         /** @brief Get color from ARGB value
          * @param argb ARGB value
          * @return Color value
@@ -267,12 +240,12 @@ namespace SRL::Bitmap
             case TGA::TgaTypes::TgaRleGrayscale:
                 if (bitDepth != 1 || header->HasPalette) return false;
                 break;
-            
+
             case TGA::TgaTypes::TgaTrueColor:
             case TGA::TgaTypes::TgaRleTrueColor:
                 if ((bitDepth != 2 && bitDepth != 3 && bitDepth != 4) || header->HasPalette) return false;
                 break;
-            
+
             case TGA::TgaTypes::TgaPaletted:
             case TGA::TgaTypes::TgaRlePaletted:
                 if (header->Palette.PaletteStart >= header->Palette.PaletteLength || !header->HasPalette) return false;
