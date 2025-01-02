@@ -460,21 +460,21 @@ namespace SRL::Bitmap
                             /* the width might be different than 'bytesPerLine */
                             if (x < this->width)
                             {
-                                switch (PlaneColor(p))
-                                {
-                                case PlaneColor::PlaneRed:
-                                    i->data[image_pos].r = this->bufr[pcx_pos];
-                                    break;
-
-                                case PlaneColor::PlaneGreen:
-                                    i->data[image_pos].g = this->bufr[pcx_pos];
-                                    break;
-
-                                default:
-                                case PlaneColor::PlaneBlue:
-                                    i->data[image_pos].b = this->bufr[pcx_pos];
-                                    break;
-                                }
+                                // switch (PlaneColor(p))
+                                // {
+                                // case PlaneColor::PlaneRed:
+                                //     i->data[image_pos].r = this->bufr[pcx_pos];
+                                //     break;
+                                //
+                                // case PlaneColor::PlaneGreen:
+                                //     i->data[image_pos].g = this->bufr[pcx_pos];
+                                //     break;
+                                //
+                                // default:
+                                // case PlaneColor::PlaneBlue:
+                                //     i->data[image_pos].b = this->bufr[pcx_pos];
+                                //     break;
+                                // }
                                 image_pos++;
                             }
                             pcx_pos++;
@@ -482,7 +482,7 @@ namespace SRL::Bitmap
                     }
                 }
             }
-            return (i);
+            return 1;
         }
 
         bool LoadData(Cd::File *file)
