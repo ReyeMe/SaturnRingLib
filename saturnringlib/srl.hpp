@@ -9,3 +9,4 @@ static_assert(SRL_MAX_TEXTURES > 0,
 #include "srl_tga.hpp"
 #include "srl_scene2d.hpp"
 #include "srl_scene3d.hpp"
+#include "srl_netlink.hpp"
