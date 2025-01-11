@@ -21,7 +21,7 @@ namespace SRL
 
         /** @brief Count before UART times out
          */
-        inline static constexpr uint32_t UartTimeout = 10000;
+        inline static constexpr int32_t UartTimeout = 10000;
 
         /** @brief Modem registers
          */
@@ -48,7 +48,7 @@ namespace SRL
              */
             static void ConfirmReadWrite()
             {
-                *(volatile uint8_t*)(registerTable[8]) = 0x00;
+                *(volatile uint8_t*)(registerTable[8]) = 0x0;
             }
 
             /** @brief Deleted constructor
@@ -157,7 +157,7 @@ namespace SRL
                 ErrorInReceivedFIFO = 0x80
             };
 
-            /** @brief Read register value
+            /** @brief Peek at the register value
              * @param number Register number
              * @return Value stored in the register
              */
@@ -166,14 +166,23 @@ namespace SRL
                 return *(volatile uint8_t*)(Registers::registerTable[(uint8_t)number]);
             }
 
+            /** @brief Poke the Register value
+             * @param number Register number
+             * @param value Value to store
+             */
+            static void PokeRegister(Register number, uint8_t value)
+            {
+                *(volatile uint8_t*)(Registers::registerTable[(uint8_t)number]) = value;
+            }
+
             /** @brief Read register value
              * @param number Register number
              * @return Value stored in the register
              */
             static uint8_t ReadRegister(Register number)
             {
-                uint8_t result = Registers::PeekRegister(number);
                 Registers::ConfirmReadWrite();
+                uint8_t result = Registers::PeekRegister(number);
                 return result;
             }
 
@@ -190,10 +199,10 @@ namespace SRL
                 Registers::SetRegister(Register::LineControl, (currentState & ~((uint8_t)1 << 7)) | ((uint8_t)value << 7));
             }
 
-            /** @brief Sets RST bit
+            /** @brief Sets request to send bit
              * @param value bit value to be set
              */
-            static void SetRSTLatch(bool value)
+            static void SetRTSLatch(bool value)
             {
                 // Get current state
                 uint8_t currentState = Registers::ReadRegister(Register::ModemControl);
@@ -202,10 +211,10 @@ namespace SRL
                 Registers::SetRegister(Register::ModemControl, (currentState & ~((uint8_t)1 << 1)) | ((uint8_t)value << 1));
             }
 
-            /** @brief Sets DST bit
+            /** @brief Sets data terminal ready bit
              * @param value bit value to be set
              */
-            static void SetDSTLatch(bool value)
+            static void SetDTRLatch(bool value)
             {
                 // Get current state
                 uint8_t currentState = Registers::ReadRegister(Register::ModemControl);
@@ -231,6 +240,11 @@ namespace SRL
         {
         private:
             
+            volatile inline static const uint32_t* setScuFunc = (uint32_t*)0x06000300;
+            volatile inline static const uint32_t* setMask = (uint32_t*)0x06000340;
+            volatile inline static const uint32_t* getMask = (uint32_t*)0x06000348;
+            volatile inline static const uint32_t* scuStatus = (uint32_t*)0x25FE00A4;
+
             /** @brief Modem SMPC commands
              */
             enum class SmpcCommands : uint8_t
@@ -253,15 +267,14 @@ namespace SRL
             /** @brief Set the Interrupt handler
              * @param function Interrupt handler function reference
              */
-            static void SetInterruptHandler(void (*function)())
+            static void SetInterruptHandler(void (*function)(void))
             {
-                volatile uint32_t * const setScuFunc = (uint32_t *)0x06000300;
-                volatile uint32_t * const setMask = (uint32_t *)0x06000340;
-                volatile uint32_t * const getMask = (uint32_t *)0x06000348;
-
-                //Registers::SetRegister(Registers::Register::InterruptEnable, 0x0f);
-                ((void (*)(uint32_t))*setMask)(*getMask | ((uint32_t)0x00100000));
-                ((void (*)(uint32_t, void (*)(void)))*setScuFunc)(0x5C, function);
+                ((void (*)(uint32_t))*setMask)(0x0000BFFF);
+                ((void (*)(uint32_t, void (*)(void)))*ModemHwControl::setScuFunc)(0x5C, function);
+                *((uint32_t*)ModemHwControl::scuStatus) = *scuStatus | 0x00100000UL;
+                Registers::SetRegister(Registers::Register::InterruptEnable, 0x0f);
+                Registers::SetRegister(Registers::Register::ModemControl, 0x0B);
+                ((void (*)(uint32_t))*setMask)(0x0);
             }
 
             /** @brief Turn modem on
@@ -279,37 +292,14 @@ namespace SRL
             }
         };
 
-        /** @brief Indicates whether data is currently being read
-         */
-        inline static bool IsReading = false;
-
-        /** @brief Has received some data
-         */
-        inline static bool HasData = false;
-
-        /** @brief Can write
-         */
-        inline static bool CanWrite = false;
-
-        #pragma interrupt(InterruptHandler)
         static void InterruptHandler()
         {
-            /*switch ((Registers::InterruptType)Registers::ReadRegister(Registers::Register::InterruptIdentification))
+            Registers::InterruptType type = (Registers::InterruptType)Registers::PeekRegister(Registers::Register::InterruptIdentification);
+
+            if ((Registers::LineStatus)Registers::PeekRegister(Registers::Register::LineStatus) & Registers::LineStatus::DataReady)
             {
-            case Registers::InterruptType::ReceiveDataAvailable:
-                Netlink::HasData = true;
-
-                if (!Netlink::IsReading)
-                {
-                    Netlink::OnReceive.Invoke();
-                }
-                break;
-            
-            case Registers::InterruptType::TransmitHoldEmpty
-
-            default:
-                break;
-            }*/
+                Netlink::OnReceive.Invoke();
+            }
         }
         
     public:
@@ -349,6 +339,8 @@ namespace SRL
                 if (Registers::ReadRegister(Registers::Register::Scratch) == 0xA5)
                 {
                     Registers::SetDivisorLatch(false);
+                    Registers::SetRegister(Registers::Register::InterruptEnable, 0x00);
+                    Registers::SetRegister(Registers::Register::LineControl, 0x13);
                     ModemHwControl::SetInterruptHandler(Netlink::InterruptHandler);
                     return true;
                 }
@@ -357,32 +349,53 @@ namespace SRL
             return false;
         }
 
+        static void PrintState()
+        {
+            SRL::Debug::PrintClearScreen();
+            SRL::Debug::PrintWithWrap(2,5,2,35,
+                "RBR: 0x%x; THR: 0x%x\nIER: 0x%x\nIIR: 0x%x\nLCR: 0x%x\nMCR: 0x%x\nLSR: 0x%x\nMSR: 0x%x\nScratch: 0x%x",
+                Registers::PeekRegister(Registers::Register::ReceiveBuffer), Registers::PeekRegister(Registers::Register::TransmitHolding),
+                Registers::PeekRegister(Registers::Register::InterruptEnable),
+                Registers::PeekRegister(Registers::Register::InterruptIdentification),
+                Registers::PeekRegister(Registers::Register::LineControl),
+                Registers::PeekRegister(Registers::Register::ModemControl),
+                Registers::PeekRegister(Registers::Register::LineStatus),
+                Registers::PeekRegister(Registers::Register::ModemStatus),
+                Registers::PeekRegister(Registers::Register::Scratch));
+        }
+
         /** @brief Write buffer to the modem
-         * @param source Source buffer
+         * @param source Source null terminated string
          * @param length Buffer length
          * @return false on time-out
          */
-        static bool Write(uint8_t* source, size_t length)
+        static bool Write(uint8_t* source)
         {
-            Registers::SetRSTLatch(true);
+            size_t byte = 0;
 
-            for (size_t byte = 0; byte < length; byte++)
+            do
             {
-                uint32_t timeout = Netlink::UartTimeout;
+                int32_t timeout = Netlink::UartTimeout;
 
                 // Wait for data to send
-                while (!((Registers::LineStatus)Registers::ReadRegister(Registers::Register::LineStatus) & Registers::LineStatus::EmptyTransmitterHoldingRegister))
+                while (!((Registers::LineStatus)Registers::PeekRegister(Registers::Register::LineStatus) & Registers::LineStatus::EmptyTransmitterHoldingRegister))
                 {
                     if (timeout-- <= 0)
                     {
                         return false;
                     }
                 }
-                
-                Registers::SetRegister(Registers::Register::TransmitHolding, source[byte]);
-            }
 
-            Registers::SetRSTLatch(false);
+                Registers::SetRegister(Registers::Register::TransmitHolding, source[byte++]);
+
+                // Delay for a bit
+                for (int32_t delay = 0; delay < Netlink::UartTimeout; delay++)
+                {
+                    nop();
+                }
+            }
+            while (source[byte] != '\0');
+
             return true;
         }
 
@@ -393,18 +406,15 @@ namespace SRL
          */
         static size_t Read(uint8_t* target, size_t length)
         {
-            Registers::SetDSTLatch(true);
-
             for (size_t byte = 0; byte < length; byte++)
             {
-                uint32_t timeout = Netlink::UartTimeout;
+                int32_t timeout = Netlink::UartTimeout;
 
                 // Wait for data
-                while (!((Registers::LineStatus)Registers::ReadRegister(Registers::Register::LineStatus) & Registers::LineStatus::DataReady))
+                while (!((Registers::LineStatus)Registers::PeekRegister(Registers::Register::LineStatus) & Registers::LineStatus::DataReady))
                 {
                     if (timeout-- <= 0)
                     {
-                        Registers::SetDSTLatch(false);
                         return byte;
                     }
                 }
