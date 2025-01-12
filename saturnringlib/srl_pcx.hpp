@@ -233,13 +233,13 @@ namespace SRL::Bitmap
                 this->hdr.nplanes == 4)
             {
                 SRL::Logger::LogInfo("PCX without a palette detected");
-                /* copy over the default palette to the header */
+                /* copy the default palette to the header */
                 for (c = 0; c < 48; c++)
                 {
                     this->hdr.colormap[c] = DefaultPalette[c];
                 }
 
-                /* copy over the default palette to the palette structure */
+                /* copy the default palette to the palette structure */
                 for (c = 0; c < 16; c++)
                 {
                     this->palette->Colors[c].Opaque = 1;
