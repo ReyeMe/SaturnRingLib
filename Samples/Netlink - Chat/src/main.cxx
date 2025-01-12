@@ -69,17 +69,20 @@ int main()
         {
             (uint8_t*)"AT&F\r",
             (uint8_t*)"ATX0\r",
-            (uint8_t*)"AT&D2&K3&C1&Q0\r",
-            (uint8_t*)"ATA\r"
+            (uint8_t*)"AT&D2&K3&C1&Q0\r"
         };
         
         while(1)
         {
-            if (pad.WasPressed(SRL::Input::Digital::Button::C))
+            if (pad.WasPressed(SRL::Input::Digital::Button::X))
             {
-                SendCommand((uint8_t*)"ATDT+9095551010\r");
+                SendCommand((uint8_t*)"ATA\r");
             }
-            else if (pad.WasPressed(SRL::Input::Digital::Button::X))
+            else if (pad.WasPressed(SRL::Input::Digital::Button::C))
+            {
+                SendCommand((uint8_t*)"ATDT9095551010\r");
+            }
+            else if (pad.WasPressed(SRL::Input::Digital::Button::Z))
             {
                 SRL::Debug::PrintClearScreen();
             }
