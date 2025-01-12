@@ -69,14 +69,17 @@ fi
 # Mednafen is default, it will start if there is no argument to specify emulator
 if [ "$1" == "mednafen" ] || [ "$1" == "" ]; then
   run_medanfen || exit
+  exit 0
 fi
 
 if [[ "$1" == "kronos" ]]; then
   run_kronos || exit
+  exit 0
 fi
 
 if [[ "$1" == "yabause" ]]; then
   run_yabause || exit
+  exit 0
 fi
 
 echo "$1" is not supported!
