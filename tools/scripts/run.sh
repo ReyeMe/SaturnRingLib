@@ -34,7 +34,7 @@ run_kronos() {
     exit 1
   else
     echo "STARTING ${cue_files[0]} !"
-    kronos -a -i ${cue_files[0]} || exit
+    kronos -ns -a -i ${cue_files[0]} || exit
     exit 0
   fi
 

@@ -680,7 +680,7 @@ namespace SRL::Bitmap
          */
         void Dump() const
         {
-            int c, d, e;
+            uint32_t c = 0, d = 0;
 
             SRL::Logger::LogInfo("PCX Image:");
             SRL::Logger::LogInfo("Manufacturer: 0x%02x (0x0a)", this->hdr.manufacturer);
@@ -702,37 +702,65 @@ namespace SRL::Bitmap
             SRL::Logger::LogInfo("vScreenSize: %d", this->hdr.vScreenSize);
 
             SRL::Logger::LogInfo(" 16 color palette header data: ");
-            for (c = 0, d = 3, e = 0; c < 48; c++, d++, e++)
+            char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = { 0 };
+            char * p = buffer;
+            for (c=0; c < 16; c++)
             {
-                if (e == 12)
-                {
-                    d = 0;
-                    e = 0;
-                    SRL::Logger::LogInfo("[%02x] %02x", c / 3, this->hdr.colormap[c]);
-                }
-                else if (d == 3)
-                {
-                    d = 0;
-                    SRL::Logger::LogInfo("[%02x] %02x", c / 3, this->hdr.colormap[c]);
-                }
+                char i = snprintf(p, 10, " [%02x]  ", c);
+                p += i;
+            }
+            SRL::Logger::LogInfo(buffer);
+
+            p = buffer;
+
+            for (c=0; c < 48; c+=3)
+            {
+                uint32_t tmp = (this->hdr.colormap[c] & 0xFF)<<16 +
+                                (this->hdr.colormap[c+1] & 0xFF)<<8 +
+                                (this->hdr.colormap[c+2] & 0xFF);
+                char i = snprintf(p, 10, "%06x ", tmp);
+                p += i;
             }
 
-            // SRL::Logger::LogInfo(" 256 color palette data:");
-            // for (c = 0, d = 0; c < 256; c++, d++)
-            // {
-            //     if (d == 4)
-            //     {
-            //         d = 0;
-            //         SRL::Logger::LogInfo(" ");
-            //     }
-            //     SRL::Logger::LogInfo("   [%02x] : %02x %02x %02x", c,
-            //                             this->palette->Colors[c].Red,
-            //                             this->palette->Colors[c].Green,
-            //                             this->palette->Colors[c].Blue);
-            // }
+            *p = 0;
 
-            SRL::Logger::LogInfo("%6ld bytes", this->bufrSize);
-            SRL::Logger::LogInfo("%6d pixels", this->width * this->height);
+            SRL::Logger::LogInfo(buffer);
+
+            p = buffer;
+
+            SRL::Logger::LogInfo(" 256 color palette data:");
+
+            for (c = 0; c < 256; c+=16)
+            {
+                p = buffer;
+
+                for (d=0; d < 16; d++)
+                {
+                    char i = snprintf(p, 10, " [%02x]  ", c+d);
+                    p += i;
+                }
+
+                *p = 0;
+
+                SRL::Logger::LogInfo(buffer);
+
+                p = buffer;
+
+                for (d=0; d < 16; d++)
+                {
+                    uint32_t tmp = (this->palette->Colors[c+d].Red & 0xFF)<<16 +
+                                    (this->palette->Colors[c+d].Green & 0xFF)<<8 +
+                                    (this->palette->Colors[c+d].Blue & 0xFF);
+                    char i = snprintf(p, 10, "%06x ", tmp);
+                    p += i;
+                }
+
+                *p = 0;
+
+                SRL::Logger::LogInfo(buffer);
+            }
+
+            SRL::Logger::LogInfo("%6ld bytes / %6d pixels", this->bufrSize, this->width * this->height);
         }
     };
 }
