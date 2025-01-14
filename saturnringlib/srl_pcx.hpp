@@ -680,7 +680,11 @@ namespace SRL::Bitmap
          */
         void Dump() const
         {
+<<<<<<< HEAD
             uint32_t c = 0, d = 0;
+=======
+            int c, d, e;
+>>>>>>> b768d49568d265cc155c037b40e19ffaaa92fd89
 
             SRL::Logger::LogInfo("PCX Image:");
             SRL::Logger::LogInfo("Manufacturer: 0x%02x (0x0a)", this->hdr.manufacturer);
@@ -702,6 +706,7 @@ namespace SRL::Bitmap
             SRL::Logger::LogInfo("vScreenSize: %d", this->hdr.vScreenSize);
 
             SRL::Logger::LogInfo(" 16 color palette header data: ");
+<<<<<<< HEAD
             char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = { 0 };
             char * p = buffer;
             for (c=0; c < 16; c++)
@@ -761,6 +766,39 @@ namespace SRL::Bitmap
             }
 
             SRL::Logger::LogInfo("%6ld bytes / %6d pixels", this->bufrSize, this->width * this->height);
+=======
+            for (c = 0, d = 3, e = 0; c < 48; c++, d++, e++)
+            {
+                if (e == 12)
+                {
+                    d = 0;
+                    e = 0;
+                    SRL::Logger::LogInfo("[%02x] %02x", c / 3, this->hdr.colormap[c]);
+                }
+                else if (d == 3)
+                {
+                    d = 0;
+                    SRL::Logger::LogInfo("[%02x] %02x", c / 3, this->hdr.colormap[c]);
+                }
+            }
+
+            // SRL::Logger::LogInfo(" 256 color palette data:");
+            // for (c = 0, d = 0; c < 256; c++, d++)
+            // {
+            //     if (d == 4)
+            //     {
+            //         d = 0;
+            //         SRL::Logger::LogInfo(" ");
+            //     }
+            //     SRL::Logger::LogInfo("   [%02x] : %02x %02x %02x", c,
+            //                             this->palette->Colors[c].Red,
+            //                             this->palette->Colors[c].Green,
+            //                             this->palette->Colors[c].Blue);
+            // }
+
+            SRL::Logger::LogInfo("%6ld bytes", this->bufrSize);
+            SRL::Logger::LogInfo("%6d pixels", this->width * this->height);
+>>>>>>> b768d49568d265cc155c037b40e19ffaaa92fd89
         }
     };
 }
