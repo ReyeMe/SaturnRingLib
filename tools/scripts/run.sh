@@ -34,11 +34,7 @@ run_kronos() {
     exit 1
   else
     echo "STARTING ${cue_files[0]} !"
-<<<<<<< HEAD
     kronos -ns -a -i ${cue_files[0]} || exit
-=======
-    kronos -a -i ${cue_files[0]} || exit
->>>>>>> b768d49568d265cc155c037b40e19ffaaa92fd89
     exit 0
   fi
 

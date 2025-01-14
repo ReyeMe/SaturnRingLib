@@ -7,10 +7,7 @@ SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
 SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
 SRL_MAX_CD_RETRIES = 5          # Number of times to retry on unsuccessful read
 SRL_LOG_LEVEL = TRACE          	# Maximum log level to display
-<<<<<<< HEAD
 SRL_DEBUG_MAX_LOG_LENGTH = 160
-=======
->>>>>>> b768d49568d265cc155c037b40e19ffaaa92fd89
 
 # Sound driver specific configuration
 SRL_USE_SGL_SOUND_DRIVER = 0    # Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
