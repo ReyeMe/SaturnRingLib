@@ -416,7 +416,7 @@ namespace SRL::Bitmap
                         if (x < this->width)
                         {
 
-                            // SRL::Types::HighColor color;
+                             SRL::Types::HighColor color;
                             //
                             // switch (this->hdr.bitsPerPixel)
                             // {
