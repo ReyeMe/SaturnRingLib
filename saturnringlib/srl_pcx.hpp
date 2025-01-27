@@ -183,10 +183,10 @@ namespace SRL::Bitmap
             uint8_t reserved;      /* 0x00 */
             uint8_t nplanes;       /* number of planes */
             uint16_t bytesPerLine; /* number of bytes that represent a scanline plane
-                                 == must be an even number! */
-            uint16_t paletteInfo;  /* 0x01 = color/bw
-                                 0x02 = grayscale
-                               */
+                                        == must be an even number! */
+            uint16_t paletteInfo;  /*   0x01 = color/bw
+                                        0x02 = grayscale
+                                    */
             uint16_t hScreenSize;  /* horizontal screen size */
             uint16_t vScreenSize;  /* vertical screen size */
         };
@@ -260,11 +260,12 @@ namespace SRL::Bitmap
                 uint8_t *data = stream;
                 checkbyte = SRL::ENDIAN::DeserializeUint8(data);
 
-                // if (checkbyte != 0x0c) /* magic value */
-                // {
-                //     SRL::Logger::LogFatal("Expected a 256 color palette, didn't find it, but : %d", checkbyte);
-                //     return false;
-                // }
+                // DOES NOT WORK !!!!
+                if (checkbyte != 0x0c) /* magic value */
+                {
+                    SRL::Logger::LogFatal("Expected a 256 color palette, didn't find it, but : %d", checkbyte);
+                    //return false;
+                }
 
                 /* okay. so we're at the right part of the file now, we just need
                   to populate our palette! */
@@ -398,83 +399,73 @@ namespace SRL::Bitmap
         {
             int pcx_pos, image_pos, set_aside;
             size_t x, y, p;
-            // IMAGE * i = NULL;
 
-            // if( !pi )  return( NULL );
-
-            // i = Image_Create( pi->width, pi->height, pi->hdr.bitsPerPixel );
+            // Allocate memory for the image data if not already allocated
+            if (this->imageData == nullptr)
+            {
+                uint32_t pixels = this->width * this->height;
+                this->imageData = new uint8_t[pixels * 3]; // Assuming 24-bit RGB format (3 bytes per pixel)
+            }
 
             if (this->hdr.nplanes == 1)
             {
-                /* paletted image! */
+                // Paletted image (8-bit with a single plane)
                 pcx_pos = image_pos = 0;
                 for (y = 0; y < this->height; y++)
                 {
                     for (x = 0; x < this->hdr.bytesPerLine; x++)
                     {
-                        /* the width might be different than 'bytesPerLine */
+                        // The width might be different than 'bytesPerLine'
                         if (x < this->width)
                         {
+                            // Get the palette index from the PCX data
+                            uint8_t paletteIndex = this->bufr[pcx_pos];
 
-                             SRL::Types::HighColor color;
-                            //
-                            // switch (this->hdr.bitsPerPixel)
-                            // {
-                            // case BitsPerPixel::BitsPerPixel2:
-                            //     color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(pixelData));
-                            //     break;
+                            // Get the corresponding color from the palette
+                            SRL::Types::HighColor color = this->palette->Colors[paletteIndex];
 
-                            // case BitsPerPixel3:
-                            //     color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(pixelData));
-                            //     break;
+                            // Store the RGB values in the image data
+                            this->imageData[image_pos * 3 + 0] = color.Red;   // Red
+                            this->imageData[image_pos * 3 + 1] = color.Green; // Green
+                            this->imageData[image_pos * 3 + 2] = color.Blue;  // Blue
 
-                            // default:
-                            // case BitsPerPixel::BitsPerPixel4:
-                            //     color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(pixelData));
-                            //     break;
-                            // }
-
-                            // i->data[image_pos].r = this->pal[ this->bufr[pcx_pos] ].r;
-                            // i->data[image_pos].g = this->pal[ this->bufr[pcx_pos] ].g;
-                            // i->data[image_pos].b = this->pal[ this->bufr[pcx_pos] ].b;
-                            // i->data[image_pos].a = this->bufr[pcx_pos];
                             image_pos++;
                         }
                         pcx_pos++;
                     }
                 }
             }
-            else
+            else if (this->hdr.nplanes == 3)
             {
-
-                /* 24 bit image */
+                // 24-bit image (3 planes: Red, Green, Blue)
                 pcx_pos = image_pos = 0;
                 for (y = 0; y < this->height; y++)
                 {
-                    set_aside = image_pos; /* since they're muxed weird */
+                    set_aside = image_pos; // Save the starting position for each plane
                     for (p = 0; p < this->hdr.nplanes; p++)
                     {
-                        image_pos = set_aside;
+                        image_pos = set_aside; // Reset to the starting position for each plane
                         for (x = 0; x < this->hdr.bytesPerLine; x++)
                         {
-                            /* the width might be different than 'bytesPerLine */
+                            // The width might be different than 'bytesPerLine'
                             if (x < this->width)
                             {
-                                // switch (PlaneColor(p))
-                                // {
-                                // case PlaneColor::PlaneRed:
-                                //     i->data[image_pos].r = this->bufr[pcx_pos];
-                                //     break;
-                                //
-                                // case PlaneColor::PlaneGreen:
-                                //     i->data[image_pos].g = this->bufr[pcx_pos];
-                                //     break;
-                                //
-                                // default:
-                                // case PlaneColor::PlaneBlue:
-                                //     i->data[image_pos].b = this->bufr[pcx_pos];
-                                //     break;
-                                // }
+                                // Store the color component based on the plane
+                                switch (PlaneColor(p))
+                                {
+                                case PlaneColor::PlaneRed:
+                                    this->imageData[image_pos * 3 + 0] = this->bufr[pcx_pos]; // Red
+                                    break;
+
+                                case PlaneColor::PlaneGreen:
+                                    this->imageData[image_pos * 3 + 1] = this->bufr[pcx_pos]; // Green
+                                    break;
+
+                                case PlaneColor::PlaneBlue:
+                                    this->imageData[image_pos * 3 + 2] = this->bufr[pcx_pos]; // Blue
+                                    break;
+                                }
+
                                 image_pos++;
                             }
                             pcx_pos++;
@@ -482,16 +473,124 @@ namespace SRL::Bitmap
                     }
                 }
             }
-            return 1;
+            else
+            {
+                // Unsupported number of planes
+                SRL::Logger::LogFatal("%s(l%d) : Unsupported number of planes: %d", __FUNCTION__, __LINE__, this->hdr.nplanes);
+                return -1;
+            }
+
+            return 1; // Success
         }
+
+        // int32_t PCX_toImage()
+        // {
+        //     int pcx_pos, image_pos, set_aside;
+        //     size_t x, y, p;
+        //     // IMAGE * i = NULL;
+        //
+        //     // if( !pi )  return( NULL );
+        //
+        //     // i = Image_Create( pi->width, pi->height, pi->hdr.bitsPerPixel );
+        //
+        //     if (this->hdr.nplanes == 1)
+        //     {
+        //         /* paletted image! */
+        //         pcx_pos = image_pos = 0;
+        //         for (y = 0; y < this->height; y++)
+        //         {
+        //             for (x = 0; x < this->hdr.bytesPerLine; x++)
+        //             {
+        //                 /* the width might be different than 'bytesPerLine */
+        //                 if (x < this->width)
+        //                 {
+        //
+        //                      SRL::Types::HighColor color;
+        //                     //
+        //                     // switch (this->hdr.bitsPerPixel)
+        //                     // {
+        //                     // case BitsPerPixel::BitsPerPixel2:
+        //                     //     color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(pixelData));
+        //                     //     break;
+        //
+        //                     // case BitsPerPixel3:
+        //                     //     color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(pixelData));
+        //                     //     break;
+        //
+        //                     // default:
+        //                     // case BitsPerPixel::BitsPerPixel4:
+        //                     //     color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(pixelData));
+        //                     //     break;
+        //                     // }
+        //
+        //                     // i->data[image_pos].r = this->pal[ this->bufr[pcx_pos] ].r;
+        //                     // i->data[image_pos].g = this->pal[ this->bufr[pcx_pos] ].g;
+        //                     // i->data[image_pos].b = this->pal[ this->bufr[pcx_pos] ].b;
+        //                     // i->data[image_pos].a = this->bufr[pcx_pos];
+        //                     image_pos++;
+        //                 }
+        //                 pcx_pos++;
+        //             }
+        //         }
+        //     }
+        //     else
+        //     {
+        //
+        //         /* 24 bit image */
+        //         pcx_pos = image_pos = 0;
+        //         for (y = 0; y < this->height; y++)
+        //         {
+        //             set_aside = image_pos; /* since they're muxed weird */
+        //             for (p = 0; p < this->hdr.nplanes; p++)
+        //             {
+        //                 image_pos = set_aside;
+        //                 for (x = 0; x < this->hdr.bytesPerLine; x++)
+        //                 {
+        //                     /* the width might be different than 'bytesPerLine */
+        //                     if (x < this->width)
+        //                     {
+        //                         // switch (PlaneColor(p))
+        //                         // {
+        //                         // case PlaneColor::PlaneRed:
+        //                         //     i->data[image_pos].r = this->bufr[pcx_pos];
+        //                         //     break;
+        //                         //
+        //                         // case PlaneColor::PlaneGreen:
+        //                         //     i->data[image_pos].g = this->bufr[pcx_pos];
+        //                         //     break;
+        //                         //
+        //                         // default:
+        //                         // case PlaneColor::PlaneBlue:
+        //                         //     i->data[image_pos].b = this->bufr[pcx_pos];
+        //                         //     break;
+        //                         // }
+        //                         image_pos++;
+        //                     }
+        //                     pcx_pos++;
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     return 1;
+        // }
 
         bool LoadData(Cd::File *file)
         {
-            int c;
-
             if (!file)
             {
                 SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __FUNCTION__, __LINE__);
+                return false;
+            }
+
+            if (file->Size.Bytes <= 0)
+            {
+                SRL::Logger::LogFatal("%s(l%d) : File is empty", __FUNCTION__, __LINE__);
+                return false;
+            }
+
+            if (file->Size.Bytes < static_cast<decltype(file->Size.Bytes)>(HeaderSize))
+            {
+                SRL::Logger::LogFatal("%s(l%d) : File is too small", __FUNCTION__, __LINE__);
                 return false;
             }
 
@@ -523,7 +622,7 @@ namespace SRL::Bitmap
                 this->hdr.vDpi = SRL::ENDIAN::DeserializeUint16(data + VDpiOffset);
 
                 /* read in 16 color colormap */
-                for (c = 0; c < 48; c++)
+                for (int c = 0; c < 48; c++)
                 {
                     this->hdr.colormap[c] = SRL::ENDIAN::DeserializeUint8(data + ColormapOffset + c);
                 }
