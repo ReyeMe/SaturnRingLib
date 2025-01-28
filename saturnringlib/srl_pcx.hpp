@@ -243,9 +243,9 @@ namespace SRL::Bitmap
                 for (c = 0; c < 16; c++)
                 {
                     this->palette->Colors[c].Opaque = 1;
-                    this->palette->Colors[c].Red = DefaultPalette[c * 3 + 0];
-                    this->palette->Colors[c].Green = DefaultPalette[c * 3 + 1];
-                    this->palette->Colors[c].Blue = DefaultPalette[c * 3 + 2];
+                    this->palette->Colors[c].Red    = DefaultPalette[c * 3 + 0];
+                    this->palette->Colors[c].Green  = DefaultPalette[c * 3 + 1];
+                    this->palette->Colors[c].Blue   = DefaultPalette[c * 3 + 2];
                 }
                 return true;
             }
@@ -260,31 +260,31 @@ namespace SRL::Bitmap
                 uint8_t *data = stream;
                 checkbyte = SRL::ENDIAN::DeserializeUint8(data);
 
-                // DOES NOT WORK !!!!
                 if (checkbyte != 0x0c) /* magic value */
                 {
-                    SRL::Logger::LogFatal("Expected a 256 color palette, didn't find it, but : %d", checkbyte);
-                    //return false;
+                    SRL::Logger::LogInfo("Expected a 256 color palette, didn't find it, but : %d", checkbyte);
                 }
-
-                /* okay. so we're at the right part of the file now, we just need
-                  to populate our palette! */
-                for (c = 0; c < 256; c++)
+                else
                 {
-                    this->palette->Colors[c].Opaque = 1;
-                    this->palette->Colors[c].Red = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
-                    this->palette->Colors[c].Green = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
-                    this->palette->Colors[c].Blue = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
-                }
+                    SRL::Logger::LogInfo("256 color palette detected");
+                    /* okay. so we're at the right part of the file now, we just need
+                      to populate our palette! */
+                    for (c = 0; c < 256; c++)
+                    {
+                        this->palette->Colors[c].Opaque = 1;
+                        this->palette->Colors[c].Red = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
+                        this->palette->Colors[c].Green = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
+                        this->palette->Colors[c].Blue = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
+                    }
 
-                /* now copy over the first 16 colors into the header */
-                for (c = 0; c < 16; c++)
-                {
-                    this->hdr.colormap[c * 3 + 0] = this->palette->Colors[c].Red;
-                    this->hdr.colormap[c * 3 + 1] = this->palette->Colors[c].Green;
-                    this->hdr.colormap[c * 3 + 2] = this->palette->Colors[c].Blue;
+                    /* now copy over the first 16 colors into the header */
+                    for (c = 0; c < 16; c++)
+                    {
+                        this->hdr.colormap[c * 3 + 0] = this->palette->Colors[c].Red;
+                        this->hdr.colormap[c * 3 + 1] = this->palette->Colors[c].Green;
+                        this->hdr.colormap[c * 3 + 2] = this->palette->Colors[c].Blue;
+                    }
                 }
-
                 return true;
             }
             else
@@ -762,14 +762,14 @@ namespace SRL::Bitmap
                 isValid = false;
             }
 
-            if (BitsPerPixel::BitsPerPixel8 == this->hdr.bitsPerPixel)
-            {
-                if (1 != this->hdr.nplanes)
-                {
-                    SRL::Logger::LogDebug("Invalid 8bit format");
-                    isValid = false;
-                }
-            }
+            // if (BitsPerPixel::BitsPerPixel8 == this->hdr.bitsPerPixel)
+            // {
+            //     if (1 != this->hdr.nplanes)
+            //     {
+            //         SRL::Logger::LogDebug("Invalid 8bit format");
+            //         isValid = false;
+            //     }
+            // }
 
             return isValid;
         }

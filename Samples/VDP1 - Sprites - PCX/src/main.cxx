@@ -13,7 +13,7 @@ int main()
     SRL::Debug::Print(1, 1, "VDP1 Sprite PCX sample");
 
     // Load texture
-    SRL::Bitmap::PCX *pcx = new SRL::Bitmap::PCX("MAIN.PCX"); // Loads PCX file into main RAM
+    SRL::Bitmap::PCX *pcx = new SRL::Bitmap::PCX("TESTVBT.PCX"); // Loads PCX file into main RAM
 
     if (pcx->IsFormatValid())
     {
