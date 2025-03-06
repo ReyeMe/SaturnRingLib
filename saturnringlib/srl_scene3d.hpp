@@ -2,7 +2,6 @@
 
 #include "srl_base.hpp"
 #include "srl_mesh.hpp"
-#include "srl_matrix.hpp"
 
 namespace SRL
 {
@@ -29,7 +28,7 @@ namespace SRL
          * @param mesh SRL::Types::SmoothMesh to draw
          * @param light Light direction unit vector (This is independent of the SRL::Scene3D::SetDirectionalLight)
          */
-        static void DrawSmoothMesh(Types::SmoothMesh& mesh, Types::Vector3D& light)
+        static void DrawSmoothMesh(Types::SmoothMesh& mesh, SRL::Math::Types::Vector3D& light)
         {
             slPutPolygonX(mesh.SglPtr(), (FIXED*)&light);
         }
@@ -71,7 +70,7 @@ namespace SRL
          * @note If scaling operation is being performed on current matrix, normal vector of the polygon is also being affected,thus brightness will change accordingly.  
          * @param direction Light direction unit vector
          */
-        static void SetDirectionalLight(const Types::Vector3D& direction)
+        static void SetDirectionalLight(const SRL::Math::Types::Vector3D& direction)
         {
             slLight((FIXED*)&direction);
         }
@@ -146,9 +145,9 @@ namespace SRL
          * @param size Size of the point
          * @return true if point is on screen
          */
-        static bool IsOnScreen(const SRL::Types::Vector3D& point, const SRL::Types::Fxp size)
+        static bool IsOnScreen(const SRL::Math::Types::Vector3D& point, const SRL::Math::Types::Fxp size)
         {
-            return slCheckOnScreen((FIXED*)&point, size.Value()) >= 0;
+            return slCheckOnScreen((FIXED*)&point, size.RawValue()) >= 0;
         }
 
         /** @brief Make camera look at certain point in the 3D scene
@@ -156,9 +155,9 @@ namespace SRL
          * @param target Target point
          * @param roll Rotation around the line of sight vector
          */
-        static void LookAt(const SRL::Types::Vector3D& camera, const SRL::Types::Vector3D& target, const SRL::Types::Angle roll)
+        static void LookAt(const SRL::Math::Types::Vector3D& camera, const SRL::Math::Types::Vector3D& target, const SRL::Math::Types::Angle roll)
         {
-            slLookAt((FIXED*)&camera, (FIXED*)&target, (ANGLE)roll.Value());
+            slLookAt((FIXED*)&camera, (FIXED*)&target, (ANGLE)roll.RawValue());
         }
 
         /** @brief Projects 3D point onto a screen from current transformation matrix
@@ -166,9 +165,9 @@ namespace SRL
          * @param result Position on screen
          * @return Fxp Distance from world space to screen space
          */
-        static SRL::Types::Fxp ProjectToScreen(const SRL::Types::Vector3D& position, SRL::Types::Vector2D* result)
+        static SRL::Math::Types::Fxp ProjectToScreen(const SRL::Math::Types::Vector3D& position, SRL::Math::Types::Vector2D* result)
         {
-            return SRL::Types::Fxp::FromRaw(slConvert3Dto2DFX((FIXED*)&position, (FIXED*)result));
+            return SRL::Math::Types::Fxp::BuildRaw(slConvert3Dto2DFX((FIXED*)&position, (FIXED*)result));
         }
 
         /** @brief Set value indicating how far in front of the projection surface to actually project.
@@ -196,9 +195,9 @@ namespace SRL
          * @note Because this function also sets parameter for rotating scroll, also execute slRpasaIntSet() before calling this if using rotating scroll
          * @param angle Perspective angle (Range 10-160 degrees)
          */
-        static void SetPerspective(Types::Angle angle)
+        static void SetPerspective(SRL::Math::Types::Angle angle)
         {
-            slPerspective(angle.Value());
+            slPerspective(angle.RawValue());
         }
 
         /** @brief Set window limiting the display of sprites and polygons.
@@ -211,16 +210,16 @@ namespace SRL
          * @param depthLimit Maximal allowed distance from the near projection plane
          * @return True on success
          */
-        static bool SetWindow(Types::Vector2D& topLeft, Types::Vector2D& bottomRight, Types::Vector2D& center, Types::Fxp& depthLimit)
+        static bool SetWindow(const SRL::Math::Types::Vector2D& topLeft, const SRL::Math::Types::Vector2D& bottomRight, const SRL::Math::Types::Vector2D& center, const SRL::Math::Types::Fxp& depthLimit)
         {
             return slWindow(
-                topLeft.X.ToInt(),
-                topLeft.Y.ToInt(),
-                bottomRight.X.ToInt(),
-                bottomRight.Y.ToInt(),
-                depthLimit.ToInt(),
-                center.X.ToInt(),
-                center.Y.ToInt()) != 0;
+                topLeft.X.As<int16_t>(),
+                topLeft.Y.As<int16_t>(),
+                bottomRight.X.As<int16_t>(),
+                bottomRight.Y.As<int16_t>(),
+                depthLimit.As<int16_t>(),
+                center.X.As<int16_t>(),
+                center.Y.As<int16_t>()) != 0;
         }
 
         /** @} */
@@ -275,16 +274,16 @@ namespace SRL
         /** @brief Set current matrix
          * @param matrix Transformation matrix
          */
-        inline static void SetMatrix(SRL::Types::Matrix& matrix)
+        inline static void SetMatrix(SRL::Math::Matrix43& matrix)
         {
-            slLoadMatrix((FIXED(*)[3])matrix.SglPtr());
+            slLoadMatrix((FIXED(*)[3])&matrix);
         }
 
         /** @brief Get current matrix
          * @note This will copy current matrix to specified address
          * @param result Transformation matrix
          */
-        inline static void GetMatrix(SRL::Types::Matrix* result)
+        inline static void GetMatrix(SRL::Math::Matrix43* result)
         {
             slGetMatrix((FIXED(*)[3])result);
         }
@@ -306,69 +305,69 @@ namespace SRL
         /** @brief Multiply current matrix by specified matrix
          * @param matrix Matrix to multiply current matrix with
          */
-        inline static void MultiplyMatrix(SRL::Types::Matrix& matrix)
+        inline static void MultiplyMatrix(SRL::Math::Matrix43& matrix)
         {
-            slMultiMatrix((FIXED(*)[3])matrix.SglPtr());
+            slMultiMatrix((FIXED(*)[3])&matrix);
         }
 
         /** @brief Rotate current matrix around arbitrary axis by specific angle
          * @param axis Rotation axis
          * @param angle Rotation angle
          */
-        inline static void Rotate(const SRL::Types::Vector3D& axis, SRL::Types::Angle angle)
+        inline static void Rotate(const SRL::Math::Types::Vector3D& axis, const SRL::Math::Types::Angle angle)
         {
-            slRotAX(axis.X.Value(), axis.Y.Value(), axis.Z.Value(), (ANGLE)angle.Value());
+            slRotAX(axis.X.RawValue(), axis.Y.RawValue(), axis.Z.RawValue(), (ANGLE)angle.RawValue());
         }
 
         /** @brief Rotate current matrix around X axis by specific angle
          * @param angle Rotation angle
          */
-        inline static void RotateX(SRL::Types::Angle angle)
+        inline static void RotateX(const SRL::Math::Types::Angle angle)
         {
-            slRotX((ANGLE)angle.Value());
+            slRotX((ANGLE)angle.RawValue());
         }
 
         /** @brief Rotate current matrix around X axis by specific sinus and cosine values
          * @param sin Sinus value
          * @param cos Cosine value
          */
-        inline static void RotateX(SRL::Types::Fxp sin, SRL::Types::Fxp cos)
+        inline static void RotateX(const SRL::Math::Types::Fxp sin, const SRL::Math::Types::Fxp cos)
         {
-            slRotXSC(sin.Value(), cos.Value());
+            slRotXSC(sin.RawValue(), cos.RawValue());
         }
         
         /** @brief Rotate current matrix around Y axis by specific angle
          * @param angle Rotation angle
          */
-        inline static void RotateY(SRL::Types::Angle angle)
+        inline static void RotateY(const SRL::Math::Types::Angle angle)
         {
-            slRotY((ANGLE)angle.Value());
+            slRotY((ANGLE)angle.RawValue());
         }
 
         /** @brief Rotate current matrix around Y axis by specific sinus and cosine values
          * @param sin Sinus value
          * @param cos Cosine value
          */
-        inline static void RotateY(SRL::Types::Fxp sin, SRL::Types::Fxp cos)
+        inline static void RotateY(const SRL::Math::Types::Fxp sin, const SRL::Math::Types::Fxp cos)
         {
-            slRotYSC(sin.Value(), cos.Value());
+            slRotYSC(sin.RawValue(), cos.RawValue());
         }
         
         /** @brief Rotate current matrix around Z axis by specific angle
          * @param angle Rotation angle
          */
-        inline static void RotateZ(SRL::Types::Angle angle)
+        inline static void RotateZ(const SRL::Math::Types::Angle angle)
         {
-            slRotZ((ANGLE)angle.Value());
+            slRotZ((ANGLE)angle.RawValue());
         }
 
         /** @brief Rotate current matrix around X axis by specific sinus and cosine values
          * @param sin Sinus value
          * @param cos Cosine value
          */
-        inline static void RotateZ(SRL::Types::Fxp sin, SRL::Types::Fxp cos)
+        inline static void RotateZ(const SRL::Math::Types::Fxp sin, const SRL::Math::Types::Fxp cos)
         {
-            slRotZSC(sin.Value(), cos.Value());
+            slRotZSC(sin.RawValue(), cos.RawValue());
         }
         
         /** @brief Scale current transformation matrix
@@ -376,25 +375,25 @@ namespace SRL
          * @param y Scale factor on Y axis
          * @param z Scale factor on Z axis
          */
-        inline static void Scale(SRL::Types::Fxp x, SRL::Types::Fxp y, SRL::Types::Fxp z)
+        inline static void Scale(const SRL::Math::Types::Fxp x, const SRL::Math::Types::Fxp y, const SRL::Math::Types::Fxp z)
         {
-            slScale(x.Value(), y.Value(), z.Value());
+            slScale(x.RawValue(), y.RawValue(), z.RawValue());
         }
 
         /** @brief Scale current transformation matrix
          * @param scale Scale factor
          */
-        inline static void Scale(const SRL::Types::Vector3D& scale)
+        inline static void Scale(const SRL::Math::Types::Vector3D& scale)
         {
-            slScale(scale.X.Value(), scale.Y.Value(), scale.Z.Value());
+            slScale(scale.X.RawValue(), scale.Y.RawValue(), scale.Z.RawValue());
         }
 
         /** @brief Scale current transformation matrix
          * @param scale Scale factor
          */
-        inline static void Scale(SRL::Types::Fxp scale)
+        inline static void Scale(const SRL::Math::Types::Fxp scale)
         {
-            slScale(scale.Value(), scale.Value(), scale.Value());
+            slScale(scale.RawValue(), scale.RawValue(), scale.RawValue());
         }
 
         /** @brief Translate current transformation matrix
@@ -402,27 +401,27 @@ namespace SRL
          * @param y Translation delta on Y axis
          * @param z Translation delta on Z axis
          */
-        inline static void Translate(SRL::Types::Fxp x, SRL::Types::Fxp y, SRL::Types::Fxp z)
+        inline static void Translate(const SRL::Math::Types::Fxp x, const SRL::Math::Types::Fxp y, const SRL::Math::Types::Fxp z)
         {
-            slTranslate(x.Value(), y.Value(), z.Value());
+            slTranslate(x.RawValue(), y.RawValue(), z.RawValue());
         }
 
         /** @brief Translate current transformation matrix
          * @param delta Translation delta
          */
-        inline static void Translate(const SRL::Types::Vector3D& delta)
+        inline static void Translate(const SRL::Math::Types::Vector3D& delta)
         {
-            slTranslate(delta.X.Value(), delta.Y.Value(), delta.Z.Value());
+            slTranslate(delta.X.RawValue(), delta.Y.RawValue(), delta.Z.RawValue());
         }
 
         /** @brief Transforms point by current transformation matrix
          * @param point Point to transform
          * @return Transformed point
          */
-        static SRL::Types::Vector3D TransformPoint(const SRL::Types::Vector3D& point)
+        static SRL::Math::Types::Vector3D TransformPoint(const SRL::Math::Types::Vector3D& point)
         {
-            SRL::Types::Vector3D result = SRL::Types::Vector3D();
-            slCalcPoint(point.X.Value(), point.Y.Value(), point.Z.Value(), (FIXED*)&result);
+            SRL::Math::Types::Vector3D result = SRL::Math::Types::Vector3D();
+            slCalcPoint(point.X.RawValue(), point.Y.RawValue(), point.Z.RawValue(), (FIXED*)&result);
             return result;
         }
 
@@ -430,9 +429,9 @@ namespace SRL
          * @param point Direction vector to transform
          * @return Transformed direction vector
          */
-        static SRL::Types::Vector3D TransformVector(const SRL::Types::Vector3D& point)
+        static SRL::Math::Types::Vector3D TransformVector(const SRL::Math::Types::Vector3D& point)
         {
-            SRL::Types::Vector3D result = SRL::Types::Vector3D();
+            SRL::Math::Types::Vector3D result = SRL::Math::Types::Vector3D();
             slCalcVector((FIXED*)&point, (FIXED*)&result);
             return result;
         }

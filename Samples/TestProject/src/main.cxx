@@ -1,6 +1,7 @@
 #include <srl.hpp>
 
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 int main()
 {

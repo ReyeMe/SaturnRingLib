@@ -8,6 +8,7 @@
 
 using namespace SRL;
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 extern "C"
 {
@@ -83,17 +84,17 @@ extern "C"
         Fxp sin_360 = Math::Sin(Angle::FromDegrees(360));
 
         // Validate sine values with a small floating-point tolerance
-        snprintf(buffer, buffer_size, "Sin(0) failed: %f != 0.0", sin_0.ToFloat());
-        mu_assert(fabs(sin_0.ToFloat() - 0.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Sin(0) failed: %f != 0.0", sin_0.As<float>());
+        mu_assert(fabs(sin_0.As<float>() - 0.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Sin(90) failed: %f != 1.0", sin_90.ToFloat());
-        mu_assert(fabs(sin_90.ToFloat() - 1.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Sin(90) failed: %f != 1.0", sin_90.As<float>());
+        mu_assert(fabs(sin_90.As<float>() - 1.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Sin(180) failed: %f != 0.0", sin_180.ToFloat());
-        mu_assert(fabs(sin_180.ToFloat() - 0.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Sin(180) failed: %f != 0.0", sin_180.As<float>());
+        mu_assert(fabs(sin_180.As<float>() - 0.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Sin(360) failed: %f != 0.0", sin_360.ToFloat());
-        mu_assert(fabs(sin_360.ToFloat() - 0.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Sin(360) failed: %f != 0.0", sin_360.As<float>());
+        mu_assert(fabs(sin_360.As<float>() - 0.0) < 1e-5, buffer);
     }
 
     /**
@@ -118,17 +119,17 @@ extern "C"
         Fxp cos_360 = Math::Cos(Angle::FromDegrees(360));
 
         // Validate cosine values with a small floating-point tolerance
-        snprintf(buffer, buffer_size, "Cos(0) failed: %f != 1.0", cos_0.ToFloat());
-        mu_assert(fabs(cos_0.ToFloat() - 1.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Cos(0) failed: %f != 1.0", cos_0.As<float>());
+        mu_assert(fabs(cos_0.As<float>() - 1.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Cos(90) failed: %f != 0.0", cos_90.ToFloat());
-        mu_assert(fabs(cos_90.ToFloat() - 0.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Cos(90) failed: %f != 0.0", cos_90.As<float>());
+        mu_assert(fabs(cos_90.As<float>() - 0.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Cos(180) failed: %f != -1.0", cos_180.ToFloat());
-        mu_assert(fabs(cos_180.ToFloat() - -1.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Cos(180) failed: %f != -1.0", cos_180.As<float>());
+        mu_assert(fabs(cos_180.As<float>() - -1.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Cos(360) failed: %f != 1.0", cos_360.ToFloat());
-        mu_assert(fabs(cos_360.ToFloat() - 1.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Cos(360) failed: %f != 1.0", cos_360.As<float>());
+        mu_assert(fabs(cos_360.As<float>() - 1.0) < 1e-5, buffer);
     }
 
     /**
@@ -150,11 +151,11 @@ extern "C"
         Fxp cos_neg90 = Math::Cos(Angle::FromDegrees(-90));
 
         // Validate trigonometric values for negative angle
-        snprintf(buffer, buffer_size, "Sin(-90) failed: %f != -1.0", sin_neg90.ToFloat());
-        mu_assert(fabs(sin_neg90.ToFloat() - -1.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Sin(-90) failed: %f != -1.0", sin_neg90.As<float>());
+        mu_assert(fabs(sin_neg90.As<float>() - -1.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Cos(-90) failed: %f != 0.0", cos_neg90.ToFloat());
-        mu_assert(fabs(cos_neg90.ToFloat() - 0.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Cos(-90) failed: %f != 0.0", cos_neg90.As<float>());
+        mu_assert(fabs(cos_neg90.As<float>() - 0.0) < 1e-5, buffer);
     }
 
     /**
@@ -175,11 +176,11 @@ extern "C"
         Fxp cos_large = Math::Cos(Angle::FromDegrees(450));
 
         // Validate trigonometric values for large angle
-        snprintf(buffer, buffer_size, "Sin(450) failed: %f != 1.0", sin_large.ToFloat());
-        mu_assert(fabs(sin_large.ToFloat() - 1.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Sin(450) failed: %f != 1.0", sin_large.As<float>());
+        mu_assert(fabs(sin_large.As<float>() - 1.0) < 1e-5, buffer);
 
-        snprintf(buffer, buffer_size, "Cos(450) failed: %f != 0.0", cos_large.ToFloat());
-        mu_assert(fabs(cos_large.ToFloat() - 0.0) < 1e-5, buffer);
+        snprintf(buffer, buffer_size, "Cos(450) failed: %f != 0.0", cos_large.As<float>());
+        mu_assert(fabs(cos_large.As<float>() - 0.0) < 1e-5, buffer);
     }
 
     /**
@@ -201,10 +202,10 @@ extern "C"
 
         // Validate trigonometric values for small angle with high precision
         snprintf(buffer, buffer_size, "Sin(0.1) precision check failed");
-        mu_assert(fabs(sin_small.ToFloat() - 0.00174533) < 1e-5, buffer);
+        mu_assert(fabs(sin_small.As<float>() - 0.00174533) < 1e-5, buffer);
 
         snprintf(buffer, buffer_size, "Cos(0.1) precision check failed");
-        mu_assert(fabs(cos_small.ToFloat() - 0.999998) < 1e-5, buffer);
+        mu_assert(fabs(cos_small.As<float>() - 0.999998) < 1e-5, buffer);
     }
 
     /**

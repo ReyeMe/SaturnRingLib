@@ -43,7 +43,7 @@ extern "C"
     // Ensures that a fixed-point number initialized with zero is correctly represented
     MU_TEST(fxp_initialization_zero)
     {
-        Fxp a1 = Fxp::FromInt(0);
+        Fxp a1 = 0;
         snprintf(buffer, buffer_size, "%d != 0", a1);
         mu_assert(a1 == 0, buffer);
     }
@@ -52,7 +52,7 @@ extern "C"
     // Checks that a fixed-point number initialized with one is correctly represented
     MU_TEST(fxp_initialization_one)
     {
-        Fxp a1 = Fxp::FromInt(1);
+        Fxp a1 = 1;
         snprintf(buffer, buffer_size, "%d != 1", a1);
         mu_assert(a1 == 1, buffer);
     }
@@ -61,7 +61,7 @@ extern "C"
     // Ensures that a fixed-point number can be correctly assigned to another variable
     MU_TEST(fxp_assignment_operator)
     {
-        Fxp a1 = Fxp::FromInt(1);
+        Fxp a1 = 1;
         Fxp b1 = a1;
         snprintf(buffer, buffer_size, "%d != 1", b1);
         mu_assert(b1 == 1, buffer);
@@ -71,7 +71,7 @@ extern "C"
     // Checks that a new fixed-point number can be created as a copy of another
     MU_TEST(fxp_copy_constructor)
     {
-        Fxp a1 = Fxp::FromInt(1);
+        Fxp a1 = 1;
         Fxp b1(a1);
         snprintf(buffer, buffer_size, "%d != 1", b1);
         mu_assert(b1 == 1, buffer);
@@ -81,7 +81,7 @@ extern "C"
     // Ensures that two fixed-point numbers with the same value are considered equal
     MU_TEST(fxp_equality_check)
     {
-        Fxp a1 = Fxp::FromInt(1);
+        Fxp a1 = 1;
         Fxp b1(a1);
         snprintf(buffer, buffer_size, "%d != %d", a1, b1);
         mu_assert(a1 == b1, buffer);
@@ -164,8 +164,8 @@ extern "C"
     // Checks that converting a fixed-point number to float preserves its value
     MU_TEST(fxp_conversion_to_float)
     {
-        Fxp a1 = Fxp::FromInt(10);
-        float result = a1.ToFloat();
+        Fxp a1 = 10;
+        float result = a1.As<float>();
         snprintf(buffer, buffer_size, "Conversion to float failed: %f != 10.0", result);
         mu_assert(result == 10.0f, buffer);
     }
@@ -193,16 +193,16 @@ extern "C"
     MU_TEST(fxp_ModuloTest_PositiveNumbers)
     {
         // Scenario 1: Non-divisible numbers
-        Fxp a1 = Fxp::FromInt(10);
-        Fxp b1 = Fxp::FromInt(3);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
+        Fxp a1 = 10;
+        Fxp b1 = 3;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
+        mu_assert(Fxp::Mod(a1, b1) == 1, buffer);
 
         // Scenario 2: Perfectly divisible numbers
-        a1 = Fxp::FromInt(20);
-        b1 = Fxp::FromInt(5);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
+        a1 = 20;
+        b1 = 5;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
+        mu_assert(Fxp::Mod(a1, b1) == 0, buffer);
     }
 
     // Test series: Modulo operation with negative dividend
@@ -210,16 +210,16 @@ extern "C"
     MU_TEST(fxp_ModuloTest_NegativeDividend)
     {
         // Scenario 1: Negative dividend, positive divisor
-        Fxp a1 = Fxp::FromInt(-10);
-        Fxp b1 = Fxp::FromInt(3);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
+        Fxp a1 = -10;
+        Fxp b1 = 3;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
+        mu_assert(Fxp::Mod(a1, b1) == -1, buffer);
 
         // Scenario 2: Perfectly divisible negative number
-        a1 = Fxp::FromInt(-20);
-        b1 = Fxp::FromInt(5);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
+        a1 = -20;
+        b1 = 5;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
+        mu_assert(Fxp::Mod(a1, b1) == 0, buffer);
     }
 
     // Test series: Modulo operation with negative divisor
@@ -227,16 +227,16 @@ extern "C"
     MU_TEST(fxp_ModuloTest_NegativeDivisor)
     {
         // Scenario 1: Positive dividend, negative divisor
-        Fxp a1 = Fxp::FromInt(10);
-        Fxp b1 = Fxp::FromInt(-3);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
+        Fxp a1 = 10;
+        Fxp b1 = -3;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
+        mu_assert(Fxp::Mod(a1, b1) == 1, buffer);
 
         // Scenario 2: Perfectly divisible numbers with negative divisor
-        a1 = Fxp::FromInt(20);
-        b1 = Fxp::FromInt(-5);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
+        a1 = 20;
+        b1 = -5;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
+        mu_assert(Fxp::Mod(a1, b1) == 0, buffer);
     }
 
     // Test series: Modulo operation with both dividend and divisor negative
@@ -244,16 +244,16 @@ extern "C"
     MU_TEST(fxp_ModuloTest_NegativeDividendAndDivisor)
     {
         // Scenario 1: Both negative numbers
-        Fxp a1 = Fxp::FromInt(-10);
-        Fxp b1 = Fxp::FromInt(-3);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
+        Fxp a1 = -10;
+        Fxp b1 = -3;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
+        mu_assert(Fxp::Mod(a1, b1) == -1, buffer);
 
         // Scenario 2: Perfectly divisible negative numbers
-        a1 = Fxp::FromInt(-20);
-        b1 = Fxp::FromInt(-5);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 0);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(0), buffer);
+        a1 = -20;
+        b1 = -5;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
+        mu_assert(Fxp::Mod(a1, b1) == 0, buffer);
     }
 
     // Placeholder test: Division by zero handling
@@ -269,113 +269,113 @@ extern "C"
     MU_TEST(fxp_ModuloTest_LargeNumbers)
     {
         // Scenario 1: Large positive number
-        Fxp a1 = Fxp::FromInt(std::numeric_limits<int16_t>::max());
-        Fxp b1 = Fxp::FromInt(3);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
+        Fxp a1 = std:numeric_limits<int16_t>::max());
+        Fxp b1 = 3;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
+        mu_assert(Fxp::Mod(a1, b1) == 1, buffer);
 
         // Scenario 2: Large negative number
-        a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
-        b1 = Fxp::FromInt(3);
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
+        a1 = -std:numeric_limits<int16_t>::max());
+        b1 = 3;
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
+        mu_assert(Fxp::Mod(a1, b1) == -1, buffer);
     }
 
     // Test: Edge cases (smallest/largest integers)
     MU_TEST(fxp_ModuloTest_EdgeCases)
     {
-        Fxp a1 = Fxp::FromInt(std::numeric_limits<int16_t>::max());
-        Fxp b1 = Fxp::FromInt(2);
+        Fxp a1 = std:numeric_limits<int16_t>::max());
+        Fxp b1 = 2;
 
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), 1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(1), buffer);
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
+        mu_assert(Fxp::Mod(a1, b1) == 1, buffer);
 
-        a1 = Fxp::FromInt(-std::numeric_limits<int16_t>::max());
-        b1 = Fxp::FromInt(2);
+        a1 = -std:numeric_limits<int16_t>::max());
+        b1 = 2;
 
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.ToInt(), b1.ToInt(), -1);
-        mu_assert(Fxp::Mod(a1, b1) == Fxp::FromInt(-1), buffer);
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
+        mu_assert(Fxp::Mod(a1, b1) == -1, buffer);
     }
 
     // Test: Positive numbers
     MU_TEST(fxp_GreaterThanTest_PositiveNumbers)
     {
-        Fxp a1 = Fxp::FromInt(5);
-        Fxp b1 = Fxp::FromInt(3);
+        Fxp a1 = 5;
+        Fxp b1 = 3;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(3);
-        b1 = Fxp::FromInt(5);
+        a1 = 3;
+        b1 = 5;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
-        a1 = Fxp::FromInt(3);
-        b1 = Fxp::FromInt(3);
+        a1 = 3;
+        b1 = 3;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
     // Test: Negative numbers
     MU_TEST(fxp_GreaterThanTest_NegativeNumbers)
     {
-        Fxp a1 = Fxp::FromInt(-3);
-        Fxp b1 = Fxp::FromInt(-5);
+        Fxp a1 = -3;
+        Fxp b1 = -5;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(-5);
-        b1 = Fxp::FromInt(-3);
+        a1 = -5;
+        b1 = -3;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
-        a1 = Fxp::FromInt(-3);
-        b1 = Fxp::FromInt(-3);
+        a1 = -3;
+        b1 = -3;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
     // Test: Mixed positive and negative numbers
     MU_TEST(fxp_GreaterThanTest_MixedNumbers)
     {
-        Fxp a1 = Fxp::FromInt(3);
-        Fxp b1 = Fxp::FromInt(-5);
+        Fxp a1 = 3;
+        Fxp b1 = -5;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(-3);
-        b1 = Fxp::FromInt(5);
+        a1 = -3;
+        b1 = 5;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
     // Test: Comparison with zero
     MU_TEST(fxp_GreaterThanTest_ComparisonWithZero)
     {
-        Fxp a1 = Fxp::FromInt(3);
-        Fxp b1 = Fxp::FromInt(0);
+        Fxp a1 = 3;
+        Fxp b1 = 0;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(0);
-        b1 = Fxp::FromInt(3);
+        a1 = 0;
+        b1 = 3;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
-        a1 = Fxp::FromInt(0);
-        b1 = Fxp::FromInt(0);
+        a1 = 0;
+        b1 = 0;
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
@@ -395,19 +395,19 @@ extern "C"
         Fxp a1(5.5);
         Fxp b1(3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
         a1 = Fxp(3.3);
         b1 = Fxp(5.5);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
         a1 = Fxp(3.3);
         b1 = Fxp(3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
@@ -417,19 +417,19 @@ extern "C"
         Fxp a1(-5.5);
         Fxp b1(-3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(b1 > a1, buffer);
 
         a1 = Fxp(-3.3);
         b1 = Fxp(-5.5);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(-3.3);
         b1 = Fxp(-3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
@@ -439,13 +439,13 @@ extern "C"
         Fxp a1(5.5);
         Fxp b1(-3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
         a1 = Fxp(-3.3);
         b1 = Fxp(5.5);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
@@ -455,19 +455,19 @@ extern "C"
         Fxp a1(3.3);
         Fxp b1(0.0);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
         a1 = Fxp(0.0);
         b1 = Fxp(-3.3);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(0.0);
         b1 = Fxp(0.0);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
@@ -490,42 +490,42 @@ extern "C"
         Fxp a1(a);
         Fxp b1(b);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(1.01f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(1.001f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(!(b1 > a1), buffer);
 
         a1 = Fxp(1.0001f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         mu_assert(!(b1 > a1), buffer);
 
         // a1 = Fxp(1.00001f);
         //
-        // snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        // snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         // mu_assert(a1 > b1, buffer);
         //
-        // snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.ToInt(), a1.ToInt());
+        // snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", b1.As<int32_t>(), a1.As<int32_t>());
         // mu_assert(!(b1 > a1), buffer);
     }
 
@@ -550,60 +550,60 @@ extern "C"
     // Test: Integer and negative float comparisons
     MU_TEST(fxp_GreaterThanMixedTest_IntAndNegativeFloat)
     {
-        Fxp a1 = Fxp::FromInt(-3);
+        Fxp a1 = -3;
         Fxp b1(-5.5f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(-5);
+        a1 = -5;
         b1 = Fxp(-3.3f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
-        a1 = Fxp::FromInt(-3);
+        a1 = -3;
         b1 = Fxp(-3.0f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
     // Test: Mixed positive and negative values
     MU_TEST(fxp_GreaterThanMixedTest_MixedPositiveAndNegativeValues)
     {
-        Fxp a1 = Fxp::FromInt(5);
+        Fxp a1 = 5;
         Fxp b1(-3.3f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(-3);
+        a1 = -3;
         b1 = Fxp(5.5f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
     // Test: Integer comparison with zero float
     MU_TEST(fxp_GreaterThanMixedTest_IntWithZeroFloat)
     {
-        Fxp a1 = Fxp::FromInt(3);
+        Fxp a1 = 3;
         Fxp b1(0.0f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(0);
+        a1 = 0;
         b1 = Fxp(3.3f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
-        a1 = Fxp::FromInt(0);
+        a1 = 0;
         b1 = Fxp(0.0f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
     }
 
@@ -629,28 +629,28 @@ extern "C"
     // Test: Precision edge cases
     MU_TEST(fxp_GreaterThanMixedTest_PrecisionEdgeCases)
     {
-        Fxp a1 = Fxp::FromInt(1);
+        Fxp a1 = 1;
         Fxp b1(0.9999999f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(a1 > b1, buffer);
 
-        a1 = Fxp::FromInt(1);
+        a1 = 1;
         b1 = Fxp(1.0000001f);
 
-        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         mu_assert(!(a1 > b1), buffer);
 
-        // a1 = Fxp::FromInt(1000000000);
+        // a1 = 1000000000;
         // b1 = Fxp(999999999.9f);
         //
-        // snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.ToInt(), b1.ToInt());
+        // snprintf(buffer, buffer_size, "Comparison value test failed: %d <= %d)", a1.As<int32_t>(), b1.As<int32_t>());
         // mu_assert(a1 > b1, buffer);
         //
-        // a1 = Fxp::FromInt(1000000000);
+        // a1 = 1000000000;
         // b1 = Fxp(1000000000.1f);
         //
-        // snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.ToInt(), b1.ToInt());
+        // snprintf(buffer, buffer_size, "Comparison value test failed: %d > %d)", a1.As<int32_t>(), b1.As<int32_t>());
         // mu_assert(!(a1 > b1), buffer);
     }
 

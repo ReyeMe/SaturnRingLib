@@ -16,6 +16,8 @@ LIBS = $(SGLLDIR)/LIBCPK.A $(SGLLDIR)/SEGA_SYS.A $(SGLLDIR)/LIBCD.A $(SGLLDIR)/L
 # include extra modules
 MODULE_EXTRA_INC =
 
+.DEFAULT_GOAL := all
+
 ifneq ($(strip $(MODULES_EXTRA)),)
 	include $(patsubst %, $(SDK_ROOT)/../modules_extra/%/module.mk, $(strip $(MODULES_EXTRA)))
 	MODULE_EXTRA_INC += $(patsubst %, -I$(SDK_ROOT)/../modules_extra/%/INC, $(strip $(MODULES_EXTRA)))
@@ -155,6 +157,7 @@ BUILD_MAP = $(BUILD_ELF:.elf=.map)
 
 TLSFDIR = $(MODDIR)/tlsf
 DUMMYIDIR = $(MODDIR)/dummy
+SATURNMATHPPDIR = $(MODDIR)/SaturnMathPP
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
 
@@ -169,7 +172,7 @@ SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
 CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing \
-					-I$(DUMMYIDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
+					-I$(DUMMYIDIR) -I$(SATURNMATHPPDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
 					-Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
 
@@ -182,6 +185,22 @@ ifneq ($(strip ${SRL_CUSTOM_LDFLAGS}),)
 	LDFLAGS += $(strip ${SRL_CUSTOM_LDFLAGS})
 endif
 
+# pre-build script
+ifneq ("$(wildcard ./pre.makefile)","")
+	include ./pre.makefile
+else
+pre_build:
+	$(info ****** No pre build steps ******)
+endif
+
+# post-build script
+ifneq ("$(wildcard ./post.makefile)","")
+	include ./post.makefile
+else
+post_build:
+	$(info ****** No post build steps ******)
+endif
+
 # Compilation tasks
 %.o : %.c
 	$(CC) $< $(CCFLAGS) -std=c2x -o $@
@@ -190,7 +209,7 @@ endif
 	$(CXX) $< $(CCFLAGS) -std=c++23 -fpermissive -fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -o $@
 
 compile_objects : $(OBJECTS) $(SYSOBJECTS)
-	$(info ****** L@@K ******)
+	$(info ****** Info ******)
 	$(info Maximum textures : ${SRL_MAX_TEXTURES})
 	$(info Log level selected : ${SRL_LOG_LEVEL})
 	$(info Maximum Log length : ${SRL_DEBUG_MAX_LOG_LENGTH})
@@ -315,6 +334,6 @@ endif
 endif
 	rm -rf $(BUILD_DROP)/
 
-build : build_bin_cue
+build : pre_build build_bin_cue post_build
 
 all: clean build

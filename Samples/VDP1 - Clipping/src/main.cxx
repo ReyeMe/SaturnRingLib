@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
 // Load color palettes here
@@ -48,13 +49,13 @@ int main()
     delete coverOff;                                                                     // Frees main RAM
 
     // Get screen size
-    uint16_t halfWidth = SRL::TV::Width >> 1;
-    Fxp minimumWidth = -Fxp::FromInt(halfWidth);
-    Fxp maximumWidth = Fxp::FromInt(halfWidth);
+    constexpr int16_t halfWidth = SRL::TV::Width >> 1;
+    Fxp minimumWidth = -halfWidth;
+    Fxp maximumWidth = halfWidth;
 
-    uint16_t halfHeight = SRL::TV::Height >> 1;
-    Fxp minimumHeight = -Fxp::FromInt(halfHeight);
-    Fxp maximumHeight = Fxp::FromInt(halfHeight);
+    constexpr int16_t halfHeight = SRL::TV::Height >> 1;
+    Fxp minimumHeight = -halfHeight;
+    Fxp maximumHeight = halfHeight;
     Vector2D screenMiddlePoint = Vector2D(maximumWidth, maximumHeight);
 
     // Set size and position of the clipping polygon
@@ -93,7 +94,7 @@ int main()
         }
 
         // Set clipping rectangle
-        SRL::Scene2D::SetClippingRectangle(clippingPosition + screenMiddlePoint, clippingSize);
+        SRL::Scene2D::SetClippingRectangle(clippingPosition + Vector3D(screenMiddlePoint,0), clippingSize);
 
         // This sprite is visible inside of the clipping sprite
         SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::ClipOutside);

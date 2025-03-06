@@ -2,6 +2,7 @@
 
 // Using to shorten names for HighColor and ITask
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 /** @brief Task Obeject
 */

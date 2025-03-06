@@ -6,6 +6,7 @@
 #include "minunit.h"
 
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 extern "C"
 {

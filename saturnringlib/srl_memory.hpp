@@ -190,8 +190,8 @@ namespace SRL
                     header->State = SimpleMalloc::BlockState::Used;
                     header->Size = newBlock;
 
-                    // Set next block as free, this splits current bolc into two
-                    // First part is allocated meory, second part is left over free memory
+                    // Set next block as free, this splits current block into two
+                    // First part is allocated memory, second part is left over free memory
                     if (oldBlockSize - newBlock > 0)
                     {
                         size_t nextBlock = SimpleMalloc::GetNextBlockLocation(zone, location);
@@ -575,7 +575,7 @@ namespace SRL
             }
 
             /** @brief Check whether pointer is in range of the memory zone
-             * @param ptr Pointer to check
+             * @param zoneAddress Zone address to check
              * @return true if pointer belongs to the current memory zone
              */
             inline static bool InRange(uint32_t zoneAddress)

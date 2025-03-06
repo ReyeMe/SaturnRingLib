@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 // Main program entry
 int main()
@@ -19,7 +20,7 @@ int main()
     // Update delay counter
     uint32_t tm = 0;
     
-    // Main program loo
+    // Main program loop
 	while(1)
 	{
         // Generate new random number after a specified delay
@@ -47,15 +48,15 @@ int main()
         for (uint16_t i = 0; i < 319; i++)
         {
             SRL::Scene2D::DrawLine(
-                Vector2D(Fxp::FromInt(i- 160), Fxp::FromInt(data[i])),
-                Vector2D(Fxp::FromInt(i + 1 - 160), Fxp::FromInt(data[i + 1])),
+                Vector2D(static_cast<int16_t>(i- 160), static_cast<int16_t>(data[i])),
+                Vector2D(static_cast<int16_t>(i + 1 - 160), static_cast<int16_t>(data[i + 1])),
                 HighColor::Colors::White,
                 500.0);
         }
         
         SRL::Scene2D::DrawLine(
-            Vector2D(Fxp::FromInt(pointer - 160), Fxp::FromInt(50)),
-            Vector2D(Fxp::FromInt(pointer - 160), Fxp::FromInt(-50)),
+            Vector2D(static_cast<int16_t>(pointer - 160), 50),
+            Vector2D(static_cast<int16_t>(pointer - 160), -50),
             HighColor::Colors::Red,
             500.0);
 

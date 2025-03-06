@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 int main()
 {

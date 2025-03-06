@@ -25,8 +25,10 @@ namespace SRL
         {
             Normal320x224 = TV_320x224,
             Normal320x240 = TV_320x240,
+            Normal320x256 = TV_320x256,
             Normal352x224 = TV_352x224,
             Normal352x240 = TV_352x240,
+            Normal352x256 = TV_352x256,
 
             Interlaced640x224 = TV_640x224,
             Interlaced640x240 = TV_640x240,

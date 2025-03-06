@@ -6,6 +6,7 @@ weapons in fps style.
 #include <srl.hpp>
  
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
 //example loading the weapon sprites for right hand animation statically

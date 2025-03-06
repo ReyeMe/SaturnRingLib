@@ -7,6 +7,7 @@
 #include "algorithm.h"
 
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 // Main program entry
 int main()

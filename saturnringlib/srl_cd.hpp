@@ -269,7 +269,7 @@ namespace SRL
                                                                    readBytes(0)
             {
                 #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
-                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instanciate this class");
+                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instantiate this class");
                 #endif
             }
 
@@ -284,7 +284,7 @@ namespace SRL
                                      readBytes(0)
             {
                 #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
-                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instanciate this class");
+                    static_assert(false, "SRL_MAX_CD_FILES is not set properly to instantiate this class");
                 #endif
 
                 if (name != nullptr)

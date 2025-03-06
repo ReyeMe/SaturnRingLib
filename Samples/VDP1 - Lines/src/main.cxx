@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 // Simple line structure
 struct LineSegment
@@ -39,16 +40,16 @@ int main()
     SRL::Debug::Print(1,1, "VDP1 lines sample");
     
     // Get screen size
-    uint16_t halfWidth = SRL::TV::Width >> 1;
-    Fxp minimumWidth = -Fxp::FromInt(halfWidth);
-    Fxp maximumWidth = Fxp::FromInt(halfWidth);
+    constexpr uint16_t halfWidth = SRL::TV::Width >> 1;
+    Fxp minimumWidth = -halfWidth;
+    Fxp maximumWidth = halfWidth;
 
-    uint16_t halfHeight = SRL::TV::Height >> 1;
-    Fxp minimumHeight = -Fxp::FromInt(halfHeight);
-    Fxp maximumHeight = Fxp::FromInt(halfHeight);
+    constexpr uint16_t halfHeight = SRL::TV::Height >> 1;
+    Fxp minimumHeight = -halfHeight;
+    Fxp maximumHeight = halfHeight;
 
     // Initialize random number function
-    SRL::Math::Random rnd = SRL::Math::Random();
+    auto rnd = SRL::Math::Random<int16_t>(1234);
 
     // Velocities to use
     Vector2D velocities[] =
@@ -63,16 +64,16 @@ int main()
     LineSegment uniqueSegments[] =
     {
         {
-            Vector2D(Fxp::FromInt(rnd.GetNumber(-halfWidth, halfWidth)), Fxp::FromInt(rnd.GetNumber(-halfHeight, halfHeight))),
-            Vector2D(Fxp::FromInt(rnd.GetNumber(-halfWidth, halfWidth)), Fxp::FromInt(rnd.GetNumber(-halfHeight, halfHeight))),
+            Vector2D(rnd.GetNumber(-halfWidth, halfWidth), rnd.GetNumber(-halfHeight, halfHeight)),
+            Vector2D(rnd.GetNumber(-halfWidth, halfWidth), rnd.GetNumber(-halfHeight, halfHeight)),
             Vector2D(velocities[rnd.GetNumber(0,3)]),
             Vector2D(velocities[rnd.GetNumber(0,3)]),
             { Vector2D() },
             { Vector2D() }
         },
         {
-            Vector2D(Fxp::FromInt(rnd.GetNumber(-halfWidth, halfWidth)), Fxp::FromInt(rnd.GetNumber(-halfHeight, halfHeight))),
-            Vector2D(Fxp::FromInt(rnd.GetNumber(-halfWidth, halfWidth)), Fxp::FromInt(rnd.GetNumber(-halfHeight, halfHeight))),
+            Vector2D(rnd.GetNumber(-halfWidth, halfWidth), rnd.GetNumber(-halfHeight, halfHeight)),
+            Vector2D(rnd.GetNumber(-halfWidth, halfWidth), rnd.GetNumber(-halfHeight, halfHeight)),
             Vector2D(velocities[rnd.GetNumber(0,3)]),
             Vector2D(velocities[rnd.GetNumber(0,3)]),
             { Vector2D() },

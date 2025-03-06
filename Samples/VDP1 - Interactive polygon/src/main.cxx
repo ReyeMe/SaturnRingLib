@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
 // Cursors
@@ -53,13 +54,13 @@ int main()
     table[3] = HighColor(200, 200, 200);
 
     // Get screen size
-    uint16_t halfWidth = SRL::TV::Width >> 1;
-    Fxp minimumWidth = -Fxp::FromInt(halfWidth);
-    Fxp maximumWidth = Fxp::FromInt(halfWidth);
+    constexpr uint16_t halfWidth = SRL::TV::Width >> 1;
+    Fxp minimumWidth = -halfWidth;
+    Fxp maximumWidth = halfWidth;
 
-    uint16_t halfHeight = SRL::TV::Height >> 1;
-    Fxp minimumHeight = -Fxp::FromInt(halfHeight);
-    Fxp maximumHeight = Fxp::FromInt(halfHeight);
+    constexpr uint16_t halfHeight = SRL::TV::Height >> 1;
+    Fxp minimumHeight = -halfHeight;
+    Fxp maximumHeight = halfHeight;
 
     // Locations
     Vector3D lastCursorLocation = Vector3D(0.0, 0.0, 500.0);

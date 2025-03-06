@@ -1,7 +1,6 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include "srl_vector.hpp"
 
 namespace SRL::Types
 {
@@ -115,11 +114,11 @@ namespace SRL::Types
          * @param normal Normal vector
          * @param vertices Polygon vertex indicies
          */
-        Polygon(const Vector3D& normal, const uint16_t vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
+        Polygon(const SRL::Math::Types::Vector3D& normal, const uint16_t vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
 
         /** @brief Normal vector of the polygon
          */
-        Vector3D Normal;
+        SRL::Math::Types::Vector3D Normal;
 
         /** @brief Vertices of the polygon
          */
@@ -132,7 +131,7 @@ namespace SRL::Types
     {
         /** @brief Vertices of the mesh
          */
-        Vector3D *Vertices;
+        SRL::Math::Types::Vector3D *Vertices;
 
         /** @brief Number of vertices of the mesh
          */
@@ -160,7 +159,7 @@ namespace SRL::Types
          */
         Mesh(const size_t& vertexCount, const size_t& polygonCount) : FaceCount(polygonCount), VertexCount(vertexCount)
         {
-            this->Vertices = autonew Vector3D[vertexCount];
+            this->Vertices = autonew SRL::Math::Types::Vector3D[vertexCount];
             this->Faces = autonew Polygon[polygonCount];
             this->Attributes = autonew Attribute[polygonCount];
         }
@@ -173,7 +172,7 @@ namespace SRL::Types
          * @param attributes Face attributes
          */
         Mesh(const size_t& vertexCount,
-            Vector3D* vertices,
+            SRL::Math::Types::Vector3D* vertices,
             const size_t& faceCount,
             Polygon* faces,
             Attribute* attributes) : FaceCount(faceCount), VertexCount(vertexCount)
@@ -231,7 +230,7 @@ namespace SRL::Types
     {
         /** @brief Vertices of the mesh
          */
-        Vector3D *Vertices;
+        SRL::Math::Types::Vector3D *Vertices;
 
         /** @brief Number of vertices of the mesh
          */
@@ -251,7 +250,7 @@ namespace SRL::Types
 
         /** @brief Normal vector data for vertices
          */
-        Vector3D* Normals;
+        SRL::Math::Types::Vector3D* Normals;
 
         /** @brief Construct a new empty mesh object
          */
@@ -263,10 +262,10 @@ namespace SRL::Types
          */
         SmoothMesh(const size_t& vertexCount, const size_t& faceCount) : FaceCount(faceCount), VertexCount(vertexCount)
         {
-            this->Vertices = autonew Vector3D[vertexCount];
+            this->Vertices = autonew SRL::Math::Types::Vector3D[vertexCount];
             this->Faces = autonew Polygon[faceCount];
             this->Attributes = autonew Attribute[faceCount];
-            this->Normals = autonew Vector3D[vertexCount];
+            this->Normals = autonew SRL::Math::Types::Vector3D[vertexCount];
         }
 
         /** @brief Construct a new mesh object from existing data
@@ -278,11 +277,11 @@ namespace SRL::Types
          * @param normals Vertex normals
          */
         SmoothMesh(const size_t& vertexCount,
-            Vector3D* vertices,
+            SRL::Math::Types::Vector3D* vertices,
             const size_t& faceCount,
             Polygon* faces,
             Attribute* attributes,
-            Vector3D* normals) : FaceCount(faceCount), VertexCount(vertexCount)
+            SRL::Math::Types::Vector3D* normals) : FaceCount(faceCount), VertexCount(vertexCount)
         {
             this->Vertices = vertices;
             this->Faces = faces;

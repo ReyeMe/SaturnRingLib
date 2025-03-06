@@ -3,6 +3,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 // Main program entry

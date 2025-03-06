@@ -43,3 +43,6 @@ fi
 printf "\nCleaning up...\n";
 rm -f $file
 cd ..
+
+printf "\nSetting permissions\n";
+chmod -R +x $compilerDir

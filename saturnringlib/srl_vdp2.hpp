@@ -1,9 +1,8 @@
 #pragma once
 
+#include "srl_base.hpp"
 #include "srl_tv.hpp"
 #include "srl_cram.hpp"
-#include "srl_math.hpp"
-#include "srl_vector.hpp"
 #include "srl_ascii.hpp"
 #include "srl_debug.hpp"
 #include "srl_cd.hpp"
@@ -29,6 +28,25 @@ namespace SRL
             Layer5 = 5,
             Layer6 = 6,
             Layer7 = 7,
+        };
+        /** @brief Options for using color offsets on Scroll Screens
+         *  
+         *  @details Scroll and sprite screens can apply one of 2 color offsets
+         *  (A or B) to all pixels from that screen. 
+         *  See VDP2::ScrollScreen::UseColorOffset() and VDP2::SetColorOffsetA/B() 
+         *  for further details
+         */
+        enum class OffsetChannel
+        {
+            /* @brief Do not use any color offset
+             */
+            NoOffset,
+            /* @brief Use color offset A
+             */
+            OffsetA,
+            /* @brief Use color offset B
+             */
+            OffsetB,
         };
 
         /** @brief used to specify the 4 VRAM banks that are available for VDP2 allocation
@@ -82,13 +100,15 @@ namespace SRL
                 return (int)currentTop[(uint16_t)bank] - (int)currentBot[(uint16_t)bank];
             }
 
-            /** @brief Linearly Allocates Vram in a bank
+            /** @brief Linearly Allocates Vram in a bank and returns address to start of allocation. Allocation fails if
+            * there is not enough free space in the bank or if access requires too many cycles.
             * @param size Number of bytes to allocate
             * @param boundary Byte Boundary that the allocation should be aligned to (must be multiple of 32 for all VDP2 Data types)
             * @param bank The VRAM bank to allocate in
-            * @param cycles (Optional) Number of Bank Cycles this data will require to access (0-8).
+            * @param cycles (Optional) Number of Bank Cycles this data will require to access during frame(0-8).
             * @return void* start of the Allocated region in VRAM (nullptr if allocation failed)
-            * @note  Any VRAM skipped to maintain alignment to a boundary is rendered inaccessible to further allocations until reset
+            * @note  Any VRAM padded to maintain alignment to a requested boundary is rendered inaccessible to further
+            * allocations until VRAM is cleared and reset.
             */
             inline static void* Allocate(uint32_t size, uint32_t boundary, VDP2::VramBank bank, uint8_t cycles = 0)
             {
@@ -102,7 +122,7 @@ namespace SRL
                     addrOffset = boundary - ((uint32_t)currentBot[(uint16_t)bank] & (boundary - 1));
                 }
 
-                if (VDP2::VRAM::GetAvailable(bank) > size + addrOffset)
+                if (VDP2::VRAM::GetAvailable(bank) >= size + addrOffset)
                 {
                     if ((VRAM::bankCycles[(uint16_t)bank] + cycles) < 8)
                     {
@@ -203,11 +223,23 @@ namespace SRL
         };
 
         /** @brief Bitfield recording all Currently enabled Scroll Screens*/
-        inline static uint16_t ActiveScrolls = NBG0ON | NBG3ON;
+        inline static uint16_t ActiveScrolls =  NBG3ON| SPRON;
 
         /** @brief Bitfield recording all Scroll Screens with VDP2 Color Calculation enabled
          */
-        inline static uint16_t ColorCalcScrolls = NBG0ON | NBG3ON | SPRON;
+        inline static uint16_t ColorCalcScrolls =  NBG3ON | SPRON;
+        
+        /** @brief Bitfield recording all Scroll Screens using Color Offset A
+         */
+        inline static uint16_t OffsetAScrolls = NBG3ON;
+        
+        /** @brief Bitfield recording all Scroll Screens using Color Offset B
+          */
+        inline static uint16_t OffsetBScrolls =  NBG3ON;
+        
+        /** @brief Bitfield recording all Scroll Screens That Disable transparent pixels
+          */
+        inline static uint16_t TransparentScrolls = 0;
 
         /** @brief Functionality available to all Scroll Screen interfaces
          */
@@ -304,7 +336,7 @@ namespace SRL
              * @details If VRAM for this ScrollScreen's data has already been allocated by the user, SRL will attempt to load
              * to the allocated VRAM and raise assert if the Tilemap Data does not fit within the existing allocation.
              * If VRAM was not allocated SRL will attempt to auto allocate the Tilemap data and raise assert
-             * if there is not enough VRAM available to allocate.
+             * if there is not enough VRAM/cycles available to allocate.
              *
              * @param tilemap The Tilemap to load
              * @note Manual VRAM allocation is for advanced use cases as is NOT verified for proper bank alignment
@@ -344,7 +376,7 @@ namespace SRL
                     return;
                 }
 
-                ScreenType::Init(ScreenType::Info);
+                
                 int colorID = 0;
 
                 if (ScreenType::Info.ColorMode != SRL::CRAM::TextureColorMode::RGB555)
@@ -357,7 +389,9 @@ namespace SRL
 
                     SRL::CRAM::SetBankUsedState(colorID, ScreenType::Info.ColorMode, true);
                     ScreenType::TilePalette = SRL::CRAM::Palette(ScreenType::Info.ColorMode, colorID);
-                    ScreenType::TilePalette.Load((Types::HighColor*)tilemap.GetPalData(), 256);
+                    uint16_t len = (ScreenType::Info.ColorMode == SRL::CRAM::TextureColorMode::Paletted16) ? 16 : 256;
+                    ScreenType::TilePalette.Load((Types::HighColor*)tilemap.GetPalData(), len);
+                   
                 }
 
                 if (ScreenType::ScreenID != scnRBG0) VDP2::ScrollScreen<ScreenType, Id, On>::SetPlanesDefault(ScreenType::Info);
@@ -369,15 +403,15 @@ namespace SRL
                     ScreenType::MapAddress,
                     colorID,
                     VDP2::ScrollScreen<ScreenType, Id, On>::GetCellOffset(ScreenType::Info, ScreenType::CellAddress));
+                ScreenType::Init(ScreenType::Info);
             }
 
             /** @brief Manually Sets VRAM area for Cell Data (Advanced Use Cases)
-             *
              * @details This function manually sets an area in VRAM for a scrolls Cel Data to be loaded to. Unless the
              * Address is obtained from VDP2::VRAM::Allocate(), the VRAM allocator will be bypassed entirely.
-             * No Checks are performed for proper data allignment or cycle conflicts. For advanced use cases only.
+             * No Checks are performed for proper data alignment or cycle conflicts. For advanced use cases only.
              * @code {.cpp}
-             * //Manually Set NBG0 to store 16bpp Cel Data in an 0x8000 byte region allocated in VRAM bank A1:
+             * //Manually Set NBG0 to store 16bpp Cel Data in an 0x8000 byte region allocated in VRAM bank A1:             * 
              * SRL::VDP2::NBG0::SetCelAddress(SRL::VDP2::VRAM::Allocate(0x8000,32,SRL::VDP2::VramBank::A1, 3),0x8000);
              * @endcode
              * @param address the VRAM address of the allocation
@@ -392,7 +426,6 @@ namespace SRL
             }
 
             /** @brief Manually Sets VRAM area for Map Data (Advanced Use Cases)
-             *
              * @details This function manually sets an area in VRAM for a scroll's Map Data to be loaded to. Unless the
              * Address is obtained from VDP2::VRAM::Allocate() the VRAM allocator will be bypassed entirely.
              * No Checks are performed for proper data alignment or cycle conflicts. For advanced use cases only.
@@ -412,7 +445,6 @@ namespace SRL
             }
 
             /** @brief Registers Scroll in VDP2 cycle pattern to enable display of this Scroll Screen
-             *
              * @details Asserts when registration of a scroll fails due to cycle pattern conflicts.
              * Possible causes:
              *     -Too many Scroll Layers with higher bit depth are storing data in the same VRAM bank
@@ -420,7 +452,6 @@ namespace SRL
              *     -NBG Data was stored in a bank reserved by RBG0
              * Potential conflicts are minimized when using Automatic Allocation and setting the
              * desired scale limits of NBG0/NBG1 beforehand.
-             *
              */
             inline static void ScrollEnable()
             {
@@ -430,7 +461,6 @@ namespace SRL
             }
 
             /** @brief Removes the Scroll Screen from VDP2 cycle pattern register to disable display
-             *
              * @details Asserts when registration of a scroll fails due to cycle pattern conflicts.
              * Possible causes:
              * Assert should never occur here unless the user independently invoked SGL's slScrAutoDisp() with
@@ -442,7 +472,7 @@ namespace SRL
                 int check = slScrAutoDisp(VDP2::ActiveScrolls);
                 if (check < 0) SRL::Debug::Assert("Scroll Registration Failed- Invalid cycle pattern");
             }
-
+          
             /** @brief Gets the starting address in VRAM of Map data allocated to this scroll
              * @return Address of Map data
              */
@@ -455,10 +485,10 @@ namespace SRL
             inline static  void* GetCellAddress() { return ScreenType::CellAddress; }
 
             /** @brief returns the VRAM Address of the specified page number in a scroll's Page Table
-            * or nullptr if the requested page is outside of allocated Map Bounds
-            * @param index The index of desired page in the page table
-            * @return VRAM Address of the page index
-            */
+             * or nullptr if the requested page is outside of allocated Map Bounds
+             * @param index The index of desired page in the page table
+             * @return VRAM Address of the page index
+             */
 
             inline static  void* GetPageAddress(uint8_t index)
             {
@@ -486,12 +516,11 @@ namespace SRL
             }
 
             /** @brief Manually set the Plane layout of a Scroll Screen
-            *
-            * This function manually sets the 4 planes comprising a NBG scroll screen
-            * in cases when the default plane tiling pattern is not desired.
-            * @param a,b,c,d the plane indicies of the 4 planes that will display in the normal scroll
-            * @note RBG0 does not currently support multi plane patterns, so only plane [a] will be used
-            */
+             * @details This function manually sets the 4 planes comprising a NBG scroll screen
+             * in cases when the default plane tiling pattern is not desired.
+             * @param a,b,c,d the plane indicies of the 4 planes that will display in the normal scroll
+             * @note RBG0 does not currently support multi plane patterns, so only plane [a] will be used
+             */
             inline static void SetMapLayout(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
             {
                 ScreenType::SetPlanes(
@@ -502,39 +531,93 @@ namespace SRL
             }
 
             /** @brief Set the opacity of a scroll screen
-            *
-            * This Function takes the opacity specified as a fixed point value and converts it to
-            * one of the 32 color calculation ratios that a scroll screen can use (value is floored to the nearest ratio).
-            * Color Calculation is turned on if Opacity < 1.0, or off if Opacity>= 1.0. Color calculation is unchanged if value is negative.
-            * @note Color ratios only apply to highest priority pixels in frame
-            * @note When ColorCalcMode is set to UseColorAddition, all scrolls with opacity < 1.0 will use color addition
-            * in place of their specified ratios.
-            * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity for the scroll screen (Default 1.0)
-            */
-            inline static void SetOpacity(Types::Fxp opacity = 1.0)
+             *  @details This Function takes the opacity specified as a fixed point value and converts it to
+             *  one of the 32 color calculation ratios that a scroll screen can use (value is floored to the nearest ratio).
+             *  Color Calculation is turned on if Opacity < 1.0, or off if Opacity>= 1.0. Color calculation is unchanged if value is negative.
+             *  @note Color ratios only apply to highest priority pixels in frame
+             *  @note When VDP2 ColorCalcMode is set to UseColorAddition, all scrolls with opacity < 1.0 will use color addition
+             *  in place of their specified ratios.
+             *  @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity for the scroll screen (Default 1.0)
+             */
+            inline static void SetOpacity(Math::Fxp opacity = 1.0)
             {
-                if (opacity < Types::Fxp(0.0)) return;
+                if (opacity < Math::Fxp(0.0)) return;
 
-                else if (opacity >= Types::Fxp(1.0))
+                else if (opacity >= Math::Fxp(1.0))
                 {
                     VDP2::ColorCalcScrolls &= ~(ScreenType::ScreenON);
                     slColorCalcOn(VDP2::ColorCalcScrolls);
                 }
                 else
                 {
-                    slColRate(ScreenType::ScreenID, 31 - (uint16_t)(opacity.Value() >> 11));
+                    slColRate(ScreenType::ScreenID, 31 - (uint16_t)(opacity.RawValue() >> 11));
                     VDP2::ColorCalcScrolls |= ScreenType::ScreenON;
                     slColorCalcOn(VDP2::ColorCalcScrolls);
                 }
             }
 
             /** @brief Set the Display Priority of a Scroll Screen
-            * @note Higher value layers display on top of lower layers
-            * @note When 2 or more scroll screens are assigned the same layer, their priority resolves as
-            * SPRITE>RBG0>NBG0>NBG1>NBG2>NBG3
-            * @param pr The Priority Layer for the Scroll Screen
-            */
+             * @note Higher value layers display on top of lower layers
+             * @note When 2 or more scroll screens are assigned the same layer, their priority resolves as
+             * SPRITE>RBG0>NBG0>NBG1>NBG2>NBG3
+             * @param pr The Priority Layer for the Scroll Screen
+             */
             inline static void SetPriority(SRL::VDP2::Priority pr) { slPriority(ScreenType::ScreenID, (uint16_t)pr); }
+
+            /** @brief Sets Which Color Offset that a scroll Screen should use
+            *  @details Scroll Screens can optionally apply one of 2 registered RGB color offsets
+            *  to their pixels at the end of VDP2 processing- either Offset A or Offset B. 
+            *  The values of the offsets for each RGB channel are set with VDP2::SetOffsetA() and VDP2::SetOffsetB().
+            *  Use this function to enable a scroll to use one of these offsets.
+            *  @param mode the color offset to use for this scroll 
+            *  @note Because the color offset is applied at the end of VDP2 pipeline, only top priority pixels are affected.
+            */
+            inline static void UseColorOffset(VDP2::OffsetChannel mode)
+            {
+                if (mode == OffsetChannel::OffsetA)
+                {
+                    VDP2::OffsetAScrolls |= ScreenType::ScreenON;
+                    OffsetBScrolls &= ~ ScreenType::ScreenON;
+                }
+                else if (mode == OffsetChannel::OffsetB)
+                {
+                    OffsetBScrolls |= ScreenType::ScreenON;
+                    OffsetAScrolls &= ~ScreenType::ScreenON;
+                }
+                else
+                {
+                    OffsetAScrolls &= ~ScreenType::ScreenON;
+                    OffsetBScrolls &= ~ScreenType::ScreenON;
+                }
+
+                slColOffsetOn(0);//clear all offsets  
+                slColOffsetAUse(OffsetAScrolls);//re register offsets for A 
+                slColOffsetBUse(OffsetBScrolls);//re register offsets for B
+            }
+
+            /** @brief Enable transparent pixels for a scroll screen
+            *   @details When enabled any pixel data that is 0 (regardless of bit depth)
+            *   will be treated as transparent and display the layer behind it.
+            *   @note Transparent pixels are enabled for all Scroll Screens by default
+            */
+            inline static void TransparentEnable()
+            {
+                VDP2::TransparentScrolls &= ~ScreenType::ScreenON;
+                //SGLs naming convention is reversed- flagging ScreenON turns OFF transparency
+                slScrTransparent(VDP2::TransparentScrolls);
+            }
+
+            /** @brief Disable transparent pixels for a scroll screen
+            *   @details When disabled any pixel data that is 0 (regardless of bit depth)
+            *   will use the color from index 0 in its CRAM pallet, or black if RGB. 
+            *   @note Transparent pixels are enabled for all Scroll Screens by default.
+            */
+            inline static void TransparentDisable()
+            {    
+                VDP2::TransparentScrolls |= ScreenType::ScreenON;
+                //SGLs naming convention is reversed- flagging ScreenON turns OFF transparency
+                slScrTransparent(VDP2::TransparentScrolls);
+            }
 
             /** @brief Compute the offset that must be added to map data When Corresponding Cel Data does not start on a VRAM bank boundary
             * @param tile The data configuration of the tilemap
@@ -559,6 +642,8 @@ namespace SRL
 
                 return cellOffset;
             }
+
+
 
             /** @brief Gets the Pallet Bank That must be included in Map Data to Reference a Palette in CRAM
              * @param paletteID (optional) specify to reference an arbitrary palette, otherwise uses Id from ScrollScreen::TilePalette
@@ -630,7 +715,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg0(info.SGLColorMode(), info.CharSize);
-                slPageNbg0(NBG0::CellAddress, 0, info.MapMode);
+                slPageNbg0(NBG0::CellAddress, (void*)NBG0::TilePalette.GetData(), info.MapMode);
                 slPlaneNbg0(info.PlaneSize);
                 slMapNbg0(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -646,14 +731,14 @@ namespace SRL
             /** @brief Sets the Screen Position of NBG Scroll Screen
              * @param pos Fixed Point X and Y Screen Position
              */
-            static void SetPosition(Types::Vector2D& pos) { slScrPosNbg0(pos.X.Value(), pos.Y.Value()); }
+            static void SetPosition(Math::Vector2D& pos) { slScrPosNbg0(pos.X.RawValue(), pos.Y.RawValue()); }
 
             /** @brief Sets the Scale of NBG0 Screen display
              *  @param scl Fixed Point X an Y scaling values
              *  @note The minimum scale that can be displayed is determined by The Scale Limit, Scaling values
              *  lower than the minimum will be clamped to the minimum
              */
-            static void SetScale(Types::Vector2D& scl) { slScrScaleNbg0(scl.X.Value(), scl.Y.Value()); }
+            static void SetScale(Math::Vector2D& scl) { slScrScaleNbg0(scl.X.RawValue(), scl.Y.RawValue()); }
         };
 
         /** @brief NBG1 interface
@@ -671,7 +756,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg1(info.SGLColorMode(), info.CharSize);
-                slPageNbg1(NBG1::CellAddress, 0, info.MapMode);
+                slPageNbg1(NBG1::CellAddress, (void*)NBG1::TilePalette.GetData(), info.MapMode);
                 slPlaneNbg1(info.PlaneSize);
                 slMapNbg1(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -687,14 +772,14 @@ namespace SRL
             /** @brief Sets the Screen Position of NBG Scroll Screen
              * @param pos Fixed Point X and Y Screen Position
              */
-            static void SetPosition(Types::Vector2D& pos) { slScrPosNbg1(pos.X.Value(), pos.Y.Value()); }
+            static void SetPosition(Math::Vector2D& pos) { slScrPosNbg1(pos.X.RawValue(), pos.Y.RawValue()); }
 
             /** @brief Sets the Scale of NBG1 Screen display
              * @param scl Fixed Point X an Y scaling values
              * @note The minimum scale that can be displayed is determined by The Scale Limit, Scaling values
              * lower than the minimum will be clamped to the minimum
              */
-            static void SetScale(Types::Vector2D& scl) { slScrScaleNbg1(scl.X.Value(), scl.Y.Value()); }
+            static void SetScale(Math::Vector2D& scl) { slScrScaleNbg1(scl.X.RawValue(), scl.Y.RawValue()); }
         };
 
         /** @brief  NBG2 interface
@@ -709,7 +794,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg2(info.SGLColorMode(), info.CharSize);
-                slPageNbg2(NBG2::CellAddress, 0, info.MapMode);
+                slPageNbg2(NBG2::CellAddress, (void*)NBG2::TilePalette.GetData(), info.MapMode);
                 slPlaneNbg2(info.PlaneSize);
                 slMapNbg2(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -725,7 +810,7 @@ namespace SRL
             /** @brief Sets the Screen Position of NBG Scroll Screen
              * @param pos Fixed Point X and Y Screen Position
              */
-            static void SetPosition(Types::Vector2D& pos) { slScrPosNbg2(pos.X.Value(), pos.Y.Value()); }
+            static void SetPosition(Math::Vector2D& pos) { slScrPosNbg2(pos.X.RawValue(), pos.Y.RawValue()); }
         };
 
         /** @brief NBG3 interface
@@ -740,7 +825,7 @@ namespace SRL
             static void Init(SRL::Tilemap::TilemapInfo& info)
             {
                 slCharNbg3(info.SGLColorMode(), info.CharSize);
-                slPageNbg3(NBG3::CellAddress, 0, info.MapMode);
+                slPageNbg3(NBG3::CellAddress, (void*)NBG3::TilePalette.GetData(), info.MapMode);
                 slPlaneNbg3(info.PlaneSize);
                 slMapNbg3(MapAddress, MapAddress, MapAddress, MapAddress);
             }
@@ -756,7 +841,7 @@ namespace SRL
             /** @brief Sets the Screen Position of NBG Scroll Screen
              * @param pos Fixed Point X and Y  Screen Position
              */
-            static void SetPosition(Types::Vector2D& pos) { slScrPosNbg3(pos.X.Value(), pos.Y.Value()); }
+            static void SetPosition(Math::Vector2D& pos) { slScrPosNbg3(pos.X.RawValue(), pos.Y.RawValue()); }
         };
 
         /** @brief setting for RBG0,1 rotation constraints
@@ -798,7 +883,7 @@ namespace SRL
                 slRparaMode(RA);
                 slOverRA(0);
                 slCharRbg0(info.SGLColorMode(), info.CharSize);
-                slPageRbg0(CellAddress, 0, info.MapMode);
+                slPageRbg0(CellAddress, (void*)RBG0::TilePalette.GetData(), info.MapMode);
                 slPlaneRA(info.PlaneSize);
                 sl1MapRA(MapAddress);
                 slPopMatrix();
@@ -812,7 +897,7 @@ namespace SRL
              * necessary coefficient data. If Vblank is set false, all coefficients will be
              * statically stored in VRAM as a 0x18000 byte table. If Vblank is set true, only
              * the coefficients necessary for the current frame will be dynamically written
-             * to VRAM at Vblank, reducing required VRAM footprint to 0x2000 bytes per
+             * to VRAM at Vblank, reducing VRAM footprint to 0x2000 bytes per
              * rotation parameter.
              */
             inline static void SetRotationMode(VDP2::RotationMode mode, bool vblank = true)
@@ -934,7 +1019,7 @@ namespace SRL
                 slColorCalcOn(VDP2::ColorCalcScrolls);
             }
 
-            /** @brief Set the opacities that sprites can select from in CC regesters
+            /** @brief Set the opacities that sprites can select from in CC registers
              * @details This Function takes the opacity specified as a fixed point value and converts it to
              * one of the 32 color calculation ratios that the system can use (value is floored to the nearest ratio).
              * It then sets the ratio in the specified sprite cc register (cc register 0 if not specified)
@@ -948,15 +1033,15 @@ namespace SRL
              * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity of the cc register
              * @param bank (optional) which of the 8 CC registers to Set the opacity in (defaults to 0)
              */
-            inline static void SetOpacity(Types::Fxp opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
+            inline static void SetOpacity(SRL::Math::Types::Fxp opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
             {
-                if (opacity < Types::Fxp(0.0) || opacity>Types::Fxp(1.0))
+                if (opacity < 0.0 || opacity > 1.0)
                 {
                     return;
                 }
                 else
                 {
-                    slColRate((int16_t)bank, 31 - (uint16_t)(opacity.Value() >> 11));
+                    slColRate((int16_t)bank, 31 - (uint16_t)(opacity.RawValue() >> 11));
                 }
             }
 
@@ -966,7 +1051,7 @@ namespace SRL
              * @note RGB sprites always use the priority from bank0
              * @note During VDP2 init, priority bank0 and bank1 are initialized to Layer3 and Layer4 respectively
              * @note Changing these priorities will result in differing behavior for sprite color calculation
-             * (See SpriteLayer::SetColorCondition() for more details
+             * (See SpriteLayer::SetColorCondition() for more details)
              * @param pr enum VDP2::Priority Layer
              * @param bank (optional) enum VDP2::SpriteBank designating which priority bank to write to
              */
@@ -976,14 +1061,14 @@ namespace SRL
             }
 
             /** @brief Set conditions under which VDP2 color calculation is performed on sprites based on their priority.
-             * @details Sets up the condition that allows only select sprites to recieve Half Transparent
+             * @details Sets up the condition that allows only select sprites to receive Half Transparent
              *  color calculation with VDP2 layers. To make a sprite fully opaque, selectively turn color calculation off for it by
              *  assigning it to use a Priority Bank containing a priority layer that does not satisfy the Color Condition.
              *  The default VDP2 initialization uses ColorCondition::PriorityEquals Priority::Layer4,
-             *  with SpriteBank0 set to Layer3 and SpriteBank1 set to Layer4. With this config RGB sprites recieve no
-             *  color calculation, while Palette sprites only recieve color calculation when select priority from bank1
-             * @param Condition The type of condition that VDP2 Color Calculation will follow
-             * @param TestValue The Layer that a sprite's priority will be tested against in the condition
+             *  with SpriteBank0 set to Layer3 and SpriteBank1 set to Layer4. With this config RGB sprites receive no VDP2
+             *  color calculation, while Palette sprites only receive color calculation when they select priority from SpriteBank1
+             * @param Condition The type of condition that VDP2 Color Calculation will follow.
+             * @param TestValue The Layer that a sprite's priority will be tested against in the condition.
              */
             inline static void SetColorCondition(VDP2::ColorCondition Condition, SRL::VDP2::Priority TestValue)
             {
@@ -994,7 +1079,7 @@ namespace SRL
 
         /** @brief Clear all VDP2 VRAM allocations and reset all Scroll Screen VRAM References, as well
          *  as all CRAM allocations associated with VDP2 Scroll Screens
-         * @note, When Loading a new set Data and Configurations for Scroll Screens with auto allocation, Call this first
+         * @note, When Loading a new set of Data and Configurations for Scroll Screens with auto allocation, Call this first
          *  to ensure old data is freed
          */
         inline static void ClearVRAM()
@@ -1102,8 +1187,8 @@ namespace SRL
             // Initialize ascii print to use NBG3
             SRL::ASCII::LoadFontSG((uint8_t*)(VDP2_VRAM_B1 + 0x800), 0);
             SRL::ASCII::SetPalette(0);
-            int myID = SRL::CRAM::GetFreeBank(SRL::CRAM::TextureColorMode::Paletted256);
-            SRL::CRAM::SetBankUsedState(myID, SRL::CRAM::TextureColorMode::Paletted256, true);
+            int myID = SRL::CRAM::GetFreeBank(SRL::CRAM::TextureColorMode::Paletted16);
+            SRL::CRAM::SetBankUsedState(myID, SRL::CRAM::TextureColorMode::Paletted16, true);
             SRL::ASCII::SetFont(0);
             slCharNbg3(COL_TYPE_16, CHAR_SIZE_1x1);
             slPageNbg3((void*)(VDP2_VRAM_B1 + 0x1D000), 0, PNB_1WORD | CN_10BIT);
@@ -1116,7 +1201,74 @@ namespace SRL
             slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
         }
 
-        /** @brief Used to Select behavior of VDP2 Half Transparent Color Calculation
+        /** @brief data strUcture of a VDP2 color offset to be set in Offset A or Offset B
+         *  @details The offset data that will be set is a signed 9 bit value per color channel.
+         *  The valid range of inputs is -255 to +255. The sign determines whether the color offset 
+         *  is additive or subtractive. Values outside the range will be clamped to it when
+         *  the offset is set. See SetColorOffsetA and SetColorOffsetB for more details. 
+         */
+        struct ColorOffset
+        {
+            /** @brief  Red channel offset/
+             */ 
+            int16_t Red;
+
+            /** @brief  Green channel offset/
+             */
+            int16_t Green;
+
+            /** @brief  Blue channel offset/
+             */
+            int16_t Blue;
+            
+            /** @brief Initialize with all channel offsets set to 0 (No Offset)
+             */
+            ColorOffset()
+            {
+                Red = 0;
+                Green = 0;
+                Blue = 0;
+            }
+
+            /** @brief initialize red green and blue channel offsets
+             *  @param red offset for red channel
+             *  @param green offset for green channel
+             *  @param blue offset for blue channel
+             */
+            ColorOffset(int16_t red, int16_t green, int16_t blue)
+                : Red(SRL::Math::Clamp<int16_t>( -255, 255,red)),
+                  Green(SRL::Math::Clamp<int16_t>( -255, 255,green)),
+                  Blue(SRL::Math::Clamp<int16_t>( -255, 255,blue))
+            {
+            }
+
+        };
+
+        /** @brief Sets RGB color channel offset A
+         *  @details VDP2 supports 2 RGB color offsets stored in special registers 
+         *  that any ScrollScreen or SpriteLayer can use. When registered all non-transparent
+         *  pixels from the scroll screen will have the offset applied after all other color
+         *  calculations are performed.
+         *  @param offset The color offset to apply with Offset A
+         */
+        static void SetColorOffsetA(VDP2::ColorOffset & offset) //int16_t red, int16_t green, int16_t blue)
+        {
+            slColOffsetA(offset.Red, offset.Green, offset.Blue);
+        }
+
+        /** @brief Sets RGB color channel offset B
+         *  @details VDP2 supports 2 RGB color offsets stored in special registers
+         *  that any ScrollScreen or SpriteLayer can use. When registered all non-transparent
+         *  pixels from the scroll screen will have the offset applied after all other color
+         *  calculations are performed.
+         *  @param offset The color offset to apply with Offset B
+         */
+        static void SetColorOffsetB(VDP2::ColorOffset & offset) 
+        {
+            slColOffsetB(offset.Red, offset.Green, offset.Blue);
+        }
+
+        /** @brief Basic Options for behavior of VDP2 Half Transparent Color Calculation
          */
         enum class ColorCalcMode : uint16_t
         {
@@ -1132,13 +1284,19 @@ namespace SRL
              */
             UseColorAddition = 0x100,
         };
-
+      
         /** @brief Sets VDP2 Half Transparent Color Calculation Mode (only one mode can be used at once)
-         * @param Mode The VDP2 color calculation mode to use
+         * @param mode The VDP2 color calculation mode to use
+         * @param extend Designates whether to extend color calculation to the top 3 Layer Priories instead of just top 2
+         * @note Extended color calculation has many restrictions detailed in VDP2 users manual- not all color modes can support
+         * extension simultaneously. If supported, 3rd priority pixels will blend with 2nd priority at a 50:50 ratio before the result is 
+         * blended with top priority pixels. If unsupported the behavior is identical to non-extended color calculation. 
          */
-        inline static void SetColorCalcMode(VDP2::ColorCalcMode Mode = VDP2::ColorCalcMode::UseColorRatiosTop)
+        inline static void SetColorCalcMode(VDP2::ColorCalcMode mode = VDP2::ColorCalcMode::UseColorRatiosTop, bool extend = false)
         {
-            slColorCalc((uint16_t)Mode);
+            uint16_t flags = (uint16_t)mode;
+            if(extend) flags |= CC_EXT;
+            slColorCalc((uint16_t)flags);
         }
     };
 }

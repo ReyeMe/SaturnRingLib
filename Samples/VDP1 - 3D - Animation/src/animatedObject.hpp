@@ -14,7 +14,7 @@ private:
 
     /** @brief Current state of vertices
      */
-    SRL::Types::Vector3D* vertexArray;
+    SRL::Math::Types::Vector3D* vertexArray;
 
     /** @brief Current state of polygons
      */
@@ -22,7 +22,7 @@ private:
 
     /** @brief Current state of normals
      */
-    SRL::Types::Vector3D* normalsArray;
+    SRL::Math::Types::Vector3D* normalsArray;
 
     /** @brief Interpolate a single point
      * @param startPoint Start point
@@ -30,7 +30,7 @@ private:
      * @param time Interpolation time (value between 0.0 and 1.0)
      * @param result Result of interpolation
      */
-    inline void InterpolatePoint(const SRL::Types::Vector3D& startPoint, const SRL::Types::Vector3D& endPoint, const SRL::Types::Fxp time, SRL::Types::Vector3D* result)
+    inline void InterpolatePoint(const SRL::Math::Types::Vector3D& startPoint, const SRL::Math::Types::Vector3D& endPoint, const SRL::Math::Types::Fxp time, SRL::Math::Types::Vector3D* result)
     {
         *result = startPoint + ((endPoint - startPoint) * time);
     }
@@ -127,7 +127,7 @@ public:
      * @note Used only with smooth type mesh data
      * @param light Light direction
      */
-    void Draw(SRL::Types::Vector3D& light)
+    void Draw(SRL::Math::Types::Vector3D& light)
     {
         if (this->IsSmooth())
         {
@@ -176,7 +176,7 @@ public:
     /** @brief Process animation frame
      * @param time frame time, where number before the decimal place indicates current frame, and number after decimal place indicate interpolation to next frame
      */
-    void ProcessFrame(SRL::Types::Fxp time)
+    void ProcessFrame(SRL::Math::Types::Fxp time)
     {
         // Totals
         size_t frames = this->KeyFrames->GetMeshCount();
@@ -184,11 +184,11 @@ public:
         size_t vertices = this->GetVertexCount();
 
         // Retrieve only positive whole number
-        size_t frame = SRL::Math::Min((size_t)SRL::Math::Max((int)time.ToInt(), 0), frames - 1);
+        size_t frame = SRL::Math::Min((size_t)SRL::Math::Max(time.As<int>(), 0), frames - 1);
         size_t nextFrame = SRL::Math::Min(frame + 1, frames - 1);
 
         // Retrieve only decimal portion
-        SRL::Types::Fxp interpolation = SRL::Types::Fxp::FromRaw(time.Value() & 0x0000ffff);
+        SRL::Math::Types::Fxp interpolation = SRL::Math::Types::Fxp::BuildRaw(time.RawValue() & 0x0000ffff);
 
         if (this->IsSmooth())
         {
@@ -199,8 +199,8 @@ public:
             for (size_t vertex = 0; vertex < vertices; vertex++)
             {
                 InterpolatePoint(
-                    &current->Vertices[vertex],
-                    &next->Vertices[vertex],
+                    current->Vertices[vertex],
+                    next->Vertices[vertex],
                     interpolation,
                     &this->vertexArray[vertex]);
             }
@@ -209,8 +209,8 @@ public:
             for (size_t face = 0; face < faces; face++)
             {
                 InterpolatePoint(
-                    &current->Faces[face].Normal,
-                    &current->Faces[face].Normal,
+                    current->Faces[face].Normal,
+                    current->Faces[face].Normal,
                     interpolation,
                     &this->polygonArray[face].Normal);
             }
@@ -219,8 +219,8 @@ public:
             for (size_t norm = 0; norm < vertices; norm++)
             {
                 InterpolatePoint(
-                    &current->Normals[norm],
-                    &current->Normals[norm],
+                    current->Normals[norm],
+                    current->Normals[norm],
                     interpolation,
                     &this->normalsArray[norm]);
             }
@@ -234,8 +234,8 @@ public:
             for (size_t vertex = 0; vertex < vertices; vertex++)
             {
                 InterpolatePoint(
-                    &current->Vertices[vertex],
-                    &next->Vertices[vertex],
+                    current->Vertices[vertex],
+                    next->Vertices[vertex],
                     interpolation,
                     &this->vertexArray[vertex]);
             }
@@ -244,8 +244,8 @@ public:
             for (size_t face = 0; face < faces; face++)
             {
                 InterpolatePoint(
-                    &current->Faces[face].Normal,
-                    &current->Faces[face].Normal,
+                    current->Faces[face].Normal,
+                    current->Faces[face].Normal,
                     interpolation,
                     &this->polygonArray[face].Normal);
             }

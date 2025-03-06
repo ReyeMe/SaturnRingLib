@@ -17,6 +17,18 @@ extern "C" {
     extern uint16_t VDP2_RAMCTL;
 }
 
+// Include math library
+
+/** @brief SaturnMath++ library functions
+ * @details SaturnMath++ is a C++23 library dedicated to Sega Saturn hardware, offering essential mathematical operations tailored for fixed-point arithmetic and geometric calculations.<br/>
+ * Project url: <a href="https://github.com/robertoduarte/SaturnMathPP">Here</a>
+ */
+namespace SRL::Math { }
+
+#define SaturnMath SRL::Math
+#include <saturn_math.hpp>
+#undef SaturnMath
+
 #if !DOXYGEN
 namespace std {
 

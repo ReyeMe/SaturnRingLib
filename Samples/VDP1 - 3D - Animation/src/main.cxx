@@ -3,6 +3,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
 // Light shading table
@@ -64,7 +65,7 @@ int main()
     SRL::Scene3D::SetDirectionalLight(lightDirection);
 
     // Initialize rotation angle
-    Angle rotation = Angle::FromRaw(0.0);
+    Angle rotation = Angle::BuildRaw(0.0);
     Angle rotationStep = Angle::FromDegrees(1);
 
     // Initialize shading table and work table
@@ -91,7 +92,7 @@ int main()
         SRL::Scene3D::LoadIdentity();
 
         // Set camera location and direction
-        SRL::Scene3D::LookAt(cameraLocation, cameraTarget, Angle::FromRaw(0));
+        SRL::Scene3D::LookAt(cameraLocation, cameraTarget, Angle::BuildRaw(0));
 
         SRL::Scene3D::PushMatrix();
         {

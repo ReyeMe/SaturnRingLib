@@ -2,6 +2,7 @@
 
 // Using to shorten names for DateTime
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 // Main program entry
 int main()

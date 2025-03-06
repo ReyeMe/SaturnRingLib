@@ -1,7 +1,6 @@
 #pragma once
 
 #include "srl_debug.hpp"
-#include "srl_vector.hpp"
 
 /** @brief Input handling
  */
@@ -361,10 +360,10 @@ namespace SRL::Input
         /** @brief Get the pointer position
          *  @return Vector2D Pointer position
          */
-        SRL::Types::Vector2D virtual GetPosition()
+        SRL::Math::Types::Vector2D virtual GetPosition()
         {
             PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
-            return SRL::Types::Vector2D(SRL::Types::Fxp::FromInt(data->x), SRL::Types::Fxp::FromInt(data->y));
+            return SRL::Math::Types::Vector2D((int16_t)data->x, (int16_t)data->y);
         }
     };
 
@@ -520,10 +519,10 @@ namespace SRL::Input
         /** @brief Get the hit position
          *  @return Vector2D hit position
          */
-        SRL::Types::Vector2D virtual GetPosition()
+        SRL::Math::Types::Vector2D virtual GetPosition()
         {
             PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
-            return SRL::Types::Vector2D(SRL::Types::Fxp::FromInt(data->x), SRL::Types::Fxp::FromInt(data->y));
+            return SRL::Math::Types::Vector2D((int16_t)data->x, (int16_t)data->y);
         }
 
         /**

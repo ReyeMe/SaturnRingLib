@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 // Main program entry
 int main()
@@ -43,7 +44,7 @@ int main()
         // Draw second sprite, rotate it, use third gouraud table entry, enable screen doors (mesh) effect, and also scale it
         SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, 2);
         SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::ScreenDoors, true);
-        SRL::Scene2D::DrawSprite(textureIndex, Vector3D(0.0, 0.0, 500.0), Angle::FromRaw(angle), Vector2D(0.75, 1.5));
+        SRL::Scene2D::DrawSprite(textureIndex, Vector3D(0.0, 0.0, 500.0), Angle::BuildRaw(angle), Vector2D(0.75, 1.5));
         SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::ScreenDoors, false);
 
         // Draw third sprite with no effect applied

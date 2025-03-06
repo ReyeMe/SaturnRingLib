@@ -1,3 +1,6 @@
 [submodule "modules/tlsf"]
 	path = modules/tlsf
 	url = https://github.com/mattconte/tlsf.git
+[submodule "modules/SaturnMathPP"]
+	path = modules/SaturnMathPP
+	url = https://github.com/robertoduarte/SaturnMathPP.git

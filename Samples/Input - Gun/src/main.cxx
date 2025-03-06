@@ -2,6 +2,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 
 // Using to shorten names for input
 using namespace SRL::Input;
@@ -149,12 +150,12 @@ int main()
                             gun1Status.status,
                             Management::GetType(gun1.Port), Management::GetRawData(gun1.Port)->data);
         Vector2D location1 = gun1.GetPosition();
-        SRL::Debug::Print(3 ,3, "X : %03d, Y : %03d", location1.X.ToInt(), location1.Y.ToInt());
+        SRL::Debug::Print(3 ,3, "X : %03d, Y : %03d", location1.X.As<int16_t>(), location1.Y.As<int16_t>());
         SRL::Debug::Print(5 ,4, "%s : %s", gun1Status.triggerStatus, gun1Status.startStatus);
 
         SRL::Debug::Print(2,5, "PORT 2 :");
         Vector2D location2 = gun2.GetPosition();
-        SRL::Debug::Print(3 ,6, "X : %03d, Y : %03d", location2.X.ToInt(), location2.Y.ToInt());
+        SRL::Debug::Print(3 ,6, "X : %03d, Y : %03d", location2.X.As<int16_t>(), location2.Y.As<int16_t>());
         SRL::Debug::Print(10,7, 
                             "%s : 0x%x 0x%x",
                             gun2Status.status,

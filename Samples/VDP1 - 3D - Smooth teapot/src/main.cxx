@@ -3,6 +3,7 @@
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
 // Light shading table
@@ -50,20 +51,21 @@ int main()
     SRL::Debug::Print(1,1, "VDP1 3D Smooth shaded teapot");
 
     // Load teapot
-    // Model was converted with Obj2Nya (see https://github.com/ReyeMe/PawCraft), command parameters were: Obj2Nya "D:\teapot.obj" "D:\SPOT.NYA" /s
+    // Original model file can be found in the models folder in root of the sample
+    // Model was converted with ModelConverter (see https://github.com/ReyeMe/ModelConverter-linux), command parameters were: ModelConverter -i "D:\teapot.obj" -o "D:\SPOT.NYA" -t smooth -s 1.0
     ModelObject teapot = ModelObject("SPOT.NYA", 0);
 
     // Setup camera location
-    Vector3D cameraLocation = Vector3D(0.0, -20.0, -40.0);
+    Vector3D cameraLocation = Vector3D(0.0, -7.0, -40.0);
 
     // Setup light, we can use scale of the vector to manipulate light intensity
-    Vector3D lightDirection = Vector3D(0.8, 0.0, 0.8);
+    Vector3D lightDirection = Vector3D(0.4, 0.0, 0.4);
     
     // Set light vector
     SRL::Scene3D::SetDirectionalLight(lightDirection);
 
     // Initialize rotation angle
-    Angle rotation = Angle::FromRaw(0.0);
+    Angle rotation = 0;
     Angle rotationStep = Angle::FromDegrees(1);
 
     // Initialize shading table and work table
@@ -87,7 +89,7 @@ int main()
         SRL::Scene3D::LoadIdentity();
 
         // Set camera location and direction
-        SRL::Scene3D::LookAt(cameraLocation, Vector3D(), Angle::FromRaw(0));
+        SRL::Scene3D::LookAt(cameraLocation, Vector3D(), 0);
 
         SRL::Scene3D::PushMatrix();
         {

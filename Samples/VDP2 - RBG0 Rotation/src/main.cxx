@@ -7,6 +7,7 @@ Number of Axis Required for your desired use case.
 #include <srl.hpp>
  
 using namespace SRL::Types;
+using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
 static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )

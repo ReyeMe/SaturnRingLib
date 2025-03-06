@@ -113,10 +113,22 @@ private:
         /** @brief Indicates whether this polygon has a mesh effect applied to it
          */
         uint8_t IsDoubleSided : 1;
-
-        /** @brief Reserved for future use
+        
+        /** @brief Half transparency effect
          */
-        uint8_t ReservedForFlags : 5;
+        uint8_t HasTransparency: 1;
+
+        /** @brief Face does not use gouraud shading
+         */
+        uint8_t HasFlatShading : 1;
+
+        /** @brief Render face using half the brightness
+         */
+        uint8_t HasHalfBrightness : 1;
+
+        /** @brief Sort mode for face (0 = center)
+         */
+        uint8_t SortMode : 2;
 
         /** @brief Reserved for future use
          */
@@ -168,8 +180,8 @@ private:
 
         SRL::Types::Mesh mesh = SRL::Types::Mesh(meshHeader->PointCount, meshHeader->PolygonCount);
         
-        SRL::Types::Vector3D* points = GetAndIterate<SRL::Types::Vector3D>(*iterator, meshHeader->PointCount);
-        slDMACopy(points, mesh.Vertices, sizeof(SRL::Types::Vector3D) * meshHeader->PointCount);
+        SRL::Math::Types::Vector3D* points = GetAndIterate<SRL::Math::Types::Vector3D>(*iterator, meshHeader->PointCount);
+        slDMACopy(points, mesh.Vertices, sizeof(SRL::Math::Types::Vector3D) * meshHeader->PointCount);
 
         SRL::Types::Polygon* faces = GetAndIterate<SRL::Types::Polygon>(*iterator, meshHeader->PolygonCount);
         slDMACopy(faces, mesh.Faces, sizeof(SRL::Types::Polygon) * meshHeader->PolygonCount);
@@ -192,12 +204,15 @@ private:
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnarrowing"
             mesh.Attributes[attributeIndex] = SRL::Types::Attribute(
-                attributeHeader->IsDoubleSided != 1 ? SRL::Types::Attribute::FaceVisibility::SingleSided : SRL::Types::Attribute::FaceVisibility::DoubleSided,
-                SRL::Types::Attribute::SortMode::Maximum,
+                attributeHeader->IsDoubleSided != 0 ? SRL::Types::Attribute::FaceVisibility::DoubleSided : SRL::Types::Attribute::FaceVisibility::SingleSided,
+                (SRL::Types::Attribute::SortMode)(SRL::Types::Attribute::SortMode::Center - attributeHeader->SortMode),
                 textureIndex,
                 color,
-                CL32KRGB | No_Gouraud,
-                CL32KRGB | (attributeHeader->HasMeshEffect != 1 ? MESHon : MESHoff),
+                CL32KRGB,
+                    CL32KRGB |
+                    (attributeHeader->HasMeshEffect != 0 ? MESHon : MESHoff) |
+                    (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
+                    (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
                 (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon),
                 UseLight);
             #pragma GCC diagnostic pop
@@ -211,7 +226,7 @@ private:
      * @param entryId Entry index
      * @param header File header
      */
-    void LoadSmoothMesh(char** iterator, size_t entryId, ModelHeader* header)
+    void LoadSmoothMesh(char** iterator, size_t* gouraudIterator, size_t entryId, ModelHeader* header)
     {
         // Get mesh header
         MeshHeader* meshHeader = GetAndIterate<MeshHeader>(*iterator);
@@ -219,12 +234,11 @@ private:
 
         SRL::Types::SmoothMesh mesh = SRL::Types::SmoothMesh(meshHeader->PointCount, meshHeader->PolygonCount);
         
-        SRL::Types::Vector3D* points = GetAndIterate<SRL::Types::Vector3D>(*iterator, meshHeader->PointCount);
-        slDMACopy(points, mesh.Vertices, sizeof(SRL::Types::Vector3D) * meshHeader->PointCount);
+        SRL::Math::Types::Vector3D* points = GetAndIterate<SRL::Math::Types::Vector3D>(*iterator, meshHeader->PointCount);
+        slDMACopy(points, mesh.Vertices, sizeof(SRL::Math::Types::Vector3D) * meshHeader->PointCount);
 
         SRL::Types::Polygon* faces = GetAndIterate<SRL::Types::Polygon>(*iterator, meshHeader->PolygonCount);
         slDMACopy(faces, mesh.Faces, sizeof(SRL::Types::Polygon) * meshHeader->PolygonCount);
-        int gouraudIndex = 0xe000 + this->gouraudOffset;
 
         for (size_t attributeIndex = 0; attributeIndex < meshHeader->PolygonCount; attributeIndex++)
         {
@@ -244,20 +258,26 @@ private:
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnarrowing"
             mesh.Attributes[attributeIndex] = SRL::Types::Attribute(
-                attributeHeader->IsDoubleSided != 1 ? SRL::Types::Attribute::FaceVisibility::SingleSided : SRL::Types::Attribute::FaceVisibility::DoubleSided,
-                SRL::Types::Attribute::SortMode::Maximum,
+                attributeHeader->IsDoubleSided != 0 ? SRL::Types::Attribute::FaceVisibility::DoubleSided : SRL::Types::Attribute::FaceVisibility::SingleSided,
+                (SRL::Types::Attribute::SortMode)(SRL::Types::Attribute::SortMode::Center - attributeHeader->SortMode),
                 textureIndex,
                 color,
-                gouraudIndex++,
-                CL32KRGB | (attributeHeader->HasMeshEffect != 1 ? MESHon : MESHoff) | CL_Gouraud,
+                (attributeHeader->HasFlatShading != 0 ? CL32KRGB : *gouraudIterator),
+                    CL32KRGB |
+                    (attributeHeader->HasMeshEffect != 0 ? MESHon : MESHoff) |
+                    (attributeHeader->HasFlatShading != 0 ? 0 : CL_Gouraud) |
+                    (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
+                    (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
                 (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon),
-                UseGouraud);
+                (attributeHeader->HasFlatShading != 0 ? UseLight : UseGouraud));
             #pragma GCC diagnostic pop
+
+            *gouraudIterator += 1;
         }
 
         // Mesh contains XPDATA normals
-        SRL::Types::Vector3D* vertexNormals = GetAndIterate<SRL::Types::Vector3D>(*iterator, meshHeader->PointCount);
-        slDMACopy(vertexNormals, mesh.Normals, sizeof(SRL::Types::Vector3D) * meshHeader->PointCount);
+        SRL::Math::Types::Vector3D* vertexNormals = GetAndIterate<SRL::Math::Types::Vector3D>(*iterator, meshHeader->PointCount);
+        slDMACopy(vertexNormals, mesh.Normals, sizeof(SRL::Math::Types::Vector3D) * meshHeader->PointCount);
 
         ((SRL::Types::SmoothMesh*)this->meshes)[entryId] = std::move(mesh);
     }
@@ -285,6 +305,7 @@ public:
         this->meshCount = header->MeshCount;
         this->type = header->Type;
         this->gouraudOffset = gouraudTableStart;
+        size_t gouraudIterator = 0xe000 + this->gouraudOffset;
 
         this->meshes = header->Type == 1 ? (void*)new SRL::Types::SmoothMesh[this->meshCount] : (void*)new SRL::Types::Mesh[this->meshCount];
 
@@ -292,7 +313,7 @@ public:
         {
             for (size_t meshIndex = 0; meshIndex < this->meshCount; meshIndex++)
             {
-                this->LoadSmoothMesh(&iterator, meshIndex, header);
+                this->LoadSmoothMesh(&iterator, &gouraudIterator, meshIndex, header);
             }
         }
         else
@@ -350,7 +371,7 @@ public:
      * @param mesh Mesh index
      * @param light Light direction, used only with smooth type mesh data
      */
-    void Draw(size_t mesh, SRL::Types::Vector3D& light)
+    void Draw(size_t mesh, SRL::Math::Types::Vector3D& light)
     {
         if (mesh < this->meshCount && this->type == 1)
         {
@@ -376,7 +397,7 @@ public:
      * @note Used only with smooth type mesh data
      * @param light Light direction
      */
-    void Draw(SRL::Types::Vector3D& light)
+    void Draw(SRL::Math::Types::Vector3D& light)
     {
         if (this->type == 1)
         {
