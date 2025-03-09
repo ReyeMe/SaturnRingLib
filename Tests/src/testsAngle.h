@@ -63,7 +63,7 @@ extern "C"
         Angle a2 = Angle::FromDegrees(90);
         Angle a3 = a1 - a2;
         snprintf(buffer, buffer_size, "%d != -90", a3.AsDegrees().As<int32_t>());
-        mu_assert(Angle::FromDegrees(-90 == a3, buffer);
+        mu_assert(Angle::FromDegrees(-90) == a3, buffer);
     }
 
     // Test subtracting zero from a quarter circle
