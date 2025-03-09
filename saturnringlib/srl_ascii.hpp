@@ -2,6 +2,7 @@
 
 #include "srl_tv.hpp"
 #include "srl_cram.hpp"
+#include "srl_bitmap.hpp" // for IBitmap
 
 namespace SRL
 {
