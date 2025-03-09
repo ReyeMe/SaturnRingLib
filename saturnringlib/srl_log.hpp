@@ -1,6 +1,8 @@
 #pragma once
 
 #include "srl_base.hpp"
+#include "srl_string.hpp"   // for snprintf
+#include "srl_debug.hpp"    // for SRL_DEBUG_MAX_LOG_LENGTH
 
 namespace SRL
 {
