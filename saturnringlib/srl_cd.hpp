@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
+#include "srl_log.hpp"
 
 #include <limits> // for std::numeric_limits
 
@@ -57,111 +58,111 @@ namespace SRL
          */
         enum ErrorCode : int32_t
         {
-            /** @brief Whatever that means
+            /** @brief No error occurred, operation successful
              */
             ErrorOk = GFS_ERR_OK,
 
-            /** @brief Whatever that means
+            /** @brief Error reading from the CD
              */
             ErrorCDRD = GFS_ERR_CDRD,
 
-            /** @brief Whatever that means
+            /** @brief No disc inserted in the CD drive
              */
             ErrorCDNoDisc = GFS_ERR_CDNODISC,
 
-            /** @brief Whatever that means
+            /** @brief Error related to CD-ROM hardware or media
              */
             ErrorCDRom = GFS_ERR_CDROM,
 
-            /** @brief Whatever that means
+            /** @brief Error related to the directory table
              */
             ErrorDirTLD = GFS_ERR_DIRTBL,
 
-            /** @brief Whatever that means
+            /** @brief Maximum number of open files exceeded
              */
             ErrorOenMax = GFS_ERR_OPENMAX,
 
-            /** @brief Whatever that means
+            /** @brief Error related to directory operations
              */
             ErrorDir = GFS_ERR_DIR,
 
-            /** @brief Whatever that means
+            /** @brief Error related to CD block file system
              */
             ErrorCDBFS = GFS_ERR_CDBFS,
 
-            /** @brief Whatever that means
+            /** @brief Error indicating that the specified file or directory name does not exist
              */
             ErrorNoName = GFS_ERR_NONAME,
 
-            /** @brief Whatever that means
+            /** @brief File or directory does not exist
              */
             ErrorNExit = GFS_ERR_NEXIST,
 
-            /** @brief Whatever that means
+            /** @brief Error related to file identifier
              */
             ErrorFID = GFS_ERR_FID,
 
-            /** @brief Whatever that means
+            /** @brief Error related to file handle operations
              */
             ErrorHandle = GFS_ERR_HNDL,
 
-            /** @brief Whatever that means
+            /** @brief Error occurred during seek operation
              */
             ErrorSeek = GFS_ERR_SEEK,
 
-            /** @brief Whatever that means
+            /** @brief Error related to file organization
              */
             ErrorOrg = GFS_ERR_ORG,
 
-            /** @brief Whatever that means
+            /** @brief Error related to the number of files or directories
              */
             ErrorNum = GFS_ERR_NUM,
 
-            /** @brief Whatever that means
+            /** @brief Error related to file offset operations
              */
             ErrorOFS = GFS_ERR_OFS,
 
-            /** @brief Whatever that means
+            /** @brief File is busy, cannot perform the requested operation
              */
             ErrorFBusy = GFS_ERR_FBUSY,
 
-            /** @brief Whatever that means
+            /** @brief Error related to invalid parameters
              */
             ErrorPara = GFS_ERR_PARA,
 
-            /** @brief Whatever that means
+            /** @brief The CD drive is currently busy with another operation
              */
             ErrorBusy = GFS_ERR_BUSY,
 
-            /** @brief Whatever that means
+            /** @brief No handler available for the requested operation
              */
             ErrorNoHandler = GFS_ERR_NOHNDL,
 
-            /** @brief Whatever that means
+            /** @brief Error indicating that the peripheral unit is in use
              */
             ErrorPUINUSE = GFS_ERR_PUINUSE,
 
-            /** @brief Whatever that means
+            /** @brief Error related to data alignment issues
              */
             ErrorAlign = GFS_ERR_ALIGN,
 
-            /** @brief Whatever that means
+            /** @brief Timeout error, operation took too long to complete
              */
             ErrorTimeout = GFS_ERR_TMOUT,
 
-            /** @brief Whatever that means
+            /** @brief Error indicating that the CD drive is open
              */
             ErrorCDOpen = GFS_ERR_CDOPEN,
 
-            /** @brief Whatever that means
+            /** @brief Buffer is full, cannot write more data
              */
             ErrorBufferFull = GFS_ERR_BFUL,
 
-            /** @brief Whatever that means
+            /** @brief Fatal error, unrecoverable condition
              */
             ErrorFatal = GFS_ERR_FATAL,
 
-            /** @brief Whatever that means
+            /** @brief End of file reached
              */
             ErrorEOF = std::numeric_limits<int32_t>::min(),
         };
@@ -510,42 +511,76 @@ namespace SRL
             {
                 int32_t result = -1;
 
-                if (this->IsOpen() && offset >= 0 && offset < this->Size.Bytes)
+                if (this->IsOpen())
                 {
-                    // Get sector count for offset
-                    bool firstRead = this->readBuffer == nullptr;
-
-                    // Initialize read buffer
-                    if (firstRead)
+                    if (mode == Cd::SeekMode::EndOfFile)
                     {
-                        this->readBuffer = new uint8_t[this->Size.SectorSize + 1];
-                    }
-                    else if ((this->readBytes - this->readSectorBytes) < offset &&
-                             ((this->readBytes - this->readSectorBytes) + this->Size.SectorSize) > offset)
-                    {
-                        this->readSectorBytes = offset - (this->readBytes - this->readSectorBytes);
-                        this->readBytes = offset;
-                        return this->readBytes;
-                    }
+                        offset = this->Size.Bytes - offset;
+                        // Reset file poiter
 
-                    int32_t sector = this->GetSectorCount(offset);
-
-                    if (sector >= 0)
-                    {
-                        // Seek to predefined location
-                        result = GFS_Seek(this->Handle, sector, mode);
-
-                        // Refresh buffer
-                        if (result >= 0 &&
-                            GFS_Fread(this->Handle, 1, this->readBuffer, this->Size.SectorSize) >= 0)
+                        int32_t seekresult = GFS_Seek(this->Handle, 0, GFS_SEEK_SET);
+                        if (seekresult < 0)
                         {
+                            return result;
+                        }
+                    }
+
+                    if (offset >= 0 && offset < this->Size.Bytes)
+                    {
+                        // Get sector count for offset
+                        bool firstRead = this->readBuffer == nullptr;
+
+                        // Initialize read buffer
+                        if (firstRead)
+                        {
+                            this->readBuffer = new uint8_t[this->Size.SectorSize + 1];
+                        }
+                        else if ((this->readBytes - this->readSectorBytes) < offset &&
+                                 ((this->readBytes - this->readSectorBytes) + this->Size.SectorSize) > offset)
+                        {
+                            this->readSectorBytes = offset - (this->readBytes - this->readSectorBytes);
                             this->readBytes = offset;
-                            this->readSectorBytes = offset % this->Size.SectorSize;
-                            return offset;
+                            return this->readBytes;
+                        }
+
+                        int32_t sector = this->GetSectorCount(offset);
+
+                        if (sector >= 0)
+                        {
+                            // Seek to predefined location
+                            result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
+
+                            // Refresh buffer
+                            if (result >= 0 &&
+                                GFS_Fread(this->Handle, 1, this->readBuffer, this->Size.SectorSize) >= 0)
+                            {
+                                this->readBytes = offset;
+                                this->readSectorBytes = offset % this->Size.SectorSize;
+                                return offset;
+                            }
+                            else
+                            {
+                                SRL::Logger::LogFatal("%s(l%d) : GFS_Seek returns %d (Sector : %d vs offset : %d)", __FUNCTION__, __LINE__, result, sector, offset);
+                            }
                         }
                         else
                         {
-                            return -1;
+                            SRL::Logger::LogFatal("%s(l%d) : Invalid sector number (%d)", __FUNCTION__, __LINE__, sector);
+                        }
+                    }
+                    else
+                    {
+                        if (!this->IsOpen())
+                        {
+                            SRL::Logger::LogFatal("%s(l%d) : File is not open", __FUNCTION__, __LINE__);
+                        }
+                        else if (offset < 0 || offset >= this->Size.Bytes)
+                        {
+                            SRL::Logger::LogFatal("%s(l%d) : Offset is out of bounds (%d vs %d)", __FUNCTION__, __LINE__, offset, this->Size.Bytes);
+                        }
+                        else
+                        {
+                            SRL::Logger::LogFatal("%s(l%d) : Cannot seek (%d)", __FUNCTION__, __LINE__, offset);
                         }
                     }
                 }
@@ -707,7 +742,7 @@ namespace SRL
                  */
                 constexpr bool IsCopyPermitted()
                 {
-                    return (this->Control & 0x02) == 0x02;
+                    return this->Control & 0x02;
                 }
 
                 /** @brief Check whether track is data, recorded incrementally
@@ -715,7 +750,7 @@ namespace SRL
                  */
                 constexpr bool IsIncremental()
                 {
-                    return ((this->Control & 0x0D)) == 0x05;
+                    return (this->Control & 0x0D) == 0x05;
                 }
             };
 
