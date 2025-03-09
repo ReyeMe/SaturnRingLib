@@ -42,15 +42,6 @@ extern "C"
         mu_assert(success, buffer);
     }
 
-    // Test: Directory listing
-    // MU_TEST(cd_test_directory_listing) {
-    //     Cd cdSystem;
-    //     cdSystem.Initialize();
-    //     bool success = cdSystem.ListDirectory("root");
-    //     snprintf(buffer, buffer_size, "Directory listing failed for 'root'");
-    //     mu_assert(success, buffer);
-    // }
-
     // Test: File existence
     MU_TEST(cd_test_file_exists)
     {
@@ -293,49 +284,6 @@ extern "C"
         mu_assert(!isopen, buffer);
     }
 
-    // Test: Maximum files limit
-    // MU_TEST(cd_test_max_files) {
-    //     Cd cdSystem;
-    //     cdSystem.Initialize();
-    //     for (int i = 0; i < SRL_MAX_CD_FILES; ++i) {
-    //         char filename[64];
-    //         snprintf(filename, sizeof(filename), "root/file%d.txt", i);
-    //         bool success = cdSystem.FileExists(filename);
-    //         snprintf(buffer, buffer_size, "File %s does not exist but should", filename);
-    //         mu_assert(success, buffer);
-    //     }
-    //
-    //     char overflowFile[64] = "root/overflow.txt";
-    //     bool success = cdSystem.FileExists(overflowFile);
-    //     snprintf(buffer, buffer_size, "File limit overflow incorrectly allowed: %s", overflowFile);
-    //     mu_assert(!success, buffer);
-    // }
-
-    // Test: Background job processing
-    // MU_TEST(cd_test_background_jobs) {
-    //     Cd cdSystem;
-    //     cdSystem.Initialize();
-    //     bool success = cdSystem.StartBackgroundJob("job1");
-    //     snprintf(buffer, buffer_size, "Failed to start background job: job1");
-    //     mu_assert(success, buffer);
-    //
-    //     success = cdSystem.StartBackgroundJob("job2");
-    //     snprintf(buffer, buffer_size, "Failed to start background job: job2");
-    //     mu_assert(success, buffer);
-    //
-    //     bool completed = cdSystem.CheckJobStatus("job1");
-    //     snprintf(buffer, buffer_size, "Background job 'job1' did not complete as expected");
-    //     mu_assert(completed, buffer);
-    // }
-
-    // Test: Invalid directory
-    // MU_TEST(cd_test_invalid_directory) {
-    //     Cd cdSystem;
-    //     cdSystem.Initialize();
-    //     bool success = cdSystem.ListDirectory("invalid");
-    //     snprintf(buffer, buffer_size, "Listing invalid directory did not fail as expected");
-    //     mu_assert(!success, buffer);
-    // }
 
     MU_TEST_SUITE(cd_test_suite)
     {
@@ -343,15 +291,11 @@ extern "C"
                                        &cd_test_teardown,
                                        &cd_test_output_header);
 
-        // MU_RUN_TEST(cd_test_initialize);
-        // MU_RUN_TEST(cd_test_directory_listing);
+        MU_RUN_TEST(cd_test_initialize);
         MU_RUN_TEST(cd_test_file_exists);
         MU_RUN_TEST(cd_test_read_file);
         MU_RUN_TEST(cd_test_read_file2);
         MU_RUN_TEST(cd_test_null_file);
         MU_RUN_TEST(cd_test_missing_file);
-        // MU_RUN_TEST(cd_test_max_files);
-        // MU_RUN_TEST(cd_test_background_jobs);
-        // MU_RUN_TEST(cd_test_invalid_directory);
     }
 }
