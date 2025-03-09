@@ -1,7 +1,6 @@
 #include <srl.hpp>
 #include <srl_log.hpp>
-#include "srl_math.hpp"
-#include "srl_angle.hpp"
+
 
 // https://github.com/siu/minunit
 #include "minunit.h"
@@ -78,10 +77,10 @@ extern "C"
     MU_TEST(math_test_sin_standard_angles)
     {
         // Calculate sine for standard angles using degree-based conversion
-        Fxp sin_0 = Math::Sin(Angle::FromDegrees(0));
-        Fxp sin_90 = Math::Sin(Angle::FromDegrees(90));
-        Fxp sin_180 = Math::Sin(Angle::FromDegrees(180));
-        Fxp sin_360 = Math::Sin(Angle::FromDegrees(360));
+        Fxp sin_0 = Math::Trigonometry::Sin(Angle::FromDegrees(0));
+        Fxp sin_90 = Math::Trigonometry::Sin(Angle::FromDegrees(90));
+        Fxp sin_180 = Math::Trigonometry::Sin(Angle::FromDegrees(180));
+        Fxp sin_360 = Math::Trigonometry::Sin(Angle::FromDegrees(360));
 
         // Validate sine values with a small floating-point tolerance
         snprintf(buffer, buffer_size, "Sin(0) failed: %f != 0.0", sin_0.As<float>());
@@ -113,10 +112,10 @@ extern "C"
     MU_TEST(math_test_cos_standard_angles)
     {
         // Calculate cosine for standard angles using degree-based conversion
-        Fxp cos_0 = Math::Cos(Angle::FromDegrees(0));
-        Fxp cos_90 = Math::Cos(Angle::FromDegrees(90));
-        Fxp cos_180 = Math::Cos(Angle::FromDegrees(180));
-        Fxp cos_360 = Math::Cos(Angle::FromDegrees(360));
+        Fxp cos_0 = Math::Trigonometry::Cos(Angle::FromDegrees(0));
+        Fxp cos_90 = Math::Trigonometry::Cos(Angle::FromDegrees(90));
+        Fxp cos_180 = Math::Trigonometry::Cos(Angle::FromDegrees(180));
+        Fxp cos_360 = Math::Trigonometry::Cos(Angle::FromDegrees(360));
 
         // Validate cosine values with a small floating-point tolerance
         snprintf(buffer, buffer_size, "Cos(0) failed: %f != 1.0", cos_0.As<float>());
@@ -147,8 +146,8 @@ extern "C"
     MU_TEST(math_test_negative_angles)
     {
         // Calculate sine and cosine for a negative angle
-        Fxp sin_neg90 = Math::Sin(Angle::FromDegrees(-90));
-        Fxp cos_neg90 = Math::Cos(Angle::FromDegrees(-90));
+        Fxp sin_neg90 = Math::Trigonometry::Sin(Angle::FromDegrees(-90));
+        Fxp cos_neg90 = Math::Trigonometry::Cos(Angle::FromDegrees(-90));
 
         // Validate trigonometric values for negative angle
         snprintf(buffer, buffer_size, "Sin(-90) failed: %f != -1.0", sin_neg90.As<float>());
@@ -172,8 +171,8 @@ extern "C"
     MU_TEST(math_test_large_angles)
     {
         // Calculate sine and cosine for a large angle (450 degrees)
-        Fxp sin_large = Math::Sin(Angle::FromDegrees(450)); // 450° = 90° normalized
-        Fxp cos_large = Math::Cos(Angle::FromDegrees(450));
+        Fxp sin_large = Math::Trigonometry::Sin(Angle::FromDegrees(450)); // 450° = 90° normalized
+        Fxp cos_large = Math::Trigonometry::Cos(Angle::FromDegrees(450));
 
         // Validate trigonometric values for large angle
         snprintf(buffer, buffer_size, "Sin(450) failed: %f != 1.0", sin_large.As<float>());
@@ -197,8 +196,8 @@ extern "C"
     MU_TEST(math_test_small_angles)
     {
         // Calculate sine and cosine for a very small angle
-        Fxp sin_small = Math::Sin(Angle::FromDegrees(0.1));
-        Fxp cos_small = Math::Cos(Angle::FromDegrees(0.1));
+        Fxp sin_small = Math::Trigonometry::Sin(Angle::FromDegrees(0.1));
+        Fxp cos_small = Math::Trigonometry::Cos(Angle::FromDegrees(0.1));
 
         // Validate trigonometric values for small angle with high precision
         snprintf(buffer, buffer_size, "Sin(0.1) precision check failed");
