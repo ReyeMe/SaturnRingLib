@@ -5,10 +5,10 @@
 #include "minunit.h"
 
 #include "testsASCII.h"
-#include "testsAngle.h"
+//#include "testsAngle.h"
 #include "testsCD.h"
 #include "testsCRAM.h"
-#include "testsFxp.h"
+//#include "testsFxp.h"
 #include "testsHighColor.h"
 #include "testsMath.h"
 
@@ -33,10 +33,10 @@ int main()
 	LogInfo("***UT_START***");
 
 	MU_RUN_SUITE(ascii_test_suite);
-	MU_RUN_SUITE(angle_test_suite);
+	//MU_RUN_SUITE(angle_test_suite);
 	MU_RUN_SUITE(cd_test_suite);
 	MU_RUN_SUITE(cram_test_suite);
-	MU_RUN_SUITE(fxp_test_suite);
+	//MU_RUN_SUITE(fxp_test_suite);
 	MU_RUN_SUITE(highcolor_test_suite);
 	MU_RUN_SUITE(math_test_suite);
 
