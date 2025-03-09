@@ -284,6 +284,111 @@ extern "C"
         mu_assert(!isopen, buffer);
     }
 
+    // Test seeking to the beginning of the file
+    MU_TEST(cd_file_seek_test_beginning)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t result = file.Seek(0, Cd::SeekMode::Absolute);
+        snprintf(buffer, buffer_size, "Seek to beginning failed: %d != 0", result);
+        mu_assert(result == 0, buffer);
+    }
+
+    // Test seeking to a specific offset
+    MU_TEST(cd_file_seek_test_offset)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t offset = 100;
+        int32_t result = file.Seek(offset, Cd::SeekMode::Absolute);
+        snprintf(buffer, buffer_size, "Seek to offset failed: %d != %d", result, offset);
+        mu_assert(result == offset, buffer);
+    }
+
+    // Test seeking relative to the current position
+    MU_TEST(cd_file_seek_test_relative)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t initial_offset = 50;
+        file.Seek(initial_offset, Cd::SeekMode::Absolute);
+        int32_t relative_offset = 30;
+        int32_t result = file.Seek(relative_offset, Cd::SeekMode::Relative);
+        snprintf(buffer, buffer_size, "Seek relative failed: %d != %d", result, initial_offset + relative_offset);
+        mu_assert(result == initial_offset + relative_offset, buffer);
+    }
+
+    // Test seeking to an invalid offset (negative)
+    MU_TEST(cd_file_seek_test_invalid_negative)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t result = file.Seek(-10, Cd::SeekMode::Absolute);
+        snprintf(buffer, buffer_size, "Seek to invalid negative offset failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
+        mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
+    }
+
+    // Test seeking to an invalid offset (beyond file size)
+    MU_TEST(cd_file_seek_test_invalid_beyond)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t result = file.Seek(file.Size.Bytes + 10, Cd::SeekMode::Absolute);
+        snprintf(buffer, buffer_size, "Seek to invalid beyond offset failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
+        mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
+    }
+
+    // Test: Seek to the end of the file with offset 0
+    MU_TEST(cd_file_seek_test_end_offset_zero)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t result = file.Seek(0, Cd::SeekMode::EndOfFile);
+        snprintf(buffer, buffer_size, "Seek to end with offset 0 failed: %d != %d", result, file.Size.Bytes);
+        mu_assert(result == file.Size.Bytes, buffer);
+    }
+
+    // Test: Seek to the end of the file with a positive offset
+    MU_TEST(cd_file_seek_test_end_positive_offset)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t offset = 50;
+        int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
+        snprintf(buffer, buffer_size, "Seek to end with positive offset failed: %d != %d", result, file.Size.Bytes + offset);
+        mu_assert(result == file.Size.Bytes + offset, buffer);
+    }
+
+    // Test: Seek to the end of the file with a negative offset
+    MU_TEST(cd_file_seek_test_end_negative_offset)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t offset = -50;
+        int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
+        snprintf(buffer, buffer_size, "Seek to end with negative offset failed: %d != %d", result, file.Size.Bytes + offset);
+        mu_assert(result == file.Size.Bytes + offset, buffer);
+    }
+
+    // Test: Seek to the end of the file with an offset beyond the file size
+    MU_TEST(cd_file_seek_test_end_offset_beyond)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t offset = file.Size.Bytes + 50;
+        int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
+        snprintf(buffer, buffer_size, "Seek to end with offset beyond file size failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
+        mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
+    }
+
+    // Test: Seek from EndOfFile and read 1 byte at the position
+    MU_TEST(cd_file_seek_and_read_from_end)
+    {
+        Cd::File file("TESTFILE.UT");
+        int32_t offset = -1; // Seek to the last byte
+        int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
+        snprintf(buffer, buffer_size, "Seek to end with offset -1 failed: %d != %d", result, file.Size.Bytes + offset);
+        mu_assert(result == file.Size.Bytes + offset, buffer);
+
+        char byte;
+        int32_t bytesRead = file.Read(1, &byte);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != 1", bytesRead);
+        mu_assert(bytesRead == 1, buffer);
+
+        snprintf(buffer, buffer_size, "Read byte is not as expected: %c", byte);
+        mu_assert(byte == 'expected_byte_value', buffer); // Replace 'expected_byte_value' with the actual expected value
+    }
 
     MU_TEST_SUITE(cd_test_suite)
     {
@@ -297,5 +402,15 @@ extern "C"
         MU_RUN_TEST(cd_test_read_file2);
         MU_RUN_TEST(cd_test_null_file);
         MU_RUN_TEST(cd_test_missing_file);
+        MU_RUN_TEST(cd_file_seek_test_beginning);
+        MU_RUN_TEST(cd_file_seek_test_offset);
+        MU_RUN_TEST(cd_file_seek_test_relative);
+        MU_RUN_TEST(cd_file_seek_test_invalid_negative);
+        MU_RUN_TEST(cd_file_seek_test_invalid_beyond);
+        MU_RUN_TEST(cd_file_seek_test_end_offset_zero);
+        MU_RUN_TEST(cd_file_seek_test_end_positive_offset);
+        MU_RUN_TEST(cd_file_seek_test_end_negative_offset);
+        MU_RUN_TEST(cd_file_seek_test_end_offset_beyond);
+        MU_RUN_TEST(cd_file_seek_and_read_from_end);
     }
 }
