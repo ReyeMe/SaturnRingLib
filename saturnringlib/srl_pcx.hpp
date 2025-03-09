@@ -252,13 +252,26 @@ namespace SRL::Bitmap
             else if (this->hdr.bitsPerPixel == BitsPerPixel::BitsPerPixel8 &&
                      this->hdr.nplanes == 1)
             {
-                /* first seek to the end of the file -769 */
-                file->Seek(PaletteSize * 3, Cd::SeekMode::EndOfFile);
-                uint8_t stream[PaletteSize * 3];
-                int32_t read = file->Read(PaletteSize * 3, stream);
+                /* first seek to the end of the file -769 -1 (checkbyte) */
+                int32_t position =  file->Seek(PaletteSize * 3 + 1, Cd::SeekMode::EndOfFile);
+
+                if (position < 0)
+                {
+                    SRL::Logger::LogFatal("%s(l%d) : Cannot seek to the end of the file (%d)", __FUNCTION__, __LINE__, position);
+                    return false;
+                }
+                
+                uint8_t stream[PaletteSize * 3 + 1];
+                int32_t read = file->Read(PaletteSize * 3 + 1, stream);
+
+                if (read != PaletteSize * 3 + 1)
+                {
+                    SRL::Logger::LogFatal("%s(l%d) : Cannot read palette (%d)", __FUNCTION__, __LINE__, read);
+                    return false;
+                }
 
                 uint8_t *data = stream;
-                checkbyte = SRL::ENDIAN::DeserializeUint8(data);
+                checkbyte = SRL::ENDIAN::DeserializeUint8(data++);
 
                 if (checkbyte != 0x0c) /* magic value */
                 {
@@ -580,6 +593,12 @@ namespace SRL::Bitmap
             {
                 SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __FUNCTION__, __LINE__);
                 return false;
+            }
+
+            if (!file->IsOpen())
+            {
+                SRL::Logger::LogWarning("%s(l%d) : File was not open !", __FUNCTION__, __LINE__);
+                file->Open();
             }
 
             if (file->Size.Bytes <= 0)
