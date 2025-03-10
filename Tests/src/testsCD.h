@@ -21,7 +21,9 @@ extern "C"
     // UT teardown function, called after every tests
     void cd_test_teardown(void)
     {
-        // Cleanup for CD tests, if necessary
+        // Reset current directory to root
+        SRL::Cd::ChangeDir(static_cast<const char*>(nullptr));
+
     }
 
     // UT output header function, called on the first test failure
