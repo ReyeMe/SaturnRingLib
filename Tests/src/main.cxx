@@ -5,7 +5,7 @@
 #include "minunit.h"
 
 #include "testsASCII.h"
-//#include "testsAngle.h"
+#include "testsAngle.h"
 #include "testsCD.h"
 #include "testsCRAM.h"
 //#include "testsFxp.h"
