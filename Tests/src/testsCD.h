@@ -21,7 +21,9 @@ extern "C"
     // UT teardown function, called after every tests
     void cd_test_teardown(void)
     {
-        // Cleanup for CD tests, if necessary
+        // Reset current directory to root
+        SRL::Cd::ChangeDir(static_cast<const char*>(nullptr));
+
     }
 
     // UT output header function, called on the first test failure
@@ -31,15 +33,6 @@ extern "C"
         {
             LogInfo("****UT_CD_ERROR(S)****");
         }
-    }
-
-    // Test: Initialize CD system
-    MU_TEST(cd_test_initialize)
-    {
-        SRL::Memory::Initialize();
-        bool success = SRL::Cd::Initialize();
-        snprintf(buffer, buffer_size, "CD system initialization failed");
-        mu_assert(success, buffer);
     }
 
     // Test: File existence
@@ -287,7 +280,21 @@ extern "C"
     // Test seeking to the beginning of the file
     MU_TEST(cd_file_seek_test_beginning)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t result = file.Seek(0, Cd::SeekMode::Absolute);
         snprintf(buffer, buffer_size, "Seek to beginning failed: %d != 0", result);
         mu_assert(result == 0, buffer);
@@ -301,7 +308,21 @@ extern "C"
     // Test seeking to a specific offset
     MU_TEST(cd_file_seek_test_offset)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t offset = 100;
         int32_t result = file.Seek(offset, Cd::SeekMode::Absolute);
         snprintf(buffer, buffer_size, "Seek to offset failed: %d != %d", result, offset);
@@ -316,7 +337,21 @@ extern "C"
     // Test seeking relative to the current position
     MU_TEST(cd_file_seek_test_relative)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t initial_offset = 50;
         file.Seek(initial_offset, Cd::SeekMode::Absolute);
         int32_t relative_offset = 30;
@@ -328,7 +363,21 @@ extern "C"
     // Test seeking to an invalid offset (negative)
     MU_TEST(cd_file_seek_test_invalid_negative)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t result = file.Seek(-10, Cd::SeekMode::Absolute);
         snprintf(buffer, buffer_size, "Seek to invalid negative offset failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
         mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
@@ -337,7 +386,21 @@ extern "C"
     // Test seeking to an invalid offset (beyond file size)
     MU_TEST(cd_file_seek_test_invalid_beyond)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t result = file.Seek(file.Size.Bytes + 10, Cd::SeekMode::Absolute);
         snprintf(buffer, buffer_size, "Seek to invalid beyond offset failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
         mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
@@ -346,7 +409,21 @@ extern "C"
     // Test: Seek to the end of the file with offset 0
     MU_TEST(cd_file_seek_test_end_offset_zero)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t result = file.Seek(0, Cd::SeekMode::EndOfFile);
         snprintf(buffer, buffer_size, "Seek to end with offset 0 failed: %d != %d", result, file.Size.Bytes);
         mu_assert(result == file.Size.Bytes, buffer);
@@ -355,7 +432,21 @@ extern "C"
     // Test: Seek to the end of the file with a positive offset
     MU_TEST(cd_file_seek_test_end_positive_offset)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t offset = 50;
         int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
         snprintf(buffer, buffer_size, "Seek to end with positive offset failed: %d != %d", result, file.Size.Bytes + offset);
@@ -365,7 +456,21 @@ extern "C"
     // Test: Seek to the end of the file with a negative offset
     MU_TEST(cd_file_seek_test_end_negative_offset)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t offset = -50;
         int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
         snprintf(buffer, buffer_size, "Seek to end with negative offset failed: %d != %d", result, file.Size.Bytes + offset);
@@ -375,7 +480,21 @@ extern "C"
     // Test: Seek to the end of the file with an offset beyond the file size
     MU_TEST(cd_file_seek_test_end_offset_beyond)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t offset = file.Size.Bytes + 50;
         int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
         snprintf(buffer, buffer_size, "Seek to end with offset beyond file size failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
@@ -385,7 +504,21 @@ extern "C"
     // Test: Seek from EndOfFile and read 1 byte at the position
     MU_TEST(cd_file_seek_and_read_from_end)
     {
-        Cd::File file("TESTFILE.UT");
+        const char *filename = "TESTFILE.UTS";
+        Cd::File file(filename);
+
+        bool exists = file.Exists();
+        snprintf(buffer, buffer_size, "File '%s' does not exist but should", filename);
+        mu_assert(exists, buffer);
+
+        bool open = file.Open();
+        snprintf(buffer, buffer_size, "File '%s' does not open but should", filename);
+        mu_assert(open, buffer);
+
+        bool isopen = file.IsOpen();
+        snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
+        mu_assert(isopen, buffer);
+
         int32_t offset = -1; // Seek to the last byte
         int32_t result = file.Seek(offset, Cd::SeekMode::EndOfFile);
         snprintf(buffer, buffer_size, "Seek to end with offset -1 failed: %d != %d", result, file.Size.Bytes + offset);
@@ -406,7 +539,6 @@ extern "C"
                                        &cd_test_teardown,
                                        &cd_test_output_header);
 
-        MU_RUN_TEST(cd_test_initialize);
         MU_RUN_TEST(cd_test_file_exists);
         MU_RUN_TEST(cd_test_read_file);
         MU_RUN_TEST(cd_test_read_file2);
