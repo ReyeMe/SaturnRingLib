@@ -39,7 +39,7 @@ namespace SRL
              */
             uint16_t Flip:2;
 
-            /** @brief Sprite opacity with VDP2 layers 
+            /** @brief Sprite opacity with VDP2 layers
             */
             uint16_t OpacityBank:3;
 
@@ -65,7 +65,7 @@ namespace SRL
          * @param color Sprite color
          * @return Sprite command
          */
-        static constexpr inline SPRITE GetShapeCommand(uint16_t type, Types::HighColor color) 
+        static constexpr inline SPRITE GetShapeCommand(uint16_t type, Types::HighColor color)
         {
             SPRITE sprite;
             sprite.COLR = color;
@@ -99,24 +99,24 @@ namespace SRL
                 colorModeType = texturePalette->GetMode();
                 paletteId = texturePalette->GetId();
             }
-            
+
             switch (colorModeType)
             {
             case SRL::CRAM::TextureColorMode::Paletted256:
                 colorMode = CL256Bnk;
                 palette = paletteId << 8| (Scene2D::Effects.OpacityBank << 11);
                 break;
- 
+
             case SRL::CRAM::TextureColorMode::Paletted128:
                 colorMode = CL128Bnk;
                 palette = paletteId << 7| (Scene2D::Effects.OpacityBank << 11);
                 break;
- 
+
             case SRL::CRAM::TextureColorMode::Paletted64:
                 colorMode = CL64Bnk;
                 palette = paletteId << 6| (Scene2D::Effects.OpacityBank << 11);
                 break;
- 
+
             case SRL::CRAM::TextureColorMode::Paletted16:
                 colorMode = CL16Bnk;
                 palette = paletteId << 4| (Scene2D::Effects.OpacityBank << 11);
@@ -125,18 +125,18 @@ namespace SRL
             default:
                 break;
             }
-            
+
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wnarrowing"
             return SPR_ATTRIBUTE(
                 texture,
                 palette,
                 (Scene2D::IsGouraudEnabled() ? Scene2D::Effects.Gouraud : 0),
-                
+
                 (Scene2D::Effects.Clipping << 9) |
                 (Scene2D::Effects.ScreenDoors << 8) |
                 colorMode |
-                ECdis | 
+                ECdis |
                 (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
                 (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
 
@@ -186,7 +186,7 @@ namespace SRL
          */
         enum SpriteEffect : uint8_t
         {
-            
+
             /** @brief Gouraud shading
              * @details Enables/disables gouraud shading for sprites.<br>Expected parameter is zero based index (**uint16_t**) to a gouraud shading table to enable shading, or negative or no value to disable it.
              * @code {.cpp}
@@ -194,11 +194,11 @@ namespace SRL
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, -1);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud);
-             * 
+             *
              * // Enable shading, use 16th entry in the table
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, 15);
              * @endcode
-             * 
+             *
              */
             Gouraud = 0,
 
@@ -209,13 +209,13 @@ namespace SRL
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::ScreenDoors, false);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::ScreenDoors);
-             * 
+             *
              * // Enable effect
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::ScreenDoors, true);
              * @endcode
              */
             ScreenDoors = 1,
-            
+
             /** @brief Half transparency effect
              * @details Enables/disables half transparency effect.<br>Expects boolean value as parameter.
              * @code {.cpp}
@@ -223,7 +223,7 @@ namespace SRL
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::HalfTransparency, false);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::HalfTransparency);
-             * 
+             *
              * // Enable effect
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::HalfTransparency, true);
              * @endcode
@@ -237,7 +237,7 @@ namespace SRL
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::NoClipping);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping);
-             * 
+             *
              * // Enable flip
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Clipping, SRL::Scene2D::ClippingEffect::ClipInside);
              * @endcode
@@ -251,10 +251,10 @@ namespace SRL
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::NoFlip);
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip);
-             * 
+             *
              * // Enable clipping
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip);
-             * 
+             *
              * // Enable flip in both directions
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip | SRL::Scene2D::FlipEffect::VerticalFlip);
              * @endcode
@@ -264,7 +264,7 @@ namespace SRL
              /** @brief VDP2 color calculation effect
              * @details Set sprites Color Calculation Ratio to one of 8 stored opacities (Banks 0-7)
              * @code {.cpp}
-             * //Set sprite to use ratio stored in opacity bank 1: 
+             * //Set sprite to use ratio stored in opacity bank 1:
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::OpacityBank, 1);
              * @endcode
              * @note Only applies to palette color modes
@@ -352,7 +352,7 @@ namespace SRL
                 sgl_pos[Z] = location.Z.RawValue();
                 sgl_pos[Sh] = scale.X.RawValue();
                 sgl_pos[Sv] = scale.Y.RawValue();
- 
+
                 return slDispSprite(sgl_pos, &attr, angle.RawValue()) != 0;
             }
         }
@@ -367,12 +367,12 @@ namespace SRL
         static bool DrawSprite(
             const uint16_t texture,
             const SRL::Math::Types::Vector3D& location,
-            const SRL::Math::Types::Angle& angle = SRL::Math::Types::Angle(0),
+            const SRL::Math::Types::Angle& angle = SRL::Math::Types::Angle::Zero(),
             const SRL::Math::Types::Vector2D& scale = SRL::Math::Types::Vector2D(1.0, 1.0))
         {
             return Scene2D::DrawSprite(texture, nullptr, location, angle, scale);
         }
-        
+
         /** @brief Draw simple sprite
          * @param texture Sprite texture
          * @param location Location of the sprite (Z coordinate is used for sorting)
@@ -383,7 +383,7 @@ namespace SRL
         {
             return Scene2D::DrawSprite(texture, nullptr, location, SRL::Math::Types::Angle(), scale);
         }
-        
+
         /** @brief Draw simple sprite
          * @param texture Sprite texture
          * @param texturePalette Sprite texture color palette override
@@ -399,7 +399,7 @@ namespace SRL
         {
             return Scene2D::DrawSprite(texture, texturePalette, location, SRL::Math::Types::Angle(), scale);
         }
-        
+
         /** @brief Draws a Line
         * @param start start point
         * @param end end point
@@ -435,14 +435,14 @@ namespace SRL
             polygon.YD = points[3].Y.As<int16_t>();
             return slSetSprite(&polygon, sort.RawValue());
         }
-        
+
         /** @} */
 
         /**
          * @name Sprite effect functions
          * @{
          */
-        
+
         /** @brief Set the Clipping rectangle
          * @param location Rectangle top left corner location in screen coordinates, where top left corner of the screen is (0,0)
          * @param size Rectangle size
@@ -470,7 +470,7 @@ namespace SRL
             case SpriteEffect::Gouraud:
                 Scene2D::Effects.Gouraud = data >= 0 ? (SRL::Scene2D::GouraudTableBase + ((uint16_t)data & 0xffff)) : 0;
                 break;
-            
+
             case SpriteEffect::ScreenDoors:
                 Scene2D::Effects.ScreenDoors = data == 1;
                 break;
@@ -506,7 +506,7 @@ namespace SRL
             {
             case SpriteEffect::Gouraud:
                 return Scene2D::Effects.Gouraud > 0 ? Scene2D::Effects.Gouraud - SRL::Scene2D::GouraudTableBase : 0;
-            
+
             case SpriteEffect::ScreenDoors:
                 return Scene2D::Effects.ScreenDoors;
 
@@ -531,4 +531,3 @@ namespace SRL
 
     };
 }
-
