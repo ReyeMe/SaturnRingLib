@@ -291,6 +291,11 @@ extern "C"
         int32_t result = file.Seek(0, Cd::SeekMode::Absolute);
         snprintf(buffer, buffer_size, "Seek to beginning failed: %d != 0", result);
         mu_assert(result == 0, buffer);
+
+        char byte;
+        int32_t bytesRead = file.Read(1, &byte);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != 0", bytesRead);
+        mu_assert(bytesRead == 0, buffer);
     }
 
     // Test seeking to a specific offset
@@ -301,6 +306,11 @@ extern "C"
         int32_t result = file.Seek(offset, Cd::SeekMode::Absolute);
         snprintf(buffer, buffer_size, "Seek to offset failed: %d != %d", result, offset);
         mu_assert(result == offset, buffer);
+
+        char byte;
+        int32_t bytesRead = file.Read(1, &byte);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != 99", bytesRead);
+        mu_assert(bytesRead == 99, buffer);
     }
 
     // Test seeking relative to the current position
