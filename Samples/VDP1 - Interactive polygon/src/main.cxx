@@ -99,6 +99,7 @@ int main()
         // Move cursor
         if (mouse.IsConnected())
         {
+            SRL::Debug::Print(0, 10, "Mouse");
             cursorLocation = Vector3D(mouse.GetPosition(), 500.0);
 
             // Change polygon fill
@@ -118,8 +119,8 @@ int main()
             }
             
             // Clamp cursor to screen
-            cursorLocation.X = SRL::Math::Clamp(minimumWidth, maximumWidth, cursorLocation.X);
-            cursorLocation.Y = SRL::Math::Clamp(minimumHeight, maximumHeight, cursorLocation.Y);
+            cursorLocation.X = SRL::Math::Clamp(cursorLocation.X, minimumWidth, maximumWidth);
+            cursorLocation.Y = SRL::Math::Clamp(cursorLocation.Y, minimumHeight, maximumHeight);
         }
         else if (gamepad.IsConnected())
         {
@@ -158,8 +159,8 @@ int main()
             }
             
             // Clamp cursor to screen
-            cursorLocation.X = SRL::Math::Clamp(minimumWidth, maximumWidth, cursorLocation.X);
-            cursorLocation.Y = SRL::Math::Clamp(minimumHeight, maximumHeight, cursorLocation.Y);
+            cursorLocation.X = SRL::Math::Clamp(cursorLocation.X, minimumWidth, maximumWidth);
+            cursorLocation.Y = SRL::Math::Clamp(cursorLocation.Y, minimumHeight, maximumHeight);
         }
 
         // Show rectangle over a handle
@@ -168,7 +169,7 @@ int main()
             // Move handle
             if (draggingHandle >= 0)
             {
-                polygonPoints[draggingHandle] += (Vector2D)(cursorLocation - lastCursorLocation);
+                polygonPoints[draggingHandle] += cursorLocation - lastCursorLocation;
             }
 
             // Draw handle
@@ -183,14 +184,14 @@ int main()
             SRL::Scene2D::DrawPolygon(handle, false, HighColor::Colors::White, 500.0);
         }
 
+        Vector2D handle2[] = 
+        {
+            cursorLocation + Vector2D(-5.0, -5.0),
+            cursorLocation + Vector2D(5.0, -5.0),
+            cursorLocation + Vector2D(5.0, 5.0),
+            cursorLocation + Vector2D(-5.0, 5.0)
+        };
 
-            Vector2D handle2[] = 
-            {
-                cursorLocation + Vector2D(-5.0, -5.0),
-                cursorLocation + Vector2D(5.0, -5.0),
-                cursorLocation + Vector2D(5.0, 5.0),
-                cursorLocation + Vector2D(-5.0, 5.0)
-            };
         SRL::Scene2D::DrawPolygon(handle2, false, HighColor::Colors::White, 500.0);
         
         // Draw polygon

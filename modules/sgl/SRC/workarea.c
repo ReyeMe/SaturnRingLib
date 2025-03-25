@@ -12,13 +12,11 @@
 struct WorkArea_
 {
     char SortList[(_LongWord_ * 3) * (SGL_MAX_POLYGONS + 6)];
-    char Zbuffer[_LongWord_ * 512];
+    char Zbuffer[_LongWord_ * SGL_MAX_POLYGONS];
     char SpriteBuf[_Sprite_ * ((SGL_MAX_POLYGONS + 6) * 2)];
     char Pbuffer[(_LongWord_ * 4) * SGL_MAX_VERTICES];
     char CLOfstBuf[(_Byte_ * 32 * 3) * 32];
     char CommandBuf[(_LongWord_ * 8) * SGL_MAX_POLYGONS];
-    char TransList[0x4400];
-    char MasterStack[0x400];
 };
 
 struct WorkArea_ __attribute__((section("WORK_AREA_DUMMY"))) WORK_AREA_DUMMY;

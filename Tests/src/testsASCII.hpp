@@ -1,5 +1,6 @@
 #include <srl.hpp>
 #include <srl_log.hpp>
+#include <srl_bitmap.hpp> // for IBitmap
 
 // https://github.com/siu/minunit
 #include "minunit.h"
@@ -35,7 +36,7 @@ extern "C"
     }
 
     // Test basic text display functionality
-// Verifies that simple text can be printed at a specific screen coordinate
+    // Verifies that simple text can be printed at a specific screen coordinate
     MU_TEST(ascii_test_display_simple_text)
     {
         ASCII display;
@@ -56,18 +57,8 @@ extern "C"
         mu_assert(!success, buffer);
     }
 
-   // Commented-out test for font loading (potentially for future implementation)
-    // MU_TEST(ascii_test_load_font) {
-    //     ASCII display;
-    //     int fontId = 1;
-    //     bool success = display.LoadFont(fontId, "font_path");
-    //     snprintf(buffer, buffer_size, "Font loading failed for font ID: %d", fontId);
-    //     mu_assert(success, buffer);
-    // }
-
-
     // Test color palette application
-// Verifies that the ASCII display can successfully set a color palette
+    // Verifies that the ASCII display can successfully set a color palette
     MU_TEST(ascii_test_apply_color_palette)
     {
         ASCII display;
@@ -77,24 +68,28 @@ extern "C"
         mu_assert(success, buffer);
     }
 
-    // Commented-out test for displaying text with custom font and palette
-    // MU_TEST(ascii_test_display_with_font_and_palette) {
+    // Test loading a font
+    // Verifies that a font can be loaded into the ASCII display
+    // MU_TEST(ascii_test_load_font)
+    // {
     //     ASCII display;
-    //     display.LoadFont(1, "font_path");
-    //     display.ApplyColorPalette(2);
-    //     const char* text = "Styled Text!";
-    //     bool success = display.DisplayText(text, 10, 10);
-    //     snprintf(buffer, buffer_size, "Styled text display failed at (10, 10) for: %s", text);
-    //     mu_assert(success, buffer);
+    //     SRL::Bitmap::IBitmap* bmp = /* Initialize your bitmap here */;
+    //     display.LoadFont(bmp, 0);
+    //     // Add assertions to verify the font was loaded correctly
+    //     // For example, you can check specific memory locations or other indicators
+    //     mu_assert(/* condition */, "Font loading failed");
     // }
 
-  // Commented-out test for invalid character handling
-    // MU_TEST(ascii_test_invalid_character_handling) {
+    // Test loading a font using LoadFontSG
+    // Verifies that a font can be loaded into the ASCII display using LoadFontSG
+    // MU_TEST(ascii_test_load_font_sg)
+    // {
     //     ASCII display;
-    //     const char* text = "Invalid\xFFChar!";
-    //     bool success = display.Print(text, 0, 0);
-    //     snprintf(buffer, buffer_size, "Invalid character handling failed for text: %s", text);
-    //     mu_assert(!success, buffer);
+    //     uint8_t source[0x1800] = {0}; // Initialize with appropriate data
+    //     display.LoadFontSG(source, 0);
+    //     // Add assertions to verify the font was loaded correctly
+    //     // For example, you can check specific memory locations or other indicators
+    //     mu_assert(/* condition */, "Font loading failed");
     // }
 
     // Define the test suite for ASCII-related functionality
@@ -107,9 +102,8 @@ extern "C"
 
         MU_RUN_TEST(ascii_test_display_simple_text);
         MU_RUN_TEST(ascii_test_display_out_of_bounds);
-        // MU_RUN_TEST(ascii_test_load_font);
         MU_RUN_TEST(ascii_test_apply_color_palette);
-        // MU_RUN_TEST(ascii_test_display_with_font_and_palette);
-        // MU_RUN_TEST(ascii_test_invalid_character_handling);
+//        MU_RUN_TEST(ascii_test_load_font);
+//        MU_RUN_TEST(ascii_test_load_font_sg);
     }
 }

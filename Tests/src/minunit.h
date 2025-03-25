@@ -98,13 +98,15 @@ extern "C"
 	} if (minunit_setup) (*minunit_setup)();                         \
 	minunit_status = 0;                                              \
 	test();                                                          \
-	minunit_run++;                                                   \
+	++minunit_run;                                                   \
 	if (minunit_status) {                                            \
-		minunit_fail++;                                              \
+		++minunit_fail;                                              \
 		if (minunit_output_header)                                   \
 			(*minunit_output_header)();                              \
 		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
-	} if (minunit_teardown)(*minunit_teardown)();)
+	} else { 														 \
+		Log::LogPrint<LogLevels::TESTING>("Passed :%s", #test);		 \
+	} if (minunit_teardown)(*minunit_teardown)();)					
 
 /*  Report */
 #define MU_REPORT() MU__SAFE_BLOCK(                                                                                    \

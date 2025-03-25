@@ -130,9 +130,13 @@ private:
          */
         uint8_t SortMode : 2;
 
+        /** @brief Render faces as wireframe
+         */
+        uint8_t IsWireframe : 1;
+
         /** @brief Reserved for future use
          */
-        uint8_t Reserved;
+        uint8_t Reserved : 7;
 
         /** @brief This field is set if HasTexture field is false
          */
@@ -213,7 +217,7 @@ private:
                     (attributeHeader->HasMeshEffect != 0 ? MESHon : MESHoff) |
                     (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
                     (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
-                (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon),
+                (attributeHeader->IsWireframe != 0 ? sprPolyLine : (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon)),
                 UseLight);
             #pragma GCC diagnostic pop
         }
@@ -268,7 +272,7 @@ private:
                     (attributeHeader->HasFlatShading != 0 ? 0 : CL_Gouraud) |
                     (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
                     (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
-                (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon),
+                (attributeHeader->IsWireframe != 0 ? sprPolyLine : (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon)),
                 (attributeHeader->HasFlatShading != 0 ? UseLight : UseGouraud));
             #pragma GCC diagnostic pop
 

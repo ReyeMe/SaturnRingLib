@@ -150,7 +150,7 @@ namespace SRL::Sound
         }
 
 		/** @brief Play single CD track
-		 *  @param track Track number (in jo starts at 3)
+		 *  @param track Track number (see .cue after build for track numbers)
 		 *  @param loop Whether to loop track after it ends
 		 */
 		constexpr static void PlaySingle(const uint16_t track, const bool loop)

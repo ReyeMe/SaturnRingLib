@@ -63,9 +63,7 @@ SECTIONS {
 		*(WORK_AREA_DUMMY)
 	}
 	
-	work_area_start = 0x060FF000 - SIZEOF(WORK_AREA_DUMMY);
-
-	WORK_AREA work_area_start (NOLOAD):
+	WORK_AREA 0x060C0000 (NOLOAD):
 	{
 		__heap_end = .;
 		*(WORK_AREA)
