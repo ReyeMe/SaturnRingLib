@@ -24,6 +24,11 @@
 #define MINUNIT_MINUNIT_H
 
 #ifdef __cplusplus
+
+#include <srl_log.hpp>
+
+using namespace SRL::Logger;
+
 extern "C"
 {
 #endif
