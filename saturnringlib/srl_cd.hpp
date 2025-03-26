@@ -528,7 +528,7 @@ namespace SRL
                     if (offset >= 0 && offset < this->Size.Bytes)
                     {
                         // Get sector count for offset
-                        bool firstRead = this->readBuffer == nullptr;
+                        bool firstRead = (this->readBuffer == nullptr);
 
                         // Initialize read buffer
                         if (firstRead)
@@ -547,6 +547,9 @@ namespace SRL
 
                         if (sector >= 0)
                         {
+
+                            // SRL::Logger::LogInfo("%s(l%d) : Sector %d", __FUNCTION__, __LINE__, sector);
+                        
                             // Seek to predefined location
                             result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
 
@@ -560,28 +563,28 @@ namespace SRL
                             }
                             else
                             {
-                                SRL::Logger::LogFatal("%s(l%d) : GFS_Seek returns %d (Sector : %d vs offset : %d)", __FUNCTION__, __LINE__, result, sector, offset);
+                                // SRL::Logger::LogFatal("%s(l%d) : GFS_Seek returns %d (Sector : %d vs offset : %d)", __FUNCTION__, __LINE__, result, sector, offset);
                             }
                         }
                         else
                         {
-                            SRL::Logger::LogFatal("%s(l%d) : Invalid sector number (%d)", __FUNCTION__, __LINE__, sector);
+                            // SRL::Logger::LogFatal("%s(l%d) : Invalid sector number (%d)", __FUNCTION__, __LINE__, sector);
                         }
                     }
                     else
                     {
-                        if (!this->IsOpen())
-                        {
-                            SRL::Logger::LogFatal("%s(l%d) : File is not open", __FUNCTION__, __LINE__);
-                        }
-                        else if (offset < 0 || offset >= this->Size.Bytes)
-                        {
-                            SRL::Logger::LogFatal("%s(l%d) : Offset is out of bounds (%d vs %d)", __FUNCTION__, __LINE__, offset, this->Size.Bytes);
-                        }
-                        else
-                        {
-                            SRL::Logger::LogFatal("%s(l%d) : Cannot seek (%d)", __FUNCTION__, __LINE__, offset);
-                        }
+                        // if (!this->IsOpen())
+                        // {
+                        //     SRL::Logger::LogFatal("%s(l%d) : File is not open", __FUNCTION__, __LINE__);
+                        // }
+                        // else if (offset < 0 || offset >= this->Size.Bytes)
+                        // {
+                        //     SRL::Logger::LogFatal("%s(l%d) : Offset is out of bounds (%d vs %d)", __FUNCTION__, __LINE__, offset, this->Size.Bytes);
+                        // }
+                        // else
+                        // {
+                        //     SRL::Logger::LogFatal("%s(l%d) : Cannot seek (%d)", __FUNCTION__, __LINE__, offset);
+                        // }
                     }
                 }
 
@@ -645,6 +648,13 @@ namespace SRL
                 isInitialized = (GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &GfsDirectories) <= 2);
             }
             return isInitialized;
+        }
+
+        /** @brief Change current directory to root
+         */
+        inline static void ChangeDirToRoot()
+        {
+            ChangeDir(static_cast<char *>(nullptr));
         }
 
         /** @brief Change current directory
