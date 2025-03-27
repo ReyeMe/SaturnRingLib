@@ -330,8 +330,8 @@ extern "C"
 
         char byte;
         int32_t bytesRead = file.Read(1, &byte);
-        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != 99", byte);
-        mu_assert(byte == 99, buffer);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != %d", byte, offset-1);
+        mu_assert(byte == offset-1, buffer);
     }
 
     // Test seeking relative to the current position
@@ -352,12 +352,26 @@ extern "C"
         snprintf(buffer, buffer_size, "File '%s' is not open but should", filename);
         mu_assert(isopen, buffer);
 
-        int32_t initial_offset = 50;
-        file.Seek(initial_offset, Cd::SeekMode::Absolute);
-        int32_t relative_offset = 30;
-        int32_t result = file.Seek(relative_offset, Cd::SeekMode::Relative);
-        snprintf(buffer, buffer_size, "Seek relative failed: %d != %d", result, initial_offset + relative_offset);
-        mu_assert(result == initial_offset + relative_offset, buffer);
+        const int32_t initial_offset = 50;
+        int32_t result = file.Seek(initial_offset, Cd::SeekMode::Absolute);
+        snprintf(buffer, buffer_size, "Seek absolute at %d of failed: %d", initial_offset, result);
+        mu_assert(result >= 0, buffer);
+        
+        char byte;
+        int32_t bytesRead = file.Read(1, &byte);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != %d", byte, initial_offset - 1);
+        mu_assert(byte == initial_offset - 1 && bytesRead == 1, buffer);
+
+        const int32_t relative_offset = 30;
+        result = file.Seek(relative_offset, Cd::SeekMode::Relative);
+        snprintf(buffer, buffer_size, "Seek relative at %d of failed: %d",
+                relative_offset + initial_offset, result);
+        mu_assert(result >= 0, buffer);
+
+        bytesRead = file.Read(1, &byte);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != %d",
+                byte, relative_offset + initial_offset - 1);
+        mu_assert(byte == relative_offset + initial_offset - 1 && bytesRead == 1, buffer);
     }
 
     // Test seeking to an invalid offset (negative)
