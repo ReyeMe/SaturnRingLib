@@ -165,14 +165,14 @@ namespace SRL
                         reqCycles = 2;
                         break;
                     case CRAM::TextureColorMode::RGB555:
-                        reqCycles = 3;
+                        reqCycles = 4;
                         break;
                     }
 
-                    alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, reqCycles);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, reqCycles);
+                    alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, reqCycles);
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, reqCycles);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, reqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, reqCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, reqCycles);
                     if (alloc == nullptr) SRL::Debug::Assert("NBG Cel Allocation failed: insufficient VRAM");
                 }
 
@@ -186,7 +186,7 @@ namespace SRL
              */
             inline static void* AutoAllocateMap(Tilemap::TilemapInfo& info, int16_t screen)
             {
-                void* alloc;
+                void* alloc = nullptr;
                 uint32_t page_sz = 0x800;
                 uint32_t sz = (info.MapHeight * info.MapWidth) << 1;
 
@@ -201,20 +201,21 @@ namespace SRL
                 if (info.PlaneSize == PL_SIZE_2x2) page_sz <<= 2;
                 else if (info.PlaneSize == PL_SIZE_2x1) page_sz <<= 1;
 
-                if (screen == scnRBG0) // Reserve all 8 cycles of a bank
+                if (screen == scnRBG0) // Reserve all 8 cycles of bank 0 
                 {
                     alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 8);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 8);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 8);
-                    if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 8);
+                    //if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 8);
+                    //if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 8);
+                    //if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 8);
                     if (alloc == nullptr) Debug::Assert("RBG Map Allocation failed: insufficient VRAM");
                 }
-                else // Reserve 1 cycle
+                else // Reserve 1 cycle in bank B1 (or B0 if it doesn't conflict with RBG0 map)
                 {
-                    alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 1);
-                    if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 1);
-                    if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 1);
-                    if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 1);
+                    if (bankCycles[0]!=7) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 1);
+                    if(!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 1);
+                    
+                    //if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 1);
+                    //if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 1);
                     if (alloc == nullptr) SRL::Debug::Assert("NBG Map Allocation failed: insufficient VRAM");
                 }
 
@@ -339,15 +340,28 @@ namespace SRL
              * if there is not enough VRAM/cycles available to allocate.
              *
              * @param tilemap The Tilemap to load
-             * @note Manual VRAM allocation is for advanced use cases as is NOT verified for proper bank alignment
-             * @note Does not turn Scroll Display on- once loaded use ScrollEnable() to display a Scroll Screen
-             * @note It is recommended to perform loading/allocation for RBG0 before NBG0-3 screens if using it
+             * @note Manual VRAM allocation is for advanced use cases and is NOT verified for proper bank alignment.
+             * @note Does not turn Scroll Display on- once loaded use ScrollEnable() to display a Scroll Screen.
+             * @note As RBG0 must reserve dedicated VRAM banks always perform loading/allocation 
+             * for RBG0 before NBG0-3 screens if using it.
              */
             inline static void LoadTilemap(SRL::Tilemap::ITilemap& tilemap)
             {
                 SRL::Tilemap::TilemapInfo myInfo = tilemap.GetInfo();
                 ScreenType::Info = tilemap.GetInfo();
 
+                if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0)
+                {
+                    ScreenType::MapAddress = VRAM::AutoAllocateMap(myInfo, ScreenType::ScreenID);
+                    if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0) return;
+
+                }
+                else if (ScreenType::MapAllocSize < (ScreenType::Info.MapWidth * ScreenType::Info.MapHeight) << (2 - ScreenType::Info.MapMode))
+                {
+                    SRL::Debug::Assert("Tilemap Load Failed- MAP DATA exceeds existing VRAM allocation");
+                    return;
+                }
+                
                 if ((uint32_t)ScreenType::CellAddress < VDP2_VRAM_A0)
                 {
                     ScreenType::CellAddress = VRAM::AutoAllocateCell(myInfo, ScreenType::ScreenID);
@@ -364,19 +378,6 @@ namespace SRL
                     return;
                 }
 
-                if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0)
-                {
-                    ScreenType::MapAddress = VRAM::AutoAllocateMap(myInfo, ScreenType::ScreenID);
-                    if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0) return;
-
-                }
-                else if (ScreenType::MapAllocSize < (ScreenType::Info.MapWidth * ScreenType::Info.MapHeight) << (2 - ScreenType::Info.MapMode))
-                {
-                    SRL::Debug::Assert("Tilemap Load Failed- MAP DATA exceeds existing VRAM allocation");
-                    return;
-                }
-
-                
                 int colorID = 0;
 
                 if (ScreenType::Info.ColorMode != SRL::CRAM::TextureColorMode::RGB555)
@@ -452,6 +453,12 @@ namespace SRL
              *     -NBG Data was stored in a bank reserved by RBG0
              * Potential conflicts are minimized when using Automatic Allocation and setting the
              * desired scale limits of NBG0/NBG1 beforehand.
+             * @note Even when registration is successful, some scrolls may be unable to  display simultaneously
+             * when the color depth of NBG0 or NBG1 is too High:
+             *        -When NBG0 > 8bpp, NBG2 will not display
+             *        -When NBG1 > 8bpp, NBG3 will not display
+             * By default, debug ASCII text is displayed on NBG3, so will not be available if NBG1 is 
+             * displayed in a high color mode.  
              */
             inline static void ScrollEnable()
             {
@@ -494,8 +501,8 @@ namespace SRL
             {
                 if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0) return nullptr;
                 uint32_t offset = 2048 * (uint32_t)index;
-                if (ScreenType::Info.CharSize = CHAR_SIZE_1x1) offset <<= 2;
-                if (ScreenType::Info.MapMode = PNB_2WORD) offset <<= 1;
+                if (ScreenType::Info.CharSize == CHAR_SIZE_1x1) offset <<= 2;
+                if (ScreenType::Info.MapMode == PNB_2WORD) offset <<= 1;
                 return ScreenType::MapAddress + (void*)offset;
             }
 
@@ -557,9 +564,9 @@ namespace SRL
             }
 
             /** @brief Set the Display Priority of a Scroll Screen
-             * @note Higher value layers display on top of lower layers
+             * @note Higher value layers display on top of lower layers.
              * @note When 2 or more scroll screens are assigned the same layer, their priority resolves as
-             * SPRITE>RBG0>NBG0>NBG1>NBG2>NBG3
+             * SPRITE>RBG0>NBG0>NBG1>NBG2>NBG3.
              * @param pr The Priority Layer for the Scroll Screen
              */
             inline static void SetPriority(SRL::VDP2::Priority pr) { slPriority(ScreenType::ScreenID, (uint16_t)pr); }
@@ -701,6 +708,10 @@ namespace SRL
         };
 
         /** @brief NBG0 interface
+         *  @details Normal Background Scroll 0:
+         *      -Available color depths: Paletted16, Paletted256, RGB555
+         *      -Available Modes: Bitmap, Tilemap
+         *      -Available features: Vertical/Horizontal Scrolling, Scaling, LineScroll Tables
          */
         class NBG0 : public ScrollScreen<NBG0, scnNBG0, NBG0ON>
         {
@@ -742,6 +753,10 @@ namespace SRL
         };
 
         /** @brief NBG1 interface
+         * @details Normal Background Scroll 1:
+         *      -Available color depths: Paletted16, Paletted256, RGB555
+         *      -Available Modes: Bitmap, Tilemap
+         *      -Available features: Vertical/Horizontal Scrolling, Scaling, LineScroll Tables
          */
         class NBG1 : public ScrollScreen<NBG1, scnNBG1, NBG1ON>
         {
@@ -783,6 +798,11 @@ namespace SRL
         };
 
         /** @brief  NBG2 interface
+         *  @details Normal Background Scroll 2:
+         *      -Available color depths: Paletted16, Paletted256
+         *      -Available Modes: Tilemap
+         *      -Available features: Vertical/Horizontal Scrolling
+         *  @note Unavailable when NBG0 color mode is RGB555   
          */
         class NBG2 : public ScrollScreen<NBG2, scnNBG2, NBG2ON>
         {
@@ -814,6 +834,12 @@ namespace SRL
         };
 
         /** @brief NBG3 interface
+         *  @details Normal Background Scroll 3:
+         *      -Available color depths: Paletted16, Paletted256
+         *      -Available Modes: Tilemap
+         *      -Available features: Vertical/Horizontal Scrolling
+         *  @note Unavailable when NBG0 color mode is RGB555.
+         *  @note SRL Uses to dispay Degbug Text by default.    
          */
         class NBG3 : public ScrollScreen<NBG3, scnNBG3, NBG3ON>
         {
@@ -866,6 +892,12 @@ namespace SRL
         };
 
         /** @brief RBG0 interface
+         * @details Rotating Background Scroll 0:
+         *      -Available color depths: Paletted16, Paletted256, RBG555
+         *      -Available modes: Tilemap, Bitmap
+         *      -Available features: Scrolling, Scaling, Rotation, 
+         *      -Coefficient table allows per line and per pixel scaling
+         *       to simulate perspective
          */
         class RBG0 : public ScrollScreen<RBG0, scnRBG0, RBG0ON>
         {
@@ -879,7 +911,7 @@ namespace SRL
              */
             inline static void Init(SRL::Tilemap::TilemapInfo& info)
             {
-                slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
+                //slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
                 slRparaMode(RA);
                 slOverRA(0);
                 slCharRbg0(info.SGLColorMode(), info.CharSize);
@@ -898,17 +930,17 @@ namespace SRL
              * statically stored in VRAM as a 0x18000 byte table. If Vblank is set true, only
              * the coefficients necessary for the current frame will be dynamically written
              * to VRAM at Vblank, reducing VRAM footprint to 0x2000 bytes per
-             * rotation parameter.
+             * rotation parameter but increasing required Vblank overhead.
              */
             inline static void SetRotationMode(VDP2::RotationMode mode, bool vblank = true)
             {
-                slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
+                //slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
 
                 switch (mode)
                 {
                 case RotationMode::OneAxis:
                     slKtableRA(nullptr, K_OFF);
-                    VDP2_RAMCTL &= 0xffcf; // Bypasses problem in slKtableRA: this never resets if K_DOT was previously specified
+                    //VDP2_RAMCTL &= 0xffcf; // Bypasses problem in slKtableRA: this never resets if K_DOT was previously specified
                     break;
 
                 case RotationMode::TwoAxis:
@@ -924,7 +956,7 @@ namespace SRL
                         slKtableRA((void*)VDP2::RBG0::KtableAddress, K_LINE | K_2WORD | K_ON);
                     }
 
-                    VDP2_RAMCTL &= 0xffcf;//Bypasses problem in slKtableRA: this never resets if K_DOT was previously specified
+                    //VDP2_RAMCTL &= 0xffcf;//Bypasses problem in slKtableRA: this never resets if K_DOT was previously specified
                     break;
 
                 case RotationMode::ThreeAxis:
@@ -962,7 +994,34 @@ namespace SRL
              * @param a,b,c,d Page Table addresses of the planes to display
              * @note Multi Plane Maps are not supported yet for RBG0, only plane a is used
              */
-            static void SetPlanes(void* a, void* b, void* c, void* d) { sl1MapRA(a); }
+            static void SetPlanes(void* a, void* b, void* c, void* d) { 
+                
+                sl1MapRA(a);
+            }
+            
+             /** @brief Sets the plane of Tilemap Data to be displayed with 16 planes
+             * @param layout 4x4 array of uint8_t indecies representing the index of each plane in the map layout
+             * @note Unlike NBG scrolls RBG0 only loads with the default tiling of 1 plane. Use this
+             * function after loading to set the arrangement of multi plane tilemaps within a 4x4 grid.
+             * @note No check is performed to ensure the indecies entered are within the bounds of
+             * the scroll's map data. Specifying indices larger than the number of planes loaded 
+             * will result in the diplay of garbage data in those portions of the map  
+             */
+            static void SetPlanes(const uint8_t layout[4][4])
+            {   
+                uint8_t sz = (VDP2::RBG0::Info.CharSize==CHAR_SIZE_1x1) ? 4:1;
+                uint8_t sLayout[4][4] = {};
+                if (VDP2::RBG0::Info.MapMode == PNB_2WORD) sz <<= 1;
+                if (VDP2::RBG0::Info.PlaneSize == PL_SIZE_2x2)sz <<= 2;
+                else if (VDP2::RBG0::Info.PlaneSize == PL_SIZE_2x1)sz <<= 1;
+                for (size_t i = 0; i < 4; ++i) { 
+                    for (size_t j = 0; j < 4; ++j) { 
+                        sLayout[i][j] = layout[i][j] * sz;
+                    }
+                }
+                sl16MapRA((uint8_t*)sLayout);
+            }
+            
         };
 
         /** @brief Sprite Color Calculation Conditions (See SpriteLayer::SetColorCondition() for details)
@@ -1140,7 +1199,9 @@ namespace SRL
                 VDP2::VRAM::currentBot[i] = VDP2::VRAM::bankBot[i];
                 VDP2::VRAM::bankCycles[i] = -1;
             }
-
+            // Clear Rotation control bits of VDP2_RAMCTL 
+            VDP2_RAMCTL &= 0xff00;
+            //leave cylces reserved for ASCII 
             VDP2::VRAM::bankCycles[3] = 1;
         }
 
@@ -1169,7 +1230,7 @@ namespace SRL
             // Initialize color ram mode
             slColRAMMode(CRM16_2048);
 
-            slCharNbg0(COL_TYPE_256, CHAR_SIZE_1x1);
+            //slCharNbg0(COL_TYPE_256, CHAR_SIZE_1x1);
             VDP2::SetPrintPaletteColor(0, Types::HighColor::Colors::White);
             VDP2::SetPrintPaletteColor(1, Types::HighColor::Colors::Black);
             VDP2::SetPrintPaletteColor(2, Types::HighColor::Colors::Red);
@@ -1179,7 +1240,7 @@ namespace SRL
             VDP2::SetPrintPaletteColor(6, Types::HighColor::Colors::Magenta);
 
             // Set default color to white
-            slCurColor(0);
+            //slCurColor(0);
 
             // Set back color
             VDP2::SetBackColor(backColor);
@@ -1198,7 +1259,7 @@ namespace SRL
             SRL::VDP2::NBG3::ScrollEnable();
             SRL::VDP2::NBG0::ScrollDisable(); // We don't want this on by default anymore
             // Fix param table at top of VRAM outside range of allocator - now user calls to slPerspective will always update here:
-            slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_B1 + 0x1ff00));
+            slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_A0 + 0x1ff00));
         }
 
         /** @brief data strUcture of a VDP2 color offset to be set in Offset A or Offset B

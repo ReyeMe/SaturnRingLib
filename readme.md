@@ -61,7 +61,7 @@ git clone --recurse-submodules https://github.com/ReyeMe/SaturnRingLib.git
 
 #### Setting up
 1. Download toolchain. This can be done by running ``setup_compiler.bat``.  
-2. Download [mednafen](https://mednafen.github.io/) and put it into ``emulators/mednafen/`` folder.  
+2. Download [mednafen](https://mednafen.github.io/) and put it into ``emulators/mednafen/`` folder (or install it with a package manager if on linux).  
 You will also need to obtain bios file (``mpr-17933.bin``) and put it in the mednafen folder. 
 
 > __Note:__ ``.bat`` scripts used within SRL can be run natively on Windows, Linux or Mac.
@@ -73,6 +73,7 @@ Use your preferred package manager to install the following:
 - `unzip` - used during compiler installation
 - `wget` - to download the compiler
 - `sox` - to convert audio
+    - `libsox-fmt-mp3` - for sox to support mp3 files
 - `xorriso` - to build cue/bin
 
 </details>

@@ -125,7 +125,13 @@ else {
 }
 
 Write-Progress "Installing" -Id 3 -status "Step 1/3: Downloading compiler..." -PercentComplete 0
-DownloadFile "https://srl.reye.me/compiler/sh-gcc-$($args[0]).zip" "$($folderPath)/sh-gcc-$($args[0]).zip"
+$tag="gcc_$($args[0])"
+
+if ($args[0].equals("14.2.0")) {
+    $tag="gcc_$($args[0])_2"
+}
+
+DownloadFile "https://github.com/willll/Saturn-SDK-GCC-SH2/releases/download/$($tag)/sh-gcc-$($args[0]).zip" "$($folderPath)/sh-gcc-$($args[0]).zip"
 
 if ([System.IO.File]::Exists("$($folderPath)/sh-gcc-$($args[0]).zip")) {
     Write-Progress "Installing" -Id 3 -status "Step 2/3: Extracting compiler..." -PercentComplete 33

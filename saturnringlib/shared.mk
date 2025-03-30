@@ -269,6 +269,7 @@ add_audio_to_bin_cue: $(AUDIO_FILES_RAW)
 		size=$$(stat -c%s "$$i"); \
 		total_size=$$((total_size + size)); \
 	done
+	rm -f $(AUDIO_FILES_RAW)
 
 build_bin_cue: create_bin_cue add_audio_to_bin_cue
 

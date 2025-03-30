@@ -13,7 +13,6 @@ using namespace SRL::Input;
 static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
 {
     SRL::VDP2::RBG0::ScrollDisable();//turn off scroll display so we dont see junk when loading to VRAM
-    slScrAutoDisp(RBG0OFF);
     SRL::VDP2::ClearVRAM();//Clearing VDP2 VRAM because use differs between Rotation Modes
     SRL::VDP2::RBG0::LoadTilemap(*map);//Transfer Tilemap to VRAM again 
     
@@ -25,7 +24,6 @@ static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
         -Works for 2D overhead rotation like Contra 3, or 2D backgounds that rotate with horizon */
         SRL::VDP2::RBG0::SetRotationMode(SRL::VDP2::RotationMode::OneAxis);   
         SRL::Debug::Print(1,5,"Rotation Mode <L [1 Axis] R>");
-        //VDP2_RAMCTL = 0x130b;
         break;
      
     case 1:
@@ -40,18 +38,19 @@ static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
     case 2:
         /*configure RBG0 with 3 Axis Rotation:
        -Full 3D rotation
-       -Works for 3D flight sims or other games where carmera rolling is desired*/
+       -Works for 3D flight sims or other games where camera rolling is desired*/
         SRL::VDP2::RBG0::SetRotationMode(SRL::VDP2::RotationMode::ThreeAxis);
         SRL::Debug::Print(1,5,"Rotation Mode <L [3 Axis] R>");
         break;
     }
+   
     SRL::VDP2::RBG0::ScrollEnable();//Turn Scroll Display back on
 }
 
 int main()
 {
     SRL::Core::Initialize(HighColor(20,10,50));
-   
+
     
     Digital port0(0); // Initialize gamepad on port 0
     
@@ -61,8 +60,8 @@ int main()
    
     LoadRBG0(0, TestTilebin);
 
-    SRL::VDP2::RBG0::SetPriority(SRL::VDP2::Priority::Layer2);//set RBG0 priority
-    SRL::VDP2::RBG0::ScrollEnable();//enable display of RBG0 
+    //SRL::VDP2::RBG0::SetPriority(SRL::VDP2::Priority::Layer2);//set RBG0 priority
+    //SRL::VDP2::RBG0::ScrollEnable();//enable display of RBG0 
     
     //variables to store current RBG0 rotation
     int16_t angY = (int16_t)DEGtoANG(0.0);

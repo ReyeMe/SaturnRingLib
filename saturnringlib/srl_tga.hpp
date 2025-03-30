@@ -310,16 +310,16 @@ namespace SRL::Bitmap
                     switch (depth)
                     {
                     case 2:
-                        color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(pixelData));
+                        color = SRL::Types::HighColor::FromARGB15(SRL::Endian::DeserializeUint16(pixelData));
                         break;
 
                     case 3:
-                        color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(pixelData));
+                        color = SRL::Types::HighColor::FromRGB24(SRL::Endian::DeserializeUint24(pixelData));
                         break;
 
                     default:
                     case 4:
-                        color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(pixelData));
+                        color = TGA::ParseArgb(SRL::Endian::DeserializeUint32(pixelData));
                         break;
                     }
 
@@ -516,16 +516,16 @@ namespace SRL::Bitmap
                 switch (depth)
                 {
                 case 2:
-                    color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(pixelData));
+                    color = SRL::Types::HighColor::FromARGB15(SRL::Endian::DeserializeUint16(pixelData));
                     break;
 
                 case 3:
-                    color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(pixelData));
+                    color = SRL::Types::HighColor::FromRGB24(SRL::Endian::DeserializeUint24(pixelData));
                     break;
 
                 default:
                 case 4:
-                    color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(pixelData));
+                    color = TGA::ParseArgb(SRL::Endian::DeserializeUint32(pixelData));
                     break;
                 }
 
@@ -575,16 +575,16 @@ namespace SRL::Bitmap
                         switch (depth)
                         {
                         case 2:
-                            color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(buffer));
+                            color = SRL::Types::HighColor::FromARGB15(SRL::Endian::DeserializeUint16(buffer));
                             break;
 
                         case 3:
-                            color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(buffer));
+                            color = SRL::Types::HighColor::FromRGB24(SRL::Endian::DeserializeUint24(buffer));
                             break;
 
                         default:
                         case 4:
-                            color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(buffer));
+                            color = TGA::ParseArgb(SRL::Endian::DeserializeUint32(buffer));
                             break;
                         }
 
@@ -614,16 +614,16 @@ namespace SRL::Bitmap
                     switch (depth)
                     {
                     case 2:
-                        fill = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(buffer));
+                        fill = SRL::Types::HighColor::FromARGB15(SRL::Endian::DeserializeUint16(buffer));
                         break;
 
                     case 3:
-                        fill = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(buffer));
+                        fill = SRL::Types::HighColor::FromRGB24(SRL::Endian::DeserializeUint24(buffer));
                         break;
 
                     default:
                     case 4:
-                        fill= TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(buffer));
+                        fill= TGA::ParseArgb(SRL::Endian::DeserializeUint32(buffer));
                         break;
                     }
 
@@ -699,13 +699,13 @@ namespace SRL::Bitmap
                 header.ImageIdLength = *(data);
                 header.HasPalette = *(data + 1);
                 header.ImageType = *(data + 2);
-                header.Palette.PaletteStart = SRL::ENDIAN::DeserializeUint16(data + 3);
-                header.Palette.PaletteLength = SRL::ENDIAN::DeserializeUint16(data + 5);
+                header.Palette.PaletteStart = SRL::Endian::DeserializeUint16(data + 3);
+                header.Palette.PaletteLength = SRL::Endian::DeserializeUint16(data + 5);
                 header.Palette.PaletteColorDepth = *(data + 7);
-                header.Image.Origin.X = SRL::ENDIAN::DeserializeUint16(data + 8);
-                header.Image.Origin.Y = SRL::ENDIAN::DeserializeUint16(data + 10);
-                header.Image.Size.X = SRL::ENDIAN::DeserializeUint16(data + 12);
-                header.Image.Size.Y = SRL::ENDIAN::DeserializeUint16(data + 14);
+                header.Image.Origin.X = SRL::Endian::DeserializeUint16(data + 8);
+                header.Image.Origin.Y = SRL::Endian::DeserializeUint16(data + 10);
+                header.Image.Size.X = SRL::Endian::DeserializeUint16(data + 12);
+                header.Image.Size.Y = SRL::Endian::DeserializeUint16(data + 14);
                 header.Image.PixelColorDepth = *(data + 16);
                 header.Image.Descriptor.Value = *(data + 17);
 

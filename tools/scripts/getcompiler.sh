@@ -1,6 +1,12 @@
 version=$1
 compilerDir=./Compiler
-url="https://srl.reye.me/compiler/sh-gcc-$version.zip"
+tag="$version"
+
+if [ "$version" = "14.2.0" ]; then
+  tag="gcc_${version}_2"
+fi
+
+url="https://github.com/willll/Saturn-SDK-GCC-SH2/releases/download/${tag}/sh-gcc-${version}.zip"
 file="sh-gcc-$version.zip"
 target="$compilerDir/sh-gcc-$version.zip"
 

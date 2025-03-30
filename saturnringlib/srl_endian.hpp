@@ -1,6 +1,8 @@
 #pragma once
 
-namespace SRL::ENDIAN
+/** @brief Endian conversion utilities
+ */
+namespace SRL::Endian
 {
     /** @brief Deserialize number
      * @param buf Value buffer
