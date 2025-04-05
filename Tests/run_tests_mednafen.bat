@@ -3,7 +3,7 @@
   # Linux code here
   #command="kronos -a -ns -i BuildDrop/UTs.cue"
   export SDL_VIDEODRIVER=dummy
-  command="mednafen -force_module ss BuildDrop/UTs.cue"
+  command="mednafen -sound 0 -ss.cart debug -force_module ss BuildDrop/UTs.cue"
   log="uts.log"
   match="***UT_END***"
 
