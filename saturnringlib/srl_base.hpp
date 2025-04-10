@@ -30,16 +30,34 @@ namespace SRL::Math { }
 #undef SaturnMath
 
 #if !DOXYGEN
-namespace std {
-
-    /** @brief Some hacks to make STD behave
+/**
+ * @brief C++ runtime support workarounds.
+ * 
+ * These functions provide minimal implementations that prevent compilation errors.
+ */
+namespace std
+{
+    /** @brief Minimal std::length_error handler
+     * 
+     * This function is a minimal implementation to prevent compilation errors
+     * when the standard library expects a length error handler. It enters an
+     * infinite loop to prevent undefined behavior.
      */
-
-    /** @brief Hack to get rid of exception https://forum.edgeimpulse.com/t/error-with-arduino-library-on-adafruit-nrf-board/422/13
-     */
-    void __throw_length_error(char const*) {
-        while(1);
+    inline void __throw_length_error(char const* message)
+    {
+        while (1);
     }
+}
+/**
+ * @brief Minimal pure virtual function handler
+ * 
+ * This function is a minimal implementation to prevent compilation errors
+ * when calling pure virtual functions. Uses C linkage and weak attribute
+ * to allow multiple definitions across different modules.
+ */
+extern "C" void __attribute__((weak)) __cxa_pure_virtual()
+{
+    while (1);
 }
 #endif
 
