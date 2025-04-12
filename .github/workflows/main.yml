@@ -19,4 +19,4 @@ jobs:
       - name: Report Test Results
         uses: ctrf-io/github-test-reporter@v1
         with:
-          path: Tests/uts.json
+          report-path: Tests/uts.json
