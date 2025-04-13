@@ -23,14 +23,4 @@ jobs:
         with:
           report-path: './Tests/*.json'
           summary-report: true
-          github-report: true
-          failed-report: true
-          flaky-report: true
-          insights-report: true
-          fail-rate-report: true
-          flaky-rate-report: true
-          slowest-report: true
-          previous-results-report: true
-          use-suite-name: true
-          upload-artifact: true
         if: always()
