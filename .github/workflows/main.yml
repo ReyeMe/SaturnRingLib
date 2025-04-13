@@ -11,12 +11,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v3
 
       # Step 5: Report Test Results
       - name: Report Test Results
         uses: ctrf-io/github-test-reporter@v1
         with:
-          report-path: ./Tests/uts.json
+          report-path: './Tests/uts.json'
+          summary-report: true
+        if: always()
