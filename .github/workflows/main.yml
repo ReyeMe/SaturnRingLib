@@ -15,7 +15,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        name: etch submodules 
         run: |
           ls -l
       - name: Report Test Results
