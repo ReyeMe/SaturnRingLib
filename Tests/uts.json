@@ -1,1715 +1,1716 @@
 {
-    "version": "1.0",
-    "testsuites": [
-        {
-            "name": "SaturnRingLib Unit Tests",
+    "reportFormat": "CTRF",
+    "specVersion": "0.0.0",
+    "results": {
+        "tool": {
+            "name": "minunit"
+        },
+        "summary": {
             "tests": 285,
-            "failures": 55,
-            "errors": 0,
-            "skipped": 0,
-            "time": "N/A",
-            "testcases": [
-                {
-                    "name": "ascii_test_display_simple_text",
-                    "classname": "ascii",
-                    "status": "passed"
-                },
-                {
-                    "name": "ascii_test_display_out_of_bounds",
-                    "classname": "ascii",
-                    "status": "passed"
-                },
-                {
-                    "name": "ascii_test_apply_color_palette",
-                    "classname": "ascii",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_initialization_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_subtraction_half_circle_minus_quarter_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_subtraction_zero_minus_quarter_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_subtraction_quarter_circle_minus_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_subtraction_full_circle_minus_quarter_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_subtraction_two_full_circles_minus_quarter_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_subtraction_quarter_circle_minus_two_full_circles",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_addition_quarter_circle_plus_quarter_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_addition_half_circle_plus_half_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_normalization_positive",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_normalization_negative",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_comparison_greater",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_comparison_less",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_conversion_to_radians",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_conversion_to_degrees",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_edge_case_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_edge_case_full_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_edge_case_negative",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_edge_case_greater_than_full_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_edge_case_multiple_full_circles",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_edge_case_negative_multiple_full_circles",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_build_raw_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_build_raw_half_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_build_raw_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_build_raw_three_quarters_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_build_raw_full_circle",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_half_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_quarter_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_two_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_right",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_straight",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_constant_full",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_radians_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_radians_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_radians_half_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_radians_negative_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_radians_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_radians_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_radians_half_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_radians_negative_pi",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_90",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_180",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_270",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_360",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_negative_90",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_degrees_450",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_90",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_180",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_270",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_360",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_negative_90",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_degrees_450",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_turns_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_turns_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_turns_half",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_turns_three_quarters",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_half",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_three_quarters",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_full",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_negative_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_from_turns_one_and_a_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_half",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_three_quarters",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_full",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_negative_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_to_fxp_one_and_a_quarter",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_raw_value_zero",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_raw_value_90",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_raw_value_180",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_raw_value_270",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_raw_value_360",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_raw_value_negative_90",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_addition",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_subtraction",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_multiplication_fxp",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_multiplication_int",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_division_fxp",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_division_int",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_equality",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_inequality",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_less_than",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_greater_than",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_less_than_or_equal",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_greater_than_or_equal",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_addition_wrap_around",
-                    "classname": "angle",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Addition wrap-around failed: 9 != 10",
-                        "file": "src/testsAngle.hpp",
-                        "line": 900
-                    }
-                },
-                {
-                    "name": "angle_test_operator_subtraction_wrap_around",
-                    "classname": "angle",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Subtraction wrap-around failed: 350 != 350",
-                        "file": "src/testsAngle.hpp",
-                        "line": 910
-                    }
-                },
-                {
-                    "name": "angle_test_operator_multiplication_large_scalar",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_division_large_scalar",
-                    "classname": "angle",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Division with large scalar failed: 8 != 9",
-                        "file": "src/testsAngle.hpp",
-                        "line": 930
-                    }
-                },
-                {
-                    "name": "angle_test_operator_addition_negative",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_subtraction_negative",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_multiplication_negative_scalar",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "angle_test_operator_division_negative_scalar",
-                    "classname": "angle",
-                    "status": "passed"
-                },
-                {
-                    "name": "cd_test_file_exists",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'CD_UT.TXT' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 50
-                    }
-                },
-                {
-                    "name": "cd_test_read_file",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'CD_UT.TXT' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 97
-                    }
-                },
-                {
-                    "name": "cd_test_read_file2",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'FILE.TXT' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 174
-                    }
-                },
-                {
-                    "name": "cd_test_null_file",
-                    "classname": "cd",
-                    "status": "passed"
-                },
-                {
-                    "name": "cd_test_missing_file",
-                    "classname": "cd",
-                    "status": "passed"
-                },
-                {
-                    "name": "cd_file_seek_test_beginning",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'TESTFILE.UTS' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 301
-                    }
-                },
-                {
-                    "name": "cd_file_seek_test_offset",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'TESTFILE.UTS' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 329
-                    }
-                },
-                {
-                    "name": "cd_file_seek_test_relative",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'TESTFILE.UTS' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 358
-                    }
-                },
-                {
-                    "name": "cd_file_seek_test_invalid_negative",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'TESTFILE.UTS' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 385
-                    }
-                },
-                {
-                    "name": "cd_file_seek_test_invalid_beyond",
-                    "classname": "cd",
-                    "status": "failed",
-                    "failure": {
-                        "message": "File 'TESTFILE.UTS' does not exist but should",
-                        "file": "src/testsCD.hpp",
-                        "line": 409
-                    }
-                },
-                {
-                    "name": "cram_test_base_address",
-                    "classname": "cram",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_zero",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_one",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_unsigned_int",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_int",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_float",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_double",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_char",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_bool",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_short",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_assignment_operator",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_copy_constructor",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_equality_check",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_initialization_with_doubles",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_inequality_check",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_arithmetic_addition",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_arithmetic_subtraction",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_arithmetic_multiplication",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_arithmetic_division",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_conversion_to_float",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_max_value_check",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_min_value_check",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_ModuloTest_PositiveNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_ModuloTest_NegativeDividend",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_ModuloTest_NegativeDivisor",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_ModuloTest_NegativeDividendAndDivisor",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_ModuloTest_LargeNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_ModuloTest_EdgeCases",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanTest_PositiveNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanTest_NegativeNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanTest_MixedNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanTest_ComparisonWithZero",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanFloatTest_BasicComparisons",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanFloatTest_NegativeNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanFloatTest_MixedNumbers",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanFloatTest_ComparisonWithZero",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanFloatTest_VerySmallDifferences",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanMixedTest_IntAndNegativeFloat",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanMixedTest_MixedPositiveAndNegativeValues",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanMixedTest_IntWithZeroFloat",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_GreaterThanMixedTest_PrecisionEdgeCases",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_lessthan",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_greaterthan_or_equal",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_lessthan_or_equal",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_greater_than_int",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_less_than_int",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_greater_than_or_equal_int",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_less_than_or_equal_int",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_greater_than_float",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_less_than_float",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_greater_than_or_equal_float",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "fxp_comparison_less_than_or_equal_float",
-                    "classname": "fxp",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_initialization",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_max_values",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_min_values",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_toggle_opacity",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_blending",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_to_integer",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "highcolor_test_from_integer",
-                    "classname": "highcolor",
-                    "status": "passed"
-                },
-                {
-                    "name": "math_test_sin_standard_angles",
-                    "classname": "math",
-                    "status": "passed"
-                },
-                {
-                    "name": "math_test_cos_standard_angles",
-                    "classname": "math",
-                    "status": "passed"
-                },
-                {
-                    "name": "math_test_negative_angles",
-                    "classname": "math",
-                    "status": "passed"
-                },
-                {
-                    "name": "math_test_large_angles",
-                    "classname": "math",
-                    "status": "passed"
-                },
-                {
-                    "name": "math_test_small_angles",
-                    "classname": "math",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_placement_malloc_highworkram",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_placement_malloc_lowworkram",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_placement_malloc_cartram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "PlacementMalloc in CartRam failed",
-                        "file": "src/testsMemory.hpp",
-                        "line": 98
-                    }
-                },
-                {
-                    "name": "memory_test_placement_malloc_invalid",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_initialize_zones",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "CartRam initialization failed",
-                        "file": "src/testsMemory.hpp",
-                        "line": 125
-                    }
-                },
-                {
-                    "name": "memory_test_cross_zone_allocation",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Cross-zone allocation in CartRam failed",
-                        "file": "src/testsMemory.hpp",
-                        "line": 141
-                    }
-                },
-                {
-                    "name": "memory_test_boundary_conditions",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_move_memory_blocks",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_move_memory_blocks_various_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_test_move_memory_blocks_edge_cases",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Data integrity check failed after moving maximum size memory block",
-                        "file": "src/testsMemory.hpp",
-                        "line": 251
-                    }
-                },
-                {
-                    "name": "memory_test_move_memory_blocks_invalid_pointers",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Moving memory block with null source pointer should fail",
-                        "file": "src/testsMemory.hpp",
-                        "line": 270
-                    }
-                },
-                {
-                    "name": "sgl_test_sgltype",
-                    "classname": "sgl",
-                    "status": "passed"
-                },
-                {
-                    "name": "palette_test_initialization",
-                    "classname": "palette",
-                    "status": "passed"
-                },
-                {
-                    "name": "palette_test_destruction",
-                    "classname": "palette",
-                    "status": "passed"
-                },
-                {
-                    "name": "bitmap_info_test_initialization_no_palette",
-                    "classname": "bitmap",
-                    "status": "passed"
-                },
-                {
-                    "name": "bitmap_info_test_initialization_with_palette",
-                    "classname": "bitmap",
-                    "status": "passed"
-                },
-                {
-                    "name": "ibitmap_test_get_data",
-                    "classname": "ibitmap",
-                    "status": "passed"
-                },
-                {
-                    "name": "ibitmap_test_get_info",
-                    "classname": "ibitmap",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_malloc_free",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_multiple_sizes_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 530
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_multiple_array_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_new_array_highworkram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation in HighWorkRam did not reduce free space (before 0 vs after 0)",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 241
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_highworkram_malloc_free",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_highworkram_realloc",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_realloc_larger",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_get_free_space",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get free space",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 88
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_get_used_space",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_get_size",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_get_report_hwram",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_highworkram_get_free_space",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get HighWorkRam free space",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 199
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_highworkram_get_used_space",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_highworkram_get_size",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_inrange_highworkram",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_malloc_zero",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_free_null",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_free_unallocated",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_allocation_failure",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Allocation of 1 error handling failed",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 376
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_memory_leaks",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_large_block",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_fragmentation",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_boundary_conditions",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_deplete_highworkram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "HighWorkRam Memory is already full",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 274
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_stress",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_alignment",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_mixed_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_memory_init",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_HWRam_test_multiple_sizes_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
-                        "file": "src/testsMemoryHWRam.hpp",
-                        "line": 530
-                    }
-                },
-                {
-                    "name": "memory_HWRam_test_multiple_array_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_malloc_free",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_multiple_sizes_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 530
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_multiple_array_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_new_array_lowworkram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation in LowWorkRam did not reduce free space (before 0 vs after 0)",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 241
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_lowworkram_malloc_free",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_lowworkram_realloc",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_realloc_larger",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_get_free_space",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get free space",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 88
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_get_used_space",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_get_size",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_get_report_lwram",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_lowworkram_get_free_space",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get LowWorkRam free space",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 199
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_lowworkram_get_used_space",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_lowworkram_get_size",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_inrange_lowworkram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "InRange failed for valid LowWorkRam address",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 307
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_malloc_zero",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_free_null",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_free_unallocated",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_allocation_failure",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Allocation of 1 error handling failed",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 376
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_memory_leaks",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_large_block",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_fragmentation",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_boundary_conditions",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_deplete_lowworkram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "LowWorkRam Memory is already full",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 274
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_stress",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_alignment",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_mixed_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_memory_init",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_LWRam_test_multiple_sizes_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
-                        "file": "src/testsMemoryLWRam.hpp",
-                        "line": 530
-                    }
-                },
-                {
-                    "name": "memory_LWRam_test_multiple_array_sizes",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 68
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_multiple_sizes_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation failed for size 1",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 518
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_multiple_array_sizes",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Array allocation failed for size 8",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 569
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_new_array_cartram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "new[] operator in CartRam failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 231
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_cartram_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "CartRam memory allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 160
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_cartram_realloc",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "CartRam memory allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 176
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_realloc_larger",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Initial allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 313
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_get_free_space",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get free space",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 84
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_get_used_space",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_get_size",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get memory zone size",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 108
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_get_report_cartram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get memory report for CartRam",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 148
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_cartram_get_free_space",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get CartRam free space",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 195
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_cartram_get_used_space",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_cartram_get_size",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Failed to get CartRam memory zone size",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 219
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_inrange_cartram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "InRange failed for valid CartRam address",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 301
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_malloc_zero",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation of zero bytes failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 120
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_free_null",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_free_unallocated",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_allocation_failure",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_memory_leaks",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 427
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_large_block",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Large block allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 330
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_fragmentation",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Fragmentation handling failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 349
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_boundary_conditions",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Boundary condition allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 413
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_deplete_cartram",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "CartRam Memory is already full",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 268
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_stress",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Stress test allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 398
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_alignment",
-                    "classname": "memory",
-                    "status": "passed"
-                },
-                {
-                    "name": "memory_CartRam_test_mixed_sizes",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Mixed size allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 456
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_memory_init",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory initialization allocation failed",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 472
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_multiple_sizes_malloc_free",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Memory allocation failed for size 1",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 518
-                    }
-                },
-                {
-                    "name": "memory_CartRam_test_multiple_array_sizes",
-                    "classname": "memory",
-                    "status": "failed",
-                    "failure": {
-                        "message": "Array allocation failed for size 8",
-                        "file": "src/testsMemoryCartRam.hpp",
-                        "line": 569
-                    }
+            "failed": 55,
+            "skipped": 0
+        },
+        "tests": [
+            {
+                "name": "ascii_test_display_simple_text",
+                "classname": "ascii",
+                "status": "passed"
+            },
+            {
+                "name": "ascii_test_display_out_of_bounds",
+                "classname": "ascii",
+                "status": "passed"
+            },
+            {
+                "name": "ascii_test_apply_color_palette",
+                "classname": "ascii",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_initialization_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_subtraction_half_circle_minus_quarter_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_subtraction_zero_minus_quarter_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_subtraction_quarter_circle_minus_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_subtraction_full_circle_minus_quarter_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_subtraction_two_full_circles_minus_quarter_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_subtraction_quarter_circle_minus_two_full_circles",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_addition_quarter_circle_plus_quarter_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_addition_half_circle_plus_half_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_normalization_positive",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_normalization_negative",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_comparison_greater",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_comparison_less",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_conversion_to_radians",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_conversion_to_degrees",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_edge_case_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_edge_case_full_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_edge_case_negative",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_edge_case_greater_than_full_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_edge_case_multiple_full_circles",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_edge_case_negative_multiple_full_circles",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_build_raw_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_build_raw_half_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_build_raw_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_build_raw_three_quarters_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_build_raw_full_circle",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_half_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_quarter_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_two_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_right",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_straight",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_constant_full",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_radians_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_radians_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_radians_half_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_radians_negative_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_radians_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_radians_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_radians_half_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_radians_negative_pi",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_90",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_180",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_270",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_360",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_negative_90",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_degrees_450",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_90",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_180",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_270",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_360",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_negative_90",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_degrees_450",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_turns_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_turns_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_turns_half",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_turns_three_quarters",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_half",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_three_quarters",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_full",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_negative_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_from_turns_one_and_a_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_half",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_three_quarters",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_full",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_negative_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_to_fxp_one_and_a_quarter",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_raw_value_zero",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_raw_value_90",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_raw_value_180",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_raw_value_270",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_raw_value_360",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_raw_value_negative_90",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_addition",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_subtraction",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_multiplication_fxp",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_multiplication_int",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_division_fxp",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_division_int",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_equality",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_inequality",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_less_than",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_greater_than",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_less_than_or_equal",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_greater_than_or_equal",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_addition_wrap_around",
+                "classname": "angle",
+                "status": "failed",
+                "failure": {
+                    "message": "Addition wrap-around failed: 9 != 10",
+                    "file": "src/testsAngle.hpp",
+                    "line": 900
                 }
-            ]
-        }
-    ]
+            },
+            {
+                "name": "angle_test_operator_subtraction_wrap_around",
+                "classname": "angle",
+                "status": "failed",
+                "failure": {
+                    "message": "Subtraction wrap-around failed: 350 != 350",
+                    "file": "src/testsAngle.hpp",
+                    "line": 910
+                }
+            },
+            {
+                "name": "angle_test_operator_multiplication_large_scalar",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_division_large_scalar",
+                "classname": "angle",
+                "status": "failed",
+                "failure": {
+                    "message": "Division with large scalar failed: 8 != 9",
+                    "file": "src/testsAngle.hpp",
+                    "line": 930
+                }
+            },
+            {
+                "name": "angle_test_operator_addition_negative",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_subtraction_negative",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_multiplication_negative_scalar",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "angle_test_operator_division_negative_scalar",
+                "classname": "angle",
+                "status": "passed"
+            },
+            {
+                "name": "cd_test_file_exists",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'CD_UT.TXT' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 50
+                }
+            },
+            {
+                "name": "cd_test_read_file",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'CD_UT.TXT' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 97
+                }
+            },
+            {
+                "name": "cd_test_read_file2",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'FILE.TXT' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 174
+                }
+            },
+            {
+                "name": "cd_test_null_file",
+                "classname": "cd",
+                "status": "passed"
+            },
+            {
+                "name": "cd_test_missing_file",
+                "classname": "cd",
+                "status": "passed"
+            },
+            {
+                "name": "cd_file_seek_test_beginning",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'TESTFILE.UTS' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 301
+                }
+            },
+            {
+                "name": "cd_file_seek_test_offset",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'TESTFILE.UTS' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 329
+                }
+            },
+            {
+                "name": "cd_file_seek_test_relative",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'TESTFILE.UTS' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 358
+                }
+            },
+            {
+                "name": "cd_file_seek_test_invalid_negative",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'TESTFILE.UTS' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 385
+                }
+            },
+            {
+                "name": "cd_file_seek_test_invalid_beyond",
+                "classname": "cd",
+                "status": "failed",
+                "failure": {
+                    "message": "File 'TESTFILE.UTS' does not exist but should",
+                    "file": "src/testsCD.hpp",
+                    "line": 409
+                }
+            },
+            {
+                "name": "cram_test_base_address",
+                "classname": "cram",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_zero",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_one",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_unsigned_int",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_int",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_float",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_double",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_char",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_bool",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_short",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_assignment_operator",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_copy_constructor",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_equality_check",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_initialization_with_doubles",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_inequality_check",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_arithmetic_addition",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_arithmetic_subtraction",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_arithmetic_multiplication",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_arithmetic_division",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_conversion_to_float",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_max_value_check",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_min_value_check",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_ModuloTest_PositiveNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_ModuloTest_NegativeDividend",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_ModuloTest_NegativeDivisor",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_ModuloTest_NegativeDividendAndDivisor",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_ModuloTest_LargeNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_ModuloTest_EdgeCases",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanTest_PositiveNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanTest_NegativeNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanTest_MixedNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanTest_ComparisonWithZero",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanFloatTest_BasicComparisons",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanFloatTest_NegativeNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanFloatTest_MixedNumbers",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanFloatTest_ComparisonWithZero",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanFloatTest_VerySmallDifferences",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanMixedTest_IntAndNegativeFloat",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanMixedTest_MixedPositiveAndNegativeValues",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanMixedTest_IntWithZeroFloat",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_GreaterThanMixedTest_PrecisionEdgeCases",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_lessthan",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_greaterthan_or_equal",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_lessthan_or_equal",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_greater_than_int",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_less_than_int",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_greater_than_or_equal_int",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_less_than_or_equal_int",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_greater_than_float",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_less_than_float",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_greater_than_or_equal_float",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "fxp_comparison_less_than_or_equal_float",
+                "classname": "fxp",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_initialization",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_max_values",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_min_values",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_toggle_opacity",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_blending",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_to_integer",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "highcolor_test_from_integer",
+                "classname": "highcolor",
+                "status": "passed"
+            },
+            {
+                "name": "math_test_sin_standard_angles",
+                "classname": "math",
+                "status": "passed"
+            },
+            {
+                "name": "math_test_cos_standard_angles",
+                "classname": "math",
+                "status": "passed"
+            },
+            {
+                "name": "math_test_negative_angles",
+                "classname": "math",
+                "status": "passed"
+            },
+            {
+                "name": "math_test_large_angles",
+                "classname": "math",
+                "status": "passed"
+            },
+            {
+                "name": "math_test_small_angles",
+                "classname": "math",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_placement_malloc_highworkram",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_placement_malloc_lowworkram",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_placement_malloc_cartram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "PlacementMalloc in CartRam failed",
+                    "file": "src/testsMemory.hpp",
+                    "line": 98
+                }
+            },
+            {
+                "name": "memory_test_placement_malloc_invalid",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_initialize_zones",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "CartRam initialization failed",
+                    "file": "src/testsMemory.hpp",
+                    "line": 125
+                }
+            },
+            {
+                "name": "memory_test_cross_zone_allocation",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Cross-zone allocation in CartRam failed",
+                    "file": "src/testsMemory.hpp",
+                    "line": 141
+                }
+            },
+            {
+                "name": "memory_test_boundary_conditions",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_move_memory_blocks",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_move_memory_blocks_various_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_test_move_memory_blocks_edge_cases",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Data integrity check failed after moving maximum size memory block",
+                    "file": "src/testsMemory.hpp",
+                    "line": 251
+                }
+            },
+            {
+                "name": "memory_test_move_memory_blocks_invalid_pointers",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Moving memory block with null source pointer should fail",
+                    "file": "src/testsMemory.hpp",
+                    "line": 270
+                }
+            },
+            {
+                "name": "sgl_test_sgltype",
+                "classname": "sgl",
+                "status": "passed"
+            },
+            {
+                "name": "palette_test_initialization",
+                "classname": "palette",
+                "status": "passed"
+            },
+            {
+                "name": "palette_test_destruction",
+                "classname": "palette",
+                "status": "passed"
+            },
+            {
+                "name": "bitmap_info_test_initialization_no_palette",
+                "classname": "bitmap",
+                "status": "passed"
+            },
+            {
+                "name": "bitmap_info_test_initialization_with_palette",
+                "classname": "bitmap",
+                "status": "passed"
+            },
+            {
+                "name": "ibitmap_test_get_data",
+                "classname": "ibitmap",
+                "status": "passed"
+            },
+            {
+                "name": "ibitmap_test_get_info",
+                "classname": "ibitmap",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_malloc_free",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_multiple_sizes_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 530
+                }
+            },
+            {
+                "name": "memory_HWRam_test_multiple_array_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_new_array_highworkram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation in HighWorkRam did not reduce free space (before 0 vs after 0)",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 241
+                }
+            },
+            {
+                "name": "memory_HWRam_test_highworkram_malloc_free",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_highworkram_realloc",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_realloc_larger",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_get_free_space",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get free space",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 88
+                }
+            },
+            {
+                "name": "memory_HWRam_test_get_used_space",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_get_size",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_get_report_hwram",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_highworkram_get_free_space",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get HighWorkRam free space",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 199
+                }
+            },
+            {
+                "name": "memory_HWRam_test_highworkram_get_used_space",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_highworkram_get_size",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_inrange_highworkram",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_malloc_zero",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_free_null",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_free_unallocated",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_allocation_failure",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Allocation of 1 error handling failed",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 376
+                }
+            },
+            {
+                "name": "memory_HWRam_test_memory_leaks",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_large_block",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_fragmentation",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_boundary_conditions",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_deplete_highworkram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "HighWorkRam Memory is already full",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 274
+                }
+            },
+            {
+                "name": "memory_HWRam_test_stress",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_alignment",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_mixed_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_memory_init",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_HWRam_test_multiple_sizes_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
+                    "file": "src/testsMemoryHWRam.hpp",
+                    "line": 530
+                }
+            },
+            {
+                "name": "memory_HWRam_test_multiple_array_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_malloc_free",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_multiple_sizes_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 530
+                }
+            },
+            {
+                "name": "memory_LWRam_test_multiple_array_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_new_array_lowworkram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation in LowWorkRam did not reduce free space (before 0 vs after 0)",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 241
+                }
+            },
+            {
+                "name": "memory_LWRam_test_lowworkram_malloc_free",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_lowworkram_realloc",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_realloc_larger",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_get_free_space",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get free space",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 88
+                }
+            },
+            {
+                "name": "memory_LWRam_test_get_used_space",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_get_size",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_get_report_lwram",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_lowworkram_get_free_space",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get LowWorkRam free space",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 199
+                }
+            },
+            {
+                "name": "memory_LWRam_test_lowworkram_get_used_space",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_lowworkram_get_size",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_inrange_lowworkram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "InRange failed for valid LowWorkRam address",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 307
+                }
+            },
+            {
+                "name": "memory_LWRam_test_malloc_zero",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_free_null",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_free_unallocated",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_allocation_failure",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Allocation of 1 error handling failed",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 376
+                }
+            },
+            {
+                "name": "memory_LWRam_test_memory_leaks",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_large_block",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_fragmentation",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_boundary_conditions",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_deplete_lowworkram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "LowWorkRam Memory is already full",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 274
+                }
+            },
+            {
+                "name": "memory_LWRam_test_stress",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_alignment",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_mixed_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_memory_init",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_LWRam_test_multiple_sizes_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory space didn't decrease after allocation (size : 1), before : 0 vs after : 0",
+                    "file": "src/testsMemoryLWRam.hpp",
+                    "line": 530
+                }
+            },
+            {
+                "name": "memory_LWRam_test_multiple_array_sizes",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 68
+                }
+            },
+            {
+                "name": "memory_CartRam_test_multiple_sizes_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation failed for size 1",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 518
+                }
+            },
+            {
+                "name": "memory_CartRam_test_multiple_array_sizes",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Array allocation failed for size 8",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 569
+                }
+            },
+            {
+                "name": "memory_CartRam_test_new_array_cartram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "new[] operator in CartRam failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 231
+                }
+            },
+            {
+                "name": "memory_CartRam_test_cartram_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "CartRam memory allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 160
+                }
+            },
+            {
+                "name": "memory_CartRam_test_cartram_realloc",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "CartRam memory allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 176
+                }
+            },
+            {
+                "name": "memory_CartRam_test_realloc_larger",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Initial allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 313
+                }
+            },
+            {
+                "name": "memory_CartRam_test_get_free_space",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get free space",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 84
+                }
+            },
+            {
+                "name": "memory_CartRam_test_get_used_space",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_get_size",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get memory zone size",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 108
+                }
+            },
+            {
+                "name": "memory_CartRam_test_get_report_cartram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get memory report for CartRam",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 148
+                }
+            },
+            {
+                "name": "memory_CartRam_test_cartram_get_free_space",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get CartRam free space",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 195
+                }
+            },
+            {
+                "name": "memory_CartRam_test_cartram_get_used_space",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_cartram_get_size",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Failed to get CartRam memory zone size",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 219
+                }
+            },
+            {
+                "name": "memory_CartRam_test_inrange_cartram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "InRange failed for valid CartRam address",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 301
+                }
+            },
+            {
+                "name": "memory_CartRam_test_malloc_zero",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation of zero bytes failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 120
+                }
+            },
+            {
+                "name": "memory_CartRam_test_free_null",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_free_unallocated",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_allocation_failure",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_memory_leaks",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 427
+                }
+            },
+            {
+                "name": "memory_CartRam_test_large_block",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Large block allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 330
+                }
+            },
+            {
+                "name": "memory_CartRam_test_fragmentation",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Fragmentation handling failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 349
+                }
+            },
+            {
+                "name": "memory_CartRam_test_boundary_conditions",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Boundary condition allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 413
+                }
+            },
+            {
+                "name": "memory_CartRam_test_deplete_cartram",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "CartRam Memory is already full",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 268
+                }
+            },
+            {
+                "name": "memory_CartRam_test_stress",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Stress test allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 398
+                }
+            },
+            {
+                "name": "memory_CartRam_test_alignment",
+                "classname": "memory",
+                "status": "passed"
+            },
+            {
+                "name": "memory_CartRam_test_mixed_sizes",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Mixed size allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 456
+                }
+            },
+            {
+                "name": "memory_CartRam_test_memory_init",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory initialization allocation failed",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 472
+                }
+            },
+            {
+                "name": "memory_CartRam_test_multiple_sizes_malloc_free",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Memory allocation failed for size 1",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 518
+                }
+            },
+            {
+                "name": "memory_CartRam_test_multiple_array_sizes",
+                "classname": "memory",
+                "status": "failed",
+                "failure": {
+                    "message": "Array allocation failed for size 8",
+                    "file": "src/testsMemoryCartRam.hpp",
+                    "line": 569
+                }
+            }
+        ]
+    }
 }
