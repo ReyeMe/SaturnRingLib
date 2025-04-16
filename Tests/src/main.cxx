@@ -4,8 +4,8 @@
 // https://github.com/siu/minunit
 #include "minunit.h"
 
-// #include "testsASCII.hpp"
-// #include "testsAngle.hpp"
+#include "testsASCII.hpp"
+#include "testsAngle.hpp"
 //#include "testsEulerAngles.hpp" // Include the header for Euler angles tests
 #include "testsCD.hpp"
 #include "testsCRAM.hpp"
