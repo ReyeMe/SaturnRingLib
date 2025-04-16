@@ -32,7 +32,14 @@ extern "C"
     {
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_EULER_ANGLES_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_EULER_ANGLES****");
+            }
+            else
+            {
+                LogInfo("****UT_EULER_ANGLES_ERROR(S)****");
+            }
         }
     }
 

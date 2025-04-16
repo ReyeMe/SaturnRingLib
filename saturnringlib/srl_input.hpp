@@ -198,6 +198,7 @@ namespace SRL::Input
         {
             // Copy current state to previous state
             slDMACopy(Management::Peripherals, Management::PeripheralsPreviousState, sizeof(Management::PeripheralsPreviousState));
+            slDMAWait();
 
             // Copy new state in
             uint8_t* destination = reinterpret_cast<uint8_t*>(Management::Peripherals);

@@ -104,10 +104,10 @@ extern "C"
 	minunit_status = 0;                                              \
 	test();                                                          \
 	++minunit_run;                                                   \
+	if (minunit_output_header)                                   	 \
+			(*minunit_output_header)();  							 \
 	if (minunit_status) {                                            \
-		++minunit_fail;                                              \
-		if (minunit_output_header)                                   \
-			(*minunit_output_header)();                              \
+		++minunit_fail;												 \
 		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
 	} else { 														 \
 		Log::LogPrint<LogLevels::TESTING>("Passed :%s", #test);		 \

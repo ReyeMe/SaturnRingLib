@@ -79,7 +79,8 @@ void VBlankCopy()
 {
     if (canvas != nullptr)
     {
-        slDMACopy(canvas->GetData(), SRL::VDP1::Metadata[canvasTextureId].GetData(), width * height * sizeof(uint16_t));
+        slDMACopy(canvas->GetData(), SRL::VDP1::Textures[canvasTextureId].GetData(), width * height * sizeof(uint16_t));
+        slDMAWait();
     }
 }
 

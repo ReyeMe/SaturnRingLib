@@ -1,7 +1,12 @@
-
 @goto(){
   # Linux code here
-  command="kronos -a -ns -i BuildDrop/UTs.cue"
+  if [ "$1" = "mednafen" ]; then
+    export SDL_VIDEODRIVER=dummy
+    command="mednafen -sound 0 -ss.cart debug -force_module ss BuildDrop/UTs.cue"
+  else
+    command="kronos -a -ns -i BuildDrop/UTs.cue"
+  fi
+
   log="uts.log"
   match="***UT_END***"
 

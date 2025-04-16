@@ -19,6 +19,20 @@ namespace SRL
         ~TV() = delete;
     public:
 
+        /** @brief Turn on TV display
+         */
+        static void TVOn()
+        {
+            slTVOn();
+        }
+
+        /** @brief Turn off TV display
+         */
+        static void TVOff()
+        {
+            slTVOff();
+        }
+
         /** @brief Available TV resolutions
          */
         enum class Resolutions

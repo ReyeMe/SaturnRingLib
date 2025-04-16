@@ -33,7 +33,14 @@ extern "C"
     {
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_FXP_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_FXP****");
+            }
+            else
+            {
+                LogInfo("****UT_FXP_ERROR(S)****");
+            }
         }
     }
 

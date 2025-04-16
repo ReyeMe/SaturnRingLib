@@ -126,6 +126,7 @@ namespace SRL
                         data,
                         this->GetData(),
                         colorCount * sizeof(Types::HighColor));
+                    slDMAWait();
 
                     return colorCount;
                 }

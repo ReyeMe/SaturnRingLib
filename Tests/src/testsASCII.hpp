@@ -23,7 +23,9 @@ extern "C"
     // UT teardown function, called after every tests
     void ascii_test_teardown(void)
     {
-        // Cleanup logic, if necessary
+        // Cleanup logic,
+        ASCII::Clear();
+        ASCII::SetPalette(0);
     }
 
     // UT output header function, called on the first test failure
@@ -31,7 +33,14 @@ extern "C"
     {
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_ASCII_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_ASCII****");
+            }
+            else
+            {
+                LogInfo("****UT_ASCII_ERROR(S)****");
+            }
         }
     }
 
@@ -39,9 +48,8 @@ extern "C"
     // Verifies that simple text can be printed at a specific screen coordinate
     MU_TEST(ascii_test_display_simple_text)
     {
-        ASCII display;
         const char *text = "Hello, World!";
-        bool success = display.Print(text, 0, 0); // Top-left corner
+        bool success = ASCII::Print(text, 0, 0); // Top-left corner
         snprintf(buffer, buffer_size, "Text display failed at (0, 0) for: %s", text);
         mu_assert(success, buffer);
     }
@@ -50,9 +58,8 @@ extern "C"
     // Ensures the ASCII display correctly handles attempts to print outside screen boundaries
     MU_TEST(ascii_test_display_out_of_bounds)
     {
-        ASCII display;
         const char *text = "Out of bounds!";
-        bool success = display.Print(text, 127, 89); // Assuming these are out-of-bounds
+        bool success = ASCII::Print(text, 127, 89); // Assuming these are out-of-bounds
         snprintf(buffer, buffer_size, "Out-of-bounds text display did not fail as expected");
         mu_assert(!success, buffer);
     }
@@ -61,9 +68,8 @@ extern "C"
     // Verifies that the ASCII display can successfully set a color palette
     MU_TEST(ascii_test_apply_color_palette)
     {
-        ASCII display;
         int paletteId = 2;
-        bool success = display.SetPalette(paletteId);
+        bool success = ASCII::SetPalette(paletteId);
         snprintf(buffer, buffer_size, "Color palette application failed for palette ID: %d", paletteId);
         mu_assert(success, buffer);
     }
@@ -72,9 +78,8 @@ extern "C"
     // Verifies that a font can be loaded into the ASCII display
     // MU_TEST(ascii_test_load_font)
     // {
-    //     ASCII display;
     //     SRL::Bitmap::IBitmap* bmp = /* Initialize your bitmap here */;
-    //     display.LoadFont(bmp, 0);
+    //     ASCII::LoadFont(bmp, 0);
     //     // Add assertions to verify the font was loaded correctly
     //     // For example, you can check specific memory locations or other indicators
     //     mu_assert(/* condition */, "Font loading failed");
@@ -84,9 +89,8 @@ extern "C"
     // Verifies that a font can be loaded into the ASCII display using LoadFontSG
     // MU_TEST(ascii_test_load_font_sg)
     // {
-    //     ASCII display;
     //     uint8_t source[0x1800] = {0}; // Initialize with appropriate data
-    //     display.LoadFontSG(source, 0);
+    //     ASCII::LoadFontSG(source, 0);
     //     // Add assertions to verify the font was loaded correctly
     //     // For example, you can check specific memory locations or other indicators
     //     mu_assert(/* condition */, "Font loading failed");

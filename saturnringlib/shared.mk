@@ -264,10 +264,18 @@ add_audio_to_bin_cue: $(AUDIO_FILES_RAW)
 		frames=$$((sectors % 75)); \
 		echo '  TRACK' $$(printf "%02d" $$track) 'AUDIO' >> $(BUILD_CUE); \
 		echo '    INDEX 01' $$(printf "%02d:%02d:%02d" $$minutes $$seconds $$frames) >> $(BUILD_CUE); \
-		cat "$$i" >> $(BUILD_BIN); \
-		track=$$((track + 1)); \
 		size=$$(stat -c%s "$$i"); \
-		total_size=$$((total_size + size)); \
+		padding=$$((2352 - (size % 2352))); \
+		if [ $$padding -ne 2352 ]; then \
+			dd if=/dev/zero bs=1 count=$$padding of=padding.raw status=none; \
+			cat "$$i" padding.raw >> $(BUILD_BIN); \
+			rm -f padding.raw; \
+			total_size=$$((total_size + size + padding)); \
+		else \
+			cat "$$i" >> $(BUILD_BIN); \
+			total_size=$$((total_size + size)); \
+		fi; \
+		track=$$((track + 1)); \
 	done
 	rm -f $(AUDIO_FILES_RAW)
 

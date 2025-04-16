@@ -55,7 +55,14 @@ extern "C"
         // Print error header only on the first test failure
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_bitmap_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_BITMAP****");
+            }
+            else
+            {
+                LogInfo("****UT_BITMAP_ERROR(S)****");
+            }
         }
     }
 

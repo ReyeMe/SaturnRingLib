@@ -351,6 +351,7 @@ namespace SRL
 
                         // Copy data to the new location
                         slDMACopy(ptr, newSpace, ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[headerLocation])->Size);
+                        slDMAWait();
 
                         // Return address to new thing
                         return newSpace;

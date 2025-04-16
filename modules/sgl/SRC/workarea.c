@@ -1,6 +1,5 @@
+#pragma GCC optimize("O0")
 #include "sl_def.h"
-
-
 
 #define _Byte_ sizeof(uint8_t)
 #define _LongWord_ sizeof(uint32_t)
@@ -50,3 +49,4 @@ const uint16_t WorkSize = sizeof(WORK);
 const uint16_t MaxWorks = SGL_MAX_WORKS;
 WORK WorkBuf[SGL_MAX_WORKS];
 WORK* RemainWork[SGL_MAX_WORKS];
+#pragma GCC reset_options

@@ -34,7 +34,14 @@ extern "C"
     {
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_ANGLE_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_ANGLE****");
+            }
+            else
+            {
+                LogInfo("****UT_ANGLE_ERROR(S)****");
+            }
         }
     }
 

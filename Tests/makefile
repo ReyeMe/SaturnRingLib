@@ -6,7 +6,7 @@ SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
 SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
 SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
 SRL_MAX_CD_RETRIES = 3          # Number of times to retry on unsuccessful read
-SRL_LOG_LEVEL = INFO          	# Maximum log level to display
+SRL_LOG_LEVEL = TESTING          	# Maximum log level to display
 
 # Increase Log output buffer to avoid overflow
 SRL_DEBUG_MAX_LOG_LENGTH = 255

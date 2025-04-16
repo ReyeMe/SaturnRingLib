@@ -1,9 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include "srl_log.hpp"
-
-#include <limits> // for std::numeric_limits
+#include "srl_debug.hpp"
 
 namespace SRL
 {
@@ -22,7 +20,7 @@ namespace SRL
 
         /** @brief Gfs work area
          */
-        inline static char GfsWork[GFS_WORK_SIZE(SRL_MAX_CD_BACKGROUND_JOBS)];
+        inline static uint32_t GfsWork[GFS_WORK_SIZE(SRL_MAX_CD_BACKGROUND_JOBS) / sizeof(uint32_t)];
 
         /** @brief initialization status
          */
@@ -49,7 +47,7 @@ namespace SRL
              */
             Relative = GFS_SEEK_CUR,
 
-            /** @brief Seek from the end
+            /** @brief Seek to the end
              */
             EndOfFile = GFS_SEEK_END
         };
@@ -206,34 +204,35 @@ namespace SRL
         struct File
         {
         private:
+            /** @brief Maximal number of sectors to be read in a single pass
+             */
+            inline static const uint16_t SectorsToReadAtOnce = 5;
+
             /** @brief File identifier
              */
             int32_t identifier;
-
-            /** @brief File read buffer
-             */
-            uint8_t *readBuffer;
-
-            /** @brief Number of bytes already read from the sector
-             */
-            int32_t readSectorBytes;
 
             /** @brief Number of bytes read in total
              */
             int32_t readBytes;
 
-            /** @brief Copy specified number of bytes from source buffer to target buffer
-             * @param target Target buffer
-             * @param source Source buffer
-             * @param count Number of bytes to copy
-             * @param targetOffset Offset in bytes in target buffer
+            /** @brief File read buffer
              */
-            static void CopyBuffers(uint8_t *target, uint8_t *source, size_t count, size_t targetOffset)
+            uint8_t *workBuffer;
+
+            /** @brief Get the byte offset inside current work buffer
+             * @param absolute Absolute position
+             * @param workBufferSize Size of a work buffer
+             * @return size_t Position within work buffer
+             */
+            int32_t GetOffsetInWorkBuffer(int32_t absolute, int32_t workBufferSize)
             {
-                for (size_t byte = 0; byte < count; byte++)
+                if (absolute >= workBufferSize)
                 {
-                    *(target + byte + targetOffset) = source[byte];
+                    return absolute % workBufferSize;
                 }
+
+                return absolute;
             }
 
         public:
@@ -265,8 +264,7 @@ namespace SRL
             File(GfsHn handle, int32_t fid, bool getSize = true) : Handle(handle),
                                                                    Size(getSize ? FileSize(handle) : FileSize()),
                                                                    identifier(fid),
-                                                                   readBuffer(nullptr),
-                                                                   readSectorBytes(0),
+                                                                   workBuffer(nullptr),
                                                                    readBytes(0)
             {
                 #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
@@ -280,8 +278,7 @@ namespace SRL
             File(const char *name) : Handle(nullptr),
                                      Size(0),
                                      identifier(-1),
-                                     readBuffer(nullptr),
-                                     readSectorBytes(0),
+                                     workBuffer(nullptr),
                                      readBytes(0)
             {
                 #if defined(SRL_MAX_CD_FILES) && (SRL_MAX_CD_FILES < 1)
@@ -334,10 +331,10 @@ namespace SRL
                     this->Handle = nullptr;
                 }
 
-                if (this->readBuffer != nullptr)
+                if (this->workBuffer != nullptr)
                 {
-                    delete this->readBuffer;
-                    this->readBuffer = nullptr;
+                    delete this->workBuffer;
+                    this->workBuffer = nullptr;
                 }
             }
 
@@ -346,12 +343,21 @@ namespace SRL
              */
             bool Open()
             {
-                if (this->identifier >= 0)
+                if (this->IsOpen())
+                {
+                    return true;
+                }
+                else if (this->identifier >= 0)
                 {
                     this->readBytes = 0;
-                    this->readSectorBytes = 0;
                     this->Handle = GFS_Open(this->identifier);
-                    return true;
+
+                    if (this->Handle != nullptr)
+                    {
+                        GFS_NwCdRead(this->Handle, this->Size.Sectors);
+                        GFS_SetTransPara(this->Handle, 10);
+                        return true;
+                    }
                 }
 
                 return false;
@@ -363,6 +369,14 @@ namespace SRL
             constexpr bool Exists() const
             {
                 return this->identifier >= 0;
+            }
+
+            /** @brief Gets the current position in the file
+             * @return Position in the file as bytes
+             */
+            constexpr size_t GetCurrentPosition()
+            {
+                return this->readBytes;
             }
 
             /** @brief File is open
@@ -435,69 +449,73 @@ namespace SRL
              */
             int32_t Read(int32_t size, void *destination)
             {
+                int32_t workBufferSize = this->Size.SectorSize * File::SectorsToReadAtOnce;
+
                 if (this->IsOpen() && size > 0 && this->Size.Bytes > 0)
                 {
-                    int32_t chunkBytes = 0;
-                    bool firstRead = this->readBuffer == nullptr;
+                    int32_t currentlyRead = 0;
 
-                    if (firstRead)
+                    // We have not read any data yet
+                    if (this->workBuffer == nullptr)
                     {
-                        this->readBuffer = new uint8_t[this->Size.SectorSize + 1];
+                        this->workBuffer = autonew uint8_t[workBufferSize];
+
+                        // Refresh data for new sector
+                        int32_t error = GFS_Fread(this->Handle, File::SectorsToReadAtOnce, this->workBuffer, workBufferSize);
+
+                        if (error < 0)
+                        {
+                            delete[] this->workBuffer;
+                            this->workBuffer = nullptr;
+                            return -1;
+                        }
                     }
 
-                    while (chunkBytes < size && this->readBytes < this->Size.Bytes)
+                    // Read data sector by sector
+                    while (currentlyRead < size && this->readBytes < this->Size.Bytes)
                     {
-                        int32_t read;
+                        // Current location within the sector
+                        const int32_t sectorStartOffset = this->GetOffsetInWorkBuffer(this->readBytes, workBufferSize);
 
-                        // We have first read or reached end of a sector
-                        if (firstRead || this->readSectorBytes == this->Size.SectorSize)
+                        int32_t toRead = size - currentlyRead;
+
+                        // We can't read more than one sector at a time
+                        if (toRead >= workBufferSize - sectorStartOffset)
                         {
-                            this->readSectorBytes = 0;
-                            read = GFS_Fread(this->Handle, 1, this->readBuffer, this->Size.SectorSize);
-                            firstRead = false;
+                            // We have read whole sector
+                            toRead = workBufferSize - sectorStartOffset;
+
+                            // Copy to target buffer
+                            for (int32_t byte = 0; byte < toRead; byte++)
+                            {
+                                reinterpret_cast<uint8_t*>(destination)[currentlyRead + byte] = this->workBuffer[byte + sectorStartOffset];
+                            }
+
+                            // Refresh data for new sector
+                            int32_t error = GFS_Fread(this->Handle, File::SectorsToReadAtOnce, this->workBuffer, workBufferSize);
+
+                            if (error < 0)
+                            {
+                                delete[] this->workBuffer;
+                                this->workBuffer = nullptr;
+                                return -1;
+                            }
                         }
                         else
                         {
-                            read = this->Size.SectorSize - this->readSectorBytes;
-                        }
-
-                        // We got an error
-                        if (read < 0)
-                        {
-                            if (IsEOF())
+                            // We have not reached sector bounds, we can just copy bytes over
+                            for (int32_t byte = 0; byte < toRead; byte++)
                             {
-                                return ErrorCode::ErrorEOF;
-                            }
-                            else
-                            {
-                                return read;
+                                reinterpret_cast<uint8_t*>(destination)[currentlyRead + byte] = this->workBuffer[byte + sectorStartOffset];
                             }
                         }
-
-                        // Clamp to target end of file
-                        int32_t remaining = this->Size.Bytes - this->readBytes;
-
-                        if (read > remaining)
-                        {
-                            read = remaining;
-                        }
-
-                        // Clamp to target buffer size
-                        if (read > size)
-                        {
-                            read = size;
-                        }
-
-                        // Copy to target buffer
-                        File::CopyBuffers((uint8_t *)destination, this->readBuffer + this->readSectorBytes, read, chunkBytes);
 
                         // Set state
-                        this->readSectorBytes += read;
-                        this->readBytes += read;
-                        chunkBytes += read;
+                        this->readBytes += toRead;
+                        currentlyRead += toRead;
                     }
 
-                    return chunkBytes;
+                    return currentlyRead;
                 }
 
                 return ErrorCode::ErrorEOF;
@@ -510,40 +528,18 @@ namespace SRL
             int32_t Seek(int32_t offset, SeekMode mode = Cd::SeekMode::Absolute)
             {
                 int32_t result = -1;
+                int32_t workBufferSize = this->Size.SectorSize * File::SectorsToReadAtOnce;
 
-                if (this->IsOpen())
+                if (this->IsOpen() && offset >= 0 && offset < this->Size.Bytes)
                 {
-                    if (mode == Cd::SeekMode::EndOfFile)
+                    // Initialize read buffer if does not exist yet
+                    if (this->workBuffer == nullptr)
                     {
-                        offset = this->Size.Bytes - offset;
-                        // Reset file poiter
-
-                        int32_t seekresult = GFS_Seek(this->Handle, 0, GFS_SEEK_SET);
-                        if (seekresult < 0)
-                        {
-                            return result;
-                        }
+                        this->workBuffer = autonew uint8_t[workBufferSize];
                     }
-
-                    if (offset >= 0 && offset < this->Size.Bytes)
-                    {
-                        // Get sector count for offset
-                        bool firstRead = (this->readBuffer == nullptr);
-
-                        // Initialize read buffer
-                        if (firstRead)
-                        {
-                            this->readBuffer = new uint8_t[this->Size.SectorSize + 1];
-                        }
-                        else if ((this->readBytes - this->readSectorBytes) < offset &&
-                                 ((this->readBytes - this->readSectorBytes) + this->Size.SectorSize) > offset)
-                        {
-                            this->readSectorBytes = offset - (this->readBytes - this->readSectorBytes);
-                            this->readBytes = offset;
-                            return this->readBytes;
-                        }
-
-                        int32_t sector = this->GetSectorCount(offset);
+                    
+                    this->readBytes = offset;
+                    int32_t sector = this->GetSectorCount(offset);
 
                         if (sector >= 0)
                         {
@@ -553,38 +549,15 @@ namespace SRL
                             // Seek to predefined location
                             result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
 
-                            // Refresh buffer
-                            if (result >= 0 &&
-                                GFS_Fread(this->Handle, 1, this->readBuffer, this->Size.SectorSize) >= 0)
-                            {
-                                this->readBytes = offset;
-                                this->readSectorBytes = offset % this->Size.SectorSize;
-                                return offset;
-                            }
-                            else
-                            {
-                                // SRL::Logger::LogFatal("%s(l%d) : GFS_Seek returns %d (Sector : %d vs offset : %d)", __FUNCTION__, __LINE__, result, sector, offset);
-                            }
+                        // Refresh buffer
+                        if (result >= 0 && GFS_Fread(this->Handle, File::SectorsToReadAtOnce, this->workBuffer, workBufferSize) >= 0)
+                        {
+                            return offset;
                         }
                         else
                         {
-                            // SRL::Logger::LogFatal("%s(l%d) : Invalid sector number (%d)", __FUNCTION__, __LINE__, sector);
+                            return -1;
                         }
-                    }
-                    else
-                    {
-                        // if (!this->IsOpen())
-                        // {
-                        //     SRL::Logger::LogFatal("%s(l%d) : File is not open", __FUNCTION__, __LINE__);
-                        // }
-                        // else if (offset < 0 || offset >= this->Size.Bytes)
-                        // {
-                        //     SRL::Logger::LogFatal("%s(l%d) : Offset is out of bounds (%d vs %d)", __FUNCTION__, __LINE__, offset, this->Size.Bytes);
-                        // }
-                        // else
-                        // {
-                        //     SRL::Logger::LogFatal("%s(l%d) : Cannot seek (%d)", __FUNCTION__, __LINE__, offset);
-                        // }
                     }
                 }
 
@@ -640,21 +613,14 @@ namespace SRL
          */
         inline static bool Initialize()
         {
-            if (!isInitialized)
+            if (!Cd::isInitialized)
             {
-                GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
-                GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
-                GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
-                isInitialized = (GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &GfsDirectories) <= 2);
+                GFS_DIRTBL_TYPE(&Cd::GfsDirectories) = GFS_DIR_NAME;
+                GFS_DIRTBL_DIRNAME(&Cd::GfsDirectories) = Cd::GfsDirectoryNames;
+                GFS_DIRTBL_NDIR(&Cd::GfsDirectories) = SRL_MAX_CD_FILES;
+                Cd::isInitialized = (GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &Cd::GfsDirectories) <= 2);
             }
-            return isInitialized;
-        }
-
-        /** @brief Change current directory to root
-         */
-        inline static void ChangeDirToRoot()
-        {
-            ChangeDir(static_cast<char *>(nullptr));
+            return Cd::isInitialized;
         }
 
         /** @brief Change current directory

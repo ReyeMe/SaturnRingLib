@@ -332,37 +332,8 @@ namespace SRL::Sound
             Pcm16Bit = _PCM16Bit
         };
 
-        /** @brief Malloc types to use for loading PCM
-         */
-        enum PcmMalloc : uint16_t
-        {
-            /** @brief Will use the same malloc as what was used for object creation
-             */
-            Default = 0,
-
-            /** @brief High Work RAM malloc, (main system RAM)
-             */
-            HwRam = 1,
-
-            /** @brief Low work RAM malloc
-             */
-            LwRam = 2,
-
-            /** @brief Cart RAM malloc
-             */
-            CartRam = 3
-        };
-
     private:
-        
-        /** @brief This malloc will be used to allocate memory for parsing a file
-         */
-        static inline Pcm::PcmMalloc WorkMalloc = Pcm::PcmMalloc::Default;
 
-        /** @brief This malloc will be used to allocated memory for a parsed file
-         */
-        static inline Pcm::PcmMalloc DataMalloc = Pcm::PcmMalloc::Default;
-        
         /** @brief Logarithmic table
          */
         static inline const int8_t LogTable[] = {
@@ -447,16 +418,6 @@ namespace SRL::Sound
 
     public:
 
-        /** @brief Set the Mem Allocation Behaviour for loading PCM files
-         * @param work This malloc will be used to allocate memory for parsing a file
-         * @param data This malloc will be used to allocate memory for a parsed file
-         */
-        static inline void SetMemAllocationBehaviour(const Pcm::PcmMalloc work, const Pcm::PcmMalloc data)
-        {
-            Pcm::WorkMalloc = work;
-            Pcm::DataMalloc = data;
-        }
-
         /** @brief Base PCM file interface
          */
         class IPcmFile
@@ -490,49 +451,6 @@ namespace SRL::Sound
             /** @brief Free PCM sound data
              */
             ~IPcmFile() { }
-
-            /** @brief Use specified malloc to allocate memory block
-             * @param malloc Malloc to use
-             * @param size Size in bytes to allocate
-             * @return Pointer to allocated block
-             */
-            void* AllocateWithBehaviour(const Pcm::PcmMalloc malloc, size_t size)
-            {
-                // User set malloc
-                switch (malloc)
-                {
-                case Pcm::PcmMalloc::HwRam:
-                    return SRL::Memory::HighWorkRam::Malloc(size);
-                
-                case Pcm::PcmMalloc::LwRam:
-                    return SRL::Memory::LowWorkRam::Malloc(size);
-
-                case Pcm::PcmMalloc::CartRam:
-                    return SRL::Memory::CartRam::Malloc(size);
-
-                default:
-                    break;
-                }
-
-                // Figure out what malloc we have to use
-                uint32_t address = reinterpret_cast<uint32_t>(this);
-
-                if (address >= 0x06000000 && address <= 0x07FFFFFF)
-                {
-                    return SRL::Memory::HighWorkRam::Malloc(size);
-                }
-                else if (address >= 0x00200000 && address <= 0x002FFFFF)
-                {
-                    return SRL::Memory::LowWorkRam::Malloc(size);
-                }
-                else if (SRL::Memory::CartRam::InRange(this))
-                {
-                    return SRL::Memory::CartRam::Malloc(size);
-                }
-
-                SRL::Debug::Assert("Could not find correct allocator for memory at 0x%x!", reinterpret_cast<uint32_t>(this));
-                return nullptr;
-            }
 
         public:
 
@@ -604,7 +522,7 @@ namespace SRL::Sound
                 // slPCMOn won't play samples shorter than 0x900
                 size_t clampedLength = SRL::Math::Max<uint32_t>(file->Size.Bytes, 0x900);
                 
-                this->data = (int8_t*)this->AllocateWithBehaviour(Pcm::DataMalloc, clampedLength);
+                this->data = autonew int8_t[clampedLength];
                 this->dataSize = clampedLength;
                 this->mode = (uint8_t)channels;
                 this->depth = (uint8_t)depth;
@@ -669,7 +587,6 @@ namespace SRL::Sound
             {
                 uint8_t Id[4];
                 uint32_t Size;
-                uint8_t Type[4];
             };
 
             /** @brief File data types
@@ -727,10 +644,6 @@ namespace SRL::Sound
                 /** @brief Bits per sample
                  */
                 uint16_t BitPerSample;
-
-                /** @brief Data chunks
-                 */
-                ListChunkHeader Info;
             };
             
             /** @brief Load PCM data
@@ -739,11 +652,11 @@ namespace SRL::Sound
              * @param is8bit Is audio 8 bits per sample?
              * @param stereo Is audio interleaved left and right channel?
              */
-            void LoadPcmData(uint8_t* waveData, uint32_t size, bool is8bit, bool stereo)
+            void LoadPcmData(Cd::File* file, uint32_t size, bool is8bit, bool stereo)
             {
                 // slPCMOn won't play samples shorter than 0x900
                 size_t clampedLength = SRL::Math::Max<uint32_t>(size, 0x900);
-                this->data = (int8_t*)this->AllocateWithBehaviour(Pcm::DataMalloc, clampedLength);
+                this->data = autonew int8_t[clampedLength];
                 this->dataSize = clampedLength;
 
                 if (this->data == nullptr)
@@ -758,17 +671,21 @@ namespace SRL::Sound
                     {
                         for (uint32_t sample = 0; sample < this->dataSize >> 1; sample++)
                         {
-                            int8_t left = ((uint8_t)*(waveData++)) - 128;
-                            int8_t right = ((uint8_t)*(waveData++)) - 128;
-                            this->data[sample] = left;
-                            this->data[this->dataSize + sample] = 0;
+                            int8_t left;
+                            int8_t right;
+                            WaveSound::GetAndIterate(file, &left);
+                            WaveSound::GetAndIterate(file, &right);
+
+                            this->data[sample] = left - 128;
+                            this->data[this->dataSize + sample] = right - 128;
                         }
                     }
                     else
                     {
                         for (uint32_t sample = 0; sample < size; sample++)
                         {
-                            this->data[sample] = ((uint8_t)*(waveData++)) - 128;
+                            WaveSound::GetAndIterate(file, &this->data[sample]);
+                            this->data[sample] -= 128;
                         }
                     }
                 }
@@ -780,22 +697,23 @@ namespace SRL::Sound
                         
                         for (size_t sample = 0; sample < half; sample++)
                         {
-                            uint8_t* samples = (uint8_t*)(waveData);
+                            uint8_t samples[4];
+                            WaveSound::GetAndIterate(file, samples, 4);
 
                             int16_t left = (int16_t)(samples[0] | samples[1] << 8);
                             int16_t right = (int16_t)(samples[2] | samples[3] << 8);
 
                             ((int16_t*)this->data)[sample] = right;
                             ((int16_t*)this->data)[half + sample] = left;
-
-                            waveData = waveData + 4;
                         }
                     }
                     else
                     {
                         for (size_t sample = 0; sample < size >> 1; sample++)
                         {
-                            ((int16_t*)this->data)[sample] = (((uint8_t)*(waveData++)) | ((uint8_t)*(waveData++) << 8));
+                            uint8_t samples[2];
+                            WaveSound::GetAndIterate(file, samples, 2);
+                            ((int16_t*)this->data)[sample] = (samples[0] | samples[1]);
                         }
                     }
                 }
@@ -807,77 +725,98 @@ namespace SRL::Sound
                 }
             }
 
+            /** @brief Get data from file
+             * @tparam T Data type
+             * @param file File to read from
+             * @param data Read data
+             * @param count Count of said type to read
+             * @return true On success
+             */
+            template<typename T>
+            bool static GetAndIterate(SRL::Cd::File* file, T* data, size_t count = 1)
+            {
+                const int32_t bytes = sizeof(T) * count;
+                return data != nullptr && file->Read(bytes, data) == bytes;
+            }
         public:
 
             /** @brief Initializes a new wave sound
-             * @param file Sound file
+             * @param waveFile Sound file
              */
-            WaveSound(Cd::File* file)
+            WaveSound(const char* waveFile)
             {
-                if (file == nullptr)
+                Cd::File file(waveFile);
+
+                if (!file.Open())
                 {
-                    Debug::Assert("FIle cannot be NULL!");
+                    Debug::Assert("File could not open a file '%s'!", waveFile);
                     return;
                 }
 
-                uint8_t* waveData = (uint8_t*)this->AllocateWithBehaviour(Pcm::WorkMalloc, file->Size.Bytes);
-                int32_t loaded = file->LoadBytes(0, file->Size.Bytes, waveData);
-                WaveHeader* header = (WaveHeader*)waveData;
+                WaveHeader header;
 
-                if (loaded != file->Size.Bytes)
+                if (!WaveSound::GetAndIterate(&file, &header))
                 {
-                    Debug::Assert("Reached end of a file! Got %dbytes instead of %dbytes", loaded, file->Size.Bytes);
-                    delete waveData;
+                    Debug::Assert("Not a valid wave file!");
+                    file.Close();
                     return;
                 }
 
                 // Fix endianess
-                header->Type = WaveSound::SwapEndianess16(header->Type);
-                header->Channels = WaveSound::SwapEndianess16(header->Channels);
-                header->BitPerSample = WaveSound::SwapEndianess16(header->BitPerSample);
-                header->SampleRate = WaveSound::SwapEndianess32(header->SampleRate);
+                header.Type = WaveSound::SwapEndianess16(header.Type);
+                header.Channels = WaveSound::SwapEndianess16(header.Channels);
+                header.BitPerSample = WaveSound::SwapEndianess16(header.BitPerSample);
+                header.SampleRate = WaveSound::SwapEndianess32(header.SampleRate);
 
                 // Validate format
-                if (header->Riff[0] != 'R' || header->Riff[1] != 'I' || header->Riff[2] != 'F' || header->Riff[3] != 'F' ||
-                    header->Wave[0] != 'W' || header->Wave[1] != 'A' || header->Wave[2] != 'V' || header->Wave[3] != 'E')
+                if (header.Riff[0] != 'R' || header.Riff[1] != 'I' || header.Riff[2] != 'F' || header.Riff[3] != 'F' ||
+                    header.Wave[0] != 'W' || header.Wave[1] != 'A' || header.Wave[2] != 'V' || header.Wave[3] != 'E')
                 {
                     Debug::Assert("Not a valid wave file!");
-                    delete waveData;
+                    file.Close();
                     return;
                 }
-                else if (header->Type != 1 || 
-                    header->Channels > 2 || header->Channels < 1 ||
-                    (header->BitPerSample != 8 && header->BitPerSample != 16))
+                else if (header.Type != 1 || 
+                    header.Channels > 2 || header.Channels < 1 ||
+                    (header.BitPerSample != 8 && header.BitPerSample != 16))
                 {
                     Debug::Assert("Not supported format!");
-                    delete waveData;
+                    file.Close();
                     return;
                 }
 
-                if (header != nullptr)
-                {
-                    this->sampleRate = header->SampleRate;
-                    this->mode = header->Channels == 1 ? _Mono : _Stereo;
-                    this->depth = header->BitPerSample == 8 ? _PCM8Bit : _PCM16Bit;
-                }
+                this->sampleRate = header.SampleRate;
+                this->mode = header.Channels == 1 ? _Mono : _Stereo;
+                this->depth = header.BitPerSample == 8 ? _PCM8Bit : _PCM16Bit;
 
                 // Skip info chunks
-                uint8_t* dataChunk = (uint8_t*)((uint8_t*)&header->Info);
+                ListChunkHeader chunk;
 
-                if (dataChunk[0] != 'd' || dataChunk[1] != 'a' || dataChunk[2] != 't' || dataChunk[3] != 'a')
+                while (true)
                 {
-                    header->Info.Size = WaveSound::SwapEndianess32(header->Info.Size);
-                    dataChunk = (uint8_t*)(((uint8_t*)&header->Info) + header->Info.Size + 8);
+                    GetAndIterate(&file, &chunk);
+
+                    if (chunk.Id[0] != 'd' || chunk.Id[1] != 'a' || chunk.Id[2] != 't' || chunk.Id[3] != 'a')
+                    {
+                        uint32_t size = WaveSound::SwapEndianess32(chunk.Size);
+                        uint8_t* throwaway = autonew uint8_t[size];
+                        GetAndIterate(&file, throwaway, size);
+                        delete throwaway;
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
-                
-                if (dataChunk[0] == 'd' && dataChunk[1] == 'a' && dataChunk[2] == 't' && dataChunk[3] == 'a')
+                                
+                if (chunk.Id[0] == 'd' && chunk.Id[1] == 'a' && chunk.Id[2] == 't' && chunk.Id[3] == 'a')
                 {
-                    uint32_t size = dataChunk[4] | (dataChunk[5] << 8) | (dataChunk[6] << 16) | (dataChunk[7] << 24);
+                    uint32_t size = WaveSound::SwapEndianess32(chunk.Size);
                     
-                    switch ((WaveTypes)header->Type)
+                    switch ((WaveTypes)header.Type)
                     {
                     case 1:
-                        this->LoadPcmData(dataChunk + 8, size, header->BitPerSample == 8, header->Channels != 1);
+                        this->LoadPcmData(&file, size, header.BitPerSample == 8, header.Channels != 1);
                         break;
                     
                     default:
@@ -890,7 +829,7 @@ namespace SRL::Sound
                     Debug::Assert("Data not found!");
                 }
                 
-                delete waveData;
+                file.Close();
             }
 
             /** @brief Destroy loaded sound
