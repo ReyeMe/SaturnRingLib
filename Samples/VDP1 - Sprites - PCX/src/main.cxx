@@ -39,6 +39,7 @@ int main()
       // Simple sprite
       SRL::Scene2D::DrawSprite(textureIndex, points);
 
+      SRL::Debug::Print(1, 2, "VDP1 Sprite PCX Loaded !");
 
         // Refresh screen
         SRL::Core::Synchronize();
