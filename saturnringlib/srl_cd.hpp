@@ -488,7 +488,7 @@ namespace SRL
                             // Copy to target buffer
                             for (int32_t byte = 0; byte < toRead; byte++)
                             {
-                                reinterpret_cast<uint8_t*>(destination)[currentlyRead + byte] = this->workBuffer[byte + sectorStartOffset];
+                                reinterpret_cast<uint8_t *>(destination)[currentlyRead + byte] = this->workBuffer[byte + sectorStartOffset];
                             }
 
                             // Refresh data for new sector
@@ -506,7 +506,7 @@ namespace SRL
                             // We have not reached sector bounds, we can just copy bytes over
                             for (int32_t byte = 0; byte < toRead; byte++)
                             {
-                                reinterpret_cast<uint8_t*>(destination)[currentlyRead + byte] = this->workBuffer[byte + sectorStartOffset];
+                                reinterpret_cast<uint8_t *>(destination)[currentlyRead + byte] = this->workBuffer[byte + sectorStartOffset];
                             }
                         }
 
@@ -537,17 +537,17 @@ namespace SRL
                     {
                         this->workBuffer = autonew uint8_t[workBufferSize];
                     }
-                    
+
                     this->readBytes = offset;
                     int32_t sector = this->GetSectorCount(offset);
 
-                        if (sector >= 0)
-                        {
+                    if (sector >= 0)
+                    {
 
-                            // SRL::Logger::LogInfo("%s(l%d) : Sector %d", __FUNCTION__, __LINE__, sector);
-                        
-                            // Seek to predefined location
-                            result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
+                        // SRL::Logger::LogInfo("%s(l%d) : Sector %d", __FUNCTION__, __LINE__, sector);
+
+                        // Seek to predefined location
+                        result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
 
                         // Refresh buffer
                         if (result >= 0 && GFS_Fread(this->Handle, File::SectorsToReadAtOnce, this->workBuffer, workBufferSize) >= 0)
