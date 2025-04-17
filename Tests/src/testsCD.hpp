@@ -350,8 +350,8 @@ extern "C"
 
         char byte;
         int32_t bytesRead = file.Read(1, &byte);
-        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != %d", byte, offset-1);
-        mu_assert(byte == offset-1, buffer);
+        snprintf(buffer, buffer_size, "Read 1 byte failed: %d != %d", byte, offset);
+        mu_assert(byte == offset, buffer);
     }
 
     // Test seeking relative to the current position
