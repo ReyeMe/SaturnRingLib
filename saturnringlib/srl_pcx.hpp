@@ -253,7 +253,9 @@ namespace SRL::Bitmap
                      this->hdr.nplanes == 1)
             {
                 /* first seek to the end of the file -769 -1 (checkbyte) */
-                int32_t position =  file->Seek(PaletteSize * 3 + 1, Cd::SeekMode::EndOfFile);
+                int32_t palette_position = file->Size.Bytes - PaletteSize * 3 - 2; 
+
+                int32_t position =  file->Seek(palette_position);
 
                 if (position < 0)
                 {
@@ -271,7 +273,7 @@ namespace SRL::Bitmap
                 }
 
                 uint8_t *data = stream;
-                checkbyte = SRL::ENDIAN::DeserializeUint8(data++);
+                checkbyte = SRL::Endian::DeserializeUint8(data++);
 
                 if (checkbyte != 0x0c) /* magic value */
                 {
@@ -285,9 +287,9 @@ namespace SRL::Bitmap
                     for (c = 0; c < 256; c++)
                     {
                         this->palette->Colors[c].Opaque = 1;
-                        this->palette->Colors[c].Red = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
-                        this->palette->Colors[c].Green = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
-                        this->palette->Colors[c].Blue = SRL::ENDIAN::DeserializeUint8(data + c + PaletteBeginOffset);
+                        this->palette->Colors[c].Red = SRL::Endian::DeserializeUint8(data + c + PaletteBeginOffset);
+                        this->palette->Colors[c].Green = SRL::Endian::DeserializeUint8(data + c + PaletteBeginOffset);
+                        this->palette->Colors[c].Blue = SRL::Endian::DeserializeUint8(data + c + PaletteBeginOffset);
                     }
 
                     /* now copy over the first 16 colors into the header */
@@ -330,7 +332,7 @@ namespace SRL::Bitmap
 
             SRL::Logger::LogDebug("%s(l%d) : bufrSize = %d", __FUNCTION__, __LINE__, this->bufrSize);
 
-            file->Seek(HeaderSize);
+            file->Seek(HeaderSize-1);
 
             //   uint8_t* stream = new uint8_t[file->Size.Bytes - - HeaderSize + 1];
 
@@ -523,16 +525,16 @@ namespace SRL::Bitmap
         //                     // switch (this->hdr.bitsPerPixel)
         //                     // {
         //                     // case BitsPerPixel::BitsPerPixel2:
-        //                     //     color = SRL::Types::HighColor::FromARGB15(SRL::ENDIAN::DeserializeUint16(pixelData));
+        //                     //     color = SRL::Types::HighColor::FromARGB15(SRL::Endian::DeserializeUint16(pixelData));
         //                     //     break;
         //
         //                     // case BitsPerPixel3:
-        //                     //     color = SRL::Types::HighColor::FromRGB24(SRL::ENDIAN::DeserializeUint24(pixelData));
+        //                     //     color = SRL::Types::HighColor::FromRGB24(SRL::Endian::DeserializeUint24(pixelData));
         //                     //     break;
         //
         //                     // default:
         //                     // case BitsPerPixel::BitsPerPixel4:
-        //                     //     color = TGA::ParseArgb(SRL::ENDIAN::DeserializeUint32(pixelData));
+        //                     //     color = TGA::ParseArgb(SRL::Endian::DeserializeUint32(pixelData));
         //                     //     break;
         //                     // }
         //
@@ -623,35 +625,35 @@ namespace SRL::Bitmap
                 uint8_t *data = stream;
 
                 /* read in the header blocks. */
-                this->hdr.manufacturer = SRL::ENDIAN::DeserializeUint8(data + ManufacturerOffset);
-                this->hdr.version = Version(SRL::ENDIAN::DeserializeUint8(data + VersionOffset));
-                this->hdr.encoding = Encoding(SRL::ENDIAN::DeserializeUint8(data + EncodingOffset));
-                this->hdr.bitsPerPixel = BitsPerPixel(SRL::ENDIAN::DeserializeUint8(data + BitsPerPixelOffset));
+                this->hdr.manufacturer = SRL::Endian::DeserializeUint8(data + ManufacturerOffset);
+                this->hdr.version = Version(SRL::Endian::DeserializeUint8(data + VersionOffset));
+                this->hdr.encoding = Encoding(SRL::Endian::DeserializeUint8(data + EncodingOffset));
+                this->hdr.bitsPerPixel = BitsPerPixel(SRL::Endian::DeserializeUint8(data + BitsPerPixelOffset));
 
-                this->hdr.xMin = SRL::ENDIAN::DeserializeUint16(data + XMinOffset);
-                this->hdr.yMin = SRL::ENDIAN::DeserializeUint16(data + YMinOffset);
-                this->hdr.xMax = SRL::ENDIAN::DeserializeUint16(data + XMaxOffset);
-                this->hdr.yMax = SRL::ENDIAN::DeserializeUint16(data + YMaxOffset);
+                this->hdr.xMin = SRL::Endian::DeserializeUint16(data + XMinOffset);
+                this->hdr.yMin = SRL::Endian::DeserializeUint16(data + YMinOffset);
+                this->hdr.xMax = SRL::Endian::DeserializeUint16(data + XMaxOffset);
+                this->hdr.yMax = SRL::Endian::DeserializeUint16(data + YMaxOffset);
 
                 /* do a little precomputing... */
                 this->width = this->hdr.xMax - this->hdr.xMin + 1;
                 this->height = this->hdr.yMax - this->hdr.yMin + 1;
 
-                this->hdr.hDpi = SRL::ENDIAN::DeserializeUint16(data + HDpiOffset);
-                this->hdr.vDpi = SRL::ENDIAN::DeserializeUint16(data + VDpiOffset);
+                this->hdr.hDpi = SRL::Endian::DeserializeUint16(data + HDpiOffset);
+                this->hdr.vDpi = SRL::Endian::DeserializeUint16(data + VDpiOffset);
 
                 /* read in 16 color colormap */
                 for (int c = 0; c < 48; c++)
                 {
-                    this->hdr.colormap[c] = SRL::ENDIAN::DeserializeUint8(data + ColormapOffset + c);
+                    this->hdr.colormap[c] = SRL::Endian::DeserializeUint8(data + ColormapOffset + c);
                 }
 
-                this->hdr.reserved = SRL::ENDIAN::DeserializeUint8(data + ReservedOffset);
-                this->hdr.nplanes = SRL::ENDIAN::DeserializeUint8(data + NPlanesOffset);
-                this->hdr.bytesPerLine = SRL::ENDIAN::DeserializeUint16(data + BytesPerLineOffset);
-                this->hdr.paletteInfo = SRL::ENDIAN::DeserializeUint16(data + PaletteInfoOffset);
-                this->hdr.hScreenSize = SRL::ENDIAN::DeserializeUint16(data + HScreenSizeOffset);
-                this->hdr.vScreenSize = SRL::ENDIAN::DeserializeUint16(data + VScreenSizeSizeOffset);
+                this->hdr.reserved = SRL::Endian::DeserializeUint8(data + ReservedOffset);
+                this->hdr.nplanes = SRL::Endian::DeserializeUint8(data + NPlanesOffset);
+                this->hdr.bytesPerLine = SRL::Endian::DeserializeUint16(data + BytesPerLineOffset);
+                this->hdr.paletteInfo = SRL::Endian::DeserializeUint16(data + PaletteInfoOffset);
+                this->hdr.hScreenSize = SRL::Endian::DeserializeUint16(data + HScreenSizeOffset);
+                this->hdr.vScreenSize = SRL::Endian::DeserializeUint16(data + VScreenSizeSizeOffset);
 
                 this->totalBytes = this->hdr.bytesPerLine * this->hdr.nplanes;
 
@@ -668,6 +670,8 @@ namespace SRL::Bitmap
                 SRL::Logger::LogFatal("%s(l%d) : Invalid File", __FUNCTION__, __LINE__);
                 return false;
             }
+
+            //this->Dump();
 
             palette = new SRL::Bitmap::Palette(PaletteSize);
 
