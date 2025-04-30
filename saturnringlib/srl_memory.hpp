@@ -44,6 +44,64 @@ namespace SRL
         };
 
     private:
+        #if defined(USE_TLSF_ALLOCATOR)
+        /** @brief Memory usage statistics for TLSF allocator
+         */
+        struct TlsfStats
+        {
+            size_t totalAllocated;  /**< Total bytes allocated */
+            size_t totalRequests;   /**< Number of allocation requests */
+            size_t totalFrees;      /**< Number of free requests */
+        };
+        
+        /** @brief Memory usage statistics for each zone
+         */
+        inline static TlsfStats s_hwRamStats = { 0, 0, 0 };
+        inline static TlsfStats s_lwRamStats = { 0, 0, 0 };
+        inline static TlsfStats s_cartRamStats = { 0, 0, 0 };
+        
+        /** @brief Update allocation statistics
+         * @param stats Statistics structure to update
+         * @param size Size of allocation in bytes
+         */
+        inline static void UpdateAllocationStats(TlsfStats& stats, size_t size)
+        {
+            stats.totalAllocated += size;
+            stats.totalRequests++;
+        }
+        
+        /** @brief Update free statistics
+         * @param stats Statistics structure to update
+         * @param size Size of memory being freed
+         */
+        inline static void UpdateFreeStats(TlsfStats& stats, size_t size)
+        {
+            if (stats.totalAllocated >= size)
+            {
+                stats.totalAllocated -= size;
+            }
+            stats.totalFrees++;
+        }
+        
+        /** @brief Update reallocation statistics
+         * @param stats Statistics structure to update
+         * @param oldSize Previous allocation size
+         * @param newSize New allocation size
+         */
+        inline static void UpdateReallocationStats(TlsfStats& stats, size_t oldSize, size_t newSize)
+        {
+            if (newSize > oldSize)
+            {
+                stats.totalAllocated += (newSize - oldSize);
+            }
+            else if (oldSize > newSize)
+            {
+                stats.totalAllocated -= (oldSize - newSize);
+            }
+            stats.totalRequests++;
+        }
+        #endif
+        
         /** @brief Memory zone definition
          */
         struct MemoryZone
@@ -445,10 +503,22 @@ namespace SRL
             /** @brief Free allocated memory
              * @param ptr Pointer to allocated memory
              */
-            static void Free(void* ptr)
+            inline static void Free(void* ptr)
             {
+                if (ptr == nullptr)
+                {
+                    return;
+                }
+                
                 #if defined(USE_TLSF_ALLOCATOR)
+                // Get block size before freeing it
+                size_t blockSize = tlsf_block_size(ptr);
+                
+                // Free the memory
                 tlsf_free(Memory::mainWorkRam.Address, ptr);
+                
+                // Update statistics
+                Memory::UpdateFreeStats(Memory::s_hwRamStats, blockSize);
                 #else
                 Memory::SimpleMalloc::Free(HighWorkRam::zone, ptr);
                 #endif
@@ -460,8 +530,21 @@ namespace SRL
              */
             static void* Malloc(size_t size)
             {
+                if (size == 0)
+                {
+                    return nullptr;
+                }
+                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_malloc(Memory::mainWorkRam.Address, size);
+                void* ptr = tlsf_malloc(Memory::mainWorkRam.Address, size);
+                
+                if (ptr != nullptr)
+                {
+                    // Update statistics
+                    Memory::UpdateAllocationStats(Memory::s_hwRamStats, size);
+                }
+                
+                return ptr;
                 #else
                 return Memory::SimpleMalloc::Malloc(HighWorkRam::zone, size);
                 #endif
@@ -474,8 +557,31 @@ namespace SRL
              */
             static void* Realloc(void* ptr, size_t size)
             {
+                if (ptr == nullptr)
+                {
+                    return Malloc(size);
+                }
+                
+                if (size == 0)
+                {
+                    Free(ptr);
+                    return nullptr;
+                }
+                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_realloc(Memory::mainWorkRam.Address, size);
+                // Get original block size
+                size_t oldSize = tlsf_block_size(ptr);
+                
+                // Reallocate the memory
+                void* newPtr = tlsf_realloc(Memory::mainWorkRam.Address, ptr, size);
+                
+                if (newPtr != nullptr)
+                {
+                    // Update statistics
+                    Memory::UpdateReallocationStats(Memory::s_hwRamStats, oldSize, size);
+                }
+                
+                return newPtr;
                 #else
                 return Memory::SimpleMalloc::Realloc(HighWorkRam::zone, ptr, size);
                 #endif
@@ -487,7 +593,9 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return 0;
+                // Use the tracking statistics to calculate free space
+                return HighWorkRam::zone.Size > Memory::s_hwRamStats.totalAllocated ?
+                    HighWorkRam::zone.Size - Memory::s_hwRamStats.totalAllocated : 0;
                 #else
                 return Memory::SimpleMalloc::GetReport(HighWorkRam::zone).FreeSize;
                 #endif
@@ -499,7 +607,14 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Report { 0, 0, 0, Memory::mainWorkRam.Size, 0};
+                // Use the tracking statistics to generate a report
+                return Report {
+                    0,  // AllocationHeaders (not tracked)
+                    0,  // FreeBlocks (not tracked)
+                    HighWorkRam::zone.Size - Memory::s_hwRamStats.totalAllocated,  // FreeSize
+                    HighWorkRam::zone.Size,  // TotalSize
+                    Memory::s_hwRamStats.totalRequests - Memory::s_hwRamStats.totalFrees  // UsedBlocks (approximation)
+                };
                 #else
                 return Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
                 #endif
@@ -519,7 +634,8 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return 0;
+                // Return the tracked allocated bytes
+                return Memory::s_hwRamStats.totalAllocated;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
                 return report.TotalSize - report.FreeSize;
@@ -550,7 +666,7 @@ namespace SRL
                 const uint32_t size = 0x100000;
 
                 #if defined(USE_TLSF_ALLOCATOR)
-                LowWorkRam::mainWorkRam = Memory::MemoryZone
+                LowWorkRam::zone = Memory::MemoryZone
                 {
                     tlsf_create_with_pool((void*)address, size),
                     size
@@ -589,8 +705,20 @@ namespace SRL
              */
             inline static void Free(void* ptr)
             {
+                if (ptr == nullptr)
+                {
+                    return;
+                }
+                
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(LowWorkRam::Zone.Address, ptr);
+                // Get block size before freeing it
+                size_t blockSize = tlsf_block_size(ptr);
+                
+                // Free the memory
+                tlsf_free(LowWorkRam::zone.Address, ptr);
+                
+                // Update statistics
+                Memory::UpdateFreeStats(Memory::s_lwRamStats, blockSize);
                 #else
                 Memory::SimpleMalloc::Free(LowWorkRam::zone, ptr);
                 #endif
@@ -602,8 +730,21 @@ namespace SRL
              */
             inline static void* Malloc(size_t size)
             {
+                if (size == 0)
+                {
+                    return nullptr;
+                }
+                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_malloc(LowWorkRam::Zone.Address, size);
+                void* ptr = tlsf_malloc(LowWorkRam::zone.Address, size);
+                
+                if (ptr != nullptr)
+                {
+                    // Update statistics
+                    Memory::UpdateAllocationStats(Memory::s_lwRamStats, size);
+                }
+                
+                return ptr;
                 #else
                 return Memory::SimpleMalloc::Malloc(LowWorkRam::zone, size);
                 #endif
@@ -616,8 +757,31 @@ namespace SRL
             */
             inline static void* Realloc(void* ptr, size_t size)
             {
+                if (ptr == nullptr)
+                {
+                    return Malloc(size);
+                }
+                
+                if (size == 0)
+                {
+                    Free(ptr);
+                    return nullptr;
+                }
+                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_realloc(LowWorkRam::Zone.Address, ptr, size);
+                // Get original block size
+                size_t oldSize = tlsf_block_size(ptr);
+                
+                // Reallocate the memory
+                void* newPtr = tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
+                
+                if (newPtr != nullptr)
+                {
+                    // Update statistics
+                    Memory::UpdateReallocationStats(Memory::s_lwRamStats, oldSize, size);
+                }
+                
+                return newPtr;
                 #else
                 return Memory::SimpleMalloc::Realloc(LowWorkRam::zone, ptr, size);
                 #endif
@@ -629,7 +793,9 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return 0;
+                // Use the tracking statistics to calculate free space
+                return LowWorkRam::zone.Size > Memory::s_lwRamStats.totalAllocated ?
+                    LowWorkRam::zone.Size - Memory::s_lwRamStats.totalAllocated : 0;
                 #else
                 return Memory::SimpleMalloc::GetReport(LowWorkRam::zone).FreeSize;
                 #endif
@@ -641,7 +807,14 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Report { 0, 0, 0, LowWorkRam::Zone.Size, 0};
+                // Use the tracking statistics to generate a report
+                return Report {
+                    0,  // AllocationHeaders (not tracked)
+                    0,  // FreeBlocks (not tracked)
+                    LowWorkRam::zone.Size - Memory::s_lwRamStats.totalAllocated,  // FreeSize
+                    LowWorkRam::zone.Size,  // TotalSize
+                    Memory::s_lwRamStats.totalRequests - Memory::s_lwRamStats.totalFrees  // UsedBlocks (approximation)
+                };
                 #else
                 return Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
                 #endif
@@ -661,7 +834,8 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return 0;
+                // Return the tracked allocated bytes
+                return Memory::s_lwRamStats.totalAllocated;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
                 return report.TotalSize - report.FreeSize;
@@ -678,20 +852,164 @@ namespace SRL
             /** @brief Memory class needs to be able to see private members to initialize zones
              */
             friend class Memory;
+            
+            /** @brief Cartridge ID values
+             */
+            enum CartridgeId
+            {
+                /** @brief No cartridge detected
+                 */
+                None = 0,
+                
+                /** @brief 1 MiB cartridge
+                 */
+                Cart1MiB = 0x5A,
+                
+                /** @brief 4 MiB cartridge
+                 */
+                Cart4MiB = 0x5C
+            };
+            
+            /** @brief Current cartridge type
+             */
+            inline static CartridgeId s_cartType = CartridgeId::None;
+            
+            /** @brief Cartridge base address
+             */
+            inline static void* s_cartridgeBase = nullptr;
+            
+            /** @brief Cartridge ID register address
+             */
+            static constexpr uint32_t CartridgeIdRegister = 0x24FFFFFF;
+            
+            /** @brief 1 MiB cartridge address for contiguous access
+             */
+            static constexpr uint32_t Address1MiB = 0x02400000;
+            
+            /** @brief 4 MiB cartridge address
+             */
+            static constexpr uint32_t Address4MiB = 0x24000000;
 
             /** @brief Memory zone
              */
             inline static Memory::MemoryZone zone;
 
+            /** @brief Detect cartridge type
+             * @return Detected cartridge type
+             */
+            inline static CartridgeId DetectCartridgeType()
+            {
+                // Save SCU configuration
+                uint32_t scuMask = *((volatile uint32_t*)0x25FE00A4);
+                
+                // Configure SCU for cartridge access
+                *((volatile uint32_t*)0x25FE00A4) = 0x00000000;
+                
+                // Read cartridge ID
+                uint8_t cartId = *((volatile uint8_t*)CartridgeIdRegister);
+                
+                // Restore SCU configuration
+                *((volatile uint32_t*)0x25FE00A4) = scuMask;
+                
+                // Determine cartridge type based on ID
+                if (cartId == CartRam::Cart1MiB)
+                {
+                    return CartRam::CartridgeId::Cart1MiB;
+                }
+                else if (cartId == CartRam::Cart4MiB)
+                {
+                    return CartRam::CartridgeId::Cart4MiB;
+                }
+                
+                return CartRam::CartridgeId::None;
+            }
+            
+            /** @brief Get base address for cartridge type
+             * @param type Cartridge type
+             * @return Base address for the cartridge
+             */
+            inline static void* GetBaseAddressForType(CartRam::CartridgeId type)
+            {
+                switch (type)
+                {
+                case CartRam::CartridgeId::Cart1MiB:
+                    return (void*)CartRam::Address1MiB; // Use special address for 1MiB for contiguous access
+                case CartRam::CartridgeId::Cart4MiB:
+                    return (void*)CartRam::Address4MiB;
+                default:
+                    return nullptr;
+                }
+            }
+            
+            /** @brief Get size for cartridge type
+             * @param type Cartridge type
+             * @return Size in bytes
+             */
+            inline static size_t GetSizeForType(CartRam::CartridgeId type)
+            {
+                switch (type)
+                {
+                case CartRam::CartridgeId::Cart1MiB:
+                    return 1024 * 1024; // 1 MiB
+                case CartRam::CartridgeId::Cart4MiB:
+                    return 4 * 1024 * 1024; // 4 MiB
+                default:
+                    return 0;
+                }
+            }
+            
             /** @brief Initialize memory zone
              */
             inline static void Initialize()
             {
-                // TODO: Implement
+                // Detect cartridge type
+                s_cartType = DetectCartridgeType();
+                
+                // Get base address and size for the detected cartridge
+                s_cartridgeBase = GetBaseAddressForType(s_cartType);
+                size_t cartSize = GetSizeForType(s_cartType);
+                
+                if (s_cartridgeBase != nullptr && cartSize > 0)
+                {
+                    #if defined(USE_TLSF_ALLOCATOR)
+                    CartRam::zone = Memory::MemoryZone
+                    {
+                        tlsf_create_with_pool(s_cartridgeBase, cartSize),
+                        cartSize
+                    };
+                    #else
+                    CartRam::zone = Memory::MemoryZone
+                    {
+                        Memory::SimpleMalloc::InitializeZone(s_cartridgeBase, cartSize),
+                        cartSize
+                    };
+                    #endif
+                }
+                else
+                {
+                    // No cartridge detected, initialize with empty zone
+                    CartRam::zone = Memory::MemoryZone
+                    {
+                        nullptr,
+                        0
+                    };
+                }
             }
             
         public:
 
+            /** @brief Check whether pointer is in range of the memory zone
+             * @param ptr Pointer to check
+             * @return true if pointer belongs to the current memory zone
+             */
+            /** @brief Check whether a cartridge is available
+             * @return true if a cartridge is detected and initialized
+             */
+            inline static bool IsCartridgeAvailable()
+            {
+                return s_cartType != CartRam::CartridgeId::None && s_cartridgeBase != nullptr && zone.Size > 0;
+            }
+            
             /** @brief Check whether pointer is in range of the memory zone
              * @param ptr Pointer to check
              * @return true if pointer belongs to the current memory zone
@@ -707,7 +1025,13 @@ namespace SRL
              */
             inline static bool InRange(uint32_t zoneAddress)
             {
-                return false;
+                if (s_cartridgeBase == nullptr || zone.Size == 0)
+                {
+                    return false;
+                }
+                
+                uint32_t baseAddr = reinterpret_cast<uint32_t>(s_cartridgeBase);
+                return (zoneAddress >= baseAddr && zoneAddress < (baseAddr + zone.Size));
             }
 
             /** @brief Free allocated memory
@@ -715,7 +1039,23 @@ namespace SRL
              */
             inline static void Free(void* ptr)
             {
-                // TODO implement
+                if (ptr == nullptr)
+                {
+                    return;
+                }
+                
+                #if defined(USE_TLSF_ALLOCATOR)
+                // Get block size before freeing it
+                size_t blockSize = tlsf_block_size(ptr);
+                
+                // Free the memory
+                tlsf_free(CartRam::zone.Address, ptr);
+                
+                // Update statistics
+                Memory::UpdateFreeStats(Memory::s_cartRamStats, blockSize);
+                #else
+                Memory::SimpleMalloc::Free(CartRam::zone, ptr);
+                #endif
             }
 
             /** @brief Allocate some memory
@@ -724,7 +1064,24 @@ namespace SRL
              */
             inline static void* Malloc(size_t size)
             {
-                return nullptr;
+                if (size == 0)
+                {
+                    return nullptr;
+                }
+                
+                #if defined(USE_TLSF_ALLOCATOR)
+                void* ptr = tlsf_malloc(CartRam::zone.Address, size);
+                
+                if (ptr != nullptr)
+                {
+                    // Update statistics
+                    Memory::UpdateAllocationStats(Memory::s_cartRamStats, size);
+                }
+                
+                return ptr;
+                #else
+                return Memory::SimpleMalloc::Malloc(CartRam::zone, size);
+                #endif
             }
 
             /** @brief Reallocate existing memory
@@ -734,7 +1091,34 @@ namespace SRL
              */
             inline static void* Realloc(void* ptr, size_t size)
             {
-                return nullptr;
+                if (ptr == nullptr)
+                {
+                    return Malloc(size);
+                }
+                
+                if (size == 0)
+                {
+                    Free(ptr);
+                    return nullptr;
+                }
+                
+                #if defined(USE_TLSF_ALLOCATOR)
+                // Get original block size
+                size_t oldSize = tlsf_block_size(ptr);
+                
+                // Reallocate the memory
+                void* newPtr = tlsf_realloc(CartRam::zone.Address, ptr, size);
+                
+                if (newPtr != nullptr)
+                {
+                    // Update statistics
+                    Memory::UpdateReallocationStats(Memory::s_cartRamStats, oldSize, size);
+                }
+                
+                return newPtr;
+                #else
+                return Memory::SimpleMalloc::Realloc(CartRam::zone, ptr, size);
+                #endif
             }
 
             /** @brief Gets total size of the free space in the memory zone
@@ -742,7 +1126,13 @@ namespace SRL
              */
             inline static size_t GetFreeSpace()
             {
-                return 0;
+                #if defined(USE_TLSF_ALLOCATOR)
+                // Use the tracking statistics to calculate free space
+                return CartRam::zone.Size > Memory::s_cartRamStats.totalAllocated ?
+                    CartRam::zone.Size - Memory::s_cartRamStats.totalAllocated : 0;
+                #else
+                return Memory::SimpleMalloc::GetReport(CartRam::zone).FreeSize;
+                #endif
             }
 
             /** @brief Gets report on the allocator state
@@ -751,9 +1141,16 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Report { 0, 0, 0, 0, 0};
+                // Use the tracking statistics to generate a report
+                return Report {
+                    0,  // AllocationHeaders (not tracked)
+                    0,  // FreeBlocks (not tracked)
+                    CartRam::zone.Size - Memory::s_cartRamStats.totalAllocated,  // FreeSize
+                    CartRam::zone.Size,  // TotalSize
+                    Memory::s_cartRamStats.totalRequests - Memory::s_cartRamStats.totalFrees  // UsedBlocks (approximation)
+                };
                 #else
-                return Report { 0, 0, 0, 0, 0};
+                return Memory::SimpleMalloc::GetReport(CartRam::zone);
                 #endif
             }
 
@@ -762,7 +1159,7 @@ namespace SRL
              */
             inline static size_t GetSize()
             {
-                return 0;
+                return CartRam::zone.Size;
             }
             
             /** @brief Gets total size of the used space in the memory zone
@@ -770,7 +1167,13 @@ namespace SRL
              */
             inline static size_t GetUsedSpace()
             {
-                return 0;
+                #if defined(USE_TLSF_ALLOCATOR)
+                // Return the tracked allocated bytes
+                return Memory::s_cartRamStats.totalAllocated;
+                #else
+                auto report = Memory::SimpleMalloc::GetReport(CartRam::zone);
+                return report.TotalSize - report.FreeSize;
+                #endif
             }
         };
 
@@ -793,6 +1196,13 @@ namespace SRL
         {
             // Memset SGL workarea until the DMA transfer list location, if we go over it, it will corrupt the DMA transfer list
             Memory::MemSet(&_heap_end, 0, reinterpret_cast<uint32_t>(TransList) - reinterpret_cast<uint32_t>(&_heap_end));
+            
+            #if defined(USE_TLSF_ALLOCATOR)
+            // Reset memory tracking statistics
+            Memory::s_hwRamStats = { 0, 0, 0 };
+            Memory::s_lwRamStats = { 0, 0, 0 };
+            Memory::s_cartRamStats = { 0, 0, 0 };
+            #endif
 
             // Initialize memory zones
             Memory::HighWorkRam::Initialize();
