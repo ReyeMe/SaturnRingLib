@@ -54,7 +54,14 @@ extern "C"
         // Print error header only on the first test failure
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_SGL_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_SGL****");
+            }
+            else
+            {
+                LogInfo("****UT_SGL_ERROR(S)****");
+            }
         }
     }
 

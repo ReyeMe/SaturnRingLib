@@ -8,12 +8,12 @@ SECTIONS {
 
 	.text ALIGN(0x20) :
 	{
-		* (.text)
-		*(.strings)
+		* (.text*)
+		*(.strings*)
 		*("SEGA_P")
 
-		*(.eh_frame_hdr)
-		*(.eh_frame)
+		*(.eh_frame_hdr*)
+		*(.eh_frame*)
         __etext = .;
 	}
 
@@ -30,29 +30,28 @@ SECTIONS {
 	.tors  ALIGN(0x10) :
 	{
 		___ctors = . ;
-		*(.ctors)
+		*(.ctors*)
 		___ctors_end = . ;
 		___dtors = . ;
-		*(.dtors)
+		*(.dtors*)
 		___dtors_end = . ;
 	}
 
 	.data ALIGN(0x10):
 	{
-		* (.data)
+		* (.data*)
 		__edata = . ;
 	}
 
 	.rodata ALIGN(0x20) :
 	{
-		*(.rodata)
+		*(.rodata*)
 	}
 
 	.bss ALIGN(0x10) (NOLOAD):
 	{
 		__bstart = . ;
-		*(.bss)
-		* ( COMMON )
+		*(.bss*)
 		__bend = . ;
 		_end = .;
 	}

@@ -62,18 +62,11 @@ namespace SRL
         /** @} */
 
         /**
-         * @name Light handling functions
+         * @name Gouraud light handling functions
+         * @brief Affects quads with SRL::Types::Attribute::DisplayOption::EnableGouraud option set
+         * @note Light direction of the gouraud light is set when drawing the mesh using SRL::Scene3D::DrawSmoothMesh()
          * @{
          */
-
-        /** @brief Set directional light source
-         * @note If scaling operation is being performed on current matrix, normal vector of the polygon is also being affected,thus brightness will change accordingly.  
-         * @param direction Light direction unit vector
-         */
-        static void SetDirectionalLight(const SRL::Math::Types::Vector3D& direction)
-        {
-            slLight((FIXED*)&direction);
-        }
 
         /** @brief Initialize gouraud table for light calculation with SRL::Scene3D::DrawSmoothMesh
          * @code {.cpp}
@@ -95,7 +88,7 @@ namespace SRL
             slInitGouraud((GOURAUDTBL*)tableStorage, maxPolygons, 0xe000 + (gouraudRamOffset << 2), vertexCalculationBuffer);
         }
 
-        /** @brief Set custom light gouraud table.
+        /** @brief Set custom light gouraud table. Affects quads with SRL::Types::Attribute::DisplayOption::EnableGouraud option set
          * @details Table must contain 32 color entries from the darkest color to the brightest.
          * @param table custom light table
          */
@@ -113,14 +106,6 @@ namespace SRL
             slSetGouraudColor(color);
         }
 
-        /** @brief Set color of the flat light source (UseLight option)
-         * @param color Light source color
-         */
-        static void LightSetColor(const SRL::Types::HighColor color)
-        {
-            slSetFlatColor(color);
-        }
-
         /** @brief Copies gouraud table calculated by the library to VRAM.
          * @code {.cpp}
          * // Attach the function to VBlank
@@ -131,6 +116,68 @@ namespace SRL
         static void LightCopyGouraudTable()
         {
             slGouraudTblCopy();
+        }
+
+        /** @} */
+
+        /**
+         * @name Flat light handling functions
+         * @brief Affects quads with SRL::Types::Attribute::DisplayOption::EnableFlatLight option set
+         * @{
+         */
+
+        /** @brief Set Ambient color of the light, this the darkest color a light can produce
+         * @param color Ambient color
+         * @note Light color should be set after calling this function
+         * @note This function is not valid for SRL::Scene3D::LightSetGouraudColor()
+         */
+        static void LightSetAmbient(const SRL::Types::HighColor color)
+        {
+            slSetAmbient(color);
+        }
+
+        /** @brief Set color of the flat light source
+         * @param color Light source color
+         */
+        static void LightSetColor(const SRL::Types::HighColor color)
+        {
+            slSetFlatColor(color);
+        }
+
+        /** @brief Set directional light source
+         * @note If scaling operation is being performed on current matrix, normal vector of the polygon is also being affected,thus brightness will change accordingly.  
+         * @param direction Light direction unit vector
+         */
+        static void SetDirectionalLight(const SRL::Math::Types::Vector3D& direction)
+        {
+            slLight((FIXED*)&direction);
+        }
+
+        /** @} */
+
+        /**
+         * @name Depth shading handling functions
+         * @brief Affects quads with SRL::Types::Attribute::DisplayOption::EnableDepthShading option set
+         * @{
+         */
+
+        /** @brief Set the gouraud table used for depth shading
+         * @param gouraudRamOffset Relative address to the first entry from which to write light gouraud data in SRL::VDP1::GetGouraudTable(). Using 0 here would mean first entry, 2 is second entry in the table, where each entry is 4 color long.
+         * @param table Custom depth shading table
+         */
+        static void SetDepthShadingTable(const uint32_t gouraudRamOffset, Types::HighColor table[32])
+        {
+            slSetDepthTbl((uint16_t*)table, 0xe000 + (gouraudRamOffset << 2), 32);
+        }
+        
+        /** @brief Set the range from the near distance to the depth in steps
+         * @param near Near distance
+         * @param depth Depth value as power of two (eg: setting it to 5 will result in 32)
+         * @param step Step between near distance and depth as power of two
+         */
+        static void SetDepthShadingLimits(const SRL::Math::Types::Fxp& near, const uint16_t depth, const uint16_t step)
+        {
+            slSetDepthLimit(near.RawValue(), depth, step);
         }
 
         /** @} */
@@ -220,6 +267,15 @@ namespace SRL
                 depthLimit.As<int16_t>(),
                 center.X.As<int16_t>(),
                 center.Y.As<int16_t>()) != 0;
+        }
+
+        /** @brief Sets a value indicating whether to preform near clip correction
+         * @param enabled If set to true, Near clip correction will be preformed (default), otherwise none and polygon will be clipped if not all 4 points are on screen
+         * @note If game does not require near clip correction (Polygons not passing near plane of the camera), setting this to false, can improve performance
+         */
+        static void SetNearClipCorrection(bool enabled)
+        {
+            slNearClipFlag(enabled);
         }
 
         /** @} */

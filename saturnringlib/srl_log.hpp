@@ -134,6 +134,14 @@ namespace SRL
                 SRL::Logger::LogLevels lvl;
             };
 
+            /** @brief Get log level
+             * @returns Log level
+             */
+            inline static SRL::Logger::LogLevels GetLogLevel()
+            {
+                return MinLevel;
+            }
+
             /** @brief Log message
              * @tparam lvl  Log level
              * @param message Custom message to show

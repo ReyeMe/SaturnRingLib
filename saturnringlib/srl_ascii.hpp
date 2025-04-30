@@ -2,7 +2,8 @@
 
 #include "srl_tv.hpp"
 #include "srl_cram.hpp"
-#include "srl_bitmap.hpp" // for IBitmap
+#include "srl_bitmap.hpp" // for IBit
+#include "srl_string.hpp" // for memset
 
 namespace SRL
 {
@@ -193,6 +194,29 @@ namespace SRL
             while(*myString != '\0')
             {
                 ASCII::tileMap[mapIndex++] = ((uint8_t)(*myString++) + charOffset) | ASCII::colorBank;
+            }
+
+            return status;
+        }
+
+        /** @brief Clears the ASCII tile map.
+         *  @returns false if tileMap is null or memset fails, true otherwise
+         */
+        inline static bool Clear()
+        {
+            bool status = true;
+
+            if (ASCII::tileMap == nullptr)
+            {
+                status = false;
+            }
+            else
+            {
+                void *result = memset(ASCII::tileMap, 0, 64 * 64 * sizeof(uint16_t)); // Clear the tile map
+                if (result == nullptr)
+                {
+                    status = false;
+                }
             }
 
             return status;

@@ -363,6 +363,14 @@ namespace SRL
                 return this->identifier >= 0;
             }
 
+            /** @brief Gets the current position in the file
+             * @return Position in the file as bytes
+             */
+            constexpr size_t GetCurrentPosition()
+            {
+                return this->readBytes;
+            }
+
             /** @brief File is open
              * @return True if file is open
              */

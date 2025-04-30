@@ -56,7 +56,14 @@ extern "C"
         // Print error header only on the first test failure
         if (!suite_error_counter++)
         {
-            LogInfo("****UT_CRAM_ERROR(S)****");
+            if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
+            {
+                LogDebug("****UT_CRAM****");
+            }
+            else
+            {
+                LogInfo("****UT_CRAM_ERROR(S)****");
+            }
         }
     }
 
