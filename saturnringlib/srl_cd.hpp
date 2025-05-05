@@ -3,6 +3,10 @@
 #include "srl_base.hpp"
 #include "srl_debug.hpp"
 
+#include "srl_log.hpp"
+
+#include <algorithm>    // std::min
+
 namespace SRL
 {
     /** @brief File and CD access wrapper
@@ -528,34 +532,88 @@ namespace SRL
             int32_t Seek(int32_t offset, SeekMode mode = Cd::SeekMode::Absolute)
             {
                 int32_t result = -1;
-                int32_t workBufferSize = this->Size.SectorSize * File::SectorsToReadAtOnce;
+                int32_t workBufferSize = 0;//this->Size.SectorSize * File::SectorsToReadAtOnce;
 
                 if (this->IsOpen() && offset >= 0 && offset < this->Size.Bytes)
                 {
-                    // Initialize read buffer if does not exist yet
-                    if (this->workBuffer == nullptr)
-                    {
-                        this->workBuffer = autonew uint8_t[workBufferSize];
-                    }
 
                     this->readBytes = offset;
                     int32_t sector = this->GetSectorCount(offset);
 
+                    SRL::Logger::LogDebug("%s(l%d) : sector: %d", __PRETTY_FUNCTION__, __LINE__, sector);
+
+
                     if (sector >= 0)
                     {
 
-                        // SRL::Logger::LogInfo("%s(l%d) : Sector %d", __FUNCTION__, __LINE__, sector);
+                        SRL::Logger::LogInfo("%s(l%d) : Sector %d / Sectors %d", __PRETTY_FUNCTION__, __LINE__, sector, this->Size.Sectors);
 
                         // Seek to predefined location
                         result = GFS_Seek(this->Handle, sector, Cd::SeekMode::Absolute);
 
+                        // Check if we are at the end of the file
+                        SRL::Logger::LogDebug("%s(l%d) : GFS_Seek results: %d", __PRETTY_FUNCTION__, __LINE__, result);
+
                         // Refresh buffer
-                        if (result >= 0 && GFS_Fread(this->Handle, File::SectorsToReadAtOnce, this->workBuffer, workBufferSize) >= 0)
+                        if (result >= 0)
                         {
-                            return offset;
+                            int32_t sectortToRead = std::min(this->Size.Sectors - sector, static_cast<int32_t>(File::SectorsToReadAtOnce));
+
+                            SRL::Logger::LogDebug("%s(l%d) : sectortToRead: %d ", __PRETTY_FUNCTION__, __LINE__, sectortToRead);
+
+
+                            if (sectortToRead < File::SectorsToReadAtOnce)
+                            {
+                                workBufferSize = this->Size.SectorSize * std::max(0L, sectortToRead - 1) + this->Size.LastSectorSize;
+                            }
+                            else
+                            {
+                                workBufferSize = this->Size.SectorSize * File::SectorsToReadAtOnce;
+                            }
+
+                            if (this->workBuffer != nullptr)
+                            {
+                                delete[] this->workBuffer;
+                            }
+
+                            SRL::Logger::LogDebug("%s(l%d) : workBufferSize: %d", __PRETTY_FUNCTION__, __LINE__, workBufferSize);
+
+                            this->workBuffer = autonew uint8_t[workBufferSize];
+                            
+                            if (this->workBuffer == nullptr)
+                            {
+                                SRL::Logger::LogFatal("%s(l%d) : Failed to allocate work buffer", __PRETTY_FUNCTION__, __LINE__);
+                                return -1;
+                            }
+
+                            for (int32_t retry = 10; retry > 0; retry--)
+                            {
+                                // Read data
+                                result = GFS_Fread(this->Handle, sector, this->workBuffer, workBufferSize);
+
+                                SRL::Logger::LogDebug("%s(l%d) : GFS_Fread results: %d", __PRETTY_FUNCTION__, __LINE__, result);
+
+                                if (result >= 0)
+                                {
+                                    break;
+                                }
+                            }
+
+                            if (result >= 0)
+                            {
+                                return offset;
+                            }
+                            else
+                            {
+                                delete[] this->workBuffer;
+                                this->workBuffer = nullptr;
+                                return -1;
+                            }
                         }
                         else
                         {
+                            delete[] this->workBuffer;
+                            this->workBuffer = nullptr;
                             return -1;
                         }
                     }
