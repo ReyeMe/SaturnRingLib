@@ -225,7 +225,7 @@ namespace SRL::Bitmap
 
             if (!file)
             {
-                SRL::Logger::LogFatal("%s(l%d) : Invalid file pointer", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : Invalid file pointer", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
@@ -252,25 +252,39 @@ namespace SRL::Bitmap
             else if (this->hdr.bitsPerPixel == BitsPerPixel::BitsPerPixel8 &&
                      this->hdr.nplanes == 1)
             {
+                SRL::Logger::LogInfo("8bit PCX palette detected");
                 /* first seek to the end of the file -769 -1 (checkbyte) */
                 int32_t palette_position = file->Size.Bytes - PaletteSize * 3 - 2; 
 
-                int32_t position =  file->Seek(palette_position);
+
+                int32_t test = GFS_ByteToSct(file->Handle, palette_position);
+
+                SRL::Logger::LogDebug("%s(l%d) : Test : %d", __PRETTY_FUNCTION__, __LINE__, test);
+
+                SRL::Logger::LogDebug("%s(l%d) : Palette position in file : %d, file size : %d", __PRETTY_FUNCTION__, __LINE__, palette_position, file->Size.Bytes);
+
+                int32_t position = file->Seek(palette_position);
+
+                SRL::Logger::LogDebug("%s(l%d) : AFTER SEEK !!", __PRETTY_FUNCTION__, __LINE__);
 
                 if (position < 0)
                 {
-                    SRL::Logger::LogFatal("%s(l%d) : Cannot seek to the end of the file (%d)", __FUNCTION__, __LINE__, position);
+                    SRL::Logger::LogFatal("%s(l%d) : Cannot seek to the end of file (%d)", __PRETTY_FUNCTION__, __LINE__, position);
                     return false;
                 }
                 
+                SRL::Logger::LogDebug("%s(l%d) : Try to Read %d bytes from PCX", __PRETTY_FUNCTION__, __LINE__, PaletteSize * 3 + 1);
+
                 uint8_t stream[PaletteSize * 3 + 1];
                 int32_t read = file->Read(PaletteSize * 3 + 1, stream);
 
                 if (read != PaletteSize * 3 + 1)
                 {
-                    SRL::Logger::LogFatal("%s(l%d) : Cannot read palette (%d)", __FUNCTION__, __LINE__, read);
+                    SRL::Logger::LogFatal("%s(l%d) : Cannot read palette (%d)", __PRETTY_FUNCTION__, __LINE__, read);
                     return false;
                 }
+
+                SRL::Logger::LogDebug("%s(l%d) : Read %d bytes from PCX", __PRETTY_FUNCTION__, __LINE__, read);
 
                 uint8_t *data = stream;
                 checkbyte = SRL::Endian::DeserializeUint8(data++);
@@ -304,6 +318,7 @@ namespace SRL::Bitmap
             }
             else
             {
+                SRL::Logger::LogFatal("%s(l%d) : Unsupported PCX palette format !", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
@@ -319,7 +334,7 @@ namespace SRL::Bitmap
 
             if (!file)
             {
-                SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
@@ -330,7 +345,7 @@ namespace SRL::Bitmap
 
             this->bufrSize = this->hdr.bytesPerLine * this->hdr.nplanes * (1 + this->hdr.yMax - this->hdr.yMin);
 
-            SRL::Logger::LogDebug("%s(l%d) : bufrSize = %d", __FUNCTION__, __LINE__, this->bufrSize);
+            SRL::Logger::LogDebug("%s(l%d) : bufrSize = %d", __PRETTY_FUNCTION__, __LINE__, this->bufrSize);
 
             file->Seek(HeaderSize-1);
 
@@ -491,7 +506,7 @@ namespace SRL::Bitmap
             else
             {
                 // Unsupported number of planes
-                SRL::Logger::LogFatal("%s(l%d) : Unsupported number of planes: %d", __FUNCTION__, __LINE__, this->hdr.nplanes);
+                SRL::Logger::LogFatal("%s(l%d) : Unsupported number of planes: %d", __PRETTY_FUNCTION__, __LINE__, this->hdr.nplanes);
                 return -1;
             }
 
@@ -593,25 +608,25 @@ namespace SRL::Bitmap
         {
             if (!file)
             {
-                SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : Invalid File pointer", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
             if (!file->IsOpen())
             {
-                SRL::Logger::LogWarning("%s(l%d) : File was not open !", __FUNCTION__, __LINE__);
+                SRL::Logger::LogWarning("%s(l%d) : File was not open !", __PRETTY_FUNCTION__, __LINE__);
                 file->Open();
             }
 
             if (file->Size.Bytes <= 0)
             {
-                SRL::Logger::LogFatal("%s(l%d) : File is empty", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : File is empty", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
             if (file->Size.Bytes < static_cast<decltype(file->Size.Bytes)>(HeaderSize))
             {
-                SRL::Logger::LogFatal("%s(l%d) : File is too small", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : File is too small", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
@@ -661,25 +676,41 @@ namespace SRL::Bitmap
             }
             else
             {
-                SRL::Logger::LogFatal("%s(l%d) : Cannot read .PCX", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : Cannot read .PCX", __PRETTY_FUNCTION__, __LINE__);
                 return false;
             }
 
+            SRL::Logger::LogDebug("%s(l%d) : Header loaded", __PRETTY_FUNCTION__, __LINE__);
+
             if (!IsFormatValid())
             {
-                SRL::Logger::LogFatal("%s(l%d) : Invalid File", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : Invalid File", __PRETTY_FUNCTION__, __LINE__);
                 return false;
+            }
+            else
+            {
+                SRL::Logger::LogDebug("%s(l%d) : File format is valid", __PRETTY_FUNCTION__, __LINE__);
+
             }
 
             //this->Dump();
 
             palette = new SRL::Bitmap::Palette(PaletteSize);
 
+            if (!palette)
+            {
+                SRL::Logger::LogFatal("%s(l%d) : Cannot allocate palette", __PRETTY_FUNCTION__, __LINE__);
+                return false;
+            }
+
             // Load the palette
             if (!LoadPalette(file))
             {
-                SRL::Logger::LogFatal("%s(l%d) : Cannot load palette", __FUNCTION__, __LINE__);
+                SRL::Logger::LogFatal("%s(l%d) : Cannot load palette", __PRETTY_FUNCTION__, __LINE__);
                 return false;
+            }
+            else {
+                SRL::Logger::LogDebug("%s(l%d) : Palette loaded", __PRETTY_FUNCTION__, __LINE__);
             }
 
             uint32_t pixels = (this->width * this->height) >> 1;
@@ -710,6 +741,7 @@ namespace SRL::Bitmap
 
             if (file.Exists())
             {
+                file.Open();
                 this->LoadData(&file);
             }
             else
