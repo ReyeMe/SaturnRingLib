@@ -1,0 +1,17 @@
+var searchData=
+[
+  ['halfbright_0',['HalfBright',['../structSRL_1_1Types_1_1Attribute_acade3c5a7cfcc7381ac16540934ef462.html#acade3c5a7cfcc7381ac16540934ef462a9a65646d4b573a38302617da9ccd238f',1,'SRL::Types::Attribute']]],
+  ['halftransparency_1',['HalfTransparency',['../classSRL_1_1Scene2D_a8b7ef119afe7c4b3c3691e6127948fb4.html#a8b7ef119afe7c4b3c3691e6127948fb4ac97454ed849456d5f83b2daff6764ec9',1,'SRL::Scene2D']]],
+  ['halftransparent_2',['HalfTransparent',['../structSRL_1_1Types_1_1Attribute_acade3c5a7cfcc7381ac16540934ef462.html#acade3c5a7cfcc7381ac16540934ef462aed4edd635637c65a267f21e1f719bfcc',1,'SRL::Types::Attribute']]],
+  ['handle_3',['Handle',['../structSRL_1_1Cd_1_1File_aee76c5e8cd5b72142fce119cc1a6b5d6.html#aee76c5e8cd5b72142fce119cc1a6b5d6',1,'SRL::Cd::File']]],
+  ['hardware_4',['Hardware',['../classSRL_1_1Sound_1_1Hardware.html',1,'SRL::Sound']]],
+  ['height_5',['Height',['../structSRL_1_1Bitmap_1_1BitmapInfo_ae917744429ab234a1fe92cb2c1ef3457.html#ae917744429ab234a1fe92cb2c1ef3457',1,'SRL::Bitmap::BitmapInfo::Height'],['../classSRL_1_1TV_a55cf8bc4d2ffd1f1231837892f5a0e5f.html#a55cf8bc4d2ffd1f1231837892f5a0e5f',1,'SRL::TV::Height'],['../structSRL_1_1VDP1_1_1Texture_ad092b74ad94b702f2ac730f593effdd2.html#ad092b74ad94b702f2ac730f593effdd2',1,'SRL::VDP1::Texture::Height']]],
+  ['highcolor_6',['HighColor',['../structSRL_1_1Types_1_1HighColor.html',1,'SRL::Types::HighColor'],['../structSRL_1_1Types_1_1HighColor_ac9c2a6e26fe99517ba25ca40b6523898.html#ac9c2a6e26fe99517ba25ca40b6523898',1,'SRL::Types::HighColor::HighColor()'],['../structSRL_1_1Types_1_1HighColor_a0818f1ff9743aabe8cf8e2cb23047ebb.html#a0818f1ff9743aabe8cf8e2cb23047ebb',1,'SRL::Types::HighColor::HighColor(std::initializer_list&lt; uint16_t &gt; list)'],['../structSRL_1_1Types_1_1HighColor_a659b4cee340f6b847d96458db173afbb.html#a659b4cee340f6b847d96458db173afbb',1,'SRL::Types::HighColor::HighColor(const uint16_t value)'],['../structSRL_1_1Types_1_1HighColor_aa0675b17dd94f335625ef381d615a9dc.html#aa0675b17dd94f335625ef381d615a9dc',1,'SRL::Types::HighColor::HighColor(const uint8_t r, const uint8_t g, const uint8_t b)']]],
+  ['highs_7',['Highs',['../structSRL_1_1Sound_1_1Cdda_1_1Analysis_1_1FrequencyVolume_a72fdad3f4b19b62823ba7c2d2f9081be.html#a72fdad3f4b19b62823ba7c2d2f9081be',1,'SRL::Sound::Cdda::Analysis::FrequencyVolume']]],
+  ['highspeedshrink_8',['HighSpeedShrink',['../structSRL_1_1Types_1_1Attribute_acade3c5a7cfcc7381ac16540934ef462.html#acade3c5a7cfcc7381ac16540934ef462a780c3838accd17356b43e2accac4f00b',1,'SRL::Types::Attribute']]],
+  ['highworkram_9',['HighWorkRam',['../classSRL_1_1Memory_1_1HighWorkRam.html',1,'SRL::Memory']]],
+  ['horizontalflip_10',['HorizontalFlip',['../classSRL_1_1Scene2D_ae30ef829f4daab5dcdba2c40aa180442.html#ae30ef829f4daab5dcdba2c40aa180442a62c9833ad35d8df437edde171a4bcea6',1,'SRL::Scene2D']]],
+  ['hour_11',['Hour',['../structSRL_1_1Types_1_1DateTime_a32a3483faaed8b1afef3a1d161f8ec64.html#a32a3483faaed8b1afef3a1d161f8ec64',1,'SRL::Types::DateTime']]],
+  ['hwnew_12',['hwnew',['../classSRL_1_1Memory_a21972e8c624003dcd0f5b680469f220c.html#a21972e8c624003dcd0f5b680469f220c',1,'SRL::Memory::hwnew'],['../classSRL_1_1Memory_a21972e8c624003dcd0f5b680469f220c.html#a21972e8c624003dcd0f5b680469f220c',1,'SRL::hwnew']]],
+  ['hwram_13',['HWRam',['../classSRL_1_1Memory_a484aa54e8418025aab8f76453bb6b2ca.html#a484aa54e8418025aab8f76453bb6b2caa6e6a1c96628bb37d4bdf28acf2e55935',1,'SRL::Memory']]]
+];
