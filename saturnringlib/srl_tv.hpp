@@ -58,6 +58,22 @@ namespace SRL
         /** @brief Screen resolution mode
          */
         inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x256;
+        
+        /** @brief Get horizontal screen resolution 
+         * 
+         */
+        inline static uint16_t GetHorizontalRes()
+        {
+            return TV::Width;
+        }
+        
+        /** @brief Get vertical screen resolution 
+         * 
+         */
+        inline static uint16_t GetVerticalRes()
+        {
+            return TV::Height;
+        }
 #elif SRL_MODE_NTSC
     #ifdef SRL_HIGH_RES
         /** @brief Screen width
@@ -84,6 +100,22 @@ namespace SRL
          */
         inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x240;
     #endif
+    
+    /** @brief Get horizontal screen resolution 
+     * 
+     */
+    inline static uint16_t GetHorizontalRes()
+    {
+        return TV::Width;
+    }
+    
+    /** @brief Get vertical screen resolution 
+     * 
+     */
+    inline static uint16_t GetVerticalRes()
+    {
+        return TV::Height;
+    }
 #elif DOXYGEN
         /** @brief Screen width
          * @note Differs based on makefile setting SRL_MODE = (PAL | NTSC) and whether SRL_HIGH_RES is set
@@ -99,6 +131,22 @@ namespace SRL
          * @note Differs based on makefile setting SRL_MODE = (PAL | NTSC) and whether SRL_HIGH_RES is set
          */
         inline static const TV::Resolutions Resolution;
+        
+        /** @brief Get horizontal screen resolution 
+         * 
+         */
+        inline static uint16_t GetHorizontalRes()
+        {
+            return TV::Width;
+        }
+        
+        /** @brief Get vertical screen resolution 
+         * 
+         */
+        inline static uint16_t GetVerticalRes()
+        {
+            return TV::Height;
+        }
 #endif
 
     };
