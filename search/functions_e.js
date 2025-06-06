@@ -1,0 +1,15 @@
+var searchData=
+[
+  ['rawpcm_0',['RawPcm',['../classSRL_1_1Sound_1_1Pcm_1_1RawPcm_aff4cc78f7a1ff3d4f713b0cd378166a3.html#aff4cc78f7a1ff3d4f713b0cd378166a3',1,'SRL::Sound::Pcm::RawPcm']]],
+  ['read_1',['Read',['../structSRL_1_1Cd_1_1File_a8ebfbdff1c5972bd63a77cf1db6f2335.html#a8ebfbdff1c5972bd63a77cf1db6f2335',1,'SRL::Cd::File']]],
+  ['readsectors_2',['ReadSectors',['../structSRL_1_1Cd_1_1File_a6825628dab145f7317f6ad600de5e242.html#a6825628dab145f7317f6ad600de5e242',1,'SRL::Cd::File']]],
+  ['realloc_3',['Realloc',['../classSRL_1_1Memory_1_1HighWorkRam_a6d212f688b5e0369565ef60209495c10.html#a6d212f688b5e0369565ef60209495c10',1,'SRL::Memory::HighWorkRam::Realloc()'],['../classSRL_1_1Memory_1_1LowWorkRam_a430b0439109cecab5523c8a9b71efcdd.html#a430b0439109cecab5523c8a9b71efcdd',1,'SRL::Memory::LowWorkRam::Realloc()'],['../classSRL_1_1Memory_1_1CartRam_a098f2058515b812a56df91b1755a2db9.html#a098f2058515b812a56df91b1755a2db9',1,'SRL::Memory::CartRam::Realloc()']]],
+  ['refreshperipherals_4',['RefreshPeripherals',['../classSRL_1_1Input_1_1Management_a880c6458f082da25e1d7be2e72f0fbee.html#a880c6458f082da25e1d7be2e72f0fbee',1,'SRL::Input::Management']]],
+  ['resettask_5',['ResetTask',['../classSRL_1_1Types_1_1ITask_ad5863776e8cfc8e673963c6abf61a3d9.html#ad5863776e8cfc8e673963c6abf61a3d9',1,'SRL::Types::ITask']]],
+  ['resettextureheap_6',['ResetTextureHeap',['../classSRL_1_1VDP1_ab0370a0efebc90e6424971674f6cdce9.html#ab0370a0efebc90e6424971674f6cdce9',1,'SRL::VDP1::ResetTextureHeap()'],['../classSRL_1_1VDP1_a0c3da4fab84a6be2fbed05466534833f.html#a0c3da4fab84a6be2fbed05466534833f',1,'SRL::VDP1::ResetTextureHeap(const uint16_t index)']]],
+  ['resume_7',['Resume',['../classSRL_1_1Sound_1_1Cdda_abfa315b57cbb86515b1f26c8f0964cff.html#abfa315b57cbb86515b1f26c8f0964cff',1,'SRL::Sound::Cdda']]],
+  ['rotate_8',['Rotate',['../classSRL_1_1Scene3D_a6c550f76d37b935bc642ee0fa13b8c77.html#a6c550f76d37b935bc642ee0fa13b8c77',1,'SRL::Scene3D']]],
+  ['rotatex_9',['RotateX',['../classSRL_1_1Scene3D_a2df86f5335dff3fdc810b73df7ebf160.html#a2df86f5335dff3fdc810b73df7ebf160',1,'SRL::Scene3D::RotateX(const SRL::Math::Types::Angle angle)'],['../classSRL_1_1Scene3D_a37c4e9e448fa68017600b1b4649959ea.html#a37c4e9e448fa68017600b1b4649959ea',1,'SRL::Scene3D::RotateX(const SRL::Math::Types::Fxp sin, const SRL::Math::Types::Fxp cos)']]],
+  ['rotatey_10',['RotateY',['../classSRL_1_1Scene3D_a46fe8c1b8a58557ad6d4cd70acfca5e8.html#a46fe8c1b8a58557ad6d4cd70acfca5e8',1,'SRL::Scene3D::RotateY(const SRL::Math::Types::Angle angle)'],['../classSRL_1_1Scene3D_a4ef57a9faa3324d449872357d3122572.html#a4ef57a9faa3324d449872357d3122572',1,'SRL::Scene3D::RotateY(const SRL::Math::Types::Fxp sin, const SRL::Math::Types::Fxp cos)']]],
+  ['rotatez_11',['RotateZ',['../classSRL_1_1Scene3D_add57a7360d0a59b8f5c7a8dafb16d25b.html#add57a7360d0a59b8f5c7a8dafb16d25b',1,'SRL::Scene3D::RotateZ(const SRL::Math::Types::Angle angle)'],['../classSRL_1_1Scene3D_a4bc7d1309728eb0ef316483f0851a59c.html#a4bc7d1309728eb0ef316483f0851a59c',1,'SRL::Scene3D::RotateZ(const SRL::Math::Types::Fxp sin, const SRL::Math::Types::Fxp cos)']]]
+];
