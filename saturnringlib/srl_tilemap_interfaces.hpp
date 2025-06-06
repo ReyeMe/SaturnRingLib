@@ -129,9 +129,9 @@ namespace SRL::Tilemap::Interfaces
                 bitmapInfo.Height > 512 ||
                 bitmapInfo.Width > 512)
             {
-                this->cellData = NULL;
-                this->mapData = NULL;
-                this->palData = NULL;
+                this->cellData = nullptr;
+                this->mapData = nullptr;
+                this->palData = nullptr;
                 this->info = TilemapInfo();
                 SRL::Debug::Assert("Tileset conversion failed- Image Dimensions Not supported");
                 return;
@@ -703,8 +703,8 @@ namespace SRL::Tilemap::Interfaces
     /** @brief manage arbitrary sized tilemaps as a series of virtual pages that are streamed into VRAM
      * on demand
      */
-    class VirtualMap
+    /*class VirtualMap
     {
 
-    }
+    };*/
 }

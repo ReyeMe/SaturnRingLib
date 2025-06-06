@@ -244,15 +244,15 @@ namespace SRL
             inline static void* AutoAllocateBmp(Bitmap::BitmapInfo& info, int16_t screen)
             {
                 void* alloc = nullptr;
-                uint32_t size;
+                uint32_t size = info.Height*info.Width;
                 uint8_t numCycles = 2;
-                // 512x256, 512x512, 1024x256, or 1024x512
-                if (screen == scnRBG0 && (info.Height>512||info.Width>512))
+                //chack that image size is compatible
+                if((info.Width>1024)||(info.Height>512)||(screen == scnRBG0 && info.Width>512))
                 {
-                    Debug::Assert("Error: RBG0 Bitmap Size Unsupported");
+                    Debug::Assert("Bmp Allocation Failed: Unsupported image size");
                     return nullptr;
                 }
-                
+                //scale
                 if(info.ColorMode==CRAM::TextureColorMode::Paletted16)
                 {
                     size>>=1;
@@ -261,17 +261,42 @@ namespace SRL
                 else if(info.ColorMode==CRAM::TextureColorMode::RGB555)
                 {
                     size<<1;
-                if(size>262144)
+                    numCycles<<1;
+                }
+                // 512x256, 512x512, 1024x256, or 1024x512
+                
+                if(size>262144) //case: bmp is too large for allocator
                 {
-                    Debug::Assert("Error: Bitmap Size Unsupported");
+                    Debug::Assert("Bmp Allocation Failed: Unsupported image Size");
                     return nullptr;
                 }
-                if(size>131072)
-                {
-                    
+                else if(size>131072)//case: bmp requires 2 out of the 4 VRAM banks
+                { 
+                    if((uint32_t)bankBot[0]==VDP2_VRAM_A0 && (uint32_t)bankBot[1]==VDP2_VRAM_A1)
+                    {
+                        alloc = VRAM::Allocate(131072, 32, VramBank::A0, numCycles);
+                        VRAM::Allocate(131072, 32, VramBank::A1, numCycles);
+                    }
+                    else if((uint32_t)bankBot[1]==VDP2_VRAM_A1 && (uint32_t)bankBot[2]==VDP2_VRAM_B0)
+                    {
+                        alloc = VRAM::Allocate(131072, 32, VramBank::A1, numCycles);
+                        VRAM::Allocate(131072, 32, VramBank::B0, numCycles);
+                    }
+                    else 
+                    {
+                        Debug::Assert(" Bmp Allocation Failed: Insufficiont VRAM");
+                        return nullptr;
+                    }
                 }
-                else
-
+                else//case: bmp requires 1 or 1/2 of a VRAM bank
+                { 
+                    size = (size<65536) ? 65536 : 131072;
+                    alloc = VRAM::Allocate(size, 32, VramBank::B0, numCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(size, 32, VramBank::A1,numCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(size, 32, VramBank::A0, numCycles);
+                    if (alloc == nullptr) alloc = VRAM::Allocate(size, 32, VramBank::B1, numCycles);
+                    if (alloc == nullptr) SRL::Debug::Assert("Bmp Allocation failed: insufficient VRAM");
+                }
 
                 return alloc;
             }
@@ -434,7 +459,6 @@ namespace SRL
                 }
 
                 int colorID = 0;
-
                 if (ScreenType::Info.ColorMode != SRL::CRAM::TextureColorMode::RGB555)
                 {
                     if ((colorID = SRL::CRAM::GetFreeBank(ScreenType::Info.ColorMode)) < 0)
@@ -506,9 +530,9 @@ namespace SRL
              * Map and Cel Adresses will be reset to avoid modification to this area by user. Thus 
              * the returned values of GetCelAddress, GetMapAddress, GetPageAddress, GetPlaneAddress
              * GetCelOffset, and GetPalOffset become invalid. Any modifications to the ascii scroll
-             * data are to be performed through the SRL::ASCII Module. 
+             * data are to be performed through SRL::ASCII. 
              * @note the debug ascii scroll is not designed for use with RBG0 and will override 
-             * this function with an empty call. Furthermore the scroll is designed to have its position
+             * this function with an empty call. Furthermore it is designed to have its position
              * fixed to the screen area. Junk characters in offscreen portions of the scroll may become
              * visible if its position is offset.
              */
@@ -521,7 +545,7 @@ namespace SRL
              * which averages colors on a each line with adjacent pixels to create a subtle horizontal blur effect.
              * This effect only displays under CRAM MODE 1 with extended color calculation OFF. The blur filter
              * can not apply correctly at boundaries of transparent pixels.   
-             * @note Only one ScrollScreen can apply the blur filter at a time. 
+             * @note Only one ScrollScreen can apply the blur filter at a time.
              */
             inline static void ApplyBlurFilter()
             {
@@ -539,8 +563,9 @@ namespace SRL
              * desired scale limits of NBG0/NBG1 before loading.
              * @note Even when registration is successful, some scrolls may be unable to  display simultaneously
              * when the color depth of NBG0 or NBG1 is too high:
-             *        -When NBG0 > 8bpp, NBG2 will not display
-             *        -When NBG1 > 8bpp, NBG3 will not display
+             * 
+             *  -When NBG0 > 8bpp, NBG2 will not display
+             *  -When NBG1 > 8bpp, NBG3 will not display
              * By default, debug ASCII text is displayed on NBG3, so will not be available if NBG1 is 
              * displayed in a high color mode.  
              */
@@ -748,6 +773,36 @@ namespace SRL
 
                 return paletteOffset;
             }
+            /** @brief Copies Bmp data to VRAM
+            * @param BmpData Cell Data to copy.
+            * @param BmpAdr VRAM address to copy to.
+            * @param info info about bmp 
+            * @note only used by NBG0, NBG1, and RBG0
+            */
+            inline static void Bmp2VRAM(void* bmpData, void* bmpAdr, SRL::Bitmap::BitmapInfo info)
+            {
+                void* data = bmpData;
+                void* vram = bmpAdr;
+                uint16_t dataWidth = info.Width;
+                uint16_t containerWidth = byteWidth<512 ?  512 : 1024; 
+                if info.ColorMode = CRAM::ColorMode::RGB555
+                {
+                    dataWidth<<=1;
+                    containerWidth<<=1;
+                }
+                else if info.ColorMode = CRAM::ColorMode::Paletted16
+                {
+                    dataWidth>>=1;
+                    containerWidth>>=1;
+                }
+
+                for(int i = 0; i<info.Height;++i)
+                {
+                   slDMACopy(bmpData,bmpAdr,dataWidth);
+                   VRAM+=containerWidth;
+                   data+=dataWidth;
+                }    
+            }
         private:
 
             /** @brief Copies Cel data to VRAM (adapted from SGL samples).
@@ -785,7 +840,7 @@ namespace SRL
                     }
                 }
             }
-
+            
         };
 
         /** @brief NBG0 interface
@@ -812,6 +867,11 @@ namespace SRL
                 slPlaneNbg0(info.PlaneSize);
                 slMapNbg0(MapAddress, MapAddress, MapAddress, MapAddress);
             }
+            static void Init(SRL::BitmapInfo::TilemapInfo& info)
+            {
+                slBitMapNbg0(info.SGLColorMode(), info.CharSize);
+                
+            }
             /** @brief Loads a bitmap into VRAM and registers it for display on this ScrollScreen.
             *  @details The maximum supported size to load is 2 VRAM banks (262,144 bytes). 
             *  Furthermore, VDP2 Bitmaps are stored in fixed container sizes:
@@ -822,20 +882,17 @@ namespace SRL
             *  |---------|--------------------|-------------------|
             *  | 4bpp    | 1024x512           | ≥ 1/2 bank        |
             *  | 8bpp    | 512x512 or 1024x256| ≥ 1 bank          |
-            *  | 16bpp   | 512x256            | Always 2 banks    |
+            *  | 16bpp   | 512x256            | = 2 banks         |
             *
-            *  To conserve VRAM, consider using tilemaps in cunjunction with Bmp2Tile for smaller images when possible.
+            *  @note To conserve VRAM, consider converting to  tilemaps for smaller images when possible.
             */
             static void LoadBitmap(SRL::Bitmap::IBitmap* bmp)
             {
-                //NBG0::CellAddress =  VRAM::AutoAllocateBmp(bmp->Info, scnNBG0);
-                if(NBG0::CellAddress==nullptr) 
-                {
-                    SRL::Debug::Assert("Error, insuficient VRAM available to load bmp");
-                    return;
-                } 
-                //else Bmp2VRAM
-
+                SRL::Bitmap::BitmapInfo info = bmp->GetInfo();
+                NBG0::CellAddress =  VRAM::AutoAllocateBmp(info, scnNBG0);
+                if(NBG0::CellAddress==nullptr)return;
+                NBG0::Bmp2VRAM(bmp->GetData(),NBG0::CellAddress,info);
+                //NBG0::InitBmp();
             }
             /** @brief Load a Linescroll from SRL::LineScrollTable data structure (Recommended) 
              *  @details Allocates VRAM, Loads Linescroll data, and registers it to this scroll
