@@ -23,10 +23,13 @@ CD_NAME = VDP1_Sprites
 # Directory build will be placed into
 BUILD_DROP = ./BuildDrop
 
+# SRL installation directory
+SRL_INSTALL_ROOT ?= ../..
+
 # Find all .c and .cxx files
 SOURCES = $(patsubst ./%,%,$(shell find src/ -name '*.c')) 
 SOURCES += $(patsubst ./%,%,$(shell find src/ -name '*.cxx'))
 
 # Include shared makefile
-SDK_ROOT = ../../saturnringlib
+SDK_ROOT = $(SRL_INSTALL_ROOT)/saturnringlib
 include $(SDK_ROOT)/shared.mk

@@ -31,10 +31,13 @@ BUILD_DROP = ./BuildDrop
 SRL_CUSTOM_CCFLAGS = -DNO_SGL_STDLIB
 SRL_CUSTOM_LDFLAGS = -lstdc++
 
+# SRL installation directory
+SRL_INSTALL_ROOT ?= ../..
+
 # Find all .c and .cxx files
-SOURCES = $(patsubst ./%,%,$(shell find src/ -name '*.c'))
+SOURCES = $(patsubst ./%,%,$(shell find src/ -name '*.c')) 
 SOURCES += $(patsubst ./%,%,$(shell find src/ -name '*.cxx'))
 
 # Include shared makefile
-SDK_ROOT = ../saturnringlib
+SDK_ROOT = $(SRL_INSTALL_ROOT)/saturnringlib
 include $(SDK_ROOT)/shared.mk
