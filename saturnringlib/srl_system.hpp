@@ -4,15 +4,12 @@
 
 namespace SRL
 {
-    /** @addtogroup System
-     *  @{
-     */
 
-     /** @brief System-level hardware control and BIOS services
-      * @details Provides access to Sega Saturn's BIOS service routines and hardware control
-      *          through a modern C++ interface.
-      */
-    class System
+    /** @brief System-level hardware control and BIOS services
+     * @details Provides access to Sega Saturn's BIOS service routines and hardware control
+     *          through a modern C++ interface.
+     */
+    class System final
     {
     private:
         /** @brief Type alias for unsigned integer handler function pointer */
@@ -62,25 +59,25 @@ namespace SRL
         {
             /** @brief V-Blank In interrupt (0x40) */
             VBlankIn = 0x40,
-            
+
             /** @brief V-Blank Out interrupt (0x41) */
             VBlankOut = 0x41,
-            
+
             /** @brief H-Blank In interrupt (0x42) */
             HBlankIn = 0x42,
-            
+
             /** @brief Timer 0 interrupt (0x43) */
             Timer0 = 0x43,
-            
+
             /** @brief Timer 1 interrupt (0x44) */
             Timer1 = 0x44,
-            
+
             /** @brief DSP End interrupt (0x45) */
             DspEnd = 0x45,
-            
+
             /** @brief Sound Request interrupt (0x46) */
             SoundRequest = 0x46,
-            
+
             /** @brief System Manager interrupt (0x47) */
             SystemManager = 0x47
         };
@@ -95,7 +92,7 @@ namespace SRL
              *           or 640 pixels per line (interlaced).
              */
             Mode26MHz = 0,
-            
+
             /** @brief 28.6 MHz mode (352/704 pixels per line)
              *  @details High resolution mode with 352 pixels per line (non-interlaced)
              *           or 704 pixels per line (interlaced).
@@ -207,19 +204,21 @@ namespace SRL
         }
 
         /** @brief Interrupt priority table (32 entries) */
-        struct InterruptPriorityTable {
+        struct InterruptPriorityTable
+        {
             static constexpr size_t COUNT = 32;  ///< Number of interrupt priority entries
             uint32_t priorities[COUNT];          ///< Array of interrupt priorities
 
             /** @brief Default constructor initializes all priorities to zero */
-            constexpr InterruptPriorityTable() : priorities{0} {}
+            constexpr InterruptPriorityTable() : priorities{ 0 } {}
 
             /** @brief Access interrupt priority with compile-time bounds checking
              *  @tparam I Index (0-31)
              *  @return Reference to the priority value
              */
             template<size_t I>
-            constexpr uint32_t& at() noexcept {
+            constexpr uint32_t& at() noexcept
+            {
                 static_assert(I < COUNT, "Interrupt priority index out of bounds");
                 return priorities[I];
             }
@@ -229,7 +228,8 @@ namespace SRL
              *  @return Const reference to the priority value
              */
             template<size_t I>
-            constexpr const uint32_t& at() const noexcept {
+            constexpr const uint32_t& at() const noexcept
+            {
                 static_assert(I < COUNT, "Interrupt priority index out of bounds");
                 return priorities[I];
             }
@@ -239,7 +239,8 @@ namespace SRL
              *  @return Reference to the priority value
              *  @note No bounds checking is performed in release builds for performance
              */
-            constexpr uint32_t& operator[](size_t index) noexcept {
+            constexpr uint32_t& operator[](size_t index) noexcept
+            {
                 return priorities[index];
             }
 
@@ -248,7 +249,8 @@ namespace SRL
              *  @return Const reference to the priority value
              *  @note No bounds checking is performed in release builds for performance
              */
-            constexpr const uint32_t& operator[](size_t index) const noexcept {
+            constexpr const uint32_t& operator[](size_t index) const noexcept
+            {
                 return priorities[index];
             }
         };

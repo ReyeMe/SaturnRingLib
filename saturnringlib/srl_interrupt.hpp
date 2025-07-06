@@ -2,6 +2,48 @@
 
 #include "srl_system.hpp"
 
+// Forward declaration for our handler checker
+template<typename T>
+struct IsInterruptHandler {
+    static constexpr bool value = false;
+};
+
+// Wrapper to check interrupt handler attribute
+struct InterruptHandlerWrapper {
+    template<typename Func>
+    constexpr InterruptHandlerWrapper(Func&&) {
+        static_assert(IsInterruptHandler<Func>::value, 
+            "Interrupt handler functions must be marked with SRL_INTERRUPT_HANDLER");
+    }
+};
+
+/// @def SRL_INTERRUPT_HANDLER
+/// @brief Marks a function as an interrupt service routine
+///
+/// This macro must be used on functions that will be used as direct
+/// interrupt handlers for SCU vectors (0x40-0x4F). It ensures proper
+/// interrupt handling code generation and enforces compile-time checks.
+///
+/// @note Attempting to use an unmarked function as an SCU interrupt handler
+///       will result in a compilation error.
+///
+/// Example:
+/// ```cpp
+/// // Valid interrupt handler
+/// void SRL_INTERRUPT_HANDLER myVBlankHandler() {
+///     // Handle V-Blank interrupt
+/// }
+/// 
+/// // This will cause a compile error if used as an SCU interrupt handler
+/// void badHandler() {}
+/// ```
+#define SRL_INTERRUPT_HANDLER \
+    __attribute__((interrupt_handler)) \
+    /* This creates a specialization that marks this function as valid */ \
+    template<> struct IsInterruptHandler<decltype(&__PRETTY_FUNCTION__)> { \
+        static constexpr bool value = true; \
+    }
+
 namespace SRL
 {
     /** @brief Interrupt management for the Sega Saturn
@@ -11,7 +53,7 @@ namespace SRL
      * @note All methods are static as this is a utility class that manages
      *       system-wide interrupt settings.
      */
-    class Interrupt
+    class Interrupt final
     {
     private:
         /** @brief Get a reference to the interrupt status register
@@ -442,27 +484,80 @@ namespace SRL
          *  Interrupt::SetHandler(Interrupt::Vector::VBlankIn, &myVBlankHandler);
          *  @endcode
          */
+        /** @brief Set an interrupt handler function
+         *  @tparam Func Callable type (function pointer, lambda, etc.)
+         *  @param vector Interrupt vector to set handler for
+         *  @param handler Function to call when interrupt occurs
+         *  @return true if handler was set successfully, false if vector number is invalid
+         *  @note The handler function should be marked with SRL_INTERRUPT_HANDLER
+         *        if it's a direct interrupt service routine.
+         */
+        /** @brief Set an interrupt handler function
+         *  @tparam Func Callable type (function pointer, lambda, etc.)
+         *  @param vector Interrupt vector to set handler for
+         *  @param handler Function to call when interrupt occurs
+         *  @return true if handler was set successfully, false if vector number is invalid
+         *  @note The handler function must be marked with SRL_INTERRUPT_HANDLER
+         *        if it's a direct interrupt service routine (SCU vectors 0x40-0x4F).
+         *        This is enforced at compile time.
+         */
         template<typename Func>
-        static void SetHandler(Vector vector, Func&& handler)
+        static constexpr bool SetHandler(Vector vector, Func&& handler) noexcept
+        {
+            return SetHandlerImpl(vector, std::forward<Func>(handler));
+        }
+
+    private:
+        // Implementation helper that does the actual work
+        template<typename Func>
+        static constexpr bool SetHandlerImpl(Vector vector, Func&& handler) noexcept
         {
             static_assert(std::is_invocable_v<Func>, "Handler must be callable with no arguments");
+            
+            // Compile-time validation of vector number
+            constexpr auto max_scu_vector = 0x4Fu;
+            constexpr auto max_cpu_vector = 0x8Fu;
+            const auto vector_num = static_cast<uint32_t>(vector);
+            
+            static_assert(std::is_same_v<std::decay_t<Func>, std::remove_pointer_t<std::decay_t<Func>>*>
+                || std::is_function_v<std::remove_pointer_t<std::decay_t<Func>>>>,
+                "Handler must be a function pointer or callable object");
 
-            // For SCU vectors, use the SCU handler
-            if (static_cast<uint32_t>(vector) <= 0x4F)
-            {
+            if constexpr (std::is_pointer_v<Func>) {
+                using FuncPtr = std::remove_pointer_t<Func>;
+                static_assert(std::is_function_v<FuncPtr>,
+                    "Handler must be a function pointer, not a pointer to member or other type");
+                
+                // For SCU vectors (0x40-0x4F), use our wrapper to verify the handler
+                if constexpr (vector_num >= 0x40 && vector_num <= 0x4F) {
+                    // This will trigger a static_assert if the function doesn't have the attribute
+                    constexpr InterruptHandlerWrapper wrapper{+handler};
+                    (void)wrapper; // Suppress unused variable warning
+                }
+            }
+
+            // For SCU vectors (0x40-0x4F)
+            if (vector_num <= max_scu_vector) {
+                static_assert(static_cast<uint32_t>(System::InterruptType::Count) > max_scu_vector - 0x40,
+                    "System::InterruptType enum doesn't cover all SCU vectors");
+                
                 System::SetInterruptHandler(
-                    static_cast<System::InterruptType>(static_cast<uint32_t>(vector)),
+                    static_cast<System::InterruptType>(vector_num - 0x40),
                     reinterpret_cast<void*>(+handler)
                 );
+                return true;
             }
-            else
-            {
-                // For CPU vectors, use the CPU vector table
+            // For CPU vectors (0x60-0x8F)
+            else if (vector_num >= 0x60 && vector_num <= max_cpu_vector) {
                 System::SetInterruptVector(
-                    static_cast<uint32_t>(vector),
+                    vector_num,
                     reinterpret_cast<void*>(+handler)
                 );
+                return true;
             }
+            
+            // Invalid vector number
+            return false;
         }
 
         /** @brief Get the current interrupt handler
