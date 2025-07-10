@@ -44,63 +44,6 @@ namespace SRL
         };
 
     private:
-        #if defined(USE_TLSF_ALLOCATOR)
-        /** @brief Memory usage statistics for TLSF allocator
-         */
-        struct TlsfStats
-        {
-            size_t totalAllocated;  /**< Total bytes allocated */
-            size_t totalRequests;   /**< Number of allocation requests */
-            size_t totalFrees;      /**< Number of free requests */
-        };
-        
-        /** @brief Memory usage statistics for each zone
-         */
-        inline static TlsfStats s_hwRamStats = { 0, 0, 0 };
-        inline static TlsfStats s_lwRamStats = { 0, 0, 0 };
-        inline static TlsfStats s_cartRamStats = { 0, 0, 0 };
-        
-        /** @brief Update allocation statistics
-         * @param stats Statistics structure to update
-         * @param size Size of allocation in bytes
-         */
-        inline static void UpdateAllocationStats(TlsfStats& stats, size_t size)
-        {
-            stats.totalAllocated += size;
-            stats.totalRequests++;
-        }
-        
-        /** @brief Update free statistics
-         * @param stats Statistics structure to update
-         * @param size Size of memory being freed
-         */
-        inline static void UpdateFreeStats(TlsfStats& stats, size_t size)
-        {
-            if (stats.totalAllocated >= size)
-            {
-                stats.totalAllocated -= size;
-            }
-            stats.totalFrees++;
-        }
-        
-        /** @brief Update reallocation statistics
-         * @param stats Statistics structure to update
-         * @param oldSize Previous allocation size
-         * @param newSize New allocation size
-         */
-        inline static void UpdateReallocationStats(TlsfStats& stats, size_t oldSize, size_t newSize)
-        {
-            if (newSize > oldSize)
-            {
-                stats.totalAllocated += (newSize - oldSize);
-            }
-            else if (oldSize > newSize)
-            {
-                stats.totalAllocated -= (oldSize - newSize);
-            }
-            stats.totalRequests++;
-        }
-        #endif
         
         /** @brief Memory zone definition
          */
@@ -511,14 +454,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Get block size before freeing it
-                size_t blockSize = tlsf_block_size(ptr);
-                
-                // Free the memory
-                tlsf_free(Memory::mainWorkRam.Address, ptr);
-                
-                // Update statistics
-                Memory::UpdateFreeStats(Memory::s_hwRamStats, blockSize);
+                tlsf_free(HighWorkRam::zone.Address, ptr);
                 #else
                 Memory::SimpleMalloc::Free(HighWorkRam::zone, ptr);
                 #endif
@@ -536,15 +472,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                void* ptr = tlsf_malloc(Memory::mainWorkRam.Address, size);
-                
-                if (ptr != nullptr)
-                {
-                    // Update statistics
-                    Memory::UpdateAllocationStats(Memory::s_hwRamStats, size);
-                }
-                
-                return ptr;
+                return tlsf_malloc(HighWorkRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(HighWorkRam::zone, size);
                 #endif
@@ -569,19 +497,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Get original block size
-                size_t oldSize = tlsf_block_size(ptr);
-                
-                // Reallocate the memory
-                void* newPtr = tlsf_realloc(Memory::mainWorkRam.Address, ptr, size);
-                
-                if (newPtr != nullptr)
-                {
-                    // Update statistics
-                    Memory::UpdateReallocationStats(Memory::s_hwRamStats, oldSize, size);
-                }
-                
-                return newPtr;
+                return tlsf_realloc(HighWorkRam::zone.Address, ptr, size);
                 #else
                 return Memory::SimpleMalloc::Realloc(HighWorkRam::zone, ptr, size);
                 #endif
@@ -593,9 +509,7 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Use the tracking statistics to calculate free space
-                return HighWorkRam::zone.Size > Memory::s_hwRamStats.totalAllocated ?
-                    HighWorkRam::zone.Size - Memory::s_hwRamStats.totalAllocated : 0;
+                return Memory::GenerateTlsfReport(HighWorkRam::zone.Address).FreeSize;
                 #else
                 return Memory::SimpleMalloc::GetReport(HighWorkRam::zone).FreeSize;
                 #endif
@@ -607,14 +521,7 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Use the tracking statistics to generate a report
-                return Report {
-                    0,  // AllocationHeaders (not tracked)
-                    0,  // FreeBlocks (not tracked)
-                    HighWorkRam::zone.Size - Memory::s_hwRamStats.totalAllocated,  // FreeSize
-                    HighWorkRam::zone.Size,  // TotalSize
-                    Memory::s_hwRamStats.totalRequests - Memory::s_hwRamStats.totalFrees  // UsedBlocks (approximation)
-                };
+                return Memory::GenerateTlsfReport(HighWorkRam::zone.Address);
                 #else
                 return Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
                 #endif
@@ -634,8 +541,8 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Return the tracked allocated bytes
-                return Memory::s_hwRamStats.totalAllocated;
+                auto report = Memory::GenerateTlsfReport(HighWorkRam::zone.Address);
+                return report.TotalSize - report.FreeSize;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
                 return report.TotalSize - report.FreeSize;
@@ -711,14 +618,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Get block size before freeing it
-                size_t blockSize = tlsf_block_size(ptr);
-                
-                // Free the memory
                 tlsf_free(LowWorkRam::zone.Address, ptr);
-                
-                // Update statistics
-                Memory::UpdateFreeStats(Memory::s_lwRamStats, blockSize);
                 #else
                 Memory::SimpleMalloc::Free(LowWorkRam::zone, ptr);
                 #endif
@@ -736,15 +636,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                void* ptr = tlsf_malloc(LowWorkRam::zone.Address, size);
-                
-                if (ptr != nullptr)
-                {
-                    // Update statistics
-                    Memory::UpdateAllocationStats(Memory::s_lwRamStats, size);
-                }
-                
-                return ptr;
+                return tlsf_malloc(LowWorkRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(LowWorkRam::zone, size);
                 #endif
@@ -769,19 +661,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Get original block size
-                size_t oldSize = tlsf_block_size(ptr);
-                
-                // Reallocate the memory
-                void* newPtr = tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
-                
-                if (newPtr != nullptr)
-                {
-                    // Update statistics
-                    Memory::UpdateReallocationStats(Memory::s_lwRamStats, oldSize, size);
-                }
-                
-                return newPtr;
+                return tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
                 #else
                 return Memory::SimpleMalloc::Realloc(LowWorkRam::zone, ptr, size);
                 #endif
@@ -793,9 +673,7 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Use the tracking statistics to calculate free space
-                return LowWorkRam::zone.Size > Memory::s_lwRamStats.totalAllocated ?
-                    LowWorkRam::zone.Size - Memory::s_lwRamStats.totalAllocated : 0;
+                return Memory::GenerateTlsfReport(LowWorkRam::zone.Address).FreeSize;
                 #else
                 return Memory::SimpleMalloc::GetReport(LowWorkRam::zone).FreeSize;
                 #endif
@@ -807,14 +685,7 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Use the tracking statistics to generate a report
-                return Report {
-                    0,  // AllocationHeaders (not tracked)
-                    0,  // FreeBlocks (not tracked)
-                    LowWorkRam::zone.Size - Memory::s_lwRamStats.totalAllocated,  // FreeSize
-                    LowWorkRam::zone.Size,  // TotalSize
-                    Memory::s_lwRamStats.totalRequests - Memory::s_lwRamStats.totalFrees  // UsedBlocks (approximation)
-                };
+                return Memory::GenerateTlsfReport(LowWorkRam::zone.Address);
                 #else
                 return Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
                 #endif
@@ -834,8 +705,8 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Return the tracked allocated bytes
-                return Memory::s_lwRamStats.totalAllocated;
+                auto report = Memory::GenerateTlsfReport(LowWorkRam::zone.Address);
+                return report.TotalSize - report.FreeSize;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
                 return report.TotalSize - report.FreeSize;
@@ -1045,14 +916,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Get block size before freeing it
-                size_t blockSize = tlsf_block_size(ptr);
-                
-                // Free the memory
                 tlsf_free(CartRam::zone.Address, ptr);
-                
-                // Update statistics
-                Memory::UpdateFreeStats(Memory::s_cartRamStats, blockSize);
                 #else
                 Memory::SimpleMalloc::Free(CartRam::zone, ptr);
                 #endif
@@ -1070,15 +934,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                void* ptr = tlsf_malloc(CartRam::zone.Address, size);
-                
-                if (ptr != nullptr)
-                {
-                    // Update statistics
-                    Memory::UpdateAllocationStats(Memory::s_cartRamStats, size);
-                }
-                
-                return ptr;
+                return tlsf_malloc(CartRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(CartRam::zone, size);
                 #endif
@@ -1103,19 +959,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Get original block size
-                size_t oldSize = tlsf_block_size(ptr);
-                
-                // Reallocate the memory
-                void* newPtr = tlsf_realloc(CartRam::zone.Address, ptr, size);
-                
-                if (newPtr != nullptr)
-                {
-                    // Update statistics
-                    Memory::UpdateReallocationStats(Memory::s_cartRamStats, oldSize, size);
-                }
-                
-                return newPtr;
+                return tlsf_realloc(CartRam::zone.Address, ptr, size);
                 #else
                 return Memory::SimpleMalloc::Realloc(CartRam::zone, ptr, size);
                 #endif
@@ -1127,9 +971,7 @@ namespace SRL
             inline static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Use the tracking statistics to calculate free space
-                return CartRam::zone.Size > Memory::s_cartRamStats.totalAllocated ?
-                    CartRam::zone.Size - Memory::s_cartRamStats.totalAllocated : 0;
+                return Memory::GenerateTlsfReport(CartRam::zone.Address).FreeSize;
                 #else
                 return Memory::SimpleMalloc::GetReport(CartRam::zone).FreeSize;
                 #endif
@@ -1141,14 +983,7 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Use the tracking statistics to generate a report
-                return Report {
-                    0,  // AllocationHeaders (not tracked)
-                    0,  // FreeBlocks (not tracked)
-                    CartRam::zone.Size - Memory::s_cartRamStats.totalAllocated,  // FreeSize
-                    CartRam::zone.Size,  // TotalSize
-                    Memory::s_cartRamStats.totalRequests - Memory::s_cartRamStats.totalFrees  // UsedBlocks (approximation)
-                };
+                return Memory::GenerateTlsfReport(CartRam::zone.Address);
                 #else
                 return Memory::SimpleMalloc::GetReport(CartRam::zone);
                 #endif
@@ -1168,8 +1003,8 @@ namespace SRL
             inline static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                // Return the tracked allocated bytes
-                return Memory::s_cartRamStats.totalAllocated;
+                auto report = Memory::GenerateTlsfReport(CartRam::zone.Address);
+                return report.TotalSize - report.FreeSize;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(CartRam::zone);
                 return report.TotalSize - report.FreeSize;
@@ -1177,7 +1012,38 @@ namespace SRL
             }
         };
 
-        /** @brief Det memory to some value
+        #if defined(USE_TLSF_ALLOCATOR)
+        /** @brief Generate a memory report by walking the TLSF pool
+         * @param pool The TLSF memory pool to walk
+         * @return Report containing memory statistics
+         */
+        static Report GenerateTlsfReport(void* pool)
+        {
+            Report report = {0};
+            
+            // Define a lambda function to walk through all blocks
+            auto walker = [](void* ptr, size_t size, int used, void* user) {
+                Report* r = static_cast<Report*>(user);
+                r->TotalSize += size;
+                
+                if (used) {
+                    r->UsedBlocks++;
+                    // Add the block header size for used blocks
+                    r->AllocationHeaders += tlsf_alloc_overhead();
+                } else {
+                    r->FreeBlocks++;
+                    r->FreeSize += size;
+                }
+            };
+            
+            // Walk through all blocks in the pool
+            tlsf_walk_pool(pool, walker, &report);
+            
+            return report;
+        }
+        #endif
+
+        /** @brief Set memory to some value
          * @param destination Destination to set
          * @param value Value to set
          * @param length Data length to set
@@ -1197,13 +1063,6 @@ namespace SRL
             // Memset SGL workarea until the DMA transfer list location, if we go over it, it will corrupt the DMA transfer list
             Memory::MemSet(&_heap_end, 0, reinterpret_cast<uint32_t>(TransList) - reinterpret_cast<uint32_t>(&_heap_end));
             
-            #if defined(USE_TLSF_ALLOCATOR)
-            // Reset memory tracking statistics
-            Memory::s_hwRamStats = { 0, 0, 0 };
-            Memory::s_lwRamStats = { 0, 0, 0 };
-            Memory::s_cartRamStats = { 0, 0, 0 };
-            #endif
-
             // Initialize memory zones
             Memory::HighWorkRam::Initialize();
             Memory::LowWorkRam::Initialize();
