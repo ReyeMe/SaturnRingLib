@@ -73,7 +73,19 @@ namespace SRL
          */
         inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x256;
 #elif SRL_MODE_NTSC
-    #ifdef SRL_HIGH_RES
+    #ifdef SRL_HIGH_RES_NON_INTERLACED
+        /** @brief Screen width
+         */
+        inline static const uint16_t Width = 704;
+
+        /** @brief Screen height
+         */
+        inline static const uint16_t Height = 240;
+
+        /** @brief Screen resolution mode
+         */
+        inline static const TV::Resolutions Resolution = TV::Resolutions::Interlaced704x240;
+    #elif SRL_HIGH_RES
         /** @brief Screen width
          */
         inline static const uint16_t Width = 704;
@@ -85,10 +97,22 @@ namespace SRL
         /** @brief Screen resolution mode
          */
         inline static const TV::Resolutions Resolution = TV::Resolutions::Interlaced704x480;
+    // #else
+        // /** @brief Screen width
+         // */
+        // inline static const uint16_t Width = 320;
+
+        // /** @brief Screen height
+         // */
+        // inline static const uint16_t Height = 240;
+
+        // /** @brief Screen resolution mode
+         // */
+        // inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x240;
     #else
         /** @brief Screen width
          */
-        inline static const uint16_t Width = 320;
+        inline static const uint16_t Width = 352;
 
         /** @brief Screen height
          */
@@ -96,7 +120,7 @@ namespace SRL
 
         /** @brief Screen resolution mode
          */
-        inline static const TV::Resolutions Resolution = TV::Resolutions::Normal320x240;
+        inline static const TV::Resolutions Resolution = TV::Resolutions::Normal352x240;
     #endif
 #elif DOXYGEN
         /** @brief Screen width

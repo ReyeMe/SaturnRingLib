@@ -98,15 +98,13 @@ namespace SRL
         template <typename ...Args>
         inline static void Print(uint8_t x, uint8_t y, const char* text, Args...args)
         {
-            SRL::string stringObj;
-
-            int32_t leftOver = stringObj.snprintfEx(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
+            int32_t leftOver = snprintf(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
 
             if (leftOver >= SRL_DEBUG_MAX_PRINT_LENGTH)
             {
                 char expandedBuffer[SRL_DEBUG_MAX_PRINT_LENGTH + leftOver + 1];
 
-                if (stringObj.snprintfEx(expandedBuffer, SRL_DEBUG_MAX_PRINT_LENGTH + leftOver + 1, text, args ...) >= 0)
+                if (snprintf(expandedBuffer, SRL_DEBUG_MAX_PRINT_LENGTH + leftOver + 1, text, args ...) >= 0)
                 {
                     Debug::Print(x, y, expandedBuffer);
                 }
@@ -129,17 +127,15 @@ namespace SRL
         template <typename ...Args>
         inline static uint8_t PrintWithWrap(uint8_t x, uint8_t y, const uint8_t fromLeft, const uint8_t fromRight, const char* text, Args...args)
         {
-            SRL::string stringObj;
-
             if (fromLeft < fromRight && x < fromRight && text != nullptr)
             {
-                int32_t leftOver = stringObj.snprintfEx(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
+                int32_t leftOver = snprintf(Debug::lineBuffer, SRL_DEBUG_MAX_PRINT_LENGTH, text, args ...);
 
                 if (leftOver >= SRL_DEBUG_MAX_PRINT_LENGTH)
                 {
                     char expandedBuffer[SRL_DEBUG_MAX_PRINT_LENGTH + leftOver + 1];
 
-                    if (stringObj.snprintfEx(expandedBuffer, SRL_DEBUG_MAX_PRINT_LENGTH + leftOver + 1, text, args ...) >= 0)
+                    if (snprintf(expandedBuffer, SRL_DEBUG_MAX_PRINT_LENGTH + leftOver + 1, text, args ...) >= 0)
                     {
                         return Debug::PrintWithWrap(x, y, fromLeft, fromRight, expandedBuffer);
                     }
@@ -174,7 +170,7 @@ namespace SRL
          */
         inline static void PrintClearLine(const uint8_t line)
         {
-            for (int x = 0; x < 40; x++)
+            for (int x = 0; x < 44; x++) // was 40
             {
                 Debug::Print(x, line, " ");
             }
