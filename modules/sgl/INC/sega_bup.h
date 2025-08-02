@@ -22,14 +22,14 @@
 
 #include	<sega_xpt.h>
 
-#define	BUP_LIB_ADDRESS		(*(volatile uint32_t *)(0x6000350+8))
+#define	BUP_LIB_ADDRESS	(*(volatile uint32_t *)(0x6000350+8))
 #define	BUP_VECTOR_ADDRESS	(*(volatile uint32_t *)(0x6000350+4))
 
-/* ���j�b�g�h�c */
+/* Unit ID */
 #define	BUP_MAIN_UNIT	(1)
 #define	BUP_CURTRIDGE	(2)
 
-/* ������ */
+/* Language type */
 #define	BUP_JAPANESE	(0)
 #define	BUP_ENGLISH	(1)
 #define	BUP_FRANCAIS	(2)
@@ -37,8 +37,8 @@
 #define	BUP_ESPANOL	(4)
 #define	BUP_ITALIANO	(5)
 
-/* ���u��� */
-#define	BUP_NON			(1)
+/* Machine state */
+#define	BUP_NON		(1)
 #define	BUP_UNFORMAT		(2)
 #define	BUP_WRITE_PROTECT	(3)
 #define	BUP_NOT_ENOUGH_MEMORY	(4)
@@ -48,44 +48,44 @@
 #define	BUP_BROKEN		(8)
 
 /******************************************
- * �L�����u�ڑ����e�[�u��               *
+ * Storage connection information table   *
  ******************************************/
 typedef struct BupConfig{
-	uint16_t	unit_id;	/* ���j�b�g�h�c */
-	uint16_t	partition;	/* �p�[�e�B�V������ */
+	uint16_t	unit_id;	/* Unit ID */
+	uint16_t	partition;	/* Number of partitions */
 } BupConfig;
 
 /******************************************
- * �X�e�C�^�X���e�[�u��                 *
+ * Status information table               *
  ******************************************/
 typedef	struct BupStat{
-	uint32_t	totalsize;	/* �S�e��(Byte) */
-	uint32_t	totalblock;	/* �S�u���b�N�� */
-	uint32_t	blocksize;	/* 1�u���b�N�̃T�C�Y(Byte) */
-	uint32_t	freesize;	/* �󂫗e�� */
-	uint32_t	freeblock;	/* ��u���b�N�� */
+	uint32_t	totalsize;	/* Total capacity (Byte) */
+	uint32_t	totalblock;	/* Total blocks */
+	uint32_t	blocksize;	/* Size of a block (Byte) */
+	uint32_t	freesize;	/* Free space */
+	uint32_t	freeblock;	/* Number of empty blocks */
 	uint32_t	datanum;
 } BupStat;
 
 /******************************************
- * �f�B���N�g�����e�[�u��               *
+ * Directory information table            *
  ******************************************/
 typedef struct BupDir{
-	uint8_t	filename[12];	/* �t�@�C���� */
-	uint8_t	comment[11];	/* �R�����g */
-	uint8_t	language;	/* �R�����g�̌����� */
-	uint32_t	date;		/* �^�C���X�^���v */
-	uint32_t	datasize;	/* �f�[�^�T�C�Y�iByte�j */
-	uint16_t	blocksize;	/* �f�[�^�T�C�Y�i�u���b�N���j */
+	uint8_t	filename[12];	/* File name */
+	uint8_t	comment[11];	/* Comments */
+	uint8_t	language;	/* The language type of the comment */
+	uint32_t	date;		/* Time stamp */
+	uint32_t	datasize;	/* Data size (Byte) */
+	uint16_t	blocksize;	/* Data size (blocks) */
 } BupDir;
 
 typedef struct BupDate {
-	uint8_t	year;		/* �^�C���X�^���v�i�N -1980�j */
-	uint8_t	month;		/* �^�C���X�^���v�i�� 1�`12�j */
-	uint8_t	day;		/* �^�C���X�^���v�i�� 1�`31�j */
-	uint8_t	time;		/* �^�C���X�^���v�i�� 0�`23�j */
-	uint8_t	min;		/* �^�C���X�^���v�i�� 0�`59�j */
-	uint8_t	week;		/* �^�C���X�^���v (�j�� ��0�`�y6)*/
+	uint8_t	year;		/* Timestamp (year-1980) */
+	uint8_t	month;		/* Timestamp (month 1-12) */
+	uint8_t	day;		/* Time stamp (1–31 days) */
+	uint8_t	time;		/* Time stamp (hours 0-23) */
+	uint8_t	min;		/* Time stamp (minutes 0-59) */
+	uint8_t	week;		/* Timestamp (day of week 0-Saturday 6)*/
 } BupDate;
 
 #endif /* ifndef SEGA_BUP_H */
