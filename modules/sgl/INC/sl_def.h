@@ -253,9 +253,18 @@ enum tvsz
     {                                                                                      \
         f, (s) | (((d) >> 16) & 0x1c) | (o), t, (a) | (((d) >> 24) & 0xc0), c, g, (d)&0x3f \
     }
-#define SPR_ATTRIBUTE(t, c, g, a, d)                    \
-    {                                                   \
-        t, (a) | (((d) >> 24) & 0xc0), c, g, (d)&0x0f3f \
+// #define SPR_ATTRIBUTE(t, c, g, a, d)                    \
+    // {                                                   \
+        // t, (a) | (((d) >> 24) & 0xc0), c, g, (d)&0x0f3f \
+    // }
+// fixes warnings when trying to set SPR_ATTRIBUTE manually
+#define SPR_ATTRIBUTE(t, c, g, a, d)            \
+    {                                           \
+        (uint16_t)(t),                          \
+        (uint16_t)((a) | (((d) >> 24) & 0xc0)), \
+        (uint16_t)(c),                          \
+        (uint16_t)(g),                          \
+        (uint16_t)((d) & 0x0f3f)                \
     }
 #define DEGtoANG(d) ((ANGLE)((65536.0 * (d)) / 360.0))
 #define RADtoANG(d) ((ANGLE)((65536.0 * (d)) / (2 * M_PI)))
@@ -324,14 +333,6 @@ enum tvsz
 /** @brief High speed shrink disabled (default)
  */
 #define HSSoff (0 << 12)
-
-/** @brief No pre-clipping and no horizontal inversion
- */
-#define Pclpoff (1 << 11)
-
-/** @brief Pre-clipping with horizontal inversion (default)
- */
-#define Pclpon (0 << 11)
 
 /** @brief No window restrictions (default)
  */
@@ -442,10 +443,20 @@ enum tvsz
  */
 #define UseClip UseNearClip /*  */
 
+// when directly using SGL's VDP1 commands (avoids warnings)
+// (works but breaks anything done through SRL::Scene::2D)
+#ifdef SRL_VDP1_ATTR_MANUAL_MODE
+#define sprHflip ((1 << 4) | FUNC_Texture | (UseTexture << 16) & 0xFFFF)
+#define sprVflip ((1 << 5) | FUNC_Texture | (UseTexture << 16) & 0xFFFF)
+#define sprHVflip ((3 << 4) | FUNC_Texture | (UseTexture << 16) & 0xFFFF)
+#define sprNoflip ((0) | FUNC_Texture | (UseTexture << 16) & 0xFFFF)
+#else
+// when using SRL's VDP1 commands
 #define sprHflip ((1 << 4) | FUNC_Texture | (UseTexture << 16))
 #define sprVflip ((1 << 5) | FUNC_Texture | (UseTexture << 16))
 #define sprHVflip ((3 << 4) | FUNC_Texture | (UseTexture << 16))
 #define sprNoflip ((0) | FUNC_Texture | (UseTexture << 16))
+#endif
 #define sprPolygon (FUNC_Polygon | ((ECdis | SPdis) << 24))
 #define sprPolyLine (FUNC_PolyLine | ((ECdis | SPdis) << 24))
 #define sprLine (FUNC_Line | ((ECdis | SPdis) << 24))
