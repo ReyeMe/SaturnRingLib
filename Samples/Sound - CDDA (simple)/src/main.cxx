@@ -17,6 +17,7 @@ using namespace SRL::Input;
 int main()
 {
     int16_t currentTrack = LOGO_TRACK;
+    
     // Initialize library
     SRL::Core::Initialize(HighColor::Colors::Black);
     SRL::Debug::Print(1,1, "Basic CDDA sample");
@@ -31,7 +32,7 @@ int main()
 
     while(1)
     {
-        // Change Tracks
+        // Change Tracks Forward
         if (port0.WasPressed(Digital::Button::A))
         {
             currentTrack++;
@@ -40,8 +41,9 @@ int main()
                 currentTrack = LOGO_TRACK;
             }
             SRL::Sound::Cdda::PlaySingle(currentTrack, false);
-        }            // Change Tracks
-        if (port0.WasPressed(Digital::Button::B))
+        }
+        // Change Tracks Back
+        else if (port0.WasPressed(Digital::Button::B))
         {
             currentTrack--;
             if (currentTrack < LOGO_TRACK)
@@ -49,12 +51,15 @@ int main()
                 currentTrack = BEGIN_GAME_TRACK;
             }
             SRL::Sound::Cdda::PlaySingle(currentTrack, false);
-        }            // Change Tracks
-        if (port0.WasPressed(Digital::Button::C))
+        }
+        // Stop
+        else if (port0.WasPressed(Digital::Button::C))
         {
             SRL::Sound::Cdda::StopPause();
         }
+        
         SRL::Debug::Print(1,8, "Playing Track %i  ", currentTrack);
+        
         // Refresh screen
         SRL::Core::Synchronize();
     }
