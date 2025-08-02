@@ -150,7 +150,7 @@ namespace SRL
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, 8);
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B0, 8);
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, 8);
-                    if (alloc == nullptr) SRL::Debug::Assert("RBG Cel Allocation failed: insufficient VRAM");
+                    if (alloc == nullptr) SRL::Debug::Assert("RBG Cell Allocation failed: insufficient VRAM");
                 }
                 else // Base cycle requirement on color type
                 {
@@ -173,7 +173,7 @@ namespace SRL
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A1, reqCycles);
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::A0, reqCycles);
                     if (alloc == nullptr) alloc = VRAM::Allocate(info.CellByteSize, 32, VramBank::B1, reqCycles);
-                    if (alloc == nullptr) SRL::Debug::Assert("NBG Cel Allocation failed: insufficient VRAM");
+                    if (alloc == nullptr) SRL::Debug::Assert("NBG Cell Allocation failed: insufficient VRAM");
                 }
 
                 return alloc;
@@ -182,9 +182,10 @@ namespace SRL
             /** @brief Automatically allocates map data for specified screen
              * @param info Tile map data description
              * @param screen The screen identifier
+             * @param size optional pointer to pass the resulting allocation size back to
              * @return Pointer to the allocated memory
              */
-            inline static void* AutoAllocateMap(Tilemap::TilemapInfo& info, int16_t screen)
+            inline static void* AutoAllocateMap(Tilemap::TilemapInfo& info, int16_t screen,int* size = nullptr )
             {
                 void* alloc = nullptr;
                 uint32_t page_sz = 0x800;
@@ -204,19 +205,15 @@ namespace SRL
                 if (screen == scnRBG0) // Reserve all 8 cycles of bank 0 
                 {
                     alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 8);
-                    //if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 8);
-                    //if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B0, 8);
-                    //if (alloc == nullptr) alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 8);
                     if (alloc == nullptr) Debug::Assert("RBG Map Allocation failed: insufficient VRAM");
+                    else if(size!=nullptr)*size = sz;
                 }
                 else // Reserve 1 cycle in bank B1 (or B0 if it doesn't conflict with RBG0 map)
                 {
                     if (bankCycles[0]!=7) alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 1);
                     if(!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::B1, 1);
-                    
-                    //if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A1, 1);
-                    //if (!alloc) alloc = VRAM::Allocate(sz, page_sz, VramBank::A0, 1);
                     if (alloc == nullptr) SRL::Debug::Assert("NBG Map Allocation failed: insufficient VRAM");
+                    else if(size!=nullptr)*size = sz;
                 }
 
                 return alloc;
@@ -324,7 +321,7 @@ namespace SRL
              */
             static inline Tilemap::TilemapInfo Info = Tilemap::TilemapInfo();
 
-            /** Size of manually allocated VRAM for Cel Data
+            /** Size of manually allocated VRAM for Cell Data
              */
             inline static int CellAllocSize = -1;
 
@@ -356,7 +353,7 @@ namespace SRL
                     if ((uint32_t)ScreenType::MapAddress < VDP2_VRAM_A0) return;
 
                 }
-                else if (ScreenType::MapAllocSize < (ScreenType::Info.MapWidth * ScreenType::Info.MapHeight) << (2 - ScreenType::Info.MapMode))
+                else if (ScreenType::MapAllocSize < (ScreenType::Info.MapWidth * ScreenType::Info.MapHeight) << (1+!ScreenType::Info.MapMode))
                 {
                     SRL::Debug::Assert("Tilemap Load Failed- MAP DATA exceeds existing VRAM allocation");
                     return;
@@ -382,17 +379,19 @@ namespace SRL
 
                 if (ScreenType::Info.ColorMode != SRL::CRAM::TextureColorMode::RGB555)
                 {
-                    if ((colorID = SRL::CRAM::GetFreeBank(ScreenType::Info.ColorMode)) < 0)
+                    if(ScreenType::TilePalette.GetData()==nullptr)
                     {
-                        SRL::Debug::Assert("Tilemap Palette Load Failed- no CRAM Palettes available");
-                        return;
+                        if ((colorID = SRL::CRAM::GetFreeBank(ScreenType::Info.ColorMode)) < 0)
+                        {
+                            SRL::Debug::Assert("Tilemap Palette Load Failed- no CRAM Palettes available");
+                            return;
+                        }
+                        
+                        SRL::CRAM::SetBankUsedState(colorID, ScreenType::Info.ColorMode, true);
+                        ScreenType::TilePalette = SRL::CRAM::Palette(ScreenType::Info.ColorMode, colorID);      
                     }
-
-                    SRL::CRAM::SetBankUsedState(colorID, ScreenType::Info.ColorMode, true);
-                    ScreenType::TilePalette = SRL::CRAM::Palette(ScreenType::Info.ColorMode, colorID);
                     uint16_t len = (ScreenType::Info.ColorMode == SRL::CRAM::TextureColorMode::Paletted16) ? 16 : 256;
                     ScreenType::TilePalette.Load((Types::HighColor*)tilemap.GetPalData(), len);
-                   
                 }
 
                 if (ScreenType::ScreenID != scnRBG0) VDP2::ScrollScreen<ScreenType, Id, On>::SetPlanesDefault(ScreenType::Info);
@@ -402,18 +401,18 @@ namespace SRL
                     ScreenType::Info,
                     (uint16_t*)tilemap.GetMapData(),
                     ScreenType::MapAddress,
-                    colorID,
+                    ScreenType::TilePalette.GetId(),
                     VDP2::ScrollScreen<ScreenType, Id, On>::GetCellOffset(ScreenType::Info, ScreenType::CellAddress));
                 ScreenType::Init(ScreenType::Info);
             }
 
             /** @brief Manually Sets VRAM area for Cell Data (Advanced Use Cases)
-             * @details This function manually sets an area in VRAM for a scrolls Cel Data to be loaded to. Unless the
+             * @details This function manually sets an area in VRAM for a scrolls Cell Data to be loaded to. Unless the
              * Address is obtained from VDP2::VRAM::Allocate(), the VRAM allocator will be bypassed entirely.
              * No Checks are performed for proper data alignment or cycle conflicts. For advanced use cases only.
              * @code {.cpp}
-             * //Manually Set NBG0 to store 16bpp Cel Data in an 0x8000 byte region allocated in VRAM bank A1:             * 
-             * SRL::VDP2::NBG0::SetCelAddress(SRL::VDP2::VRAM::Allocate(0x8000,32,SRL::VDP2::VramBank::A1, 3),0x8000);
+             * //Manually Set NBG0 to store 16bpp Cell Data in an 0x8000 byte region allocated in VRAM bank A1:             * 
+             * SRL::VDP2::NBG0::SetCellAddress(SRL::VDP2::VRAM::Allocate(0x8000,32,SRL::VDP2::VramBank::A1, 3),0x8000);
              * @endcode
              * @param address the VRAM address of the allocation
              * @param size the size of the allocation
@@ -421,8 +420,8 @@ namespace SRL
              */
             inline static void* SetCellAddress(void* address, int size)
             {
-                ScreenType::CelAddress = address;
-                ScreenType::CelAllocSize = size;
+                ScreenType::CellAddress = address;
+                ScreenType::CellAllocSize = size;
                 return address;
             }
 
@@ -485,8 +484,8 @@ namespace SRL
              */
             inline static  void* GetMapAddress() { return ScreenType::MapAddress; }
 
-            /** @brief Gets the starting address in VRAM of Cel data allocated to this scroll
-             *  @return Address of Cel data
+            /** @brief Gets the starting address in VRAM of Cell data allocated to this scroll
+             *  @return Address of Cell data
              *  @note Returns starting address of bitmap when displaying Bitmap Scroll
              */
             inline static  void* GetCellAddress() { return ScreenType::CellAddress; }
@@ -626,10 +625,10 @@ namespace SRL
                 slScrTransparent(VDP2::TransparentScrolls);
             }
 
-            /** @brief Compute the offset that must be added to map data When Corresponding Cel Data does not start on a VRAM bank boundary
+            /** @brief Compute the offset that must be added to map data When Corresponding Cell Data does not start on a VRAM bank boundary
             * @param tile The data configuration of the tilemap
-            * @param cellAddress Address of corresponding Cel Data in VRAM (must be a 32 byte boundary)
-            * @return The Cel Offset to add to to map data
+            * @param cellAddress Address of corresponding Cell Data in VRAM (must be a 32 byte boundary)
+            * @return The Cell Offset to add to to map data
             */
             inline static uint32_t GetCellOffset(SRL::Tilemap::TilemapInfo& tile, void* cellAddress)
             {
@@ -669,7 +668,7 @@ namespace SRL
             }
         private:
 
-            /** @brief Copies Cel data to VRAM (adapted from SGL samples).
+            /** @brief Copies Cell data to VRAM (adapted from SGL samples).
             * @param CellData Cell Data to copy.
             * @param CellAdr VRAM address to copy to.
             * @param Size Number of bytes to copy.
@@ -686,7 +685,7 @@ namespace SRL
              * @param info Tilemap data config.
              * @param mapData Map data to copy to VRAM.
              * @param mapAdr VRAM address to copy map to .
-             * @param mapoff offset added when Cel data does not start at bank boundary .
+             * @param mapoff offset added when Cell data does not start at bank boundary .
              * @param paloff Palette index in CRAM.
              */
             inline static void Map2VRAM(SRL::Tilemap::TilemapInfo& info, uint16_t* mapData, void* mapAdr, uint8_t paloff, uint32_t mapoff)
@@ -1232,12 +1231,12 @@ namespace SRL
 
             //slCharNbg0(COL_TYPE_256, CHAR_SIZE_1x1);
             VDP2::SetPrintPaletteColor(0, Types::HighColor::Colors::White);
-            // VDP2::SetPrintPaletteColor(1, Types::HighColor::Colors::Black);
-            // VDP2::SetPrintPaletteColor(2, Types::HighColor::Colors::Red);
-            // VDP2::SetPrintPaletteColor(3, Types::HighColor::Colors::Green);
-            // VDP2::SetPrintPaletteColor(4, Types::HighColor::Colors::Blue);
-            // VDP2::SetPrintPaletteColor(5, Types::HighColor::Colors::Yellow);
-            // VDP2::SetPrintPaletteColor(6, Types::HighColor::Colors::Magenta);
+            VDP2::SetPrintPaletteColor(1, Types::HighColor::Colors::Black);
+            VDP2::SetPrintPaletteColor(2, Types::HighColor::Colors::Red);
+            VDP2::SetPrintPaletteColor(3, Types::HighColor::Colors::Green);
+            VDP2::SetPrintPaletteColor(4, Types::HighColor::Colors::Blue);
+            VDP2::SetPrintPaletteColor(5, Types::HighColor::Colors::Yellow);
+            VDP2::SetPrintPaletteColor(6, Types::HighColor::Colors::Magenta);
 
             // Set default color to white
             //slCurColor(0);
@@ -1245,23 +1244,21 @@ namespace SRL
             // Set back color
             VDP2::SetBackColor(backColor);
 
+            // Initialize ascii print to use NBG3
             SRL::ASCII::LoadFontSG((uint8_t*)(VDP2_VRAM_B1 + 0x800), 0);
             SRL::ASCII::SetPalette(0);
             int myID = SRL::CRAM::GetFreeBank(SRL::CRAM::TextureColorMode::Paletted16);
             SRL::CRAM::SetBankUsedState(myID, SRL::CRAM::TextureColorMode::Paletted16, true);
             SRL::ASCII::SetFont(0);
-            
             #ifndef SRL_DISABLE_NBG3_FONT
-            // Initialize ascii print to use NBG3
             slCharNbg3(COL_TYPE_16, CHAR_SIZE_1x1);
             slPageNbg3((void*)(VDP2_VRAM_B1 + 0x1D000), 0, PNB_1WORD | CN_10BIT);
             slPlaneNbg3(PL_SIZE_1x1);
             slMapNbg3((void*)(VDP2_VRAM_B1 + 0x1E000), (void*)(VDP2_VRAM_B1 + 0x1E000), (void*)(VDP2_VRAM_B1 + 0x1E000), (void*)(VDP2_VRAM_B1 + 0x1E000));
             SRL::VDP2::NBG3::SetPriority(SRL::VDP2::Priority::Layer7);
             SRL::VDP2::NBG3::ScrollEnable();
-            // SRL::VDP2::NBG3::ScrollDisable(); // We don't want this on by default anymore
+            SRL::VDP2::NBG0::ScrollDisable(); // We don't want this on by default anymore
             #endif
-            
             // Fix param table at top of VRAM outside range of allocator - now user calls to slPerspective will always update here:
             slRparaInitSet((ROTSCROLL*)(VDP2_VRAM_A0 + 0x1ff00));
         }
@@ -1271,6 +1268,12 @@ namespace SRL
          *  The valid range of inputs is -255 to +255. The sign determines whether the color offset 
          *  is additive or subtractive. Values outside the range will be clamped to it when
          *  the offset is set. See SetColorOffsetA and SetColorOffsetB for more details. 
+         */
+        /** @brief Data structure of a VDP2 color offset to be set in Offset A or Offset B
+         *  @details The offset data that will be set is a signed 9 bit value per color channel.
+         *  The valid range of inputs is -255 to +255. The sign determines whether the color offset 
+         *  is additive or subtractive. Values outside the range will be clamped on initialization.
+         *  See SetColorOffsetA and SetColorOffsetB for more details. 
          */
         struct ColorOffset
         {
@@ -1301,10 +1304,54 @@ namespace SRL
              *  @param blue offset for blue channel
              */
             ColorOffset(int16_t red, int16_t green, int16_t blue)
-                : Red(SRL::Math::Clamp<int16_t>( -255, 255,red)),
-                  Green(SRL::Math::Clamp<int16_t>( -255, 255,green)),
-                  Blue(SRL::Math::Clamp<int16_t>( -255, 255,blue))
+                : Red(SRL::Math::Clamp<int16_t>(red, -255, 255)),
+                  Green(SRL::Math::Clamp<int16_t>(green, -255, 255)),
+                  Blue(SRL::Math::Clamp<int16_t>(blue, -255, 255))
             {
+            }
+            
+            /** @brief initialize from an RGB555 source color
+             *  @param col source HighColor to initialize from
+             *  @note Can only initialize positive offsets. Use in conjunction with
+             *  -= operator to subtract.
+             */
+            ColorOffset(const SRL::Types::HighColor& col)
+            {
+                this->Red = col.Red*8;
+                this->Green = col.Green*8;
+                this->Blue = col.Blue*8;
+            }
+            
+            /** @brief Set this offset equal to another
+             *  @param col offset to set
+             */
+            constexpr ColorOffset& operator=(const ColorOffset& col)
+            {
+                Red = col.Red;
+                Green = col.Green;
+                Blue = col.Blue;
+                return *this;
+            }
+
+            /** @brief Add to this offset
+             *  @param col the offset to add
+             */
+            constexpr ColorOffset& operator+=(const ColorOffset& col)
+            {
+                Red = SRL::Math::Clamp<int16_t>(Red+col.Red, -255, 255);
+                Green =SRL::Math::Clamp<int16_t>(Green+col.Green,-255,255);
+                Blue = SRL::Math::Clamp<int16_t>( Blue+col.Blue,-255, 255);
+                return *this;
+            }
+            /** @brief Subtract from this offset
+             *  @param col the offset to subtract
+             */
+            constexpr ColorOffset& operator-=(const ColorOffset& col)
+            {
+                Red = SRL::Math::Clamp<int16_t>(Red-col.Red, -255, 255);
+                Green =SRL::Math::Clamp<int16_t>(Green-col.Green, -255, 255);
+                Blue = SRL::Math::Clamp<int16_t>(Blue-col.Blue, -255, 255);
+                return *this;
             }
 
         };
