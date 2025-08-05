@@ -1,10 +1,12 @@
 #include <srl.hpp>
 #include <srl_log.hpp>
+#include <srl_devcart.hpp>
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
 using namespace SRL::Math::Types;
 using namespace SRL::Logger;
+using namespace SRL::DevCart;
 
 // Main program entry
 int main()
@@ -39,6 +41,15 @@ int main()
 	while(1)
 	{
 		SRL::Core::Synchronize();
+
+		if (SRL::DevCart::CS0::isAvailable())
+		{
+			SRL::Debug::Print(1,3, "DevCart Detected !");
+		}
+		else
+		{
+			SRL::Debug::Print(1,3, "DevCart Not Detected !");
+		}
 	}
 
 	return 0;

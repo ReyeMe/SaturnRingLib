@@ -1,8 +1,9 @@
 #pragma once
 
 #include "srl_base.hpp"
-#include "srl_string.hpp"   // for snprintf
-#include "srl_debug.hpp"    // for SRL_DEBUG_MAX_LOG_LENGTH
+#include "srl_string.hpp" // for snprintf
+#include "srl_debug.hpp"  // for SRL_DEBUG_MAX_LOG_LENGTH
+#include "srl_devcart.hpp"  // for USB DevCart communication
 
 namespace SRL
 {
@@ -42,7 +43,7 @@ namespace SRL
 
         /** @brief Log class
          */
-        class Log
+        class EmulatorLogger
         {
         private:
             /** @brief Log starts address
@@ -54,18 +55,74 @@ namespace SRL
             constexpr static unsigned long CS1 = logStartAddress + 0x1000;
 
         public:
+            /** @brief disable default constructor
+             */
+            EmulatorLogger() = delete;
 
+            /** @brief disable copy constructor
+             */
+            EmulatorLogger(const EmulatorLogger &) = delete;
+
+            /** @brief disable assignment operator
+             */
+            EmulatorLogger &operator=(const EmulatorLogger &) = delete;
+
+            static void putc(char c)
+            {
+                putc(&c);
+            }
+
+            static void putc(const char *c)
+            {
+                static volatile uint8_t *addr = (volatile uint8_t *)(CS1);
+                *addr = static_cast<uint8_t>(*c);
+            }
+        };
+
+        /** @brief DevCartLogger class
+         */
+        class DevCartLogger
+        {
+        public:
+            /** @brief disable default constructor
+             */
+            DevCartLogger() = delete;
+
+            /** @brief disable copy constructor
+             */
+            DevCartLogger(const DevCartLogger &) = delete;
+
+            /** @brief disable assignment operator
+             */
+            DevCartLogger &operator=(const DevCartLogger &) = delete;
+
+            static void putc(char c)
+            {
+                putc(&c);
+            }
+
+            static void putc(const char *c)
+            {
+                SRL::DevCart::CS0::send(reinterpret_cast<const uint8_t *>(c));
+            }
+        };
+
+        /** @brief Log class
+         */
+        class Log
+        {
+        public:
             /** @brief disable default constructor
              */
             Log() = delete;
 
             /** @brief disable copy constructor
              */
-            Log(const Log&) = delete;
+            Log(const Log &) = delete;
 
             /** @brief disable assignment operator
              */
-            Log& operator = (const Log&) = delete;
+            Log &operator=(const Log &) = delete;
 
 #ifndef SRL_LOG_LEVEL
             /** @brief Minimum log level to be output
@@ -86,7 +143,6 @@ namespace SRL
             class LogLevelHelper
             {
             public:
-
                 /** @brief Disable default constructor
                  */
                 LogLevelHelper() = delete;
@@ -104,7 +160,7 @@ namespace SRL
                 /** @brief ToString method
                  * @returns NULL terminated string representation of the current log level
                  */
-                inline const char* ToString() const
+                inline const char *ToString() const
                 {
                     switch (this->lvl)
                     {
@@ -146,46 +202,35 @@ namespace SRL
              * @tparam lvl  Log level
              * @param message Custom message to show
              */
-            template <SRL::Logger::LogLevels lvl>
-            inline static void LogPrint(const char* message)
+            template <SRL::Logger::LogLevels lvl, typename Output = EmulatorLogger>
+            inline static void LogPrintInternal(const char *message)
             {
                 if constexpr (lvl >= MinLevel)
                 {
-                    static const char* separator = " : ";
-                    volatile uint8_t* addr = (volatile uint8_t*)(CS1);
-                    const char* s = SRL::Logger::Log::LogLevelHelper(lvl).ToString();
+                    static const char *separator = " : ";
+                    const char *s = SRL::Logger::Log::LogLevelHelper(lvl).ToString();
                     uint8_t size = 0;
 
                     // Write Log level
                     while (*s && ++size < SRL_DEBUG_MAX_LOG_LENGTH)
-                        *addr = static_cast<uint8_t>(*s++);
+                        Output::putc(s++);
 
                     // Write separator
                     s = separator;
                     while (*s && ++size < SRL_DEBUG_MAX_LOG_LENGTH)
-                        *addr = static_cast<uint8_t>(*s++);
+                        Output::putc(s++);
 
                     // Write message
                     s = message;
                     while (*s && ++size < SRL_DEBUG_MAX_LOG_LENGTH)
-                        *addr = static_cast<uint8_t>(*s++);
+                        Output::putc(s++);
 
                     // Close the string if not already done
-                    if ((uint8_t) * (s - 1) != '\n')
+                    if ((uint8_t)*(s - 1) != '\n')
                     {
-                        *addr = '\n';
+                        Output::putc('\n');
                     }
                 }
-            }
-
-            /** @brief Log message
-             * @param message Custom message to show
-             * @param args Text arguments
-             */
-            template <typename ...Args>
-            inline static void LogPrint(const char* message, Args...args)
-            {
-                LogPrint<SRL::Logger::LogLevels::INFO>(message, args ...);
             }
 
             /** @brief Log message
@@ -193,14 +238,14 @@ namespace SRL
              * @param message Custom message to show
              * @param args Text arguments
              */
-            template <SRL::Logger::LogLevels lvl, typename ...Args>
-            inline static void LogPrint(const char* message, Args...args)
+            template <SRL::Logger::LogLevels lvl = MinLevel, typename Output = EmulatorLogger, typename... Args>
+            inline static void LogPrint(const char *message, Args... args)
             {
                 if constexpr (lvl >= MinLevel)
                 {
                     static char buffer[SRL_DEBUG_MAX_LOG_LENGTH] = {};
-                    snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH - 1, message, args ...);
-                    SRL::Logger::Log::LogPrint<lvl>(buffer);
+                    snprintf(buffer, SRL_DEBUG_MAX_LOG_LENGTH - 1, message, args...);
+                    SRL::Logger::Log::LogPrintInternal<lvl, Output>(buffer);
                 }
             }
         };
@@ -209,60 +254,60 @@ namespace SRL
          * @param message Custom message to show
          * @param args Text arguments
          */
-        template <typename ...Args>
-        inline void LogTrace(const char* message, Args...args)
+        template <typename Output = EmulatorLogger, typename... Args>
+        inline void LogTrace(const char *message, Args... args)
         {
-            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TRACE>(message, args ...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TRACE, Output>(message, args...);
         }
 
         /** @brief Log Info message
          * @param message Custom message to show
          * @param args Text arguments
          */
-        template <typename ...Args>
-        inline void LogInfo(const char* message, Args...args)
+        template <typename Output = EmulatorLogger, typename... Args>
+        inline void LogInfo(const char *message, Args... args)
         {
-            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::INFO>(message, args ...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::INFO, Output>(message, args...);
         }
 
         /** @brief Log Debug message
          * @param message Custom message to show
          * @param args Text arguments
          */
-        template <typename ...Args>
-        inline void LogDebug(const char* message, Args...args)
+        template <typename Output = EmulatorLogger, typename... Args>
+        inline void LogDebug(const char *message, Args... args)
         {
-            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TESTING>(message, args ...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TESTING, Output>(message, args...);
         }
 
         /** @brief Log Warning message
          * @param message Custom message to show
          * @param args Text arguments
          */
-        template <typename ...Args>
-        inline void LogWarning(const char* message, Args...args)
+        template <typename Output = EmulatorLogger, typename... Args>
+        inline void LogWarning(const char *message, Args... args)
         {
-            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::WARNING>(message, args ...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::WARNING, Output>(message, args...);
         }
 
         /** @brief Log Fatal message
          * @param message Custom message to show
          * @param args Text arguments
          */
-        template <typename ...Args>
-        inline void LogFatal(const char* message, Args...args)
+        template <typename Output = EmulatorLogger, typename... Args>
+        inline void LogFatal(const char *message, Args... args)
         {
-            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::FATAL>(message, args ...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::FATAL, Output>(message, args...);
         }
 
         /** @brief Log message
          * @param message Custom message to show
          * @param args Text arguments
          */
-        template <typename ...Args>
-        inline void LogPrint(const char* message, Args...args)
+        template <typename Output = EmulatorLogger, typename... Args>
+        inline void LogPrint(const char *message, Args... args)
         {
-            SRL::Logger::LogInfo(message, args ...);
+            SRL::Logger::LogInfo<Output>(message, args...);
         }
     };
 }
