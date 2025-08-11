@@ -113,6 +113,7 @@ namespace SRL
 
             static inline bool isAvailable()
             {
+                // Does not work !
                 return ((*(volatile uint8_t *)(USB_FLAGS)&USBFlags::PWREN) == USBFlags::PWREN);
             }
 
