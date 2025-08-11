@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
+#include "srl_cartridge.hpp"
 
 extern "C" {
     extern char _heap_start;
@@ -724,121 +725,30 @@ namespace SRL
              */
             friend class Memory;
             
-            /** @brief Cartridge ID values
-             */
-            enum CartridgeId
-            {
-                /** @brief No cartridge detected
-                 */
-                None = 0,
-                
-                /** @brief 1 MiB cartridge
-                 */
-                Cart1MiB = 0x5A,
-                
-                /** @brief 4 MiB cartridge
-                 */
-                Cart4MiB = 0x5C
-            };
-            
             /** @brief Current cartridge type
              */
-            inline static CartridgeId s_cartType = CartridgeId::None;
+            inline static SRL::Cartridge::CartridgeId s_cartType = SRL::Cartridge::CartridgeId::None;
             
             /** @brief Cartridge base address
              */
             inline static void* s_cartridgeBase = nullptr;
-            
-            /** @brief Cartridge ID register address
-             */
-            static constexpr uint32_t CartridgeIdRegister = 0x24FFFFFF;
-            
-            /** @brief 1 MiB cartridge address for contiguous access
-             */
-            static constexpr uint32_t Address1MiB = 0x02400000;
-            
-            /** @brief 4 MiB cartridge address
-             */
-            static constexpr uint32_t Address4MiB = 0x24000000;
+        
 
             /** @brief Memory zone
              */
             inline static Memory::MemoryZone zone;
 
-            /** @brief Detect cartridge type
-             * @return Detected cartridge type
-             */
-            inline static CartridgeId DetectCartridgeType()
-            {
-                // Save SCU configuration
-                uint32_t scuMask = *((volatile uint32_t*)0x25FE00A4);
-                
-                // Configure SCU for cartridge access
-                *((volatile uint32_t*)0x25FE00A4) = 0x00000000;
-                
-                // Read cartridge ID
-                uint8_t cartId = *((volatile uint8_t*)CartridgeIdRegister);
-                
-                // Restore SCU configuration
-                *((volatile uint32_t*)0x25FE00A4) = scuMask;
-                
-                // Determine cartridge type based on ID
-                if (cartId == CartRam::Cart1MiB)
-                {
-                    return CartRam::CartridgeId::Cart1MiB;
-                }
-                else if (cartId == CartRam::Cart4MiB)
-                {
-                    return CartRam::CartridgeId::Cart4MiB;
-                }
-                
-                return CartRam::CartridgeId::None;
-            }
-            
-            /** @brief Get base address for cartridge type
-             * @param type Cartridge type
-             * @return Base address for the cartridge
-             */
-            inline static void* GetBaseAddressForType(CartRam::CartridgeId type)
-            {
-                switch (type)
-                {
-                case CartRam::CartridgeId::Cart1MiB:
-                    return (void*)CartRam::Address1MiB; // Use special address for 1MiB for contiguous access
-                case CartRam::CartridgeId::Cart4MiB:
-                    return (void*)CartRam::Address4MiB;
-                default:
-                    return nullptr;
-                }
-            }
-            
-            /** @brief Get size for cartridge type
-             * @param type Cartridge type
-             * @return Size in bytes
-             */
-            inline static size_t GetSizeForType(CartRam::CartridgeId type)
-            {
-                switch (type)
-                {
-                case CartRam::CartridgeId::Cart1MiB:
-                    return 1024 * 1024; // 1 MiB
-                case CartRam::CartridgeId::Cart4MiB:
-                    return 4 * 1024 * 1024; // 4 MiB
-                default:
-                    return 0;
-                }
-            }
             
             /** @brief Initialize memory zone
              */
             inline static void Initialize()
             {
                 // Detect cartridge type
-                s_cartType = DetectCartridgeType();
+                s_cartType = SRL::Cartridge::DetectCartridgeType();
                 
                 // Get base address and size for the detected cartridge
-                s_cartridgeBase = GetBaseAddressForType(s_cartType);
-                size_t cartSize = GetSizeForType(s_cartType);
+                s_cartridgeBase = SRL::Cartridge::GetBaseAddressForType(s_cartType);
+                size_t cartSize = SRL::Cartridge::GetSizeForType(s_cartType);
                 
                 if (s_cartridgeBase != nullptr && cartSize > 0)
                 {
@@ -878,7 +788,7 @@ namespace SRL
              */
             inline static bool IsCartridgeAvailable()
             {
-                return s_cartType != CartRam::CartridgeId::None && s_cartridgeBase != nullptr && zone.Size > 0;
+                return s_cartType != SRL::Cartridge::CartridgeId::None && s_cartridgeBase != nullptr && zone.Size > 0;
             }
             
             /** @brief Check whether pointer is in range of the memory zone
