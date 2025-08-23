@@ -31,6 +31,9 @@ namespace SRL
              */
             USBDevCart, 
 
+            /** @brief Data cartridge
+             */
+            DataCart, 
 
         };
 
@@ -66,6 +69,19 @@ namespace SRL
             static constexpr CartridgeId Id = USBDevCart;
 
             static constexpr const char *Name = "USB Dev Cartridge";
+        };
+
+        namespace CartridgeData
+        {
+            static constexpr CartridgeId Id = DataCart;
+
+             /** @brief Data cartridge address for contiguous access
+             */
+            static constexpr uintptr_t Address = 0x22000000UL;
+
+            static constexpr const char *Name = "Data Cartridge";
+
+            static constexpr char * HWId = "SEGASATURN";
         };
 
         /** @brief Convert a raw cartridge ID byte to a CartridgeId
