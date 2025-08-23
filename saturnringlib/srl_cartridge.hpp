@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "srl_devcart.hpp"
@@ -91,8 +90,13 @@ namespace SRL
         static constexpr uintptr_t CartridgeIdRegister = 0x24FFFFFFUL;
 
         
-        /** @brief Detect cartridge type
-         * @return Detected cartridge type
+        /** @brief Detect cartridge type by reading the cartridge ID register.
+         *
+         *  This function reads the cartridge ID register to identify the type of memory cartridge inserted.
+         *  It temporarily configures the SCU (System Control Unit) for cartridge access, reads the ID,
+         *  and then restores the SCU configuration.
+         *
+         * @return uint8_t The raw cartridge ID read from the CartridgeIdRegister.
          */
         inline static uint8_t DetectMemoryCartridge()
         {
@@ -112,8 +116,13 @@ namespace SRL
             return cartId;
         }
 
-        /** @brief Detect cartridge type
-         * @return Detected cartridge type
+        /** @brief Detect cartridge type by checking RAM and USB cartridges.
+         *
+         *  This function attempts to identify the cartridge type by first checking for a RAM cartridge
+         *  using DetectMemoryCartridge(). If no RAM cartridge is detected, it then checks for a USB
+         *  development cartridge using SRL::DevCart::CS0::isAvailable().
+         *
+         * @return CartridgeId The detected cartridge type.
          */
         inline static CartridgeId DetectCartridgeType()
         {
@@ -189,6 +198,14 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Check if a specific cartridge type is present.
+         * 
+         * This function detects the currently inserted cartridge type and compares it against the provided type.
+         * 
+         * @param type The CartridgeId to check for.
+         * @return true If the specified cartridge type is detected, false otherwise.
+         */
         inline static bool IsCartridgeTypePresent(CartridgeId type)
         {
             return DetectCartridgeType() == type;
