@@ -93,28 +93,41 @@ function DownloadFile($url, $targetFile)
 
 if ($args.Length -ne 1)
 {
-    write-host "Invalid parameter! Quitting..."
+    write-host "Usage: $($MyInvocation.MyCommand.Name) <version>"
+    write-host "Example: $($MyInvocation.MyCommand.Name) v0.2.2"
     Write-Host -NoNewLine 'Press any key to continue...';
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+    Write-Host ""
     Break;
 }
 
-$folderPath = "./Compiler"
+$version = $args[0]
+
+# Use Windows amd64 build
+$file = "iso2raw-windows-amd64.zip"
+
+$folderPath = "./tools/bin/win/iso2raw"
+
+# Ensure parent directories exist
+$parentPath = Split-Path -Parent $folderPath
+if (-not (Test-Path -Path $parentPath)) {
+    New-Item -Path $parentPath -ItemType Directory -Force
+}
 
 if (-not (Test-Path -Path $folderPath)) {
-    New-Item -Path $folderPath -ItemType Directory
+    New-Item -Path $folderPath -ItemType Directory -Force
 }
 else {
     $directoryInfo = Get-ChildItem $folderPath | Measure-Object
 
     if ($directoryInfo.count -ne 0)
     {
-        write-host "Compiler directory is not empty! Proceeding will clear all of its contents."
+        write-host "iso2raw directory is not empty! Proceeding will clear all of its contents."
         $confirmation = Read-Host "Are you Sure You Want To Proceed (y/n)"
 
         if ($confirmation -eq 'y') 
         {
-            write-host "Clearing compiler directory"
+            write-host "Clearing iso2raw directory"
             Remove-Item "$($folderPath)/*" -Recurse -Force
         }
         else
@@ -124,28 +137,43 @@ else {
     }
 }
 
-Write-Progress "Installing" -Id 3 -status "Step 1/3: Downloading compiler..." -PercentComplete 0
-$tag="gcc_$($args[0])"
+Write-Progress "Installing iso2raw" -Id 3 -status "Step 1/3: Downloading iso2raw..." -PercentComplete 0
 
-if ($args[0].equals("14.2.0")) {
-    $tag="gcc_$($args[0])_2"
-}
+DownloadFile "https://github.com/sftwninja/iso2raw/releases/download/$($version)/$($file)" "$($folderPath)/$($file)"
 
-DownloadFile "https://github.com/willll/Saturn-SDK-GCC-SH2/releases/download/$($tag)/sh-gcc-$($args[0]).zip" "$($folderPath)/sh-gcc-$($args[0]).zip"
-
-if ([System.IO.File]::Exists("$($folderPath)/sh-gcc-$($args[0]).zip")) {
-    Write-Progress "Installing" -Id 3 -status "Step 2/3: Extracting compiler..." -PercentComplete 33
-    Expand-Archive "$($folderPath)/sh-gcc-$($args[0]).zip" -DestinationPath "$($folderPath)"
+if ([System.IO.File]::Exists("$($folderPath)/$($file)")) {
+    Write-Progress "Installing iso2raw" -Id 3 -status "Step 2/3: Extracting iso2raw..." -PercentComplete 33
     
-    Write-Progress "Installing" -Id 3 -status "Step 3/3: Cleaning up..." -PercentComplete 66
-    Remove-Item "$($folderPath)/sh-gcc-$($args[0]).zip" -Force
+    # Extract to temp directory first
+    $tempPath = "$($folderPath)/temp_extract"
+    Expand-Archive "$($folderPath)/$($file)" -DestinationPath $tempPath
     
-    Write-Progress "Installing" -Id 3 -status "Installation successful!" -Completed
-    Write-Host "Installation successful!";
+    # Move contents from subdirectory to iso2raw directory
+    $subdir = Get-ChildItem -Path $tempPath -Directory | Select-Object -First 1
+    if ($subdir) {
+        Get-ChildItem -Path $subdir.FullName -Force | Move-Item -Destination $folderPath -Force
+    } else {
+        Get-ChildItem -Path $tempPath -Force | Move-Item -Destination $folderPath -Force
+    }
+    
+    # Rename the binary to 'iso2raw.exe' (remove any version suffix)
+    $oldBinary = Get-ChildItem -Path $folderPath -Name "iso2raw-*.exe" | Select-Object -First 1
+    if ($oldBinary) {
+        Rename-Item -Path "$folderPath/$oldBinary" -NewName "iso2raw.exe"
+    }
+    
+    # Clean up temp directory
+    Remove-Item -Path $tempPath -Recurse -Force
+    
+    Write-Progress "Installing iso2raw" -Id 3 -status "Step 3/3: Cleaning up..." -PercentComplete 66
+    Remove-Item "$($folderPath)/$($file)" -Force
+    
+    Write-Progress "Installing iso2raw" -Id 3 -status "Installation successful!" -Completed
+    Write-Host "iso2raw installation successful!";
 }
 else {
-    Write-Progress "Installing" -Id 3 -status "Installation failed!" -Completed
-    Write-Host "Installation failed!";
+    Write-Progress "Installing iso2raw" -Id 3 -status "Installation failed!" -Completed
+    Write-Host "iso2raw installation failed!";
 }
 
 Write-Host -NoNewLine 'Press any key to continue...';

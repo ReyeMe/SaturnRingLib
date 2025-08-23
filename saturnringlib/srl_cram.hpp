@@ -157,13 +157,13 @@ namespace SRL
                 return CRAM::AllocationMask[bank] != 0;
 
             case CRAM::TextureColorMode::Paletted128:
-                return ((uint8_t*)CRAM::AllocationMask)[bank] != 0;
+                return (CRAM::AllocationMask[bank >> 1] & (0xff << ((bank & 0x1) << 1))) != 0;
             
             case CRAM::TextureColorMode::Paletted64:
-                return ((uint8_t*)CRAM::AllocationMask)[bank >> 1] & (bank % 2 == 0 ? 0x0f : 0xf0) != 0;
+                return (CRAM::AllocationMask[bank >> 2] & (0xf << ((bank & 0x2) << 2))) != 0;
             
             case CRAM::TextureColorMode::Paletted16:
-                return (CRAM::AllocationMask[bank >> 4] & (1 << (bank - (16 * (bank >> 4))))) != 0;
+                return (CRAM::AllocationMask[bank >> 4] & (1 << (bank & 0xf))) != 0;
 
             default:
                 return false;
@@ -184,18 +184,25 @@ namespace SRL
                 break;
 
             case CRAM::TextureColorMode::Paletted128:
-                ((uint8_t*)CRAM::AllocationMask)[bank] = used ? 0xff : 0x00;
-                break;
-            
-            case CRAM::TextureColorMode::Paletted64:
-
                 if (used)
                 {
-                    ((uint8_t*)CRAM::AllocationMask)[bank >> 1] |= (bank % 2 == 0 ? 0x0f : 0xf0);
+                    CRAM::AllocationMask[bank >> 1] |= (0xff << ((bank & 0x1) << 1));
                 }
                 else
                 {
-                    ((uint8_t*)CRAM::AllocationMask)[bank >> 1] &= (bank % 2 == 0 ? 0xf0 : 0x0f);
+                    CRAM::AllocationMask[bank >> 1] &= ~(0xff << ((bank & 0x1) << 1));
+                }
+
+                break;
+            
+            case CRAM::TextureColorMode::Paletted64:
+                if (used)
+                {
+                    (CRAM::AllocationMask)[bank >> 2] |= (0xf << ((bank & 0x2) << 2));
+                }
+                else
+                {
+                    (CRAM::AllocationMask)[bank >> 2] &= ~(0xf << ((bank & 0x2) << 2));
                 }
 
                 break;
@@ -204,11 +211,11 @@ namespace SRL
 
                 if (used)
                 {
-                    CRAM::AllocationMask[bank >> 4] |= (1 << (bank - (16 * (bank >> 4))));
+                    CRAM::AllocationMask[bank >> 4] |= (1 << (bank & 0xf));
                 }
                 else
                 {
-                    CRAM::AllocationMask[bank >> 4] &= ~(1 << (bank - (16 * (bank >> 4))));
+                    CRAM::AllocationMask[bank >> 4] &= ~(1 << (bank & 0xf));
                 }
 
                 break;
@@ -237,15 +244,15 @@ namespace SRL
                     break;
 
                 case CRAM::TextureColorMode::Paletted128:
-                    for (int32_t id = 0; id < 16 && freeBank < 0; ((uint8_t*)CRAM::AllocationMask)[id] == 0 ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 16 && freeBank < 0; (CRAM::AllocationMask[id >> 1] & (0xff << ((id & 0x1) << 1))) == 0 ? freeBank = id : id++);
                     break;
                 
                 case CRAM::TextureColorMode::Paletted64:
-                    for (int32_t id = 0; id < 32 && freeBank < 0; (((uint8_t*)CRAM::AllocationMask)[id >> 1] & (id % 2 == 0 ? 0x0f : 0xf0) == 0) ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 32 && freeBank < 0; (CRAM::AllocationMask[id >> 2] & (0xf << ((id & 0x2) << 2))) == 0 ? freeBank = id : id++);
                     break;
                 
                 case CRAM::TextureColorMode::Paletted16:
-                    for (int32_t id = 0; id < 128 && freeBank < 0; (CRAM::AllocationMask[id >> 4] & (1 << (id - (16 * (id >> 4))))) == 0 ? freeBank = id : id++);
+                    for (int32_t id = 0; id < 128 && freeBank < 0; (CRAM::AllocationMask[id >> 4] & (1 << (id & 0xf))) == 0 ? freeBank = id : id++);
                     break;
                 default:
                     break;

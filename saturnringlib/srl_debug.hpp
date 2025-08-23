@@ -174,7 +174,7 @@ namespace SRL
          */
         inline static void PrintClearLine(const uint8_t line)
         {
-            for (int x = 0; x < 40; x++)
+            for (int x = 0; x < 44; x++)
             {
                 Debug::Print(x, line, " ");
             }

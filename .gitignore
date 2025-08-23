@@ -21,6 +21,7 @@
 /[Mm]odules/[Ss][Gg][Ll]/[Ii][Pp]/*.o
 /[Mm]odules/[Tt][Ll][Ss][Ff]/**
 !/[Mm]odules/[Tt][Ll][Ss][Ff]/.git
+/[Tt]ools/[Bb]in/**
 
 # just to get rid of the old txt
 !/[Ee]mulators/[Mm]ednafen/put_mednafen_here.txt
@@ -39,6 +40,9 @@
 **/cd/data/ABS.TXT
 **/cd/data/BIB.TXT
 **/cd/data/CPY.TXT
+
+# Audio raw files (generated from source audio)
+**/cd/music/*.raw
 
 /[Tt]ests/**/[Bb]uild[Dd]rop/**
 /[Tt]ests/**/*.o

@@ -1,7 +1,7 @@
-sample01.mp3
+03 sample01.mp3
 # Lines starting with "#" are ignored
 # counting.mp3
 # "normalize" is a general purpose filter for normalizing audio
 # see saturnringlib/shared.mk 
-Backbeat.ogg:normalize
-counting16.wav:radio
+01 Backbeat.ogg:normalize
+02 counting16.wav:radio
