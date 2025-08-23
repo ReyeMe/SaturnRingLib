@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include "srl_devcart.hpp"
+
 #include <cstdint>
 
 namespace SRL
@@ -24,7 +26,47 @@ namespace SRL
 
             /** @brief 4 MiB cartridge
              */
-            Cart4MiB = 0x5C
+            Cart4MiB = 0x5C,
+
+            /** @brief USB dev cartridge
+             */
+            USBDevCart, 
+
+
+        };
+
+
+        namespace Cartridge1MiB
+        {
+            static constexpr CartridgeId Id = Cart1MiB;
+
+            /** @brief 1 MiB cartridge addres  access
+             */
+            static constexpr uintptr_t Address = 0x02400000UL;
+
+            static constexpr size_t Size = 1024 * 1024; // 1 MiB
+
+            static constexpr const char *Name = "1 MiB Cartridge";
+        };
+
+        namespace Cartridge4MiB
+        {
+            static constexpr CartridgeId Id = Cart4MiB;
+
+            /** @brief 4 MiB cartridge address for contiguous access
+             */
+            static constexpr uintptr_t Address = 0x24000000UL;
+
+            static constexpr size_t Size = 4 * 1024 * 1024; // 4 MiB
+
+            static constexpr const char *Name = "4 MiB Cartridge";
+        };
+
+        namespace CartridgeUSBDev
+        {
+            static constexpr CartridgeId Id = USBDevCart;
+
+            static constexpr const char *Name = "USB Dev Cartridge";
         };
 
         /** @brief Convert a raw cartridge ID byte to a CartridgeId
@@ -46,20 +88,13 @@ namespace SRL
 
         /** @brief Cartridge ID register address
          */
-        static constexpr uint32_t CartridgeIdRegister = 0x24FFFFFFUL;
+        static constexpr uintptr_t CartridgeIdRegister = 0x24FFFFFFUL;
 
-        /** @brief 1 MiB cartridge address for contiguous access
-         */
-        static constexpr uint32_t Address1MiB = 0x02400000UL;
-
-        /** @brief 4 MiB cartridge address
-         */
-        static constexpr uint32_t Address4MiB = 0x24000000UL;
-
+        
         /** @brief Detect cartridge type
          * @return Detected cartridge type
          */
-        inline static CartridgeId DetectCartridgeType()
+        inline static uint8_t DetectMemoryCartridge()
         {
             // Save SCU configuration
             uint32_t scuMask = *((volatile uint32_t *)InterruptStatusRegister);
@@ -74,21 +109,45 @@ namespace SRL
             *((volatile uint32_t *)InterruptStatusRegister) = scuMask;
 
             // Determine cartridge type based on ID
-            return RawIdToCartridgeId(cartId);
+            return cartId;
+        }
+
+        /** @brief Detect cartridge type
+         * @return Detected cartridge type
+         */
+        inline static CartridgeId DetectCartridgeType()
+        {
+            // 1- Try to identificate a RAM cartridge
+            CartridgeId ramCartId = RawIdToCartridgeId(DetectMemoryCartridge());
+
+            if (ramCartId != CartridgeId::None)
+            {
+                return ramCartId;
+            }
+
+            // 2- Try to identify a USB dev cartridge
+            if (SRL::DevCart::CS0::isAvailable())
+            {
+                ramCartId = CartridgeId::USBDevCart;
+            }
+
+            // Determine cartridge type based on ID
+            return ramCartId;
         }
 
         /** @brief Get base address for cartridge type
          * @param type Cartridge type
-         * @return Base address for the cartridge
+         * @return Base address for t   he cartridge
          */
         inline static void *GetBaseAddressForType(SRL::Cartridge::CartridgeId type)
         {
             switch (type)
             {
             case CartridgeId::Cart1MiB:
-                return (void *)Address1MiB; // Use special address for 1MiB for contiguous access
+                return (void *)Cartridge1MiB::Address; // Use special address for 1MiB for contiguous access
             case CartridgeId::Cart4MiB:
-                return (void *)Address4MiB;
+                return (void *)Cartridge4MiB::Address;
+            case CartridgeId::USBDevCart:
             default:
                 return nullptr;
             }
@@ -103,13 +162,38 @@ namespace SRL
             switch (type)
             {
             case CartridgeId::Cart1MiB:
-                return 1024 * 1024; // 1 MiB
+                return Cartridge1MiB::Size;
             case CartridgeId::Cart4MiB:
-                return 4 * 1024 * 1024; // 4 MiB
+                return Cartridge4MiB::Size;
             default:
                 return 0;
             }
         }
+
+        /** @brief Get size for cartridge type
+         * @param type Cartridge type
+         * @return Size in bytes
+         */
+        inline static const char * GetStringFromType(CartridgeId type)
+        {
+            switch (type)
+            {
+            case CartridgeId::Cart1MiB:
+                return Cartridge1MiB::Name;
+            case CartridgeId::Cart4MiB:
+                return Cartridge4MiB::Name;
+            case CartridgeId::USBDevCart:
+                return CartridgeUSBDev::Name;
+            default:
+                return "Unknown Cartridge";
+            }
+        }
+
+        inline static bool IsCartridgeTypePresent(CartridgeId type)
+        {
+            return DetectCartridgeType() == type;
+        }
+
 
     } // namespace Cartridge
 } // namespace SRL

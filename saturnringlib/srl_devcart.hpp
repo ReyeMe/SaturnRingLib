@@ -16,13 +16,13 @@ namespace SRL
         // CS0 area (Flash memory and USB related registers)
         namespace CS0
         {
-            constexpr static unsigned CART_BASE_ADR = 0x22000000UL;
-            constexpr static uint32_t FLASH_MEMORY_BASE = CART_BASE_ADR + 0x0; // 1MB flash (2 x 512KB chips)
-            constexpr static unsigned long USB_FLAGS = CART_BASE_ADR + 0x200001UL;    // RW USB module fifo status register
-            constexpr static uint32_t USB_FIFO = CART_BASE_ADR + 0x100001;     // RW USB module fifo data
+            constexpr static uintptr_t CART_BASE_ADR = 0x22000000UL;
+            constexpr static uintptr_t FLASH_MEMORY_BASE = CART_BASE_ADR + 0x0; // 1MB flash (2 x 512KB chips)
+            constexpr static uintptr_t USB_FLAGS = CART_BASE_ADR + 0x200001UL;    // RW USB module fifo status register
+            constexpr static uintptr_t USB_FIFO = CART_BASE_ADR + 0x100001;     // RW USB module fifo data
             // 0x223x to 0x227x unused
 
-            constexpr static uint32_t FIRM_MAXLEN = 1024 * 1024; // Maximum length allowed for firmware (limited by LRAM size, because flashing cart from stream data is not supported)
+            constexpr static size_t FIRM_MAXLEN = 1024 * 1024; // Maximum length allowed for firmware (limited by LRAM size, because flashing cart from stream data is not supported)
 
             class USBFlags
             {
@@ -79,7 +79,7 @@ namespace SRL
 
             static inline bool isTXEFull()
             {
-                return ((*(volatile uint8_t *)(USB_FLAGS)&USBFlags::TXE) == USBFlags::TXE);
+                return ((*(uint8_t *)(USB_FLAGS)&USBFlags::TXE) == USBFlags::TXE);
             }
 
             static inline void waitTXE()
@@ -90,7 +90,7 @@ namespace SRL
 
             static inline bool isRXFFull()
             {
-                return ((*(volatile uint8_t *)(USB_FLAGS)&USBFlags::RXF) == USBFlags::RXF);
+                return ((*(uint8_t *)(USB_FLAGS)&USBFlags::RXF) == USBFlags::RXF);
             }
 
             static inline void waitRXF()
@@ -99,22 +99,21 @@ namespace SRL
                 while (isRXFFull());
             }
 
-            static inline void send(const uint8_t * c)
+            static inline void write(const uint8_t * c)
             {
                 waitTXE();
-                *(volatile uint8_t *)(USB_FLAGS) = *c;
+                *(uint8_t *)(USB_FIFO) = *c;
             }
 
             static inline uint8_t read()
             {
                 waitRXF();
-                return *(volatile uint8_t *)(USB_FLAGS);
+                return *(uint8_t *)(USB_FIFO);
             }
 
             static inline bool isAvailable()
             {
-                // Does not work !
-                return ((*(volatile uint8_t *)(USB_FLAGS)&USBFlags::PWREN) == USBFlags::PWREN);
+                return (!(*(uint8_t *)(USB_FLAGS)&0x7C));
             }
 
         }
@@ -126,9 +125,7 @@ namespace SRL
 
             enum class Register : uint32_t
             {
-                CPLD_FF55 = CPLD_BASE_ADDR + 0x00,
                 CPLD_55 = CPLD_BASE_ADDR + 0x01,
-                CPLD_FFAA = CPLD_BASE_ADDR + 0x02,
                 CPLD_AA = CPLD_BASE_ADDR + 0x03,
                 CART_CPLD_VER = CPLD_BASE_ADDR + 0x05,
                 CART_BETA_ID = CPLD_BASE_ADDR + 0x07,
