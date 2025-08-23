@@ -103,7 +103,7 @@ namespace SRL
 
             static void putc(const char *c)
             {
-                SRL::DevCart::CS0::send(reinterpret_cast<const uint8_t *>(c));
+                SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(c));
             }
         };
 

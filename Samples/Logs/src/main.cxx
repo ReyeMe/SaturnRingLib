@@ -37,19 +37,25 @@ int main()
 
 	LogFatal("Here we go again, If you're %d, then I'm %s", myNumber, myString);
 
+	SRL::Cartridge::CartridgeId cid = SRL::Cartridge::DetectCartridgeType();
+
 	// Main program loop
 	while(1)
 	{
 		SRL::Core::Synchronize();
 
-		if (SRL::DevCart::CS0::isAvailable())
-		{
-			SRL::Debug::Print(1,3, "DevCart Detected !");
-		}
-		else
-		{
-			SRL::Debug::Print(1,3, "DevCart Not Detected !");
-		}
+		SRL::Debug::Print(1,2, "Cartridge type detected: %s", SRL::Cartridge::GetStringFromType(cid));
+
+		Log::LogPrint<LogLevels::FATAL, DevCartLogger>("HELLO WORLD !");
+
+		// if (SRL::DevCart::CS0::isAvailable())
+		// {
+		// 	SRL::Debug::Print(1,3, "DevCart Detected !");
+		// }
+		// else
+		// {
+		// 	SRL::Debug::Print(1,3, "DevCart Not Detected !");
+		// }
 	}
 
 	return 0;
