@@ -2,6 +2,7 @@
 **.zip
 
 **/yabause.ini
+**/imgui.ini
 
 /[Dd]ocumentation/*
 !/[Dd]ocumentation/resources
@@ -50,3 +51,4 @@
 # Compiler folder
 /[Cc]ompiler/**
 Compiler/
+
