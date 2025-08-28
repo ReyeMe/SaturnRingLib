@@ -46,16 +46,20 @@ int main()
 
 		SRL::Debug::Print(1,2, "Cartridge type detected: %s", SRL::Cartridge::GetStringFromType(cid));
 
-		Log::LogPrint<LogLevels::FATAL, DevCartLogger>("HELLO WORLD !");
-
-		// if (SRL::DevCart::CS0::isAvailable())
-		// {
-		// 	SRL::Debug::Print(1,3, "DevCart Detected !");
-		// }
-		// else
-		// {
-		// 	SRL::Debug::Print(1,3, "DevCart Not Detected !");
-		// }
+		if (SRL::DevCart::CS0::isAvailable())
+		{
+			static uint16_t counter = 0;
+			SRL::Debug::Print(1,3, "DevCart Detected !");
+			Log::LogPrint<LogLevels::FATAL, DevCartLogger>("HELLO WORLD ! (%d)", counter++);
+		}
+		else
+		{
+			SRL::Debug::Print(1,3, "DevCart Not Detected !");
+            char tmp[32];
+            memcpy(tmp, (char *)SRL::Cartridge::CartridgeData::Address, sizeof(tmp));
+			tmp[sizeof(SRL::Cartridge::CartridgeData::HWId)] = '\0'; // Ensure null termination
+			SRL::Debug::Print(1,4,"Detected HWId: %s", tmp);
+		}
 	}
 
 	return 0;

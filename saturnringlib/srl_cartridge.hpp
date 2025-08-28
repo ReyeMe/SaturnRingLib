@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srl_devcart.hpp"
+#include "srl_string.hpp"
 
 #include <cstdint>
 
@@ -81,7 +82,9 @@ namespace SRL
 
             static constexpr const char *Name = "Data Cartridge";
 
-            static constexpr char * HWId = "SEGASATURN";
+            static constexpr char HWId[] = "SEGA SEGASA";
+
+            static constexpr size_t Size = 0; // TBD
         };
 
         /** @brief Convert a raw cartridge ID byte to a CartridgeId
@@ -132,6 +135,28 @@ namespace SRL
             return cartId;
         }
 
+
+        inline static bool DetectDataCartridge()
+        {
+            bool bReturn = false;
+
+            // Save SCU configuration
+            uint32_t scuMask = *((volatile uint32_t *)InterruptStatusRegister);
+
+            // Configure SCU for cartridge access
+            *((volatile uint32_t *)InterruptStatusRegister) = 0x00000000;
+
+                        // Read cartridge ID
+            bReturn = (0 == strncmp((char *)CartridgeData::HWId, (char *)CartridgeData::Address, sizeof(CartridgeData::HWId)));
+
+
+            // Restore SCU configuration
+            *((volatile uint32_t *)InterruptStatusRegister) = scuMask;
+
+            // Determine cartridge type based on ID
+            return bReturn;
+        }
+
         /** @brief Detect cartridge type by checking RAM and USB cartridges.
          *
          *  This function attempts to identify the cartridge type by first checking for a RAM cartridge
@@ -153,7 +178,13 @@ namespace SRL
             // 2- Try to identify a USB dev cartridge
             if (SRL::DevCart::CS0::isAvailable())
             {
-                ramCartId = CartridgeId::USBDevCart;
+                return CartridgeId::USBDevCart;
+            }
+
+            // 3- Try to identify a data cartridge
+            if (DetectDataCartridge())
+            {
+                return CartridgeId::DataCart;
             }
 
             // Determine cartridge type based on ID
@@ -172,6 +203,8 @@ namespace SRL
                 return (void *)Cartridge1MiB::Address; // Use special address for 1MiB for contiguous access
             case CartridgeId::Cart4MiB:
                 return (void *)Cartridge4MiB::Address;
+            case CartridgeId::DataCart:
+                return (void *)CartridgeData::Address;
             case CartridgeId::USBDevCart:
             default:
                 return nullptr;
@@ -190,6 +223,8 @@ namespace SRL
                 return Cartridge1MiB::Size;
             case CartridgeId::Cart4MiB:
                 return Cartridge4MiB::Size;
+            case CartridgeId::DataCart:
+                return CartridgeData::Size;
             default:
                 return 0;
             }
