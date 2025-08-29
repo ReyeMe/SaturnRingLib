@@ -120,6 +120,18 @@ extern "C"
     }
 
     /**
+     * @brief Test GetFreeSpace methods for memory zones
+     *
+     * Verifies that GetFreeSpace returns the correct free space for each memory zone.
+     */
+    MU_TEST(memory_test_get_free_space)
+    {
+        mu_assert(Memory::HighWorkRam::GetFreeSpace() > 0, "HighWorkRam GetFreeSpace failed");
+        mu_assert(Memory::LowWorkRam::GetFreeSpace() > 0, "LowWorkRam GetFreeSpace failed");
+        mu_assert(Memory::CartRam::GetFreeSpace() > 0, "CartRam GetFreeSpace failed");
+    }
+
+    /**
      * @brief Test proper initialization of memory zones
      *
      * Verifies that memory zones are properly initialized.
