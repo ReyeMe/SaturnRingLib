@@ -2057,6 +2057,97 @@ extern "C"
         Memory::CartRam::Free(ptr);
     }
 
+/**
+ * @brief Test successful allocation at the beginning of memory zones
+ */
+MU_TEST(memory_test_allocate_at_beginning)
+{
+    void *ptr = Memory::HighWorkRam::Malloc(1);
+    mu_assert(ptr != nullptr, "Allocation at beginning of HighWorkRam failed");
+    Memory::HighWorkRam::Free(ptr);
+
+    ptr = Memory::LowWorkRam::Malloc(1);
+    mu_assert(ptr != nullptr, "Allocation at beginning of LowWorkRam failed");
+    Memory::LowWorkRam::Free(ptr);
+
+    ptr = Memory::CartRam::Malloc(1);
+    mu_assert(ptr != nullptr, "Allocation at beginning of CartRam failed");
+    Memory::CartRam::Free(ptr);
+}
+
+/**
+ * @brief Test multiple consecutive allocations
+ */
+MU_TEST(memory_test_consecutive_allocations)
+{
+    const int numAllocations = 10;
+    void *ptrs[numAllocations];
+
+    for (int i = 0; i < numAllocations; ++i) {
+        ptrs[i] = Memory::HighWorkRam::Malloc(10);
+        mu_assert(ptrs[i] != nullptr, "Consecutive allocation in HighWorkRam failed");
+    }
+
+    for (int i = 0; i < numAllocations; ++i) {
+        Memory::HighWorkRam::Free(ptrs[i]);
+    }
+}
+
+/**
+ * @brief Test allocation of zero size
+ */
+MU_TEST(memory_test_allocate_zero_size)
+{
+    void *ptr = Memory::HighWorkRam::Malloc(0);
+    mu_assert(ptr == nullptr, "Allocation of zero size in HighWorkRam did not return nullptr");
+
+    ptr = Memory::LowWorkRam::Malloc(0);
+    mu_assert(ptr == nullptr, "Allocation of zero size in LowWorkRam did not return nullptr");
+
+    ptr = Memory::CartRam::Malloc(0);
+    mu_assert(ptr == nullptr, "Allocation of zero size in CartRam did not return nullptr");
+}
+
+/**
+ * @brief Test large allocations
+ */
+MU_TEST(memory_test_large_allocations)
+{
+    size_t largeSize = 1024 * 1024; // 1MB
+
+    void *ptr = Memory::HighWorkRam::Malloc(largeSize);
+    mu_assert(ptr != nullptr, "Large allocation in HighWorkRam failed");
+    Memory::HighWorkRam::Free(ptr);
+
+    ptr = Memory::LowWorkRam::Malloc(largeSize);
+    mu_assert(ptr != nullptr, "Large allocation in LowWorkRam failed");
+    Memory::LowWorkRam::Free(ptr);
+
+    ptr = Memory::CartRam::Malloc(largeSize);
+    mu_assert(ptr != nullptr, "Large allocation in CartRam failed");
+    Memory::CartRam::Free(ptr);
+}
+
+/**
+ * @brief Test interleaved allocations and deallocations
+ */
+MU_TEST(memory_test_interleaved_allocations)
+{
+    void *ptr1 = Memory::HighWorkRam::Malloc(10);
+    mu_assert(ptr1 != nullptr, "Interleaved allocation 1 in HighWorkRam failed");
+
+    void *ptr2 = Memory::LowWorkRam::Malloc(10);
+    mu_assert(ptr2 != nullptr, "Interleaved allocation 1 in LowWorkRam failed");
+
+    Memory::HighWorkRam::Free(ptr1);
+
+    void *ptr3 = Memory::HighWorkRam::Malloc(10);
+    mu_assert(ptr3 != nullptr, "Interleaved allocation 2 in HighWorkRam failed");
+
+    Memory::LowWorkRam::Free(ptr2);
+    Memory::HighWorkRam::Free(ptr3);
+}
+
     /**
      * @brief Memory test suite configuration and test case registration
      *
@@ -2153,5 +2244,10 @@ extern "C"
         MU_RUN_TEST(memory_test_realloc_invalid_highworkram);
         MU_RUN_TEST(memory_test_realloc_invalid_lowworkram);
         MU_RUN_TEST(memory_test_realloc_invalid_cartram);
+            MU_RUN_TEST(memory_test_allocate_at_beginning);
+    MU_RUN_TEST(memory_test_consecutive_allocations);
+    MU_RUN_TEST(memory_test_allocate_zero_size);
+    MU_RUN_TEST(memory_test_large_allocations);
+    MU_RUN_TEST(memory_test_interleaved_allocations);
     }
 }
