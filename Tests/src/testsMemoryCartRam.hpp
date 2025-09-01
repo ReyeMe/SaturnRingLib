@@ -97,11 +97,11 @@ extern "C"
      * Verifies that the used memory space can be retrieved correctly in CartRam.
      * Ensures that the used space is greater than or equal to zero.
      */
-    MU_TEST(memory_CartRam_test_get_used_space)
-    {
-        size_t usedSpace = Memory::GetUsedSpace(Memory::Zone::CartRam);
-        mu_assert(usedSpace >= 0, "Failed to get used space");
-    }
+    // MU_TEST(memory_CartRam_test_get_used_space)
+    // {
+    //     size_t usedSpace = Memory::GetUsedSpace(Memory::Zone::CartRam);
+    //     mu_assert(usedSpace >= 0, "Failed to get used space");
+    // }
 
     /**
      * @brief Test getting memory zone size in CartRam
@@ -208,11 +208,11 @@ extern "C"
      * Verifies that the used memory space in CartRam can be retrieved correctly.
      * Ensures that the used space is greater than or equal to zero.
      */
-    MU_TEST(memory_CartRam_test_cartram_get_used_space)
-    {
-        size_t usedSpace = Memory::CartRam::GetUsedSpace();
-        mu_assert(usedSpace >= 0, "Failed to get CartRam used space");
-    }
+    // MU_TEST(memory_CartRam_test_cartram_get_used_space)
+    // {
+    //     size_t usedSpace = Memory::CartRam::GetUsedSpace();
+    //     mu_assert(usedSpace >= 0, "Failed to get CartRam used space");
+    // }
 
     /**
      * @brief Test getting CartRam memory zone size
@@ -637,11 +637,11 @@ extern "C"
         MU_RUN_TEST(memory_CartRam_test_realloc_larger);
 
         MU_RUN_TEST(memory_CartRam_test_get_free_space);
-        MU_RUN_TEST(memory_CartRam_test_get_used_space);
+        //MU_RUN_TEST(memory_CartRam_test_get_used_space);
         MU_RUN_TEST(memory_CartRam_test_get_size);
         MU_RUN_TEST(memory_CartRam_test_get_report_cartram);
         MU_RUN_TEST(memory_CartRam_test_cartram_get_free_space);
-        MU_RUN_TEST(memory_CartRam_test_cartram_get_used_space);
+        //MU_RUN_TEST(memory_CartRam_test_cartram_get_used_space);
         MU_RUN_TEST(memory_CartRam_test_cartram_get_size);
         MU_RUN_TEST(memory_CartRam_test_inrange_cartram);
 

@@ -28,7 +28,7 @@ CD_NAME = UTs
 BUILD_DROP = ./BuildDrop
 
 # Custom FLAGS
-SRL_CUSTOM_CCFLAGS = -DNO_SGL_STDLIB
+SRL_CUSTOM_CCFLAGS = -DNO_SGL_STDLIB -Wno-attribute-warning
 SRL_CUSTOM_LDFLAGS = -lstdc++
 
 # SRL installation directory

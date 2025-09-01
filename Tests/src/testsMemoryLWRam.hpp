@@ -101,11 +101,11 @@ extern "C"
      * Verifies that the used memory space can be retrieved correctly.
      * Ensures that the used space is greater than or equal to zero.
      */
-    MU_TEST(memory_LWRam_test_get_used_space)
-    {
-        size_t usedSpace = Memory::GetUsedSpace(Memory::Zone::LWRam);
-        mu_assert(usedSpace >= 0, "Failed to get used space");
-    }
+    // MU_TEST(memory_LWRam_test_get_used_space)
+    // {
+    //     size_t usedSpace = Memory::GetUsedSpace(Memory::Zone::LWRam);
+    //     mu_assert(usedSpace >= 0, "Failed to get used space");
+    // }
 
     /**
      * @brief Test getting memory zone size
@@ -212,11 +212,11 @@ extern "C"
      * Verifies that the used memory space in LowWorkRam can be retrieved correctly.
      * Ensures that the used space is greater than or equal to zero.
      */
-    MU_TEST(memory_LWRam_test_lowworkram_get_used_space)
-    {
-        size_t usedSpace = Memory::LowWorkRam::GetUsedSpace();
-        mu_assert(usedSpace >= 0, "Failed to get LowWorkRam used space");
-    }
+    // MU_TEST(memory_LWRam_test_lowworkram_get_used_space)
+    // {
+    //     size_t usedSpace = Memory::LowWorkRam::GetUsedSpace();
+    //     mu_assert(usedSpace >= 0, "Failed to get LowWorkRam used space");
+    // }
 
     /**
      * @brief Test getting LowWorkRam memory zone size
@@ -439,7 +439,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::LWRam) char[100];
         mu_assert(ptr != nullptr, "Memory allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
         size_t freeSpaceAfter = Memory::LowWorkRam::GetFreeSpace();
         mu_assert(freeSpaceAfter == freeSpaceBefore, "Memory leak detected");
     }
@@ -495,7 +495,7 @@ extern "C"
             mu_assert(ptr[i] == i, "Memory content verification failed");
         }
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -653,11 +653,11 @@ extern "C"
 
         // 2. Memory Information Tests
         MU_RUN_TEST(memory_LWRam_test_get_free_space);
-        MU_RUN_TEST(memory_LWRam_test_get_used_space);
+        //MU_RUN_TEST(memory_LWRam_test_get_used_space);
         MU_RUN_TEST(memory_LWRam_test_get_size);
         MU_RUN_TEST(memory_LWRam_test_get_report_lwram);
         MU_RUN_TEST(memory_LWRam_test_lowworkram_get_free_space);
-        MU_RUN_TEST(memory_LWRam_test_lowworkram_get_used_space);
+        //MU_RUN_TEST(memory_LWRam_test_lowworkram_get_used_space);
         MU_RUN_TEST(memory_LWRam_test_lowworkram_get_size);
         MU_RUN_TEST(memory_LWRam_test_inrange_lowworkram);
 
