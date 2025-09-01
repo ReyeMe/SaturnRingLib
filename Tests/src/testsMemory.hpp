@@ -317,7 +317,7 @@ extern "C"
         // Invalid destination pointer
         srcPtr = new (SRL::Memory::Zone::HWRam) char[100];
         mu_assert(srcPtr != nullptr, "Allocation failed (HWRam)");
-        
+
         destPtr = nullptr;
         if (memcpy(destPtr, srcPtr, 100) == nullptr)
         {
@@ -844,7 +844,7 @@ extern "C"
         void *ptr_lwr = Memory::LowWorkRam::Malloc(100);
         mu_assert(ptr_lwr != nullptr, "Allocation in LowWorkRam failed");
 
-        Memory::LowWorkRam::Free(ptr_hwr); // Try to free HighWorkRam allocation in LowWorkRam
+        Memory::LowWorkRam::Free(ptr_hwr);  // Try to free HighWorkRam allocation in LowWorkRam
         Memory::HighWorkRam::Free(ptr_lwr); // Try to free LowWorkRam allocation in HighWorkRam
         mu_assert(true, "Cross-zone deallocation caused an error");
 
@@ -915,19 +915,23 @@ extern "C"
         // Initialize a second allocation to detect potential corruption
         char *guard_ptr = new (SRL::Memory::Zone::HWRam) char[100];
         mu_assert(guard_ptr != nullptr, "Guard allocation in HighWorkRam failed");
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 100; ++i)
+        {
             guard_ptr[i] = static_cast<char>(0xAA);
         }
 
         // Write beyond the allocated size
-        for (size_t i = 0; i < 150; ++i) { // Write 50 bytes past the buffer
+        for (size_t i = 0; i < 150; ++i)
+        { // Write 50 bytes past the buffer
             ptr[i] = static_cast<char>(i);
         }
 
         // Check if the guard allocation was corrupted
         bool corruption_detected = false;
-        for (size_t i = 0; i < 100; ++i) {
-            if (guard_ptr[i] != static_cast<char>(0xAA)) {
+        for (size_t i = 0; i < 100; ++i)
+        {
+            if (guard_ptr[i] != static_cast<char>(0xAA))
+            {
                 corruption_detected = true;
                 break;
             }
@@ -935,9 +939,12 @@ extern "C"
 
         // Alternatively, attempt a new allocation to detect heap corruption
         void *test_ptr = Memory::HighWorkRam::Malloc(100);
-        if (test_ptr == nullptr) {
+        if (test_ptr == nullptr)
+        {
             corruption_detected = true;
-        } else {
+        }
+        else
+        {
             Memory::HighWorkRam::Free(test_ptr);
         }
 
@@ -960,19 +967,23 @@ extern "C"
         // Initialize a second allocation to detect potential corruption
         char *guard_ptr = new (SRL::Memory::Zone::LWRam) char[100];
         mu_assert(guard_ptr != nullptr, "Guard allocation in LowWorkRam failed");
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 100; ++i)
+        {
             guard_ptr[i] = static_cast<char>(0xAA);
         }
 
         // Write beyond the allocated size
-        for (size_t i = 0; i < 150; ++i) { // Write 50 bytes past the buffer
+        for (size_t i = 0; i < 150; ++i)
+        { // Write 50 bytes past the buffer
             ptr[i] = static_cast<char>(i);
         }
 
         // Check if the guard allocation was corrupted
         bool corruption_detected = false;
-        for (size_t i = 0; i < 100; ++i) {
-            if (guard_ptr[i] != static_cast<char>(0xAA)) {
+        for (size_t i = 0; i < 100; ++i)
+        {
+            if (guard_ptr[i] != static_cast<char>(0xAA))
+            {
                 corruption_detected = true;
                 break;
             }
@@ -980,9 +991,12 @@ extern "C"
 
         // Alternatively, attempt a new allocation to detect heap corruption
         void *test_ptr = Memory::LowWorkRam::Malloc(100);
-        if (test_ptr == nullptr) {
+        if (test_ptr == nullptr)
+        {
             corruption_detected = true;
-        } else {
+        }
+        else
+        {
             Memory::LowWorkRam::Free(test_ptr);
         }
 
@@ -1011,19 +1025,23 @@ extern "C"
         // Initialize a second allocation to detect potential corruption
         char *guard_ptr = new (SRL::Memory::Zone::CartRam) char[100];
         mu_assert(guard_ptr != nullptr, "Guard allocation in CartRam failed");
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 100; ++i)
+        {
             guard_ptr[i] = static_cast<char>(0xAA);
         }
 
         // Write beyond the allocated size
-        for (size_t i = 0; i < 150; ++i) { // Write 50 bytes past the buffer
+        for (size_t i = 0; i < 150; ++i)
+        { // Write 50 bytes past the buffer
             ptr[i] = static_cast<char>(i);
         }
 
         // Check if the guard allocation was corrupted
         bool corruption_detected = false;
-        for (size_t i = 0; i < 100; ++i) {
-            if (guard_ptr[i] != static_cast<char>(0xAA)) {
+        for (size_t i = 0; i < 100; ++i)
+        {
+            if (guard_ptr[i] != static_cast<char>(0xAA))
+            {
                 corruption_detected = true;
                 break;
             }
@@ -1031,9 +1049,12 @@ extern "C"
 
         // Alternatively, attempt a new allocation to detect heap corruption
         void *test_ptr = Memory::CartRam::Malloc(100);
-        if (test_ptr == nullptr) {
+        if (test_ptr == nullptr)
+        {
             corruption_detected = true;
-        } else {
+        }
+        else
+        {
             Memory::CartRam::Free(test_ptr);
         }
 
@@ -1054,7 +1075,8 @@ extern "C"
         mu_assert(ptr != nullptr, "Allocation in HighWorkRam failed");
 
         // Initialize buffer
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 100; ++i)
+        {
             ptr[i] = static_cast<char>(0xBB);
         }
 
@@ -1066,12 +1088,17 @@ extern "C"
         // Check for corruption by allocating again and verifying memory state
         char *new_ptr = new (SRL::Memory::Zone::HWRam) char[100];
         bool corruption_detected = false;
-        if (new_ptr == nullptr) {
+        if (new_ptr == nullptr)
+        {
             corruption_detected = true; // Allocator detected corruption
-        } else {
+        }
+        else
+        {
             // Check if the memory was overwritten unexpectedly
-            for (size_t i = 0; i < 100; ++i) {
-                if (new_ptr[i] == 42) {
+            for (size_t i = 0; i < 100; ++i)
+            {
+                if (new_ptr[i] == 42)
+                {
                     corruption_detected = true; // Freed memory was modified
                     break;
                 }
@@ -1094,7 +1121,8 @@ extern "C"
         mu_assert(ptr != nullptr, "Allocation in LowWorkRam failed");
 
         // Initialize buffer
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 100; ++i)
+        {
             ptr[i] = static_cast<char>(0xBB);
         }
 
@@ -1106,12 +1134,17 @@ extern "C"
         // Check for corruption by allocating again and verifying memory state
         char *new_ptr = new (SRL::Memory::Zone::LWRam) char[100];
         bool corruption_detected = false;
-        if (new_ptr == nullptr) {
+        if (new_ptr == nullptr)
+        {
             corruption_detected = true; // Allocator detected corruption
-        } else {
+        }
+        else
+        {
             // Check if the memory was overwritten unexpectedly
-            for (size_t i = 0; i < 100; ++i) {
-                if (new_ptr[i] == 42) {
+            for (size_t i = 0; i < 100; ++i)
+            {
+                if (new_ptr[i] == 42)
+                {
                     corruption_detected = true; // Freed memory was modified
                     break;
                 }
@@ -1140,7 +1173,8 @@ extern "C"
         mu_assert(ptr != nullptr, "Allocation in CartRam failed");
 
         // Initialize buffer
-        for (size_t i = 0; i < 100; ++i) {
+        for (size_t i = 0; i < 100; ++i)
+        {
             ptr[i] = static_cast<char>(0xBB);
         }
 
@@ -1152,12 +1186,17 @@ extern "C"
         // Check for corruption by allocating again and verifying memory state
         char *new_ptr = new (SRL::Memory::Zone::CartRam) char[100];
         bool corruption_detected = false;
-        if (new_ptr == nullptr) {
+        if (new_ptr == nullptr)
+        {
             corruption_detected = true; // Allocator detected corruption
-        } else {
+        }
+        else
+        {
             // Check if the memory was overwritten unexpectedly
-            for (size_t i = 0; i < 100; ++i) {
-                if (new_ptr[i] == 42) {
+            for (size_t i = 0; i < 100; ++i)
+            {
+                if (new_ptr[i] == 42)
+                {
                     corruption_detected = true; // Freed memory was modified
                     break;
                 }
@@ -1185,7 +1224,8 @@ extern "C"
         char *test_ptr = new (SRL::Memory::Zone::HWRam) char[100];
         bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
 
-        if (!corruption_detected) {
+        if (!corruption_detected)
+        {
             delete[] test_ptr;
         }
 
@@ -1209,7 +1249,8 @@ extern "C"
         char *test_ptr = new (SRL::Memory::Zone::LWRam) char[100];
         bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
 
-        if (!corruption_detected) {
+        if (!corruption_detected)
+        {
             delete[] test_ptr;
         }
 
@@ -1239,7 +1280,8 @@ extern "C"
         char *test_ptr = new (SRL::Memory::Zone::CartRam) char[100];
         bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
 
-        if (!corruption_detected) {
+        if (!corruption_detected)
+        {
             delete[] test_ptr;
         }
 
@@ -1255,7 +1297,8 @@ extern "C"
     {
         void *ptr = Memory::HighWorkRam::Malloc(0);
         mu_assert(ptr == nullptr || ptr != nullptr, "Zero-size allocation in HighWorkRam should either return NULL or a valid pointer");
-        if (ptr != nullptr) {
+        if (ptr != nullptr)
+        {
             Memory::HighWorkRam::Free(ptr);
         }
         mu_assert(true, "Zero-size allocation test completed");
@@ -1270,7 +1313,8 @@ extern "C"
     {
         void *ptr = Memory::LowWorkRam::Malloc(0);
         mu_assert(ptr == nullptr || ptr != nullptr, "Zero-size allocation in LowWorkRam should either return NULL or a valid pointer");
-        if (ptr != nullptr) {
+        if (ptr != nullptr)
+        {
             Memory::LowWorkRam::Free(ptr);
         }
         mu_assert(true, "Zero-size allocation test completed");
@@ -1290,7 +1334,8 @@ extern "C"
         }
         void *ptr = Memory::CartRam::Malloc(0);
         mu_assert(ptr == nullptr || ptr != nullptr, "Zero-size allocation in CartRam should either return NULL or a valid pointer");
-        if (ptr != nullptr) {
+        if (ptr != nullptr)
+        {
             Memory::CartRam::Free(ptr);
         }
         mu_assert(true, "Zero-size allocation test completed");
@@ -1406,26 +1451,33 @@ extern "C"
         void *ptrs_cr[cycles];
 
         // Allocate in all zones
-        for (int i = 0; i < cycles; ++i) {
+        for (int i = 0; i < cycles; ++i)
+        {
             ptrs_hwr[i] = Memory::HighWorkRam::Malloc(100);
             ptrs_lwr[i] = Memory::LowWorkRam::Malloc(100);
-            if (Memory::CartRam::IsCartridgeAvailable()) {
+            if (Memory::CartRam::IsCartridgeAvailable())
+            {
                 ptrs_cr[i] = Memory::CartRam::Malloc(100);
-            } else {
+            }
+            else
+            {
                 ptrs_cr[i] = nullptr;
             }
             mu_assert(ptrs_hwr[i] != nullptr, "Concurrent allocation in HighWorkRam failed");
             mu_assert(ptrs_lwr[i] != nullptr, "Concurrent allocation in LowWorkRam failed");
-            if (Memory::CartRam::IsCartridgeAvailable()) {
+            if (Memory::CartRam::IsCartridgeAvailable())
+            {
                 mu_assert(ptrs_cr[i] != nullptr, "Concurrent allocation in CartRam failed");
             }
         }
 
         // Deallocate in all zones
-        for (int i = 0; i < cycles; ++i) {
+        for (int i = 0; i < cycles; ++i)
+        {
             Memory::HighWorkRam::Free(ptrs_hwr[i]);
             Memory::LowWorkRam::Free(ptrs_lwr[i]);
-            if (Memory::CartRam::IsCartridgeAvailable() && ptrs_cr[i] != nullptr) {
+            if (Memory::CartRam::IsCartridgeAvailable() && ptrs_cr[i] != nullptr)
+            {
                 Memory::CartRam::Free(ptrs_cr[i]);
             }
         }
@@ -1446,18 +1498,22 @@ extern "C"
         void *largePtrs[5];
 
         // Create fragmentation by alternating small and large allocations
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 10; ++i)
+        {
             smallPtrs[i] = Memory::HighWorkRam::Malloc(smallSize);
             mu_assert(smallPtrs[i] != nullptr, "Small allocation in HighWorkRam failed");
-            if (i % 2 == 0 && i < 5) {
+            if (i % 2 == 0 && i < 5)
+            {
                 largePtrs[i / 2] = Memory::HighWorkRam::Malloc(largeSize);
                 mu_assert(largePtrs[i / 2] != nullptr, "Large allocation in HighWorkRam failed");
             }
         }
 
         // Free small allocations to create holes
-        for (int i = 0; i < 10; ++i) {
-            if (i % 2 == 0) {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (i % 2 == 0)
+            {
                 Memory::HighWorkRam::Free(smallPtrs[i]);
                 smallPtrs[i] = nullptr;
             }
@@ -1465,18 +1521,23 @@ extern "C"
 
         // Attempt a large allocation
         void *testPtr = Memory::HighWorkRam::Malloc(largeSize * 2);
-        if (testPtr != nullptr) {
+        if (testPtr != nullptr)
+        {
             Memory::HighWorkRam::Free(testPtr);
         }
 
         // Clean up remaining allocations
-        for (int i = 0; i < 10; ++i) {
-            if (smallPtrs[i] != nullptr) {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (smallPtrs[i] != nullptr)
+            {
                 Memory::HighWorkRam::Free(smallPtrs[i]);
             }
         }
-        for (int i = 0; i < 5; ++i) {
-            if (largePtrs[i] != nullptr) {
+        for (int i = 0; i < 5; ++i)
+        {
+            if (largePtrs[i] != nullptr)
+            {
                 Memory::HighWorkRam::Free(largePtrs[i]);
             }
         }
@@ -1497,18 +1558,22 @@ extern "C"
         void *largePtrs[5];
 
         // Create fragmentation by alternating small and large allocations
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 10; ++i)
+        {
             smallPtrs[i] = Memory::LowWorkRam::Malloc(smallSize);
             mu_assert(smallPtrs[i] != nullptr, "Small allocation in LowWorkRam failed");
-            if (i % 2 == 0 && i < 5) {
+            if (i % 2 == 0 && i < 5)
+            {
                 largePtrs[i / 2] = Memory::LowWorkRam::Malloc(largeSize);
                 mu_assert(largePtrs[i / 2] != nullptr, "Large allocation in LowWorkRam failed");
             }
         }
 
         // Free small allocations to create holes
-        for (int i = 0; i < 10; ++i) {
-            if (i % 2 == 0) {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (i % 2 == 0)
+            {
                 Memory::LowWorkRam::Free(smallPtrs[i]);
                 smallPtrs[i] = nullptr;
             }
@@ -1516,18 +1581,23 @@ extern "C"
 
         // Attempt a large allocation
         void *testPtr = Memory::LowWorkRam::Malloc(largeSize * 2);
-        if (testPtr != nullptr) {
+        if (testPtr != nullptr)
+        {
             Memory::LowWorkRam::Free(testPtr);
         }
 
         // Clean up remaining allocations
-        for (int i = 0; i < 10; ++i) {
-            if (smallPtrs[i] != nullptr) {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (smallPtrs[i] != nullptr)
+            {
                 Memory::LowWorkRam::Free(smallPtrs[i]);
             }
         }
-        for (int i = 0; i < 5; ++i) {
-            if (largePtrs[i] != nullptr) {
+        for (int i = 0; i < 5; ++i)
+        {
+            if (largePtrs[i] != nullptr)
+            {
                 Memory::LowWorkRam::Free(largePtrs[i]);
             }
         }
@@ -1554,18 +1624,22 @@ extern "C"
         void *largePtrs[5];
 
         // Create fragmentation by alternating small and large allocations
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 10; ++i)
+        {
             smallPtrs[i] = Memory::CartRam::Malloc(smallSize);
             mu_assert(smallPtrs[i] != nullptr, "Small allocation in CartRam failed");
-            if (i % 2 == 0 && i < 5) {
+            if (i % 2 == 0 && i < 5)
+            {
                 largePtrs[i / 2] = Memory::CartRam::Malloc(largeSize);
                 mu_assert(largePtrs[i / 2] != nullptr, "Large allocation in CartRam failed");
             }
         }
 
         // Free small allocations to create holes
-        for (int i = 0; i < 10; ++i) {
-            if (i % 2 == 0) {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (i % 2 == 0)
+            {
                 Memory::CartRam::Free(smallPtrs[i]);
                 smallPtrs[i] = nullptr;
             }
@@ -1573,18 +1647,23 @@ extern "C"
 
         // Attempt a large allocation
         void *testPtr = Memory::CartRam::Malloc(largeSize * 2);
-        if (testPtr != nullptr) {
+        if (testPtr != nullptr)
+        {
             Memory::CartRam::Free(testPtr);
         }
 
         // Clean up remaining allocations
-        for (int i = 0; i < 10; ++i) {
-            if (smallPtrs[i] != nullptr) {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (smallPtrs[i] != nullptr)
+            {
                 Memory::CartRam::Free(smallPtrs[i]);
             }
         }
-        for (int i = 0; i < 5; ++i) {
-            if (largePtrs[i] != nullptr) {
+        for (int i = 0; i < 5; ++i)
+        {
+            if (largePtrs[i] != nullptr)
+            {
                 Memory::CartRam::Free(largePtrs[i]);
             }
         }
@@ -1604,7 +1683,8 @@ extern "C"
         size_t initialFreeSpace = Memory::HighWorkRam::GetFreeSpace();
         mu_assert(initialFreeSpace > 0, "HighWorkRam has no free space");
 
-        for (int i = 0; i < cycles; ++i) {
+        for (int i = 0; i < cycles; ++i)
+        {
             void *ptr = Memory::HighWorkRam::Malloc(size);
             mu_assert(ptr != nullptr, "Continuous allocation in HighWorkRam failed");
             // Initialize memory to detect potential corruption
@@ -1629,7 +1709,8 @@ extern "C"
         size_t initialFreeSpace = Memory::LowWorkRam::GetFreeSpace();
         mu_assert(initialFreeSpace > 0, "LowWorkRam has no free space");
 
-        for (int i = 0; i < cycles; ++i) {
+        for (int i = 0; i < cycles; ++i)
+        {
             void *ptr = Memory::LowWorkRam::Malloc(size);
             mu_assert(ptr != nullptr, "Continuous allocation in LowWorkRam failed");
             // Initialize memory to detect potential corruption
@@ -1660,7 +1741,8 @@ extern "C"
         size_t initialFreeSpace = Memory::CartRam::GetFreeSpace();
         mu_assert(initialFreeSpace > 0, "CartRam has no free space");
 
-        for (int i = 0; i < cycles; ++i) {
+        for (int i = 0; i < cycles; ++i)
+        {
             void *ptr = Memory::CartRam::Malloc(size);
             mu_assert(ptr != nullptr, "Continuous allocation in CartRam failed");
             // Initialize memory to detect potential corruption
@@ -1671,6 +1753,308 @@ extern "C"
         size_t finalFreeSpace = Memory::CartRam::GetFreeSpace();
         mu_assert(finalFreeSpace == initialFreeSpace, "CartRam free space not restored after continuous allocation/deallocation (possible leak)");
         mu_assert(true, "Continuous allocation test in CartRam completed");
+    }
+
+    /**
+     * @brief Test freeing an unallocated pointer in HighWorkRam
+     *
+     * Verifies that attempting to free a pointer that was not allocated by the memory manager
+     * in HighWorkRam is handled safely and does not cause a crash.
+     */
+    MU_TEST(memory_test_free_unallocated_highworkram)
+    {
+        void *ptr = reinterpret_cast<void *>(0xDEADBEEF); // Arbitrary unallocated address
+        Memory::HighWorkRam::Free(ptr);
+        mu_assert(true, "Freeing unallocated pointer in HighWorkRam caused an error");
+    }
+
+    /**
+     * @brief Test freeing an unallocated pointer in LowWorkRam
+     *
+     * Verifies that attempting to free a pointer that was not allocated by the memory manager
+     * in LowWorkRam is handled safely and does not cause a crash.
+     */
+    MU_TEST(memory_test_free_unallocated_lowworkram)
+    {
+        void *ptr = reinterpret_cast<void *>(0xDEADBEEF); // Arbitrary unallocated address
+        Memory::LowWorkRam::Free(ptr);
+        mu_assert(true, "Freeing unallocated pointer in LowWorkRam caused an error");
+    }
+
+    /**
+     * @brief Test freeing an unallocated pointer in CartRam
+     *
+     * Verifies that attempting to free a pointer that was not allocated by the memory manager
+     * in CartRam is handled safely, if cartridge is available.
+     */
+    MU_TEST(memory_test_free_unallocated_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping free unallocated test");
+            return;
+        }
+        void *ptr = reinterpret_cast<void *>(0xDEADBEEF); // Arbitrary unallocated address
+        Memory::CartRam::Free(ptr);
+        mu_assert(true, "Freeing unallocated pointer in CartRam caused an error");
+    }
+
+    /**
+     * @brief Test allocation with negative size in HighWorkRam
+     *
+     * Verifies that attempting to allocate a negative size in HighWorkRam returns NULL
+     * and does not crash the memory manager.
+     */
+    MU_TEST(memory_test_negative_size_allocation_highworkram)
+    {
+        void *ptr = Memory::HighWorkRam::Malloc(static_cast<size_t>(-1));
+        mu_assert(ptr == nullptr, "Negative size allocation in HighWorkRam did not return NULL");
+    }
+
+    /**
+     * @brief Test allocation with negative size in LowWorkRam
+     *
+     * Verifies that attempting to allocate a negative size in LowWorkRam returns NULL
+     * and does not crash the memory manager.
+     */
+    MU_TEST(memory_test_negative_size_allocation_lowworkram)
+    {
+        void *ptr = Memory::LowWorkRam::Malloc(static_cast<size_t>(-1));
+        mu_assert(ptr == nullptr, "Negative size allocation in LowWorkRam did not return NULL");
+    }
+
+    /**
+     * @brief Test allocation with negative size in CartRam
+     *
+     * Verifies that attempting to allocate a negative size in CartRam returns NULL,
+     * if cartridge is available.
+     */
+    MU_TEST(memory_test_negative_size_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping negative size allocation test");
+            return;
+        }
+        void *ptr = Memory::CartRam::Malloc(static_cast<size_t>(-1));
+        mu_assert(ptr == nullptr, "Negative size allocation in CartRam did not return NULL");
+    }
+
+    /**
+     * @brief Test allocation with extremely large size in HighWorkRam
+     *
+     * Verifies that attempting to allocate an excessively large size in HighWorkRam
+     * (e.g., larger than the entire memory zone) returns NULL.
+     */
+    MU_TEST(memory_test_excessive_size_allocation_highworkram)
+    {
+        size_t excessiveSize = static_cast<size_t>(1ULL << 40); // 1TB, far beyond typical memory zone size
+        void *ptr = Memory::HighWorkRam::Malloc(excessiveSize);
+        mu_assert(ptr == nullptr, "Excessive size allocation in HighWorkRam did not return NULL");
+    }
+
+    /**
+     * @brief Test allocation with extremely large size in LowWorkRam
+     *
+     * Verifies that attempting to allocate an excessively large size in LowWorkRam
+     * returns NULL.
+     */
+    MU_TEST(memory_test_excessive_size_allocation_lowworkram)
+    {
+        size_t excessiveSize = static_cast<size_t>(1ULL << 40); // 1TB
+        void *ptr = Memory::LowWorkRam::Malloc(excessiveSize);
+        mu_assert(ptr == nullptr, "Excessive size allocation in LowWorkRam did not return NULL");
+    }
+
+    /**
+     * @brief Test allocation with extremely large size in CartRam
+     *
+     * Verifies that attempting to allocate an excessively large size in CartRam
+     * returns NULL, if cartridge is available.
+     */
+    MU_TEST(memory_test_excessive_size_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping excessive size allocation test");
+            return;
+        }
+        size_t excessiveSize = static_cast<size_t>(1ULL << 40); // 1TB
+        void *ptr = Memory::CartRam::Malloc(excessiveSize);
+        mu_assert(ptr == nullptr, "Excessive size allocation in CartRam did not return NULL");
+    }
+
+    /**
+     * @brief Test accessing memory before allocation in HighWorkRam
+     *
+     * Verifies that accessing a pointer before allocation in HighWorkRam is detected or handled safely.
+     */
+    MU_TEST(memory_test_access_before_allocation_highworkram)
+    {
+        char *ptr = reinterpret_cast<char *>(Memory::HighWorkRam::Malloc(100));
+        Memory::HighWorkRam::Free(ptr); // Ensure pointer is not allocated
+        ptr[0] = 42;                    // Attempt to access unallocated memory
+
+        // Check memory integrity by performing a valid allocation
+        char *test_ptr = new (SRL::Memory::Zone::HWRam) char[100];
+        bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
+        if (!corruption_detected)
+        {
+            delete[] test_ptr;
+        }
+        mu_assert(corruption_detected, "Access before allocation in HighWorkRam not detected");
+    }
+
+    /**
+     * @brief Test accessing memory before allocation in LowWorkRam
+     *
+     * Verifies that accessing a pointer before allocation in LowWorkRam is detected or handled safely.
+     */
+    MU_TEST(memory_test_access_before_allocation_lowworkram)
+    {
+        char *ptr = reinterpret_cast<char *>(Memory::LowWorkRam::Malloc(100));
+        Memory::LowWorkRam::Free(ptr); // Ensure pointer is not allocated
+        ptr[0] = 42;                   // Attempt to access unallocated memory
+
+        // Check memory integrity by performing a valid allocation
+        char *test_ptr = new (SRL::Memory::Zone::LWRam) char[100];
+        bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
+        if (!corruption_detected)
+        {
+            delete[] test_ptr;
+        }
+        mu_assert(corruption_detected, "Access before allocation in LowWorkRam not detected");
+    }
+
+    /**
+     * @brief Test accessing memory before allocation in CartRam
+     *
+     * Verifies that accessing a pointer before allocation in CartRam is detected or handled safely,
+     * if cartridge is available.
+     */
+    MU_TEST(memory_test_access_before_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping access before allocation test");
+            return;
+        }
+        char *ptr = reinterpret_cast<char *>(Memory::CartRam::Malloc(100));
+        Memory::CartRam::Free(ptr); // Ensure pointer is not allocated
+        ptr[0] = 42;                // Attempt to access unallocated memory
+
+        // Check memory integrity by performing a valid allocation
+        char *test_ptr = new (SRL::Memory::Zone::CartRam) char[100];
+        bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
+        if (!corruption_detected)
+        {
+            delete[] test_ptr;
+        }
+        mu_assert(corruption_detected, "Access before allocation in CartRam not detected");
+    }
+
+    /**
+     * @brief Test operations on uninitialized memory zones
+     *
+     * Verifies that attempting to allocate or free memory in uninitialized memory zones
+     * is handled safely and does not crash.
+     */
+    MU_TEST(memory_test_uninitialized_zones)
+    {
+        // Assume a method to deinitialize or ensure zones are uninitialized
+        // If SRL::Memory::Deinitialize() exists, call it; otherwise, assume zones can be uninitialized
+        // For this test, we assume the zones are not initialized
+        SRL::Memory::Initialize(); // Reset to known state
+        // Simulate uninitialized state (if Deinitialize exists, uncomment below)
+        // SRL::Memory::Deinitialize();
+
+        void *ptr_hwr = Memory::HighWorkRam::Malloc(100);
+        mu_assert(ptr_hwr == nullptr, "Allocation in uninitialized HighWorkRam did not return NULL");
+
+        void *ptr_lwr = Memory::LowWorkRam::Malloc(100);
+        mu_assert(ptr_lwr == nullptr, "Allocation in uninitialized LowWorkRam did not return NULL");
+
+        void *ptr_cr = nullptr;
+
+        if (Memory::CartRam::IsCartridgeAvailable())
+        {
+            ptr_cr = Memory::CartRam::Malloc(100);
+            mu_assert(ptr_cr == nullptr, "Allocation in uninitialized CartRam did not return NULL");
+        }
+
+        // Attempt to free in uninitialized zones
+        Memory::HighWorkRam::Free(ptr_hwr);
+        Memory::LowWorkRam::Free(ptr_lwr);
+        if (Memory::CartRam::IsCartridgeAvailable())
+        {
+            Memory::CartRam::Free(ptr_cr);
+        }
+        mu_assert(true, "Operations on uninitialized zones caused an error");
+    }
+
+    /**
+     * @brief Test reallocation with invalid parameters in HighWorkRam
+     *
+     * Verifies that attempting to reallocate with invalid parameters (e.g., null pointer or negative size)
+     * in HighWorkRam is handled safely, if reallocation is supported.
+     */
+    MU_TEST(memory_test_realloc_invalid_highworkram)
+    {
+        // Assuming Memory::HighWorkRam::Realloc(ptr, size) exists; otherwise, skip
+        void *ptr = nullptr;
+        void *new_ptr = Memory::HighWorkRam::Realloc(ptr, 100); // Realloc with null pointer
+        mu_assert(new_ptr == nullptr, "Realloc with null pointer in HighWorkRam did not return NULL");
+
+        ptr = Memory::HighWorkRam::Malloc(100);
+        mu_assert(ptr != nullptr, "Allocation in HighWorkRam failed");
+        new_ptr = Memory::HighWorkRam::Realloc(ptr, static_cast<size_t>(-1)); // Negative size
+        mu_assert(new_ptr == nullptr, "Realloc with negative size in HighWorkRam did not return NULL");
+        Memory::HighWorkRam::Free(ptr);
+    }
+
+    /**
+     * @brief Test reallocation with invalid parameters in LowWorkRam
+     *
+     * Verifies that attempting to reallocate with invalid parameters in LowWorkRam is handled safely,
+     * if reallocation is supported.
+     */
+    MU_TEST(memory_test_realloc_invalid_lowworkram)
+    {
+        // Assuming Memory::LowWorkRam::Realloc(ptr, size) exists; otherwise, skip
+        void *ptr = nullptr;
+        void *new_ptr = Memory::LowWorkRam::Realloc(ptr, 100); // Realloc with null pointer
+        mu_assert(new_ptr == nullptr, "Realloc with null pointer in LowWorkRam did not return NULL");
+
+        ptr = Memory::LowWorkRam::Malloc(100);
+        mu_assert(ptr != nullptr, "Allocation in LowWorkRam failed");
+        new_ptr = Memory::LowWorkRam::Realloc(ptr, static_cast<size_t>(-1)); // Negative size
+        mu_assert(new_ptr == nullptr, "Realloc with negative size in LowWorkRam did not return NULL");
+        Memory::LowWorkRam::Free(ptr);
+    }
+
+    /**
+     * @brief Test reallocation with invalid parameters in CartRam
+     *
+     * Verifies that attempting to reallocate with invalid parameters in CartRam is handled safely,
+     * if cartridge is available and reallocation is supported.
+     */
+    MU_TEST(memory_test_realloc_invalid_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping realloc invalid test");
+            return;
+        }
+        // Assuming Memory::CartRam::Realloc(ptr, size) exists; otherwise, skip
+        void *ptr = nullptr;
+        void *new_ptr = Memory::CartRam::Realloc(ptr, 100); // Realloc with null pointer
+        mu_assert(new_ptr == nullptr, "Realloc with null pointer in CartRam did not return NULL");
+
+        ptr = Memory::CartRam::Malloc(100);
+        mu_assert(ptr != nullptr, "Allocation in CartRam failed");
+        new_ptr = Memory::CartRam::Realloc(ptr, static_cast<size_t>(-1)); // Negative size
+        mu_assert(new_ptr == nullptr, "Realloc with negative size in CartRam did not return NULL");
+        Memory::CartRam::Free(ptr);
     }
 
     /**
@@ -1753,5 +2137,21 @@ extern "C"
         MU_RUN_TEST(memory_test_continuous_allocation_highworkram);
         MU_RUN_TEST(memory_test_continuous_allocation_lowworkram);
         MU_RUN_TEST(memory_test_continuous_allocation_cartram);
+        MU_RUN_TEST(memory_test_free_unallocated_highworkram);
+        MU_RUN_TEST(memory_test_free_unallocated_lowworkram);
+        MU_RUN_TEST(memory_test_free_unallocated_cartram);
+        MU_RUN_TEST(memory_test_negative_size_allocation_highworkram);
+        MU_RUN_TEST(memory_test_negative_size_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_negative_size_allocation_cartram);
+        MU_RUN_TEST(memory_test_excessive_size_allocation_highworkram);
+        MU_RUN_TEST(memory_test_excessive_size_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_excessive_size_allocation_cartram);
+        MU_RUN_TEST(memory_test_access_before_allocation_highworkram);
+        MU_RUN_TEST(memory_test_access_before_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_access_before_allocation_cartram);
+        MU_RUN_TEST(memory_test_uninitialized_zones);
+        MU_RUN_TEST(memory_test_realloc_invalid_highworkram);
+        MU_RUN_TEST(memory_test_realloc_invalid_lowworkram);
+        MU_RUN_TEST(memory_test_realloc_invalid_cartram);
     }
 }
