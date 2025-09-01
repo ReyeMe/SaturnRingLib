@@ -93,6 +93,10 @@ ifneq ($(strip ${SRL_LOG_LEVEL}),)
 	CCFLAGS += -DSRL_LOG_LEVEL=$(strip ${SRL_LOG_LEVEL})
 endif
 
+ifneq ($(strip ${SRL_LOG_OUTPUT}),)
+	CCFLAGS += -DSRL_LOG_OUTPUT=$(strip ${SRL_LOG_OUTPUT})
+endif
+
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
 	CCFLAGS += -DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
 	LIBS += $(SGLLDIR)/LIBSND.A
@@ -225,6 +229,7 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	$(info Maximum events : ${SGL_MAX_EVENTS})
 	$(info Maximum work : ${SGL_MAX_WORKS})
 	$(info Log level selected : $(if $(strip ${SRL_LOG_LEVEL}),${SRL_LOG_LEVEL},NONE))
+	$(info Log output method selected : $(if $(strip ${SRL_LOG_OUTPUT}),${SRL_LOG_OUTPUT},NONE))
 	$(info Maximum Log length : $(if $(strip ${SRL_DEBUG_MAX_LOG_LENGTH}),${SRL_DEBUG_MAX_LOG_LENGTH},0))
 	$(info ******************)
 	mkdir -p $(MUSIC_DIR)
