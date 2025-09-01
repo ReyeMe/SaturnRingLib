@@ -1593,6 +1593,87 @@ extern "C"
     }
 
     /**
+     * @brief Test continuous allocation and deallocation in HighWorkRam
+     *
+     * Verifies that repeated allocation and deallocation cycles in HighWorkRam do not cause memory leaks or corruption.
+     */
+    MU_TEST(memory_test_continuous_allocation_highworkram)
+    {
+        const int cycles = 10000; // High number of cycles for stress testing
+        const size_t size = 128;
+        size_t initialFreeSpace = Memory::HighWorkRam::GetFreeSpace();
+        mu_assert(initialFreeSpace > 0, "HighWorkRam has no free space");
+
+        for (int i = 0; i < cycles; ++i) {
+            void *ptr = Memory::HighWorkRam::Malloc(size);
+            mu_assert(ptr != nullptr, "Continuous allocation in HighWorkRam failed");
+            // Initialize memory to detect potential corruption
+            memset(ptr, 0xAA, size);
+            Memory::HighWorkRam::Free(ptr);
+        }
+
+        size_t finalFreeSpace = Memory::HighWorkRam::GetFreeSpace();
+        mu_assert(finalFreeSpace == initialFreeSpace, "HighWorkRam free space not restored after continuous allocation/deallocation (possible leak)");
+        mu_assert(true, "Continuous allocation test in HighWorkRam completed");
+    }
+
+    /**
+     * @brief Test continuous allocation and deallocation in LowWorkRam
+     *
+     * Verifies that repeated allocation and deallocation cycles in LowWorkRam do not cause memory leaks or corruption.
+     */
+    MU_TEST(memory_test_continuous_allocation_lowworkram)
+    {
+        const int cycles = 10000; // High number of cycles for stress testing
+        const size_t size = 128;
+        size_t initialFreeSpace = Memory::LowWorkRam::GetFreeSpace();
+        mu_assert(initialFreeSpace > 0, "LowWorkRam has no free space");
+
+        for (int i = 0; i < cycles; ++i) {
+            void *ptr = Memory::LowWorkRam::Malloc(size);
+            mu_assert(ptr != nullptr, "Continuous allocation in LowWorkRam failed");
+            // Initialize memory to detect potential corruption
+            memset(ptr, 0xAA, size);
+            Memory::LowWorkRam::Free(ptr);
+        }
+
+        size_t finalFreeSpace = Memory::LowWorkRam::GetFreeSpace();
+        mu_assert(finalFreeSpace == initialFreeSpace, "LowWorkRam free space not restored after continuous allocation/deallocation (possible leak)");
+        mu_assert(true, "Continuous allocation test in LowWorkRam completed");
+    }
+
+    /**
+     * @brief Test continuous allocation and deallocation in CartRam
+     *
+     * Verifies that repeated allocation and deallocation cycles in CartRam do not cause memory leaks or corruption, if cartridge is available.
+     */
+    MU_TEST(memory_test_continuous_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping continuous allocation test");
+            return;
+        }
+
+        const int cycles = 10000; // High number of cycles for stress testing
+        const size_t size = 128;
+        size_t initialFreeSpace = Memory::CartRam::GetFreeSpace();
+        mu_assert(initialFreeSpace > 0, "CartRam has no free space");
+
+        for (int i = 0; i < cycles; ++i) {
+            void *ptr = Memory::CartRam::Malloc(size);
+            mu_assert(ptr != nullptr, "Continuous allocation in CartRam failed");
+            // Initialize memory to detect potential corruption
+            memset(ptr, 0xAA, size);
+            Memory::CartRam::Free(ptr);
+        }
+
+        size_t finalFreeSpace = Memory::CartRam::GetFreeSpace();
+        mu_assert(finalFreeSpace == initialFreeSpace, "CartRam free space not restored after continuous allocation/deallocation (possible leak)");
+        mu_assert(true, "Continuous allocation test in CartRam completed");
+    }
+
+    /**
      * @brief Memory test suite configuration and test case registration
      *
      * Configures the test suite with setup, teardown, and error reporting functions.
@@ -1669,5 +1750,8 @@ extern "C"
         MU_RUN_TEST(memory_test_complex_fragmentation_highworkram);
         MU_RUN_TEST(memory_test_complex_fragmentation_lowworkram);
         MU_RUN_TEST(memory_test_complex_fragmentation_cartram);
+        MU_RUN_TEST(memory_test_continuous_allocation_highworkram);
+        MU_RUN_TEST(memory_test_continuous_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_continuous_allocation_cartram);
     }
 }
