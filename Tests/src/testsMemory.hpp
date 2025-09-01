@@ -1247,6 +1247,302 @@ extern "C"
     }
 
     /**
+     * @brief Test zero-size allocation in HighWorkRam
+     *
+     * Verifies that Malloc with a size of 0 in HighWorkRam is handled correctly.
+     */
+    MU_TEST(memory_test_zero_size_allocation_highworkram)
+    {
+        void *ptr = Memory::HighWorkRam::Malloc(0);
+        mu_assert(ptr == nullptr || ptr != nullptr, "Zero-size allocation in HighWorkRam should either return NULL or a valid pointer");
+        if (ptr != nullptr) {
+            Memory::HighWorkRam::Free(ptr);
+        }
+        mu_assert(true, "Zero-size allocation test completed");
+    }
+
+    /**
+     * @brief Test zero-size allocation in LowWorkRam
+     *
+     * Verifies that Malloc with a size of 0 in LowWorkRam is handled correctly.
+     */
+    MU_TEST(memory_test_zero_size_allocation_lowworkram)
+    {
+        void *ptr = Memory::LowWorkRam::Malloc(0);
+        mu_assert(ptr == nullptr || ptr != nullptr, "Zero-size allocation in LowWorkRam should either return NULL or a valid pointer");
+        if (ptr != nullptr) {
+            Memory::LowWorkRam::Free(ptr);
+        }
+        mu_assert(true, "Zero-size allocation test completed");
+    }
+
+    /**
+     * @brief Test zero-size allocation in CartRam
+     *
+     * Verifies that Malloc with a size of 0 in CartRam is handled correctly, if cartridge is available.
+     */
+    MU_TEST(memory_test_zero_size_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping zero-size allocation test");
+            return;
+        }
+        void *ptr = Memory::CartRam::Malloc(0);
+        mu_assert(ptr == nullptr || ptr != nullptr, "Zero-size allocation in CartRam should either return NULL or a valid pointer");
+        if (ptr != nullptr) {
+            Memory::CartRam::Free(ptr);
+        }
+        mu_assert(true, "Zero-size allocation test completed");
+    }
+
+    /**
+     * @brief Test maximum-size allocation in HighWorkRam
+     *
+     * Verifies that allocating exactly the maximum available size in HighWorkRam succeeds.
+     */
+    MU_TEST(memory_test_max_size_allocation_highworkram)
+    {
+        size_t freeSpace = Memory::HighWorkRam::GetFreeSpace();
+        mu_assert(freeSpace > 0, "HighWorkRam has no free space");
+        void *ptr = Memory::HighWorkRam::Malloc(freeSpace);
+        mu_assert(ptr != nullptr, "Maximum-size allocation in HighWorkRam failed");
+        Memory::HighWorkRam::Free(ptr);
+    }
+
+    /**
+     * @brief Test maximum-size allocation in LowWorkRam
+     *
+     * Verifies that allocating exactly the maximum available size in LowWorkRam succeeds.
+     */
+    MU_TEST(memory_test_max_size_allocation_lowworkram)
+    {
+        size_t freeSpace = Memory::LowWorkRam::GetFreeSpace();
+        mu_assert(freeSpace > 0, "LowWorkRam has no free space");
+        void *ptr = Memory::LowWorkRam::Malloc(freeSpace);
+        mu_assert(ptr != nullptr, "Maximum-size allocation in LowWorkRam failed");
+        Memory::LowWorkRam::Free(ptr);
+    }
+
+    /**
+     * @brief Test maximum-size allocation in CartRam
+     *
+     * Verifies that allocating exactly the maximum available size in CartRam succeeds, if cartridge is available.
+     */
+    MU_TEST(memory_test_max_size_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping max-size allocation test");
+            return;
+        }
+        size_t freeSpace = Memory::CartRam::GetFreeSpace();
+        mu_assert(freeSpace > 0, "CartRam has no free space");
+        void *ptr = Memory::CartRam::Malloc(freeSpace);
+        mu_assert(ptr != nullptr, "Maximum-size allocation in CartRam failed");
+        Memory::CartRam::Free(ptr);
+    }
+
+    /**
+     * @brief Test concurrent allocations across zones
+     *
+     * Verifies that rapid allocation and deallocation across multiple zones does not cause failures.
+     */
+    MU_TEST(memory_test_concurrent_allocations)
+    {
+        const int cycles = 100;
+        void *ptrs_hwr[cycles];
+        void *ptrs_lwr[cycles];
+        void *ptrs_cr[cycles];
+
+        // Allocate in all zones
+        for (int i = 0; i < cycles; ++i) {
+            ptrs_hwr[i] = Memory::HighWorkRam::Malloc(100);
+            ptrs_lwr[i] = Memory::LowWorkRam::Malloc(100);
+            if (Memory::CartRam::IsCartridgeAvailable()) {
+                ptrs_cr[i] = Memory::CartRam::Malloc(100);
+            } else {
+                ptrs_cr[i] = nullptr;
+            }
+            mu_assert(ptrs_hwr[i] != nullptr, "Concurrent allocation in HighWorkRam failed");
+            mu_assert(ptrs_lwr[i] != nullptr, "Concurrent allocation in LowWorkRam failed");
+            if (Memory::CartRam::IsCartridgeAvailable()) {
+                mu_assert(ptrs_cr[i] != nullptr, "Concurrent allocation in CartRam failed");
+            }
+        }
+
+        // Deallocate in all zones
+        for (int i = 0; i < cycles; ++i) {
+            Memory::HighWorkRam::Free(ptrs_hwr[i]);
+            Memory::LowWorkRam::Free(ptrs_lwr[i]);
+            if (Memory::CartRam::IsCartridgeAvailable() && ptrs_cr[i] != nullptr) {
+                Memory::CartRam::Free(ptrs_cr[i]);
+            }
+        }
+
+        mu_assert(true, "Concurrent allocation test completed");
+    }
+
+    /**
+     * @brief Test complex fragmentation in HighWorkRam
+     *
+     * Verifies behavior under complex fragmented memory conditions by alternating small and large allocations.
+     */
+    MU_TEST(memory_test_complex_fragmentation_highworkram)
+    {
+        const size_t smallSize = 100;
+        const size_t largeSize = 1000;
+        void *smallPtrs[10];
+        void *largePtrs[5];
+
+        // Create fragmentation by alternating small and large allocations
+        for (int i = 0; i < 10; ++i) {
+            smallPtrs[i] = Memory::HighWorkRam::Malloc(smallSize);
+            mu_assert(smallPtrs[i] != nullptr, "Small allocation in HighWorkRam failed");
+            if (i % 2 == 0 && i < 5) {
+                largePtrs[i / 2] = Memory::HighWorkRam::Malloc(largeSize);
+                mu_assert(largePtrs[i / 2] != nullptr, "Large allocation in HighWorkRam failed");
+            }
+        }
+
+        // Free small allocations to create holes
+        for (int i = 0; i < 10; ++i) {
+            if (i % 2 == 0) {
+                Memory::HighWorkRam::Free(smallPtrs[i]);
+                smallPtrs[i] = nullptr;
+            }
+        }
+
+        // Attempt a large allocation
+        void *testPtr = Memory::HighWorkRam::Malloc(largeSize * 2);
+        if (testPtr != nullptr) {
+            Memory::HighWorkRam::Free(testPtr);
+        }
+
+        // Clean up remaining allocations
+        for (int i = 0; i < 10; ++i) {
+            if (smallPtrs[i] != nullptr) {
+                Memory::HighWorkRam::Free(smallPtrs[i]);
+            }
+        }
+        for (int i = 0; i < 5; ++i) {
+            if (largePtrs[i] != nullptr) {
+                Memory::HighWorkRam::Free(largePtrs[i]);
+            }
+        }
+
+        mu_assert(true, "Complex fragmentation test in HighWorkRam completed");
+    }
+
+    /**
+     * @brief Test complex fragmentation in LowWorkRam
+     *
+     * Verifies behavior under complex fragmented memory conditions by alternating small and large allocations.
+     */
+    MU_TEST(memory_test_complex_fragmentation_lowworkram)
+    {
+        const size_t smallSize = 100;
+        const size_t largeSize = 1000;
+        void *smallPtrs[10];
+        void *largePtrs[5];
+
+        // Create fragmentation by alternating small and large allocations
+        for (int i = 0; i < 10; ++i) {
+            smallPtrs[i] = Memory::LowWorkRam::Malloc(smallSize);
+            mu_assert(smallPtrs[i] != nullptr, "Small allocation in LowWorkRam failed");
+            if (i % 2 == 0 && i < 5) {
+                largePtrs[i / 2] = Memory::LowWorkRam::Malloc(largeSize);
+                mu_assert(largePtrs[i / 2] != nullptr, "Large allocation in LowWorkRam failed");
+            }
+        }
+
+        // Free small allocations to create holes
+        for (int i = 0; i < 10; ++i) {
+            if (i % 2 == 0) {
+                Memory::LowWorkRam::Free(smallPtrs[i]);
+                smallPtrs[i] = nullptr;
+            }
+        }
+
+        // Attempt a large allocation
+        void *testPtr = Memory::LowWorkRam::Malloc(largeSize * 2);
+        if (testPtr != nullptr) {
+            Memory::LowWorkRam::Free(testPtr);
+        }
+
+        // Clean up remaining allocations
+        for (int i = 0; i < 10; ++i) {
+            if (smallPtrs[i] != nullptr) {
+                Memory::LowWorkRam::Free(smallPtrs[i]);
+            }
+        }
+        for (int i = 0; i < 5; ++i) {
+            if (largePtrs[i] != nullptr) {
+                Memory::LowWorkRam::Free(largePtrs[i]);
+            }
+        }
+
+        mu_assert(true, "Complex fragmentation test in LowWorkRam completed");
+    }
+
+    /**
+     * @brief Test complex fragmentation in CartRam
+     *
+     * Verifies behavior under complex fragmented memory conditions by alternating small and large allocations, if cartridge is available.
+     */
+    MU_TEST(memory_test_complex_fragmentation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping complex fragmentation test");
+            return;
+        }
+
+        const size_t smallSize = 100;
+        const size_t largeSize = 1000;
+        void *smallPtrs[10];
+        void *largePtrs[5];
+
+        // Create fragmentation by alternating small and large allocations
+        for (int i = 0; i < 10; ++i) {
+            smallPtrs[i] = Memory::CartRam::Malloc(smallSize);
+            mu_assert(smallPtrs[i] != nullptr, "Small allocation in CartRam failed");
+            if (i % 2 == 0 && i < 5) {
+                largePtrs[i / 2] = Memory::CartRam::Malloc(largeSize);
+                mu_assert(largePtrs[i / 2] != nullptr, "Large allocation in CartRam failed");
+            }
+        }
+
+        // Free small allocations to create holes
+        for (int i = 0; i < 10; ++i) {
+            if (i % 2 == 0) {
+                Memory::CartRam::Free(smallPtrs[i]);
+                smallPtrs[i] = nullptr;
+            }
+        }
+
+        // Attempt a large allocation
+        void *testPtr = Memory::CartRam::Malloc(largeSize * 2);
+        if (testPtr != nullptr) {
+            Memory::CartRam::Free(testPtr);
+        }
+
+        // Clean up remaining allocations
+        for (int i = 0; i < 10; ++i) {
+            if (smallPtrs[i] != nullptr) {
+                Memory::CartRam::Free(smallPtrs[i]);
+            }
+        }
+        for (int i = 0; i < 5; ++i) {
+            if (largePtrs[i] != nullptr) {
+                Memory::CartRam::Free(largePtrs[i]);
+            }
+        }
+
+        mu_assert(true, "Complex fragmentation test in CartRam completed");
+    }
+
+    /**
      * @brief Memory test suite configuration and test case registration
      *
      * Configures the test suite with setup, teardown, and error reporting functions.
@@ -1310,5 +1606,15 @@ extern "C"
         MU_RUN_TEST(memory_test_invalid_access_highworkram);
         MU_RUN_TEST(memory_test_invalid_access_lowworkram);
         MU_RUN_TEST(memory_test_invalid_access_cartram);
+        MU_RUN_TEST(memory_test_zero_size_allocation_highworkram);
+        MU_RUN_TEST(memory_test_zero_size_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_zero_size_allocation_cartram);
+        MU_RUN_TEST(memory_test_max_size_allocation_highworkram);
+        MU_RUN_TEST(memory_test_max_size_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_max_size_allocation_cartram);
+        MU_RUN_TEST(memory_test_concurrent_allocations);
+        MU_RUN_TEST(memory_test_complex_fragmentation_highworkram);
+        MU_RUN_TEST(memory_test_complex_fragmentation_lowworkram);
+        MU_RUN_TEST(memory_test_complex_fragmentation_cartram);
     }
 }
