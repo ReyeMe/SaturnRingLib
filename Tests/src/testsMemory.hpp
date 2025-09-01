@@ -1297,6 +1297,56 @@ extern "C"
     }
 
     /**
+     * @brief Test single-byte allocation in HighWorkRam
+     *
+     * Verifies that allocating and deallocating a single byte in HighWorkRam works correctly.
+     */
+    MU_TEST(memory_test_single_byte_allocation_highworkram)
+    {
+        char *ptr = new (SRL::Memory::Zone::HWRam) char[1];
+        mu_assert(ptr != nullptr, "Single-byte allocation in HighWorkRam failed");
+        *ptr = 42; // Write to the single byte
+        mu_assert(*ptr == 42, "Single-byte write in HighWorkRam failed");
+        delete[] ptr;
+        mu_assert(true, "Single-byte allocation test in HighWorkRam completed");
+    }
+
+    /**
+     * @brief Test single-byte allocation in LowWorkRam
+     *
+     * Verifies that allocating and deallocating a single byte in LowWorkRam works correctly.
+     */
+    MU_TEST(memory_test_single_byte_allocation_lowworkram)
+    {
+        char *ptr = new (SRL::Memory::Zone::LWRam) char[1];
+        mu_assert(ptr != nullptr, "Single-byte allocation in LowWorkRam failed");
+        *ptr = 42; // Write to the single byte
+        mu_assert(*ptr == 42, "Single-byte write in LowWorkRam failed");
+        delete[] ptr;
+        mu_assert(true, "Single-byte allocation test in LowWorkRam completed");
+    }
+
+    /**
+     * @brief Test single-byte allocation in CartRam
+     *
+     * Verifies that allocating and deallocating a single byte in CartRam works correctly, if cartridge is available.
+     */
+    MU_TEST(memory_test_single_byte_allocation_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping single-byte allocation test");
+            return;
+        }
+        char *ptr = new (SRL::Memory::Zone::CartRam) char[1];
+        mu_assert(ptr != nullptr, "Single-byte allocation in CartRam failed");
+        *ptr = 42; // Write to the single byte
+        mu_assert(*ptr == 42, "Single-byte write in CartRam failed");
+        delete[] ptr;
+        mu_assert(true, "Single-byte allocation test in CartRam completed");
+    }
+
+    /**
      * @brief Test maximum-size allocation in HighWorkRam
      *
      * Verifies that allocating exactly the maximum available size in HighWorkRam succeeds.
@@ -1609,6 +1659,9 @@ extern "C"
         MU_RUN_TEST(memory_test_zero_size_allocation_highworkram);
         MU_RUN_TEST(memory_test_zero_size_allocation_lowworkram);
         MU_RUN_TEST(memory_test_zero_size_allocation_cartram);
+        MU_RUN_TEST(memory_test_single_byte_allocation_highworkram);
+        MU_RUN_TEST(memory_test_single_byte_allocation_lowworkram);
+        MU_RUN_TEST(memory_test_single_byte_allocation_cartram);
         MU_RUN_TEST(memory_test_max_size_allocation_highworkram);
         MU_RUN_TEST(memory_test_max_size_allocation_lowworkram);
         MU_RUN_TEST(memory_test_max_size_allocation_cartram);
