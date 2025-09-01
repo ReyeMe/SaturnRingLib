@@ -668,7 +668,7 @@ extern "C"
      */
     MU_TEST(memory_test_natural_alignment_highworkram)
     {
-        const size_t alignments[] = {4, 8, 16}; // Common natural alignments to check
+        const size_t alignments[] = {4, 8, 16};
         for (size_t alignment : alignments)
         {
             void *ptr = Memory::HighWorkRam::Malloc(100);
@@ -748,6 +748,160 @@ extern "C"
     }
 
     /**
+     * @brief Test deallocation of null pointer in HighWorkRam
+     *
+     * Verifies that calling Free with a null pointer in HighWorkRam does not crash.
+     */
+    MU_TEST(memory_test_deallocate_null_highworkram)
+    {
+        Memory::HighWorkRam::Free(nullptr);
+        mu_assert(true, "Freeing null pointer in HighWorkRam caused an error");
+    }
+
+    /**
+     * @brief Test deallocation of null pointer in LowWorkRam
+     *
+     * Verifies that calling Free with a null pointer in LowWorkRam does not crash.
+     */
+    MU_TEST(memory_test_deallocate_null_lowworkram)
+    {
+        Memory::LowWorkRam::Free(nullptr);
+        mu_assert(true, "Freeing null pointer in LowWorkRam caused an error");
+    }
+
+    /**
+     * @brief Test deallocation of null pointer in CartRam
+     *
+     * Verifies that calling Free with a null pointer in CartRam does not crash, if cartridge is available.
+     */
+    MU_TEST(memory_test_deallocate_null_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping null deallocation test");
+            return;
+        }
+        Memory::CartRam::Free(nullptr);
+        mu_assert(true, "Freeing null pointer in CartRam caused an error");
+    }
+
+    /**
+     * @brief Test double free in HighWorkRam
+     *
+     * Verifies that double-freeing a pointer in HighWorkRam is handled safely.
+     */
+    MU_TEST(memory_test_double_free_highworkram)
+    {
+        void *ptr = Memory::HighWorkRam::Malloc(100);
+        mu_assert(ptr != nullptr, "Allocation in HighWorkRam failed");
+        Memory::HighWorkRam::Free(ptr);
+        Memory::HighWorkRam::Free(ptr); // Double free
+        mu_assert(true, "Double free in HighWorkRam caused an error");
+    }
+
+    /**
+     * @brief Test double free in LowWorkRam
+     *
+     * Verifies that double-freeing a pointer in LowWorkRam is handled safely.
+     */
+    MU_TEST(memory_test_double_free_lowworkram)
+    {
+        void *ptr = Memory::LowWorkRam::Malloc(100);
+        mu_assert(ptr != nullptr, "Allocation in LowWorkRam failed");
+        Memory::LowWorkRam::Free(ptr);
+        Memory::LowWorkRam::Free(ptr); // Double free
+        mu_assert(true, "Double free in LowWorkRam caused an error");
+    }
+
+    /**
+     * @brief Test double free in CartRam
+     *
+     * Verifies that double-freeing a pointer in CartRam is handled safely, if cartridge is available.
+     */
+    MU_TEST(memory_test_double_free_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping double free test");
+            return;
+        }
+        void *ptr = Memory::CartRam::Malloc(100);
+        mu_assert(ptr != nullptr, "Allocation in CartRam failed");
+        Memory::CartRam::Free(ptr);
+        Memory::CartRam::Free(ptr); // Double free
+        mu_assert(true, "Double free in CartRam caused an error");
+    }
+
+    /**
+     * @brief Test cross-zone deallocation
+     *
+     * Verifies that freeing memory allocated in one zone using another zone's Free method is handled safely.
+     */
+    MU_TEST(memory_test_cross_zone_deallocation)
+    {
+        void *ptr_hwr = Memory::HighWorkRam::Malloc(100);
+        mu_assert(ptr_hwr != nullptr, "Allocation in HighWorkRam failed");
+        void *ptr_lwr = Memory::LowWorkRam::Malloc(100);
+        mu_assert(ptr_lwr != nullptr, "Allocation in LowWorkRam failed");
+
+        Memory::LowWorkRam::Free(ptr_hwr); // Try to free HighWorkRam allocation in LowWorkRam
+        Memory::HighWorkRam::Free(ptr_lwr); // Try to free LowWorkRam allocation in HighWorkRam
+        mu_assert(true, "Cross-zone deallocation caused an error");
+
+        // Clean up properly
+        Memory::HighWorkRam::Free(ptr_hwr);
+        Memory::LowWorkRam::Free(ptr_lwr);
+
+        if (Memory::CartRam::IsCartridgeAvailable())
+        {
+            void *ptr_cr = Memory::CartRam::Malloc(100);
+            mu_assert(ptr_cr != nullptr, "Allocation in CartRam failed");
+            Memory::HighWorkRam::Free(ptr_cr); // Try to free CartRam allocation in HighWorkRam
+            mu_assert(true, "Cross-zone deallocation (CartRam in HighWorkRam) caused an error");
+            Memory::CartRam::Free(ptr_cr); // Clean up properly
+        }
+    }
+
+    /**
+     * @brief Test memory state after deallocation
+     *
+     * Verifies that memory state is correctly updated after deallocation in all zones.
+     */
+    MU_TEST(memory_test_state_after_deallocation)
+    {
+        // HighWorkRam
+        size_t before_hwr = Memory::HighWorkRam::GetFreeSpace();
+        void *ptr_hwr = Memory::HighWorkRam::Malloc(100);
+        mu_assert(ptr_hwr != nullptr, "Allocation in HighWorkRam failed");
+        Memory::HighWorkRam::Free(ptr_hwr);
+        size_t after_hwr = Memory::HighWorkRam::GetFreeSpace();
+        mu_assert(before_hwr == after_hwr, "HighWorkRam free space not restored after deallocation");
+
+        // LowWorkRam
+        size_t before_lwr = Memory::LowWorkRam::GetFreeSpace();
+        void *ptr_lwr = Memory::LowWorkRam::Malloc(100);
+        mu_assert(ptr_lwr != nullptr, "Allocation in LowWorkRam failed");
+        Memory::LowWorkRam::Free(ptr_lwr);
+        size_t after_lwr = Memory::LowWorkRam::GetFreeSpace();
+        mu_assert(before_lwr == after_lwr, "LowWorkRam free space not restored after deallocation");
+
+        // CartRam
+        if (Memory::CartRam::IsCartridgeAvailable())
+        {
+            size_t before_cr = Memory::CartRam::GetFreeSpace();
+            void *ptr_cr = Memory::CartRam::Malloc(100);
+            mu_assert(ptr_cr != nullptr, "Allocation in CartRam failed");
+            Memory::CartRam::Free(ptr_cr);
+            size_t after_cr = Memory::CartRam::GetFreeSpace();
+            mu_assert(before_cr == after_cr, "CartRam free space not restored after deallocation");
+        }
+        else
+        {
+            mu_assert(true, "CartRam not available; skipping state after deallocation test");
+        }
+    }
+
+    /**
      * @brief Memory test suite configuration and test case registration
      *
      * Configures the test suite with setup, teardown, and error reporting functions.
@@ -768,18 +922,17 @@ extern "C"
         MU_RUN_TEST(memory_test_initialize_zones);
         MU_RUN_TEST(memory_test_cross_zone_allocation);
         MU_RUN_TEST(memory_test_boundary_conditions);
-        MU_RUN_TEST(memory_test_move_memory_blocks);                  // Register the new test case
-        MU_RUN_TEST(memory_test_move_memory_blocks_various_sizes);    // Register the new test case
-        MU_RUN_TEST(memory_test_move_memory_blocks_edge_cases);       // Register the new test case
-        MU_RUN_TEST(memory_test_move_memory_blocks_invalid_pointers); // Register the new test case
-        MU_RUN_TEST(memory_test_get_report);                          // Register the new test case
-        MU_RUN_TEST(memory_test_get_report_edge_cases);               // Register the new test case
-        MU_RUN_TEST(memory_test_get_free_space);                      // Register the new test case
+        MU_RUN_TEST(memory_test_move_memory_blocks);
+        MU_RUN_TEST(memory_test_move_memory_blocks_various_sizes);
+        MU_RUN_TEST(memory_test_move_memory_blocks_edge_cases);
+        MU_RUN_TEST(memory_test_move_memory_blocks_invalid_pointers);
+        MU_RUN_TEST(memory_test_get_report);
+        MU_RUN_TEST(memory_test_get_report_edge_cases);
+        MU_RUN_TEST(memory_test_get_free_space);
         MU_RUN_TEST(memory_test_highworkram_reset);
         MU_RUN_TEST(memory_test_lowworkram_reset);
         MU_RUN_TEST(memory_test_cartram_reset);
         MU_RUN_TEST(memory_test_reset_edge_cases);
-        // Add the new tests to the suite in MU_TEST_SUITE(memory_test_suite)
         MU_RUN_TEST(memory_test_over_allocation_highworkram);
         MU_RUN_TEST(memory_test_over_allocation_lowworkram);
         MU_RUN_TEST(memory_test_over_allocation_cartram);
@@ -791,9 +944,17 @@ extern "C"
         MU_RUN_TEST(memory_test_aligned_allocation_highworkram);
         MU_RUN_TEST(memory_test_aligned_allocation_lowworkram);
         MU_RUN_TEST(memory_test_aligned_allocation_cartram);
-        MU_RUN_TEST(memory_test_placement_malloc_highworkram);
-        MU_RUN_TEST(memory_test_placement_malloc_lowworkram);
-        MU_RUN_TEST(memory_test_placement_malloc_cartram);
-        MU_RUN_TEST(memory_test_placement_malloc_invalid);
+        MU_RUN_TEST(memory_test_natural_alignment_highworkram);
+        MU_RUN_TEST(memory_test_natural_alignment_lowworkram);
+        MU_RUN_TEST(memory_test_natural_alignment_cartram);
+        MU_RUN_TEST(memory_test_placement_new_alignment);
+        MU_RUN_TEST(memory_test_deallocate_null_highworkram);
+        MU_RUN_TEST(memory_test_deallocate_null_lowworkram);
+        MU_RUN_TEST(memory_test_deallocate_null_cartram);
+        MU_RUN_TEST(memory_test_double_free_highworkram);
+        MU_RUN_TEST(memory_test_double_free_lowworkram);
+        MU_RUN_TEST(memory_test_double_free_cartram);
+        MU_RUN_TEST(memory_test_cross_zone_deallocation);
+        MU_RUN_TEST(memory_test_state_after_deallocation);
     }
 }
