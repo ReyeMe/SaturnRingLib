@@ -902,6 +902,351 @@ extern "C"
     }
 
     /**
+     * @brief Test buffer overflow in HighWorkRam
+     *
+     * Verifies that writing beyond the allocated buffer in HighWorkRam is detected or handled safely.
+     * Assumes the allocator may use guard regions or internal checks to detect corruption.
+     */
+    MU_TEST(memory_test_buffer_overflow_highworkram)
+    {
+        char *ptr = new (SRL::Memory::Zone::HWRam) char[100];
+        mu_assert(ptr != nullptr, "Allocation in HighWorkRam failed");
+
+        // Initialize a second allocation to detect potential corruption
+        char *guard_ptr = new (SRL::Memory::Zone::HWRam) char[100];
+        mu_assert(guard_ptr != nullptr, "Guard allocation in HighWorkRam failed");
+        for (size_t i = 0; i < 100; ++i) {
+            guard_ptr[i] = static_cast<char>(0xAA);
+        }
+
+        // Write beyond the allocated size
+        for (size_t i = 0; i < 150; ++i) { // Write 50 bytes past the buffer
+            ptr[i] = static_cast<char>(i);
+        }
+
+        // Check if the guard allocation was corrupted
+        bool corruption_detected = false;
+        for (size_t i = 0; i < 100; ++i) {
+            if (guard_ptr[i] != static_cast<char>(0xAA)) {
+                corruption_detected = true;
+                break;
+            }
+        }
+
+        // Alternatively, attempt a new allocation to detect heap corruption
+        void *test_ptr = Memory::HighWorkRam::Malloc(100);
+        if (test_ptr == nullptr) {
+            corruption_detected = true;
+        } else {
+            Memory::HighWorkRam::Free(test_ptr);
+        }
+
+        mu_assert(corruption_detected, "Buffer overflow in HighWorkRam not detected");
+        delete[] ptr;
+        delete[] guard_ptr;
+    }
+
+    /**
+     * @brief Test buffer overflow in LowWorkRam
+     *
+     * Verifies that writing beyond the allocated buffer in LowWorkRam is detected or handled safely.
+     * Assumes the allocator may use guard regions or internal checks to detect corruption.
+     */
+    MU_TEST(memory_test_buffer_overflow_lowworkram)
+    {
+        char *ptr = new (SRL::Memory::Zone::LWRam) char[100];
+        mu_assert(ptr != nullptr, "Allocation in LowWorkRam failed");
+
+        // Initialize a second allocation to detect potential corruption
+        char *guard_ptr = new (SRL::Memory::Zone::LWRam) char[100];
+        mu_assert(guard_ptr != nullptr, "Guard allocation in LowWorkRam failed");
+        for (size_t i = 0; i < 100; ++i) {
+            guard_ptr[i] = static_cast<char>(0xAA);
+        }
+
+        // Write beyond the allocated size
+        for (size_t i = 0; i < 150; ++i) { // Write 50 bytes past the buffer
+            ptr[i] = static_cast<char>(i);
+        }
+
+        // Check if the guard allocation was corrupted
+        bool corruption_detected = false;
+        for (size_t i = 0; i < 100; ++i) {
+            if (guard_ptr[i] != static_cast<char>(0xAA)) {
+                corruption_detected = true;
+                break;
+            }
+        }
+
+        // Alternatively, attempt a new allocation to detect heap corruption
+        void *test_ptr = Memory::LowWorkRam::Malloc(100);
+        if (test_ptr == nullptr) {
+            corruption_detected = true;
+        } else {
+            Memory::LowWorkRam::Free(test_ptr);
+        }
+
+        mu_assert(corruption_detected, "Buffer overflow in LowWorkRam not detected");
+        delete[] ptr;
+        delete[] guard_ptr;
+    }
+
+    /**
+     * @brief Test buffer overflow in CartRam
+     *
+     * Verifies that writing beyond the allocated buffer in CartRam is detected or handled safely, if cartridge is available.
+     * Assumes the allocator may use guard regions or internal checks to detect corruption.
+     */
+    MU_TEST(memory_test_buffer_overflow_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping buffer overflow test");
+            return;
+        }
+
+        char *ptr = new (SRL::Memory::Zone::CartRam) char[100];
+        mu_assert(ptr != nullptr, "Allocation in CartRam failed");
+
+        // Initialize a second allocation to detect potential corruption
+        char *guard_ptr = new (SRL::Memory::Zone::CartRam) char[100];
+        mu_assert(guard_ptr != nullptr, "Guard allocation in CartRam failed");
+        for (size_t i = 0; i < 100; ++i) {
+            guard_ptr[i] = static_cast<char>(0xAA);
+        }
+
+        // Write beyond the allocated size
+        for (size_t i = 0; i < 150; ++i) { // Write 50 bytes past the buffer
+            ptr[i] = static_cast<char>(i);
+        }
+
+        // Check if the guard allocation was corrupted
+        bool corruption_detected = false;
+        for (size_t i = 0; i < 100; ++i) {
+            if (guard_ptr[i] != static_cast<char>(0xAA)) {
+                corruption_detected = true;
+                break;
+            }
+        }
+
+        // Alternatively, attempt a new allocation to detect heap corruption
+        void *test_ptr = Memory::CartRam::Malloc(100);
+        if (test_ptr == nullptr) {
+            corruption_detected = true;
+        } else {
+            Memory::CartRam::Free(test_ptr);
+        }
+
+        mu_assert(corruption_detected, "Buffer overflow in CartRam not detected");
+        delete[] ptr;
+        delete[] guard_ptr;
+    }
+
+    /**
+     * @brief Test use-after-free in HighWorkRam
+     *
+     * Verifies that accessing memory after it has been freed in HighWorkRam is detected or handled safely.
+     * Assumes the allocator invalidates freed memory or uses guard values.
+     */
+    MU_TEST(memory_test_use_after_free_highworkram)
+    {
+        char *ptr = new (SRL::Memory::Zone::HWRam) char[100];
+        mu_assert(ptr != nullptr, "Allocation in HighWorkRam failed");
+
+        // Initialize buffer
+        for (size_t i = 0; i < 100; ++i) {
+            ptr[i] = static_cast<char>(0xBB);
+        }
+
+        delete[] ptr;
+
+        // Attempt to write to freed memory
+        ptr[0] = 42;
+
+        // Check for corruption by allocating again and verifying memory state
+        char *new_ptr = new (SRL::Memory::Zone::HWRam) char[100];
+        bool corruption_detected = false;
+        if (new_ptr == nullptr) {
+            corruption_detected = true; // Allocator detected corruption
+        } else {
+            // Check if the memory was overwritten unexpectedly
+            for (size_t i = 0; i < 100; ++i) {
+                if (new_ptr[i] == 42) {
+                    corruption_detected = true; // Freed memory was modified
+                    break;
+                }
+            }
+            delete[] new_ptr;
+        }
+
+        mu_assert(corruption_detected, "Use-after-free in HighWorkRam not detected");
+    }
+
+    /**
+     * @brief Test use-after-free in LowWorkRam
+     *
+     * Verifies that accessing memory after it has been freed in LowWorkRam is detected or handled safely.
+     * Assumes the allocator invalidates freed memory or uses guard values.
+     */
+    MU_TEST(memory_test_use_after_free_lowworkram)
+    {
+        char *ptr = new (SRL::Memory::Zone::LWRam) char[100];
+        mu_assert(ptr != nullptr, "Allocation in LowWorkRam failed");
+
+        // Initialize buffer
+        for (size_t i = 0; i < 100; ++i) {
+            ptr[i] = static_cast<char>(0xBB);
+        }
+
+        delete[] ptr;
+
+        // Attempt to write to freed memory
+        ptr[0] = 42;
+
+        // Check for corruption by allocating again and verifying memory state
+        char *new_ptr = new (SRL::Memory::Zone::LWRam) char[100];
+        bool corruption_detected = false;
+        if (new_ptr == nullptr) {
+            corruption_detected = true; // Allocator detected corruption
+        } else {
+            // Check if the memory was overwritten unexpectedly
+            for (size_t i = 0; i < 100; ++i) {
+                if (new_ptr[i] == 42) {
+                    corruption_detected = true; // Freed memory was modified
+                    break;
+                }
+            }
+            delete[] new_ptr;
+        }
+
+        mu_assert(corruption_detected, "Use-after-free in LowWorkRam not detected");
+    }
+
+    /**
+     * @brief Test use-after-free in CartRam
+     *
+     * Verifies that accessing memory after it has been freed in CartRam is detected or handled safely, if cartridge is available.
+     * Assumes the allocator invalidates freed memory or uses guard values.
+     */
+    MU_TEST(memory_test_use_after_free_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping use-after-free test");
+            return;
+        }
+
+        char *ptr = new (SRL::Memory::Zone::CartRam) char[100];
+        mu_assert(ptr != nullptr, "Allocation in CartRam failed");
+
+        // Initialize buffer
+        for (size_t i = 0; i < 100; ++i) {
+            ptr[i] = static_cast<char>(0xBB);
+        }
+
+        delete[] ptr;
+
+        // Attempt to write to freed memory
+        ptr[0] = 42;
+
+        // Check for corruption by allocating again and verifying memory state
+        char *new_ptr = new (SRL::Memory::Zone::CartRam) char[100];
+        bool corruption_detected = false;
+        if (new_ptr == nullptr) {
+            corruption_detected = true; // Allocator detected corruption
+        } else {
+            // Check if the memory was overwritten unexpectedly
+            for (size_t i = 0; i < 100; ++i) {
+                if (new_ptr[i] == 42) {
+                    corruption_detected = true; // Freed memory was modified
+                    break;
+                }
+            }
+            delete[] new_ptr;
+        }
+
+        mu_assert(corruption_detected, "Use-after-free in CartRam not detected");
+    }
+
+    /**
+     * @brief Test invalid memory access in HighWorkRam
+     *
+     * Verifies that accessing an invalid memory address in HighWorkRam is detected or handled safely.
+     * Assumes the allocator or system checks for invalid addresses.
+     */
+    MU_TEST(memory_test_invalid_access_highworkram)
+    {
+        char *ptr = reinterpret_cast<char *>(0xDEADBEEF); // Invalid address
+
+        // Attempt to write to invalid address
+        ptr[0] = 42;
+
+        // Check memory integrity by performing a valid allocation
+        char *test_ptr = new (SRL::Memory::Zone::HWRam) char[100];
+        bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
+
+        if (!corruption_detected) {
+            delete[] test_ptr;
+        }
+
+        mu_assert(corruption_detected, "Invalid memory access in HighWorkRam not detected");
+    }
+
+    /**
+     * @brief Test invalid memory access in LowWorkRam
+     *
+     * Verifies that accessing an invalid memory address in LowWorkRam is detected or handled safely.
+     * Assumes the allocator or system checks for invalid addresses.
+     */
+    MU_TEST(memory_test_invalid_access_lowworkram)
+    {
+        char *ptr = reinterpret_cast<char *>(0xDEADBEEF); // Invalid address
+
+        // Attempt to write to invalid address
+        ptr[0] = 42;
+
+        // Check memory integrity by performing a valid allocation
+        char *test_ptr = new (SRL::Memory::Zone::LWRam) char[100];
+        bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
+
+        if (!corruption_detected) {
+            delete[] test_ptr;
+        }
+
+        mu_assert(corruption_detected, "Invalid memory access in LowWorkRam not detected");
+    }
+
+    /**
+     * @brief Test invalid memory access in CartRam
+     *
+     * Verifies that accessing an invalid memory address in CartRam is detected or handled safely, if cartridge is available.
+     * Assumes the allocator or system checks for invalid addresses.
+     */
+    MU_TEST(memory_test_invalid_access_cartram)
+    {
+        if (!Memory::CartRam::IsCartridgeAvailable())
+        {
+            mu_assert(true, "CartRam not available; skipping invalid access test");
+            return;
+        }
+
+        char *ptr = reinterpret_cast<char *>(0xDEADBEEF); // Invalid address
+
+        // Attempt to write to invalid address
+        ptr[0] = 42;
+
+        // Check memory integrity by performing a valid allocation
+        char *test_ptr = new (SRL::Memory::Zone::CartRam) char[100];
+        bool corruption_detected = (test_ptr == nullptr); // Allocator should fail if corrupted
+
+        if (!corruption_detected) {
+            delete[] test_ptr;
+        }
+
+        mu_assert(corruption_detected, "Invalid memory access in CartRam not detected");
+    }
+
+    /**
      * @brief Memory test suite configuration and test case registration
      *
      * Configures the test suite with setup, teardown, and error reporting functions.
@@ -956,5 +1301,14 @@ extern "C"
         MU_RUN_TEST(memory_test_double_free_cartram);
         MU_RUN_TEST(memory_test_cross_zone_deallocation);
         MU_RUN_TEST(memory_test_state_after_deallocation);
+        MU_RUN_TEST(memory_test_buffer_overflow_highworkram);
+        MU_RUN_TEST(memory_test_buffer_overflow_lowworkram);
+        MU_RUN_TEST(memory_test_buffer_overflow_cartram);
+        MU_RUN_TEST(memory_test_use_after_free_highworkram);
+        MU_RUN_TEST(memory_test_use_after_free_lowworkram);
+        MU_RUN_TEST(memory_test_use_after_free_cartram);
+        MU_RUN_TEST(memory_test_invalid_access_highworkram);
+        MU_RUN_TEST(memory_test_invalid_access_lowworkram);
+        MU_RUN_TEST(memory_test_invalid_access_cartram);
     }
 }
