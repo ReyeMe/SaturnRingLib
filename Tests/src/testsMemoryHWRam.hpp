@@ -248,7 +248,7 @@ extern "C"
         mu_assert(freeSpaceAfterAlloc < freeSpaceBefore,
                   buffer);
 
-        delete[] ptr;
+        delete[] (char*)ptr;
 
         size_t freeSpaceAfterFree = Memory::GetFreeSpace(Memory::Zone::HWRam);
         snprintf(buffer, buffer_size,
@@ -291,14 +291,14 @@ extern "C"
 
         mu_assert(ptr2 == nullptr, "Memory depletion in HighWorkRam did not return nullptr");
 
-        delete[] ptr2;
-        delete[] ptr;
+        delete[] (char*)ptr2;
+        delete[] (char*)ptr;
 
         // Validate that memory can be reallocated after depletion
         ptr = new (SRL::Memory::Zone::HWRam) char[100];
         mu_assert(ptr != nullptr, "Memory reallocation in HighWorkRam after depletion failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -328,7 +328,7 @@ extern "C"
         ptr = SRL::Memory::HighWorkRam::Realloc(ptr, 200);
         mu_assert(ptr != nullptr, "Reallocation to larger size failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -342,7 +342,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::HWRam) char[largeSize];
         mu_assert(ptr != nullptr, "Large block allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -394,7 +394,7 @@ extern "C"
         SRL::Memory::Free(ptr);         // Should not crash or cause issues
 
         ptr = new (SRL::Memory::Zone::HWRam) char[100];
-        delete[] ptr;
+        delete[] (char*)ptr;
         SRL::Memory::Free(ptr); // Should not crash or cause issues
     }
 
@@ -410,7 +410,7 @@ extern "C"
             void *ptr = new (SRL::Memory::Zone::HWRam) char[100];
             mu_assert(ptr != nullptr, "Stress test allocation failed");
 
-            delete[] ptr;
+            delete[] (char*)ptr;
         }
     }
 
@@ -425,7 +425,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::HWRam) char[freeSpace - 1];
         mu_assert(ptr != nullptr, "Boundary condition allocation failed");
 
-        delete[] ptr;
+    delete[] (char*)ptr;
     }
 
     /**
@@ -439,7 +439,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::HWRam) char[100];
         mu_assert(ptr != nullptr, "Memory allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
         size_t freeSpaceAfter = Memory::HighWorkRam::GetFreeSpace();
         mu_assert(freeSpaceAfter == freeSpaceBefore, "Memory leak detected");
     }

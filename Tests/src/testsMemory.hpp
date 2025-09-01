@@ -72,8 +72,8 @@ extern "C"
      */
     MU_TEST(memory_test_placement_malloc_highworkram)
     {
-        void* address = (void*)0x06000000; // Address in HighWorkRam range
-        void* ptr = Memory::PlacementMalloc(100, address);
+        void *address = (void *)0x06000000; // Address in HighWorkRam range
+        void *ptr = Memory::PlacementMalloc(100, address);
         mu_assert(ptr != nullptr, "PlacementMalloc in HighWorkRam failed");
 
         Memory::Free(ptr);
@@ -86,8 +86,8 @@ extern "C"
      */
     MU_TEST(memory_test_placement_malloc_lowworkram)
     {
-        void* address = (void*)0x00200000; // Address in LowWorkRam range
-        void* ptr = Memory::PlacementMalloc(100, address);
+        void *address = (void *)0x00200000; // Address in LowWorkRam range
+        void *ptr = Memory::PlacementMalloc(100, address);
         mu_assert(ptr != nullptr, "PlacementMalloc in LowWorkRam failed");
 
         Memory::Free(ptr);
@@ -100,8 +100,8 @@ extern "C"
      */
     MU_TEST(memory_test_placement_malloc_cartram)
     {
-        void* address = (void*)0x08000000; // Address in CartRam range
-        void* ptr = Memory::PlacementMalloc(100, address);
+        void *address = (void *)0x08000000; // Address in CartRam range
+        void *ptr = Memory::PlacementMalloc(100, address);
         mu_assert(ptr != nullptr, "PlacementMalloc in CartRam failed");
 
         Memory::Free(ptr);
@@ -114,8 +114,8 @@ extern "C"
      */
     MU_TEST(memory_test_placement_malloc_invalid)
     {
-        void* address = (void*)0xFFFFFFFF; // Invalid address
-        void* ptr = Memory::PlacementMalloc(100, address);
+        void *address = (void *)0xFFFFFFFF; // Invalid address
+        void *ptr = Memory::PlacementMalloc(100, address);
         mu_assert(ptr == nullptr, "PlacementMalloc with invalid address did not return NULL");
     }
 
@@ -151,17 +151,17 @@ extern "C"
      */
     MU_TEST(memory_test_cross_zone_allocation)
     {
-        void* ptr1 = new (SRL::Memory::Zone::HWRam) char[100];
-        void* ptr2 = new (SRL::Memory::Zone::LWRam) char[100];
-        void* ptr3 = new (SRL::Memory::Zone::CartRam) char[100];
+        void *ptr1 = new (SRL::Memory::Zone::HWRam) char[100];
+        void *ptr2 = new (SRL::Memory::Zone::LWRam) char[100];
+        void *ptr3 = new (SRL::Memory::Zone::CartRam) char[100];
 
         mu_assert(ptr1 != nullptr, "Cross-zone allocation in HighWorkRam failed");
         mu_assert(ptr2 != nullptr, "Cross-zone allocation in LowWorkRam failed");
         mu_assert(ptr3 != nullptr, "Cross-zone allocation in CartRam failed");
 
-        delete[] ptr1;
-        delete[] ptr2;
-        delete[] ptr3;
+        delete[] (char*)ptr1;
+        delete[] (char*)ptr2;
+        delete[] (char*)ptr3;
     }
 
     /**
@@ -172,10 +172,10 @@ extern "C"
     MU_TEST(memory_test_boundary_conditions)
     {
         size_t freeSpace = Memory::HighWorkRam::GetFreeSpace();
-        void* ptr = new (SRL::Memory::Zone::HWRam) char[freeSpace - 1];
+        void *ptr = new (SRL::Memory::Zone::HWRam) char[freeSpace - 1];
         mu_assert(ptr != nullptr, "Boundary condition allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -187,24 +187,26 @@ extern "C"
     MU_TEST(memory_test_move_memory_blocks)
     {
         // Allocate memory in HighWorkRam and initialize with data
-        char* srcPtr = new (SRL::Memory::Zone::HWRam) char[100];
-        for (int i = 0; i < 100; ++i) {
+        char *srcPtr = new (SRL::Memory::Zone::HWRam) char[100];
+        for (int i = 0; i < 100; ++i)
+        {
             srcPtr[i] = static_cast<char>(i);
         }
 
         // Allocate memory in LowWorkRam
-        char* destPtr = new (SRL::Memory::Zone::LWRam) char[100];
+        char *destPtr = new (SRL::Memory::Zone::LWRam) char[100];
 
         // Move data from HighWorkRam to LowWorkRam
         memcpy(destPtr, srcPtr, 100);
 
         // Verify data integrity
-        for (int i = 0; i < 100; ++i) {
+        for (int i = 0; i < 100; ++i)
+        {
             mu_assert(destPtr[i] == static_cast<char>(i), "Data integrity check failed after moving memory block");
         }
 
         // Clean up
-        delete[] srcPtr;
+        delete[] (char*)srcPtr;
         delete[] destPtr;
     }
 
@@ -220,25 +222,27 @@ extern "C"
         for (size_t size : sizes)
         {
             // Allocate memory in HighWorkRam and initialize with data
-            char* srcPtr = new (SRL::Memory::Zone::HWRam) char[size];
-            for (size_t i = 0; i < size; ++i) {
+            char *srcPtr = new (SRL::Memory::Zone::HWRam) char[size];
+            for (size_t i = 0; i < size; ++i)
+            {
                 srcPtr[i] = static_cast<char>(i);
             }
 
             // Allocate memory in LowWorkRam
-            char* destPtr = new (SRL::Memory::Zone::LWRam) char[size];
+            char *destPtr = new (SRL::Memory::Zone::LWRam) char[size];
 
             // Move data from HighWorkRam to LowWorkRam
             memcpy(destPtr, srcPtr, size);
 
             // Verify data integrity
-            for (size_t i = 0; i < size; ++i) {
+            for (size_t i = 0; i < size; ++i)
+            {
                 mu_assert(destPtr[i] == static_cast<char>(i), "Data integrity check failed after moving memory block");
             }
 
             // Clean up
-            delete[] srcPtr;
-            delete[] destPtr;
+            delete[] (char*)srcPtr;
+            delete[] (char*)destPtr;
         }
     }
 
@@ -251,26 +255,28 @@ extern "C"
     MU_TEST(memory_test_move_memory_blocks_edge_cases)
     {
         // Edge case: zero size
-        char* srcPtr = new (SRL::Memory::Zone::HWRam) char[0];
-        char* destPtr = new (SRL::Memory::Zone::LWRam) char[0];
+        char *srcPtr = new (SRL::Memory::Zone::HWRam) char[0];
+        char *destPtr = new (SRL::Memory::Zone::LWRam) char[0];
         memcpy(destPtr, srcPtr, 0);
         mu_assert(true, "Zero size move should not fail");
-        delete[] srcPtr;
-        delete[] destPtr;
+        delete[] (char*)srcPtr;
+        delete[] (char*)destPtr;
 
         // Edge case: maximum size (assuming a hypothetical maximum size)
         const size_t maxSize = 1024 * 1024; // 1 MB for example
         srcPtr = new (SRL::Memory::Zone::HWRam) char[maxSize];
-        for (size_t i = 0; i < maxSize; ++i) {
+        for (size_t i = 0; i < maxSize; ++i)
+        {
             srcPtr[i] = static_cast<char>(i % 256);
         }
         destPtr = new (SRL::Memory::Zone::LWRam) char[maxSize];
         memcpy(destPtr, srcPtr, maxSize);
-        for (size_t i = 0; i < maxSize; ++i) {
+        for (size_t i = 0; i < maxSize; ++i)
+        {
             mu_assert(destPtr[i] == static_cast<char>(i % 256), "Data integrity check failed after moving maximum size memory block");
         }
-        delete[] srcPtr;
-        delete[] destPtr;
+        delete[] (char*)srcPtr;
+        delete[] (char*)destPtr;
     }
 
     /**
@@ -281,24 +287,153 @@ extern "C"
     MU_TEST(memory_test_move_memory_blocks_invalid_pointers)
     {
         // Invalid source pointer
-        char* srcPtr = nullptr;
-        char* destPtr = new (SRL::Memory::Zone::LWRam) char[100];
-        if (memcpy(destPtr, srcPtr, 100) == nullptr) {
+        char *srcPtr = nullptr;
+        char *destPtr = new (SRL::Memory::Zone::LWRam) char[100];
+        if (memcpy(destPtr, srcPtr, 100) == nullptr)
+        {
             mu_assert(true, "Moving memory block with null source pointer failed as expected");
-        } else {
+        }
+        else
+        {
             mu_assert(false, "Moving memory block with null source pointer should fail");
         }
-        delete[] destPtr;
+        delete[] (char*)destPtr;
 
         // Invalid destination pointer
         srcPtr = new (SRL::Memory::Zone::HWRam) char[100];
         destPtr = nullptr;
-        if (memcpy(destPtr, srcPtr, 100) == nullptr) {
+        if (memcpy(destPtr, srcPtr, 100) == nullptr)
+        {
             mu_assert(true, "Moving memory block with null destination pointer failed as expected");
-        } else {
+        }
+        else
+        {
             mu_assert(false, "Moving memory block with null destination pointer should fail");
         }
-        delete[] srcPtr;
+        delete[] (char*)srcPtr;
+    }
+
+    /**
+     * @brief Test GetReport methods for memory zones
+     *
+     * Verifies that GetReport returns the correct report for each memory zone.
+     */
+    MU_TEST(memory_test_get_report)
+    {
+        auto highWorkRamReport = Memory::HighWorkRam::GetReport();
+        auto lowWorkRamReport = Memory::LowWorkRam::GetReport();
+        auto cartRamReport = Memory::CartRam::GetReport();
+
+        mu_assert(highWorkRamReport.TotalSize != 0, "HighWorkRam GetReport failed");
+        mu_assert(lowWorkRamReport.TotalSize != 0, "LowWorkRam GetReport failed");
+        mu_assert(cartRamReport.TotalSize != 0, "CartRam GetReport failed");
+    }
+
+    /**
+     * @brief Test GetReport methods with edge cases
+     *
+     * Verifies that GetReport handles edge cases such as empty memory zones.
+     */
+    MU_TEST(memory_test_get_report_edge_cases)
+    {
+        // Assume we have a way to reset memory zones to empty
+        Memory::HighWorkRam::Reset();
+        Memory::LowWorkRam::Reset();
+        Memory::CartRam::Reset();
+
+        auto highWorkRamReport = Memory::HighWorkRam::GetReport();
+        auto lowWorkRamReport = Memory::LowWorkRam::GetReport();
+        auto cartRamReport = Memory::CartRam::GetReport();
+
+        mu_assert(highWorkRamReport.TotalSize != highWorkRamReport.FreeSize, "HighWorkRam GetReport failed for empty zone");
+        mu_assert(lowWorkRamReport.TotalSize != lowWorkRamReport.FreeSize, "LowWorkRam GetReport failed for empty zone");
+        mu_assert(cartRamReport.TotalSize != cartRamReport.FreeSize, "CartRam GetReport failed for empty zone");
+    }
+
+    /**
+     * @brief Test Reset method for HighWorkRam
+     */
+    MU_TEST(memory_test_highworkram_reset)
+    {
+        // Allocate memory, then reset
+        void* ptr = Memory::HighWorkRam::Malloc(128);
+        mu_assert(ptr != nullptr, "HighWorkRam allocation before reset failed");
+        Memory::HighWorkRam::Reset();
+
+        // After reset, all memory should be free, so allocation should succeed again
+        void* ptr2 = Memory::HighWorkRam::Malloc(128);
+        mu_assert(ptr2 != nullptr, "HighWorkRam allocation after reset failed");
+        Memory::HighWorkRam::Free(ptr2);
+    }
+
+    /**
+     * @brief Test Reset method for LowWorkRam
+     */
+    MU_TEST(memory_test_lowworkram_reset)
+    {
+        void* ptr = Memory::LowWorkRam::Malloc(128);
+        mu_assert(ptr != nullptr, "LowWorkRam allocation before reset failed");
+        Memory::LowWorkRam::Reset();
+
+        void* ptr2 = Memory::LowWorkRam::Malloc(128);
+        mu_assert(ptr2 != nullptr, "LowWorkRam allocation after reset failed");
+        Memory::LowWorkRam::Free(ptr2);
+    }
+
+    /**
+     * @brief Test Reset method for CartRam (if available)
+     */
+    MU_TEST(memory_test_cartram_reset)
+    {
+        if (Memory::CartRam::IsCartridgeAvailable())
+        {
+            void* ptr = Memory::CartRam::Malloc(128);
+            mu_assert(ptr != nullptr, "CartRam allocation before reset failed");
+            Memory::CartRam::Reset();
+
+            void* ptr2 = Memory::CartRam::Malloc(128);
+            mu_assert(ptr2 != nullptr, "CartRam allocation after reset failed");
+            Memory::CartRam::Free(ptr2);
+        }
+        else
+        {
+            mu_assert(true, "CartRam not available, skipping reset test");
+        }
+    }
+
+    /**
+     * @brief Test Reset edge cases: double reset and reset with no allocations
+     */
+    MU_TEST(memory_test_reset_edge_cases)
+    {
+        // Double reset should not crash or misbehave
+        Memory::HighWorkRam::Reset();
+        Memory::HighWorkRam::Reset();
+        void* ptr = Memory::HighWorkRam::Malloc(64);
+        mu_assert(ptr != nullptr, "HighWorkRam allocation after double reset failed");
+        Memory::HighWorkRam::Free(ptr);
+
+        Memory::LowWorkRam::Reset();
+        Memory::LowWorkRam::Reset();
+        ptr = Memory::LowWorkRam::Malloc(64);
+        mu_assert(ptr != nullptr, "LowWorkRam allocation after double reset failed");
+        Memory::LowWorkRam::Free(ptr);
+
+        if (Memory::CartRam::IsCartridgeAvailable())
+        {
+            Memory::CartRam::Reset();
+            Memory::CartRam::Reset();
+            ptr = Memory::CartRam::Malloc(64);
+            mu_assert(ptr != nullptr, "CartRam allocation after double reset failed");
+            Memory::CartRam::Free(ptr);
+        }
+
+        // Reset with no allocations should not crash
+        Memory::HighWorkRam::Reset();
+        Memory::LowWorkRam::Reset();
+        if (Memory::CartRam::IsCartridgeAvailable())
+            Memory::CartRam::Reset();
+        mu_assert(true, "Reset with no allocations did not crash");
     }
 
     /**
@@ -322,9 +457,16 @@ extern "C"
         MU_RUN_TEST(memory_test_initialize_zones);
         MU_RUN_TEST(memory_test_cross_zone_allocation);
         MU_RUN_TEST(memory_test_boundary_conditions);
-        MU_RUN_TEST(memory_test_move_memory_blocks); // Register the new test case
-        MU_RUN_TEST(memory_test_move_memory_blocks_various_sizes); // Register the new test case
-        MU_RUN_TEST(memory_test_move_memory_blocks_edge_cases); // Register the new test case
+        MU_RUN_TEST(memory_test_move_memory_blocks);                  // Register the new test case
+        MU_RUN_TEST(memory_test_move_memory_blocks_various_sizes);    // Register the new test case
+        MU_RUN_TEST(memory_test_move_memory_blocks_edge_cases);       // Register the new test case
         MU_RUN_TEST(memory_test_move_memory_blocks_invalid_pointers); // Register the new test case
+        MU_RUN_TEST(memory_test_get_report);                          // Register the new test case
+        MU_RUN_TEST(memory_test_get_report_edge_cases);               // Register the new test case
+        MU_RUN_TEST(memory_test_get_free_space);                      // Register the new test case
+        MU_RUN_TEST(memory_test_highworkram_reset);
+        MU_RUN_TEST(memory_test_lowworkram_reset);
+        MU_RUN_TEST(memory_test_cartram_reset);
+        MU_RUN_TEST(memory_test_reset_edge_cases);
     }
 }

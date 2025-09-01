@@ -248,7 +248,7 @@ extern "C"
         mu_assert(freeSpaceAfterAlloc < freeSpaceBefore,
                   buffer);
 
-        delete[] ptr;
+        delete[] (char*)ptr;
 
         size_t freeSpaceAfterFree = Memory::GetFreeSpace(Memory::Zone::LWRam);
         snprintf(buffer, buffer_size,
@@ -291,14 +291,14 @@ extern "C"
 
         mu_assert(ptr2 == nullptr, "Memory depletion in LowWorkRam did not return nullptr");
 
-        delete[] ptr2;
-        delete[] ptr;
+        delete[] (char*)ptr2;
+        delete[] (char*)ptr;
 
         // Validate that memory can be reallocated after depletion
         ptr = new (SRL::Memory::Zone::LWRam) char[100];
         mu_assert(ptr != nullptr, "Memory reallocation in LowWorkRam after depletion failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -328,7 +328,7 @@ extern "C"
         ptr = SRL::Memory::LowWorkRam::Realloc(ptr, 200);
         mu_assert(ptr != nullptr, "Reallocation to larger size failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -342,7 +342,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::LWRam) char[largeSize];
         mu_assert(ptr != nullptr, "Large block allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -356,14 +356,14 @@ extern "C"
         void *ptr2 = new (SRL::Memory::Zone::LWRam) char[200];
         void *ptr3 = new (SRL::Memory::Zone::LWRam) char[300];
 
-        delete[] ptr2;
+        delete[] (char*)ptr2;
 
         void *ptr4 = new (SRL::Memory::Zone::LWRam) char[150];
         mu_assert(ptr4 != nullptr, "Fragmentation handling failed");
 
-        delete[] ptr1;
-        delete[] ptr3;
-        delete[] ptr4;
+        delete[] (char*)ptr1;
+        delete[] (char*)ptr3;
+        delete[] (char*)ptr4;
     }
 
     /**
@@ -394,7 +394,7 @@ extern "C"
         SRL::Memory::Free(ptr);         // Should not crash or cause issues
 
         ptr = new (SRL::Memory::Zone::LWRam) char[100];
-        delete[] ptr;
+        delete[] (char*)ptr;
         SRL::Memory::Free(ptr); // Should not crash or cause issues
     }
 
@@ -410,7 +410,7 @@ extern "C"
             void *ptr = new (SRL::Memory::Zone::LWRam) char[100];
             mu_assert(ptr != nullptr, "Stress test allocation failed");
 
-            delete[] ptr;
+            delete[] (char*)ptr;
         }
     }
 
@@ -425,7 +425,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::LWRam) char[freeSpace - 1];
         mu_assert(ptr != nullptr, "Boundary condition allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**

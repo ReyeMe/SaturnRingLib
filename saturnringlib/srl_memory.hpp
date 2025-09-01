@@ -550,6 +550,30 @@ namespace SRL
                 #endif
             }
 
+            /** @brief Resets the HighWorkRam memory zone, freeing all allocations */
+            static void Reset()
+            {
+                #if defined(USE_TLSF_ALLOCATOR)
+                // Re-create the TLSF pool to reset all allocations
+                auto address = reinterpret_cast<void*>(&_heap_start);
+                auto size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
+                HighWorkRam::zone = Memory::MemoryZone
+                {
+                    tlsf_create_with_pool(address, size),
+                    size
+                };
+                #else
+                // Re-initialize the simple malloc zone
+                auto address = reinterpret_cast<void*>(&_heap_start);
+                auto size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
+                HighWorkRam::zone = Memory::MemoryZone
+                {
+                    Memory::SimpleMalloc::InitializeZone(address, size),
+                    size
+                };
+                #endif
+            }
+
         };
 
         /** @brief Malloc for slower system RAM
@@ -713,6 +737,28 @@ namespace SRL
                 return report.TotalSize - report.FreeSize;
                 #endif
             }
+
+            /** @brief Resets the LowWorkRam memory zone, freeing all allocations */
+            static void Reset()
+            {
+#if defined(USE_TLSF_ALLOCATOR)
+    const volatile void* address = (void*)0x00200000;
+    const uint32_t size = 0x100000;
+    LowWorkRam::zone = Memory::MemoryZone
+    {
+        tlsf_create_with_pool((void*)address, size),
+        size
+    };
+#else
+    const volatile void* address = (void*)0x00200000;
+    const uint32_t size = 0x100000;
+    LowWorkRam::zone = Memory::MemoryZone
+    {
+        Memory::SimpleMalloc::InitializeZone((void*)address, size),
+        size
+    };
+#endif
+}
         };
 
         /** @brief Malloc for expansion cart RAM
@@ -920,6 +966,28 @@ namespace SRL
                 return report.TotalSize - report.FreeSize;
                 #endif
             }
+
+            /** @brief Resets the CartRam memory zone, freeing all allocations */
+            static void Reset()
+            {
+                // Only reset if a cartridge is available
+                if (s_cartridgeBase != nullptr && zone.Size > 0)
+                {
+#if defined(USE_TLSF_ALLOCATOR)
+        CartRam::zone = Memory::MemoryZone
+        {
+            tlsf_create_with_pool(s_cartridgeBase, zone.Size),
+            zone.Size
+        };
+#else
+        CartRam::zone = Memory::MemoryZone
+        {
+            Memory::SimpleMalloc::InitializeZone(s_cartridgeBase, zone.Size),
+            zone.Size
+        };
+#endif
+    }
+}
         };
 
         #if defined(USE_TLSF_ALLOCATOR)
