@@ -1,3 +1,5 @@
+// saturnringlib/srl_log.hpp
+
 #pragma once
 
 #include "srl_base.hpp"
@@ -14,6 +16,7 @@ namespace SRL
     namespace Logger
     {
         /** @brief LogLevels
+         * @details Defines the different log levels
          */
         enum class LogLevels : uint8_t
         {
@@ -43,6 +46,7 @@ namespace SRL
         };
 
         /** @brief LogOutputs
+         * @details Defines the different log output targets
          */
         enum class LogOutputs : uint8_t
         {
@@ -59,7 +63,8 @@ namespace SRL
             NONE = 99
         };
 
-        /** @brief Log class
+        /** @brief DummyLogger class
+         * @details A dummy logger that does nothing
          */
         class DummyLogger
         {
@@ -77,18 +82,25 @@ namespace SRL
              */
             DummyLogger &operator=(const DummyLogger &) = delete;
 
+            /** @brief putc method for single character
+             * @param c Character to be logged
+             */
             static void putc(char c)
             {
                 c;
             }
 
+            /** @brief putc method for string
+             * @param c String to be logged
+             */
             static void putc(const char *c)
             {
                 c;
             }
         };
 
-        /** @brief Log class
+        /** @brief EmulatorLogger class
+         * @details A logger for the emulator
          */
         class EmulatorLogger
         {
@@ -114,11 +126,17 @@ namespace SRL
              */
             EmulatorLogger &operator=(const EmulatorLogger &) = delete;
 
+            /** @brief putc method for single character
+             * @param c Character to be logged
+             */
             static void putc(char c)
             {
                 putc(&c);
             }
 
+            /** @brief putc method for string
+             * @param c String to be logged
+             */
             static void putc(const char *c)
             {
                 static volatile uint8_t *addr = (volatile uint8_t *)(CS1);
@@ -127,6 +145,7 @@ namespace SRL
         };
 
         /** @brief DevCartLogger class
+         * @details A logger for the DevCart
          */
         class DevCartLogger
         {
@@ -150,6 +169,9 @@ namespace SRL
             /** @brief Log buffer
              */
 
+            /** @brief putc method for single character
+             * @param c Character to be logged
+             */
             static void putc(char c)
             {
                 static uint8_t buffer[bufferSize];
@@ -164,6 +186,9 @@ namespace SRL
                 }
             }
 
+            /** @brief putc method for string
+             * @param c String to be logged
+             */
             static void putc(const char *c)
             {
                 while (*c)
@@ -202,6 +227,7 @@ namespace SRL
             "Invalid SRL_LOG_OUTPUT value");
 
         /** @brief Log class
+         * @details The main log class
          */
         class Log
         {
@@ -233,6 +259,7 @@ namespace SRL
 #endif
 
             /** @brief Log levels helper class
+             * @details A helper class for log levels
              */
             class LogLevelHelper
             {
@@ -293,7 +320,7 @@ namespace SRL
             }
 
             /** @brief Log message
-             * @tparam lvl  Log level
+             * @tparam lvl Log level
              * @param message Custom message to show
              */
             template <SRL::Logger::LogLevels lvl, typename Output = DefaultLogger>
@@ -328,7 +355,7 @@ namespace SRL
             }
 
             /** @brief Log message
-             * @tparam lvl  Log level
+             * @tparam lvl Log level
              * @param message Custom message to show
              * @param args Text arguments
              */
