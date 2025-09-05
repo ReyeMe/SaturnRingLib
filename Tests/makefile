@@ -7,7 +7,7 @@ SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
 SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
 SRL_MAX_CD_RETRIES = 3          # Number of times to retry on unsuccessful read
 SRL_LOG_LEVEL = TESTING         # Maximum log level to display
-SRL_LOG_OUTPUT = DEV_CART     	# Log output method (DEV_CART, EMULATOR, NONE)
+SRL_LOG_OUTPUT = EMULATOR     	# Log output method (DEV_CART, EMULATOR, NONE)
 
 # Increase Log output buffer to avoid overflow
 SRL_DEBUG_MAX_LOG_LENGTH = 255
