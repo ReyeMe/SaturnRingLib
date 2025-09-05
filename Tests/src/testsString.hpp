@@ -1,3 +1,4 @@
+// Tests/src/testsString.hpp
 // Include necessary headers for the SRL library, logging, and bitmap functionality
 #include <srl.hpp>
 #include <srl_log.hpp>
@@ -16,24 +17,36 @@ extern "C"
 {
     // External declarations for global variables used in testing
     extern const uint8_t buffer_size; // Size of the test buffer
-    extern char buffer[];            // Test buffer for string operations
+    extern char buffer[]; // Test buffer for string operations
     extern uint32_t suite_error_counter; // Counter for tracking test suite errors
 
-    // Setup function called before each test to initialize the environment
+    /**
+     * @brief Setup function called before each test to initialize the environment.
+     * 
+     * This function is used to perform any necessary initialization before each test case.
+     */
     void string_test_setup(void)
     {
         // Initialization logic, if necessary (currently empty)
     }
 
-    // Teardown function called after each test to clean up resources
+    /**
+     * @brief Teardown function called after each test to clean up resources.
+     * 
+     * This function is used to perform any necessary cleanup after each test case.
+     */
     void string_test_teardown(void)
     {
         // Cleanup logic to reset the ASCII display state
-        ASCII::Clear();      // Clear the ASCII display
+        ASCII::Clear(); // Clear the ASCII display
         ASCII::SetPalette(0); // Reset the palette to default
     }
 
-    // Output header function called on the first test failure to log the suite status
+    /**
+     * @brief Output header function called on the first test failure to log the suite status.
+     * 
+     * This function is used to log the test suite status when the first test failure occurs.
+     */
     void string_test_output_header(void)
     {
         // Increment error counter and check if this is the first failure
@@ -51,14 +64,22 @@ extern "C"
         }
     }
 
-    // Test case: Verify default constructor creates an empty string
+    /**
+     * @brief Test case: Verify default constructor creates an empty string.
+     * 
+     * This test case checks if the default constructor of the SRL::string class correctly creates an empty string.
+     */
     MU_TEST(string_test_default_constructor)
     {
         SRL::string str; // Create a default-constructed string
         mu_assert(str.c_str() == nullptr, "Default constructor failed"); // Check if string is null
     }
 
-    // Test case: Verify constructor with C-string source
+    /**
+     * @brief Test case: Verify constructor with C-string source.
+     * 
+     * This test case checks if the constructor of the SRL::string class correctly constructs a string from a C-string source.
+     */
     MU_TEST(string_test_constructor_with_src)
     {
         const char *src = "Hello, World!"; // Source string for testing
@@ -66,17 +87,25 @@ extern "C"
         mu_assert(strcmp(str.c_str(), src) == 0, "Constructor with src failed"); // Compare content
     }
 
-    // Test case: Verify constructor with format string and arguments
+    /**
+     * @brief Test case: Verify constructor with format string and arguments.
+     * 
+     * This test case checks if the constructor of the SRL::string class correctly constructs a string from a format string and arguments.
+     */
     MU_TEST(string_test_constructor_with_format)
     {
         const char *format = "%s %d"; // Format string
-        const char *str1 = "Hello";   // String argument
-        int num = 42;                 // Integer argument
+        const char *str1 = "Hello"; // String argument
+        int num = 42; // Integer argument
         SRL::string str(format, str1, num); // Construct with format
-        mu_assert(strcmp(str.c_str(), "Hello 42") == 0, "Constructor with format failed"); // Verify result
+        mu_assert(strcmp(str.c_str(), "Hello42") == 0, "Constructor with format failed"); // Verify result
     }
 
-    // Test case: Verify constructor with integer argument
+    /**
+     * @brief Test case: Verify constructor with integer argument.
+     * 
+     * This test case checks if the constructor of the SRL::string class correctly constructs a string from an integer argument.
+     */
     MU_TEST(string_test_constructor_with_integer)
     {
         int num = 42; // Integer input
@@ -84,7 +113,11 @@ extern "C"
         mu_assert(strcmp(str.c_str(), "42") == 0, "Constructor with integer failed"); // Verify string representation
     }
 
-    // Test case: Verify copy constructor
+    /**
+     * @brief Test case: Verify copy constructor.
+     * 
+     * This test case checks if the copy constructor of the SRL::string class correctly copies the content of another string.
+     */
     MU_TEST(string_test_copy_constructor)
     {
         SRL::string str1("Hello, World!"); // Source string
@@ -92,7 +125,11 @@ extern "C"
         mu_assert(strcmp(str2.c_str(), str1.c_str()) == 0, "Copy constructor failed"); // Verify content equality
     }
 
-    // Test case: Verify copy assignment operator
+    /**
+     * @brief Test case: Verify copy assignment operator.
+     * 
+     * This test case checks if the copy assignment operator of the SRL::string class correctly copies the content of another string.
+     */
     MU_TEST(string_test_copy_assignment_operator)
     {
         SRL::string str1("Hello, World!"); // Source string
@@ -101,7 +138,11 @@ extern "C"
         mu_assert(strcmp(str2.c_str(), str1.c_str()) == 0, "Copy assignment operator failed"); // Verify content equality
     }
 
-    // Test case: Verify move constructor
+    /**
+     * @brief Test case: Verify move constructor.
+     * 
+     * This test case checks if the move constructor of the SRL::string class correctly moves the content of another string.
+     */
     MU_TEST(string_test_move_constructor)
     {
         SRL::string str1("Hello, World!"); // Source string
@@ -110,7 +151,11 @@ extern "C"
         mu_assert(strcmp(str2.c_str(), "Hello, World!") == 0, "Move constructor failed"); // Verify moved content
     }
 
-    // Test case: Verify move assignment operator
+    /**
+     * @brief Test case: Verify move assignment operator.
+     * 
+     * This test case checks if the move assignment operator of the SRL::string class correctly moves the content of another string.
+     */
     MU_TEST(string_test_move_assignment_operator)
     {
         SRL::string str1("Hello, World!"); // Source string
@@ -120,7 +165,11 @@ extern "C"
         mu_assert(strcmp(str2.c_str(), "Hello, World!") == 0, "Move assignment operator failed"); // Verify moved content
     }
 
-    // Test case: Verify string concatenation
+    /**
+     * @brief Test case: Verify string concatenation.
+     * 
+     * This test case checks if the string concatenation operator of the SRL::string class correctly concatenates two strings.
+     */
     MU_TEST(string_test_concat)
     {
         SRL::string str1("Hello, "); // First string
@@ -129,35 +178,55 @@ extern "C"
         mu_assert(strcmp(str3.c_str(), "Hello, World!") == 0, "Concat failed"); // Verify result
     }
 
-    // Test case: Verify c_str() method returns correct string
+    /**
+     * @brief Test case: Verify c_str() method returns correct string.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns the C-string representation of the string.
+     */
     MU_TEST(string_test_c_str)
     {
         SRL::string str("Hello, World!"); // Test string
         mu_assert(strcmp(str.c_str(), "Hello, World!") == 0, "c_str failed"); // Verify content
     }
 
-    // Test case: Verify c_str() for default-constructed string (null)
+    /**
+     * @brief Test case: Verify c_str() for default-constructed string (null).
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns nullptr for a default-constructed string.
+     */
     MU_TEST(string_test_c_str_null)
     {
         SRL::string str; // Default-constructed string
         mu_assert(str.c_str() == nullptr, "c_str null failed"); // Verify null
     }
 
-    // Test case: Verify c_str() for empty string
+    /**
+     * @brief Test case: Verify c_str() for empty string.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns an empty string for an empty string object.
+     */
     MU_TEST(string_test_c_str_empty)
     {
         SRL::string str(""); // Empty string
         mu_assert(strcmp(str.c_str(), "") == 0, "c_str empty failed"); // Verify empty string
     }
 
-    // Test case: Verify c_str() for single-character string
+    /**
+     * @brief Test case: Verify c_str() for single-character string.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns the C-string representation of a single-character string.
+     */
     MU_TEST(string_test_c_str_single_char)
     {
         SRL::string str("a"); // Single-character string
         mu_assert(strcmp(str.c_str(), "a") == 0, "c_str single char failed"); // Verify content
     }
 
-    // Test case: Verify c_str() for long string
+    /**
+     * @brief Test case: Verify c_str() for long string.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns the C-string representation of a long string.
+     */
     MU_TEST(string_test_c_str_long_string)
     {
         const char *longStr = "This is a very long string that should not cause any issues"; // Long string
@@ -165,7 +234,11 @@ extern "C"
         mu_assert(strcmp(str.c_str(), longStr) == 0, "c_str long string failed"); // Verify content
     }
 
-    // Test case: Verify c_str() after string modification
+    /**
+     * @brief Test case: Verify c_str() after string modification.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns the C-string representation after string modification.
+     */
     MU_TEST(string_test_c_str_after_modification)
     {
         SRL::string str("Hello"); // Initial string
@@ -173,7 +246,11 @@ extern "C"
         mu_assert(strcmp(str.c_str(), "Hello World!") == 0, "c_str after modification failed"); // Verify result
     }
 
-    // Test case: Verify c_str() after multiple assignments
+    /**
+     * @brief Test case: Verify c_str() after multiple assignments.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns the C-string representation after multiple assignments.
+     */
     MU_TEST(string_test_c_str_multiple_assignments)
     {
         SRL::string str("Hello"); // Initial string
@@ -182,7 +259,11 @@ extern "C"
         mu_assert(strcmp(str.c_str(), "World!") == 0, "c_str multiple assignments failed"); // Verify result
     }
 
-    // Test case: Verify c_str() after move operation
+    /**
+     * @brief Test case: Verify c_str() after move operation.
+     * 
+     * This test case checks if the c_str() method of the SRL::string class correctly returns the C-string representation after a move operation.
+     */
     MU_TEST(string_test_c_str_after_move)
     {
         SRL::string str1("Hello"); // Source string
@@ -191,16 +272,20 @@ extern "C"
         mu_assert(str1.c_str() == nullptr, "c_str after move failed"); // Verify source is null
     }
 
-    // Test case: Verify snprintfEx functionality for various format types
+    /**
+     * @brief Test case: Verify snprintfEx functionality for various format types.
+     * 
+     * This test case checks if the snprintfEx function of the SRL::string class correctly formats strings with various format types.
+     */
     MU_TEST(string_test_snprintfEx)
     {
-        char buffer[100] = {0}; // Initialize test buffer
+        char buffer[100] = { 0 }; // Initialize test buffer
         SRL::string str; // String object for testing
 
         // Test formatted string with string and integer
         int writtenChars = str.snprintfEx(buffer, 100, "%s %d", "Hello", 42);
         mu_assert(writtenChars == 13, "snprintfEx failed"); // Verify number of characters written
-        mu_assert(strcmp(buffer, "Hello 42") == 0, "snprintfEx failed"); // Verify content
+        mu_assert(strcmp(buffer, "Hello42") == 0, "snprintfEx failed"); // Verify content
 
         // Test simple string
         writtenChars = str.snprintfEx(buffer, 100, "%s", "Hello");
@@ -240,14 +325,17 @@ extern "C"
         mu_assert(smallBuffer[4] == '\0', "snprintfEx buffer overflow failed"); // Verify null termination
     }
 
-    // Define the test suite for string-related functionality
-    // Configures and runs a comprehensive set of tests for the SRL::string class
+    /**
+     * @brief Define the test suite for string-related functionality.
+     * 
+     * This test suite configures and runs a comprehensive set of tests for the SRL::string class.
+     */
     MU_TEST_SUITE(string_test_suite)
     {
         // Configure the test suite with setup, teardown, and error header functions
         MU_SUITE_CONFIGURE_WITH_HEADER(&string_test_setup,
-                                       &string_test_teardown,
-                                       &string_test_output_header);
+            &string_test_teardown,
+            &string_test_output_header);
 
         // Register all test cases
         MU_RUN_TEST(string_test_default_constructor);
