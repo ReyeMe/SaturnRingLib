@@ -19,6 +19,7 @@
 #include "testsMemoryHWRam.hpp" // Include the header for memory HWRam tests
 #include "testsMemoryLWRam.hpp" // Include the header for memory LWRam tests
 #include "testsMemoryCartRam.hpp" // Include the header for memory Cart Ram tests
+#include "testsString.hpp" // Include the header for string tests
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
@@ -124,6 +125,10 @@ int main()
   // Run Memory CartRam test suite
   MU_RUN_SUITE(memory_CartRam_test_suite); 
   MU_DISPLAY_SATURN(memory_CartRam_test_suite);
+
+  // Run String test suite
+  MU_RUN_SUITE(string_test_suite);
+  MU_DISPLAY_SATURN(string_test_suite);
 
   // Generate tests report
   MU_REPORT();
