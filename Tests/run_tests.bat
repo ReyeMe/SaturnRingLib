@@ -1,9 +1,9 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
-  # Usage: ./run_tests.bat [kronos|mednafen]
+  # Usage: ./run_tests.bat [kronos|mednafen|USBGamers]
  
   if [ -z "$1" ]; then
-    echo "Usage: $0 [kronos|mednafen]"
+    echo "Usage: $0 [kronos|mednafen|USBGamers]"
     exit 1
   fi
 
@@ -41,6 +41,11 @@
     echo "Using kronos emulator"
     # Run kronos in automation mode with no sound
     command="kronos -a -ns -i BuildDrop/UTs.cue"
+  elif [ "$1" = "USBGamers" ]; then
+    echo "Using USBGamers cartridge"
+    # Push the test binary to the cartridge and run it
+    command="ftx -c"
+    ftx -x cd/data/0.bin 0x06004000
   else
     echo "No valid emulator specified"
     exit 1
