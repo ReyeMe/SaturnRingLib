@@ -181,20 +181,32 @@ namespace SRL
 
                 if (c == '\n' || bufferIndex == bufferSize)
                 {
-                    SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(const_cast<uint8_t *>(buffer)), bufferIndex);
+                    // if (bufferIndex < bufferSize) 
+                    //     buffer[bufferIndex] = '\0'; // Null-terminate the string
+                    // else
+                    //     buffer[bufferSize - 1] = '\0'; // Ensure null-termination if buffer is full
+                    
+                    // Wait for DevCart to be available
+                    while(!SRL::DevCart::CS0::isAvailable())
+                    {
+                        SRL::Core::Synchronize(); // Prevent watchdog reset while waiting
+                    }
+
+                    if (bufferIndex > 0)
+                    {
+                        SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(const_cast<uint8_t *>(buffer)), bufferIndex);
+                    }
+
                     bufferIndex = 0;
                 }
             }
 
-            /** @brief putc method for string
-             * @param c String to be logged
+            /** @brief putc method for single character
+             * @param c Character to be logged
              */
             static void putc(const char *c)
             {
-                while (*c)
-                {
-                    putc(*c++);
-                }
+                putc(*c);
             }
         };
 

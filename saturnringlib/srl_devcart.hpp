@@ -152,7 +152,7 @@ namespace SRL
                 {
                     while (isTXEFull())
                         ;                                   // Simplified and corrected waitTXE
-                    *(volatile uint8_t *)(USB_FIFO) = c[i]; // Write the byte to the FIFO
+                    *(uint8_t *)(USB_FIFO) = c[i]; // Write the byte to the FIFO
                 }
             }
 
@@ -180,6 +180,7 @@ namespace SRL
              */
             static inline bool isAvailable()
             {
+                //return (!(*(uint8_t *)(USB_FLAGS) & USBFlags::PWREN));
                 return (!(*(uint8_t *)(USB_FLAGS) & 0x7C));
             }
 
