@@ -232,12 +232,12 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	$(info Log output method selected : $(if $(strip ${SRL_LOG_OUTPUT}),${SRL_LOG_OUTPUT},NONE))
 	$(info Maximum Log length : $(if $(strip ${SRL_DEBUG_MAX_LOG_LENGTH}),${SRL_DEBUG_MAX_LOG_LENGTH},0))
 	$(info ******************)
-	mkdir -p $(MUSIC_DIR)
-	mkdir -p $(ASSETS_DIR)
-	mkdir -p $(BUILD_DROP)
-	test -f $(ASSETS_DIR)/ABS.TXT || echo "NOT Abstracted by SEGA" >> $(ASSETS_DIR)/ABS.TXT
-	test -f $(ASSETS_DIR)/BIB.TXT || echo "NOT Bibliographiced by SEGA" >> $(ASSETS_DIR)/BIB.TXT
-	test -f $(ASSETS_DIR)/CPY.TXT || touch $(ASSETS_DIR)/CPY.TXT
+	@mkdir -p $(MUSIC_DIR)
+	@mkdir -p $(ASSETS_DIR)
+	@mkdir -p $(BUILD_DROP)
+	@test -f $(ASSETS_DIR)/ABS.TXT || echo "NOT Abstracted by SEGA" >> $(ASSETS_DIR)/ABS.TXT
+	@test -f $(ASSETS_DIR)/BIB.TXT || echo "NOT Bibliographiced by SEGA" >> $(ASSETS_DIR)/BIB.TXT
+	@test -f $(ASSETS_DIR)/CPY.TXT || touch $(ASSETS_DIR)/CPY.TXT
 	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
 
 convert_binary : compile_objects
@@ -301,15 +301,15 @@ create_bin_cue: create_iso
 		fi; \
 	fi; \
 	echo 'FILE "$(CD_NAME).bin" BINARY' > $(BUILD_CUE)
-	echo '  TRACK 01 MODE1/2352' >> $(BUILD_CUE)
-	echo '    INDEX 01 00:00:00' >> $(BUILD_CUE)
+	@echo '  TRACK 01 MODE1/2352' >> $(BUILD_CUE)
+	@echo '    INDEX 01 00:00:00' >> $(BUILD_CUE)
 
 
 # Shell function to convert audio file to raw and sector align
 # Usage: convert_audio_to_raw audiofile rawfile [filter_option]
 define CONVERT_AUDIO_TO_RAW
 convert_audio_to_raw() { \
-	audiofile="$$1"; \
+	@audiofile="$$1"; \
 	rawfile="$$2"; \
 	filter_option="$$3"; \
 	if [ ! -f "$$rawfile" ] || [ "$$audiofile" -nt "$$rawfile" ]; then \
@@ -349,7 +349,7 @@ convert_audio_to_raw() { \
 endef
 
 add_audio_to_bin_cue: create_bin_cue
-	$(CONVERT_AUDIO_TO_RAW); \
+	@$(CONVERT_AUDIO_TO_RAW); \
 	track=2; \
 	total_size=$$(stat -c%s "$(BUILD_BIN)"); \
   sectors=$$((total_size / 2352)); \
