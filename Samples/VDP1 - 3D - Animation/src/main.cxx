@@ -51,7 +51,7 @@ int main()
     SRL::Debug::Print(1,1, "VDP1 3D Animation");
 
     // Load buddy
-    // Model was converted with Obj2Nya (see https://github.com/ReyeMe/PawCraft), command parameters were: Obj2Nya "D:\frame_01.obj" "D:\frame_02.obj" "D:\SPOT.NYA" /s
+    // Model was converted with ModelConverter (see https://github.com/ReyeMe/ModelConverter-linux), command parameters were: ModelConverter -i "D:\frame_01.obj" "D:\frame_02.obj" -o "D:\BUD.NYA" -t smooth
     AnimatedObject bud = AnimatedObject("BUD.NYA", 0);
 
     // Setup camera location
