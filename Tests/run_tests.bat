@@ -1,7 +1,7 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
   # Usage: ./run_tests.bat [kronos|mednafen|USBGamers]
- 
+
   if [ -z "$1" ]; then
     echo "Usage: $0 [kronos|mednafen|USBGamers]"
     exit 1
