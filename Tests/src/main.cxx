@@ -100,7 +100,7 @@ int main()
   RUN_AND_DISPLAY_SUITE(math_test_suite);
 
   // // Run Memory test suite
-  // RUN_AND_DISPLAY_SUITE(memory_test_suite);
+  RUN_AND_DISPLAY_SUITE(memory_test_suite);
 
   // Run Base test suite (SGL)
   RUN_AND_DISPLAY_SUITE(base_test_suite);
