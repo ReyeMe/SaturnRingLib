@@ -1,8 +1,4 @@
-// SatCom Library
-// by cafe-alpha
-// Modernized by OpenAI's ChatGPT
-// Original: http://ppcenter.free.fr/satcom/
-// License: See LICENSE file for details
+// Based on SatCom Library by cafe-alpha, Original: http://ppcenter.free.fr/satcom/
 
 #pragma once
 
