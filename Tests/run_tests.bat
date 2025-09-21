@@ -81,10 +81,15 @@
       then
           echo "Test completion marker found"
           echo "Terminating emulator..."
-          kill -15 EMULATOR_PID
+          if kill -0 $EMULATOR_PID 2>/dev/null; then
+            kill -15 $EMULATOR_PID
+          else
+            echo "Emulator process is not running"
+          fi
           echo "Tests completed successfully"
           exit 0
       fi
+      # Check if emulator process is still running
       if ! kill -0 $EMULATOR_PID 2>/dev/null; then
           echo "Emulator process has terminated unexpectedly"
           exit 1
