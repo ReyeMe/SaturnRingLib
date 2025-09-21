@@ -17,6 +17,11 @@
       exit 0
   }
 
+  reset_usb_device() {
+    echo "Resetting USB device..."
+    usbreset "FT245R USB FIFO"
+  }
+
   # Set up trap for cleanup
   trap cleanup EXIT
 
@@ -35,7 +40,7 @@
   if [ "$1" = "mednafen" ]; then
     echo "Using mednafen emulator"
     # Disable video output and enable debug cart
-    export SDL_VIDEODRIVER=dummy
+    #export SDL_VIDEODRIVER=dummy
     command="mednafen -sound 0 -ss.cart debug -force_module ss BuildDrop/UTs.cue"
   elif [ "$1" = "kronos" ]; then
     echo "Using kronos emulator"
@@ -45,6 +50,9 @@
     echo "Using USBGamers cartridge"
     # Push the test binary to the cartridge and run it
     command="ftx -c"
+    # Makes sure the USB device is reset before programming
+    reset_usb_device
+    sleep 2
     ftx -x cd/data/0.bin 0x06004000
   else
     echo "No valid emulator specified"
@@ -73,7 +81,7 @@
       then
           echo "Test completion marker found"
           echo "Terminating emulator..."
-          kill -9 EMULATOR_PID
+          kill -15 EMULATOR_PID
           echo "Tests completed successfully"
           exit 0
       fi
