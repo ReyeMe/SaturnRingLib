@@ -118,6 +118,7 @@
         "slist": "cpp",
         "generator": "cpp",
         "text_encoding": "cpp",
-        "climits": "cpp"
+        "climits": "cpp",
+        "strstream": "cpp"
     }
 }
