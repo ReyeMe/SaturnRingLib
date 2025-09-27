@@ -37,9 +37,12 @@ namespace SRL
                     PWREN = 1 << 7 // PWREN: Power Enable
                 };
 
+                static constexpr uint8_t ALL_FLAGS = (RXF | TXE | PWREN); // Mask for all defined flags
+                static constexpr uint8_t NOT_ALL_FLAGS = static_cast<uint8_t>(~ALL_FLAGS); // Mask for not all defined flags
+
             private:
                 uint8_t bits_; // Internal storage for the flags
-
+                
             public:
                 // Constructors
                 USBFlags() : bits_(0) {}                                  // Default constructor: no flags set
@@ -176,8 +179,7 @@ namespace SRL
              */
             static inline bool isAvailable()
             {
-                //return (!(*(uint8_t *)(USB_FLAGS) & USBFlags::PWREN));
-                return (!(*(uint8_t *)(USB_FLAGS) & 0x7C));
+                return (!(*(uint8_t *)(USB_FLAGS) & USBFlags::NOT_ALL_FLAGS)); // Check if all defined flags are clear
             }
 
         }
