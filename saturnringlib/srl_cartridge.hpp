@@ -176,7 +176,7 @@ namespace SRL
             }
 
             // 2- Try to identify a USB dev cartridge
-            if (SRL::DevCart::CS0::isAvailable())
+            if (SRL::DevCart::CS0::isConnected())
             {
                 return CartridgeId::USBDevCart;
             }

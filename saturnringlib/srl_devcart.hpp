@@ -145,6 +145,20 @@ namespace SRL
              * @param c Pointer to the buffer to be written.
              * @param size Number of bytes to write.
              */
+            static inline void write(uint8_t *c, size_t size = 1)
+            {
+                write(const_cast<uint8_t *>(c), size);
+            }
+
+            /**
+             * @brief Writes a buffer to the USB FIFO.
+             *
+             * This function waits for the TXE flag to be cleared (FIFO not full) and then writes the provided
+             * buffer to the USB_FIFO register.
+             *
+             * @param c Pointer to the buffer to be written.
+             * @param size Number of bytes to write.
+             */
             static inline void write(const uint8_t *c, size_t size = 1)
             {
                 for (size_t i = 0; i < size; ++i)
@@ -170,16 +184,16 @@ namespace SRL
             }
 
             /**
-             * @brief Checks if the USB device is available.
+             * @brief Checks if the USB device is connected.
              *
              * This function reads the USB_FLAGS register and checks if certain bits are clear,
-             * indicating that the USB device is available and ready for communication.
+             * indicating that the USB device is connected and ready for communication.
              *
-             * @return true If the USB device is available, false otherwise.
+             * @return true If the USB device is connected, false otherwise.
              */
-            static inline bool isAvailable()
+            static inline bool isConnected()
             {
-                return (!(*(uint8_t *)(USB_FLAGS) & USBFlags::NOT_ALL_FLAGS)); // Check if all defined flags are clear
+                return (*(uint8_t *)(USB_FLAGS) & USBFlags::NOT_ALL_FLAGS) == 0;
             }
 
         }
