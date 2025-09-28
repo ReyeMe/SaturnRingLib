@@ -145,26 +145,11 @@ namespace SRL
              * @param c Pointer to the buffer to be written.
              * @param size Number of bytes to write.
              */
-            static inline void write(uint8_t *c, size_t size = 1)
-            {
-                write(const_cast<uint8_t *>(c), size);
-            }
-
-            /**
-             * @brief Writes a buffer to the USB FIFO.
-             *
-             * This function waits for the TXE flag to be cleared (FIFO not full) and then writes the provided
-             * buffer to the USB_FIFO register.
-             *
-             * @param c Pointer to the buffer to be written.
-             * @param size Number of bytes to write.
-             */
             static inline void write(const uint8_t *c, size_t size = 1)
             {
                 for (size_t i = 0; i < size; ++i)
                 {
-                    while (isTXEFull())
-                        ;                                   // Simplified and corrected waitTXE
+                    waitTXE();                     // Wait for the transmit FIFO to be not full
                     *(uint8_t *)(USB_FIFO) = c[i]; // Write the byte to the FIFO
                 }
             }
