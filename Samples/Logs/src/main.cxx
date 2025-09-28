@@ -46,7 +46,7 @@ int main()
 
 		SRL::Debug::Print(1,2, "Cartridge type detected: %s", SRL::Cartridge::GetStringFromType(cid));
 
-		if (SRL::DevCart::CS0::isAvailable())
+		if (SRL::DevCart::CS0::isConnected())
 		{
 			static uint16_t counter = 0;
 			SRL::Debug::Print(1,3, "DevCart Detected !");
