@@ -179,7 +179,7 @@ namespace SRL
 
                 buffer[bufferIndex++] = c;
 
-                if (c == '\n' || bufferIndex == bufferSize)
+                if (c == '\n' || bufferIndex >= bufferSize)
                 {
                     // if (bufferIndex < bufferSize) 
                     //     buffer[bufferIndex] = '\0'; // Null-terminate the string
@@ -187,14 +187,14 @@ namespace SRL
                     //     buffer[bufferSize - 1] = '\0'; // Ensure null-termination if buffer is full
                     
                     // Wait for DevCart to be available
-                    while(!SRL::DevCart::CS0::isAvailable())
+                    //while(!SRL::DevCart::CS0::isConnected())
                     {
                         SRL::Core::Synchronize(); // Prevent watchdog reset while waiting
                     }
 
                     if (bufferIndex > 0)
                     {
-                        SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(const_cast<uint8_t *>(buffer)), bufferIndex);
+                        SRL::DevCart::CS0::write(buffer, bufferIndex);
                     }
 
                     bufferIndex = 0;
@@ -233,7 +233,7 @@ namespace SRL
 
         // Static assertion to catch invalid SRL_LOG_OUTPUT values
         static_assert(
-            LogOutput == SRL::Logger::LogOutputs::DEV_CART ||
+                LogOutput == SRL::Logger::LogOutputs::DEV_CART ||
                 LogOutput == SRL::Logger::LogOutputs::EMULATOR ||
                 LogOutput == SRL::Logger::LogOutputs::NONE,
             "Invalid SRL_LOG_OUTPUT value");
