@@ -1,4 +1,32 @@
 # Linux code here
+reset_usb_device() {
+  # We assumed that usbreset is already installed and in the PATH. Check if its true
+  if ! command -v usbreset 2>&1 >/dev/null
+  then
+    echo "usbreset could not be found!"
+    exit 1
+  fi
+
+  echo "Resetting USB device..."
+  usbreset "FT245R USB FIFO"
+}
+
+run_USBDevcart() {
+    # We assumed that ftx is already installed and in the PATH. Check if its true
+    if ! command -v ftx 2>&1 >/dev/null
+    then
+      echo "ftx could not be found!"
+      exit 1
+    fi
+    echo "Using USBGamers cartridge"
+    # Makes sure the USB device is reset before programming
+    reset_usb_device
+    sleep 2
+    ftx -x ./cd/data/0.bin 0x06004000
+    sleep 1
+    ftx -c
+}
+
 run_medanfen() {
   # We assumed that mednafen is already installed and in the PATH. Check if its true
   if ! command -v mednafen 2>&1 >/dev/null
@@ -79,6 +107,11 @@ fi
 
 if [[ "$1" == "yabause" ]]; then
   run_yabause || exit
+  exit 0
+fi
+
+if [[ "$1" == "USBGamers" ]]; then
+  run_USBDevcart || exit
   exit 0
 fi
 
