@@ -181,20 +181,30 @@ namespace SRL
 
                 if (c == '\n' || bufferIndex >= bufferSize)
                 {
-                    // if (bufferIndex < bufferSize) 
-                    //     buffer[bufferIndex] = '\0'; // Null-terminate the string
-                    // else
-                    //     buffer[bufferSize - 1] = '\0'; // Ensure null-termination if buffer is full
-                    
+                    if (bufferIndex < bufferSize)
+                        buffer[bufferIndex] = '\0'; // Null-terminate the string
+                    else
+                        buffer[bufferSize - 1] = '\0'; // Ensure null-termination if buffer is full
+
                     // Wait for DevCart to be available
-                    //while(!SRL::DevCart::CS0::isConnected())
+                    while (!SRL::DevCart::CS0::isConnected())
                     {
                         SRL::Core::Synchronize(); // Prevent watchdog reset while waiting
                     }
 
                     if (bufferIndex > 0)
                     {
-                        SRL::DevCart::CS0::write(buffer, bufferIndex);
+                        size_t wrote = SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(const_cast<uint8_t *>(buffer)), bufferIndex);
+                        const uint8_t ackByte = 0x06;
+                        uint8_t response = SRL::DevCart::CS0::read();
+                        if (response == ackByte)
+                        {
+                            // Successfully sent
+                        }
+                        else
+                        {
+                            // Handle transmission error (optional)
+                        }
                     }
 
                     bufferIndex = 0;
@@ -207,6 +217,15 @@ namespace SRL
             static void putc(const char *c)
             {
                 putc(*c);
+            }
+
+            /** @brief putc method for single character
+             * @param c Character to be logged
+             */
+            static void flush()
+            {
+                // Flush remaining data in buffer if any
+                putc('\n');
             }
         };
 
@@ -233,7 +252,7 @@ namespace SRL
 
         // Static assertion to catch invalid SRL_LOG_OUTPUT values
         static_assert(
-                LogOutput == SRL::Logger::LogOutputs::DEV_CART ||
+            LogOutput == SRL::Logger::LogOutputs::DEV_CART ||
                 LogOutput == SRL::Logger::LogOutputs::EMULATOR ||
                 LogOutput == SRL::Logger::LogOutputs::NONE,
             "Invalid SRL_LOG_OUTPUT value");
