@@ -145,13 +145,16 @@ namespace SRL
              * @param c Pointer to the buffer to be written.
              * @param size Number of bytes to write.
              */
-            static inline void write(const uint8_t *c, size_t size = 1)
+            static inline size_t write(const uint8_t *c, size_t size = 1)
             {
+                size_t counter = 0;
                 for (size_t i = 0; i < size; ++i)
                 {
                     waitTXE();                     // Wait for the transmit FIFO to be not full
                     *(uint8_t *)(USB_FIFO) = c[i]; // Write the byte to the FIFO
+                    ++counter;
                 }
+                return counter;
             }
 
             /**
