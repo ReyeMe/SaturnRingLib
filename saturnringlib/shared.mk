@@ -187,7 +187,7 @@ SYSOBJECTS = $(SYSSOURCES:.c=.o)
 CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing \
 					-I$(DUMMYIDIR) -I$(SATURNMATHPPDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
-					-Xlinker $(BUILD_MAP) -Xlinker -e -Xlinker ___Start -nostartfiles
+					-Xlinker "$(BUILD_MAP)" -Xlinker -e -Xlinker ___Start -nostartfiles
 
 ifeq "$(GCCMAJORVERSION)" "14"
     LDFLAGS += -specs=nosys.specs
@@ -238,10 +238,10 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	@test -f $(ASSETS_DIR)/ABS.TXT || echo "NOT Abstracted by SEGA" >> $(ASSETS_DIR)/ABS.TXT
 	@test -f $(ASSETS_DIR)/BIB.TXT || echo "NOT Bibliographiced by SEGA" >> $(ASSETS_DIR)/BIB.TXT
 	@test -f $(ASSETS_DIR)/CPY.TXT || touch $(ASSETS_DIR)/CPY.TXT
-	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o $(BUILD_ELF)
+	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o "$(BUILD_ELF)"
 
 convert_binary : compile_objects
-	$(OBJCOPY) -O binary $(BUILD_ELF) ./cd/data/0.bin
+	$(OBJCOPY) -O binary "$(BUILD_ELF)" ./cd/data/0.bin
 
 create_iso : convert_binary
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)
@@ -253,7 +253,7 @@ endif
 	xorrisofs --norock -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" \
 	-publisher "SEGA ENTERPRISES, LTD." -preparer "SEGA ENTERPRISES, LTD." -appid "SaturnApp" \
 	-abstract "$(ASSETS_DIR)/ABS.TXT" -copyright "$(ASSETS_DIR)/CPY.TXT" -biblio "$(ASSETS_DIR)/BIB.TXT" -generic-boot $(IPFILE) \
-	-full-iso9660-filenames -o $(BUILD_ISO) $(ASSETS_DIR) $(ENTRYPOINT)
+	-full-iso9660-filenames -o "$(BUILD_ISO)" $(ASSETS_DIR) $(ENTRYPOINT)
 
 # Create CUE sheet
 create_bin_cue: create_iso
@@ -288,21 +288,21 @@ create_bin_cue: create_iso
 	# Convert ISO to MODE1/2352 raw format with proper EDC/ECC
 	@echo "Converting ISO to MODE1/2352 raw format..."
 	@if [ -n "$(OS)" ]; then \
-		$(SDK_ROOT)/../tools/bin/win/iso2raw/iso2raw.exe $(BUILD_ISO) -o $(BUILD_BIN); \
+		$(SDK_ROOT)/../tools/bin/win/iso2raw/iso2raw.exe "$(BUILD_ISO)" -o "$(BUILD_BIN)"; \
 	else \
 		host_platform=$$(uname -s); \
 		if [ "$$host_platform" = "Linux" ]; then \
-			$(SDK_ROOT)/../tools/bin/lin/iso2raw/iso2raw $(BUILD_ISO) -o $(BUILD_BIN); \
+			$(SDK_ROOT)/../tools/bin/lin/iso2raw/iso2raw "$(BUILD_ISO)" -o "$(BUILD_BIN)"; \
 		elif [ "$$host_platform" = "Darwin" ]; then \
-			$(SDK_ROOT)/../tools/bin/mac/iso2raw/iso2raw $(BUILD_ISO) -o $(BUILD_BIN); \
+			$(SDK_ROOT)/../tools/bin/mac/iso2raw/iso2raw "$(BUILD_ISO)" -o "$(BUILD_BIN)"; \
 		else \
 			echo "Unsupported platform: $$host_platform"; \
 			exit 1; \
 		fi; \
 	fi; \
-	echo 'FILE "$(CD_NAME).bin" BINARY' > $(BUILD_CUE)
-	@echo '  TRACK 01 MODE1/2352' >> $(BUILD_CUE)
-	@echo '    INDEX 01 00:00:00' >> $(BUILD_CUE)
+	echo 'FILE "$(CD_NAME).bin" BINARY' > "$(BUILD_CUE)"
+	@echo '  TRACK 01 MODE1/2352' >> "$(BUILD_CUE)"
+	@echo '    INDEX 01 00:00:00' >> "$(BUILD_CUE)"
 
 
 # Shell function to convert audio file to raw and sector align
@@ -402,11 +402,11 @@ add_audio_to_bin_cue: create_bin_cue
 		i=$${i#\"}; i=$${i%\"}; \
 		[ ! -f "$$i" ] && continue; \
 		echo "Track $$track: starts at sector $$sectors"; \
-		echo '  TRACK' $$(printf "%02d" $$track) 'AUDIO' >> $(BUILD_CUE); \
+		echo '  TRACK' $$(printf "%02d" $$track) 'AUDIO' >> "$(BUILD_CUE)"; \
 		# 150 frames are required to gap the audio track when directly following data \
 		# See Section 20 of ECMA-130/Yellow Book spec \
 		if [ $$track -eq 2 ]; then \
-			echo '    PREGAP   00:02:00' >> $(BUILD_CUE); \
+			echo '    PREGAP   00:02:00' >> "$(BUILD_CUE)"; \
 		fi; \
 		index_sectors=$$sectors; \
 		minutes=$$((index_sectors / (60 * 75))); \
@@ -420,7 +420,7 @@ add_audio_to_bin_cue: create_bin_cue
 			echo "  This indicates sector misalignment in the audio file(s)"; \
 			exit 1; \
 		fi; \
-		echo '    INDEX 01' $$msf >> $(BUILD_CUE); \
+		echo '    INDEX 01' $$msf >> "$(BUILD_CUE)"; \
 		size=$$(stat -c%s "$$i"); \
 		if [ $$((size % 2352)) -ne 0 ]; then \
 			echo "  ERROR: File $$i is not sector-aligned ($$size bytes)"; \
@@ -429,7 +429,7 @@ add_audio_to_bin_cue: create_bin_cue
 		fi; \
 		sectors_in_file=$$((size / 2352)); \
 		echo "  Adding $$i: $$size bytes ($$sectors_in_file sectors)"; \
-		cat "$$i" >> $(BUILD_BIN); \
+		cat "$$i" >> "$(BUILD_BIN)"; \
 		total_size=$$((total_size + size)); \
 		echo "  New total: $$total_size bytes ($$((total_size / 2352)) sectors)"; \
 		track=$$((track + 1)); \
@@ -496,7 +496,7 @@ build_bin_cue: add_audio_to_bin_cue
 # Clean everything except raw audio files (used during normal builds)
 clean-preserve-audio:
 	rm -f $(SGLLDIR)/../SRC/*.o
-	rm -f $(OBJECTS) $(BUILD_ELF) $(BUILD_ISO) $(BUILD_MAP) $(ASSETS_DIR)/0.bin
+	rm -f $(OBJECTS) "$(BUILD_ELF)" "$(BUILD_ISO)" "$(BUILD_MAP)" "$(ASSETS_DIR)/0.bin"
 
 # Full clean including raw audio files (used by clean.bat)
 clean: clean-preserve-audio
