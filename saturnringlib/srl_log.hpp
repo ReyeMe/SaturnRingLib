@@ -179,12 +179,17 @@ namespace SRL
 
                 buffer[bufferIndex++] = c;
 
-                if (c == '\n' || bufferIndex >= bufferSize)
+                if (c == '\n' || c == '\r' || c == '\0' || bufferIndex >= bufferSize)
                 {
-                    if (bufferIndex < bufferSize)
-                        buffer[bufferIndex] = '\0'; // Null-terminate the string
-                    else
-                        buffer[bufferSize - 1] = '\0'; // Ensure null-termination if buffer is full
+                    // size_t index = 0;
+                    // if (bufferIndex < bufferSize-3)
+                    //     index = bufferIndex;
+                    // else
+                    //     index = bufferSize-3;
+
+                    // //buffer[index++] = '\r';
+                    // buffer[index++] = '\n';
+                    // buffer[index++] = '\0'; // Ensure null-termination if buffer is full
 
                     // Wait for DevCart to be available
                     while (!SRL::DevCart::CS0::isConnected())
@@ -195,16 +200,19 @@ namespace SRL
                     if (bufferIndex > 0)
                     {
                         size_t wrote = SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(const_cast<uint8_t *>(buffer)), bufferIndex);
-                        const uint8_t ackByte = 0x06;
-                        uint8_t response = SRL::DevCart::CS0::read();
-                        if (response == ackByte)
-                        {
-                            // Successfully sent
-                        }
-                        else
-                        {
-                            // Handle transmission error (optional)
-                        }
+                        
+                        
+                        // const uint8_t ackByte = 0x06;
+                        // uint8_t response = SRL::DevCart::CS0::read();
+                        // if (response == ackByte)
+                        // {
+                        //     // Successfully sent
+                        // }
+                        // else
+                        // {
+
+                        //     // Handle transmission error (optional)
+                        // }
                     }
 
                     bufferIndex = 0;
@@ -225,6 +233,7 @@ namespace SRL
             static void flush()
             {
                 // Flush remaining data in buffer if any
+                putc('\r');
                 putc('\n');
             }
         };
