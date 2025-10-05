@@ -110,29 +110,29 @@ namespace SRL
             }
 
             /**
-             * @brief Checks if the Receive FIFO Full (RXF) flag is full.
+             * @brief Checks if the Receive FIFO (RXF) flag is empty.
              *
              * This function reads the USB_FLAGS register and checks if the RXF bit is set.
              *
-             * @return true If the RXF flag is set (FIFO is full), false otherwise.
+             * @return true If the RXF flag is not set (FIFO is empty), false otherwise.
              */
-            static inline bool isRXFFull()
+            static inline bool isRXFEmpty()
             {
-                return ((*(uint8_t *)(USB_FLAGS)&USBFlags::RXF) == USBFlags::RXF);
+                return ((*(uint8_t *)(USB_FLAGS)&USBFlags::RXF) == 0);
             }
 
             /**
-             * @brief Waits until the Receive FIFO Full (RXF) flag is no longer full.
+             * @brief Waits until the Receive FIFO (RXF) flag is set.
              *
-             * This function continuously checks the RXF flag until it is cleared, indicating that
-             * the receive FIFO is no longer full and data can be read.
+             * This function continuously checks the RXF flag until it is set, indicating that
+             * the receive FIFO is no longer empty and data can be read.
              *
-             * Note: This function has no timeout and will loop indefinitely if the RXF flag is never cleared.
+             * Note: This function has no timeout and will loop indefinitely if the RXF flag is never set.
              */
             static inline void waitRXF()
             {
                 // Bad design, no timeout !
-                while (isRXFFull())
+                while (isRXFEmpty())
                     ;
             }
 
