@@ -68,15 +68,34 @@
   echo "Waiting for completion marker: $match"
 
   # Run emulator and capture output
-  $command 2>&1 | tee "$log" &
-
+  $command > >(tee "$log") 2>&1 &
+  
   EMULATOR_PID=$!
+
+  # Start timer for 5 minutes (300 seconds)
+  TIMER_START=$(date +%s)
+  TIMER_LIMIT=300
 
   echo "Emulator started, monitoring for completion..."
 
   # Monitor log file for completion
   while sleep 1
   do
+      # Check timer
+      TIMER_NOW=$(date +%s)
+      TIMER_ELAPSED=$((TIMER_NOW - TIMER_START))
+      if [ $TIMER_ELAPSED -ge $TIMER_LIMIT ]; then
+          echo "Test timed out after $TIMER_LIMIT seconds"
+          echo "Terminating emulator due to timeout..."
+          if kill -0 $EMULATOR_PID 2>/dev/null; then
+            kill -15 $EMULATOR_PID
+          else
+            echo "Emulator process is not running"
+          fi
+          echo "Timeout occurred, exiting"
+          exit 1
+      fi
+
       if fgrep --quiet "$match" "$log"
       then
           echo "Test completion marker found"
@@ -104,7 +123,7 @@ exit
 :(){
   @echo off
   rem Windows implementation placeholder
-  echo "Some MS Windows foos required here"
+  echo "Some MS Windows magics required here"
   )
   GOTO end
 
