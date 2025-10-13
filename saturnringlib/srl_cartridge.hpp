@@ -1,95 +1,136 @@
 #pragma once
 
-#include "srl_devcart.hpp"
-#include "srl_string.hpp"
+#include "srl_devcart.hpp"  // for USB dev cart detection
+#include "srl_string.hpp"  // Provides strncmp (from <cstring> equivalent in SRL namespace?)
 
-#include <cstdint>
+#include <cstdint>  // For uint32_t, uint8_t, uintptr_t, size_t
 
 namespace SRL
 {
     namespace Cartridge
     {
 
+        /** @brief Address of the Interrupt Status Register in the SCU (System Control Unit).
+         * 
+         *  This register is used to mask/unmask interrupts temporarily during cartridge detection
+         *  to prevent interference while accessing cartridge memory spaces.
+         */
         static constexpr uint32_t InterruptStatusRegister = 0x25fe00a4UL;  /* Interrupt status register */
 
-        /** @brief Cartridge ID values
+        /** @brief Cartridge ID values.
+         * 
+         *  These enums represent possible cartridge types detected on the system (likely Sega Saturn or similar hardware).
          */
         enum CartridgeId
         {
-            /** @brief No cartridge detected
+            /** @brief No cartridge detected.
              */
             None = 0,
 
-            /** @brief 1 MiB cartridge
+            /** @brief 1 MiB RAM cartridge (ID value read from hardware).
              */
             Cart1MiB = 0x5A,
 
-            /** @brief 4 MiB cartridge
+            /** @brief 4 MiB RAM cartridge (ID value read from hardware).
              */
             Cart4MiB = 0x5C,
 
-            /** @brief USB dev cartridge
+            /** @brief USB development cartridge (detection via other means, e.g., DevCart API).
              */
             USBDevCart, 
 
-            /** @brief Data cartridge
+            /** @brief Data cartridge (detected via string signature in memory).
              */
             DataCart, 
 
         };
 
 
+        /** @brief Namespace for 1 MiB cartridge specifics.
+         */
         namespace Cartridge1MiB
         {
             static constexpr CartridgeId Id = Cart1MiB;
 
-            /** @brief 1 MiB cartridge addres  access
+            /** @brief Base address for contiguous access to the 1 MiB cartridge memory.
+             * 
+             *  Note: This uses a remapped address (0x02400000) for linear access, differing from standard CS0/CS1 spaces.
              */
             static constexpr uintptr_t Address = 0x02400000UL;
 
+            /** @brief Size of the cartridge in bytes.
+             */
             static constexpr size_t Size = 1024 * 1024; // 1 MiB
 
+            /** @brief Human-readable name.
+             */
             static constexpr const char *Name = "1 MiB Cartridge";
         };
 
+        /** @brief Namespace for 4 MiB cartridge specifics.
+         */
         namespace Cartridge4MiB
         {
             static constexpr CartridgeId Id = Cart4MiB;
 
-            /** @brief 4 MiB cartridge address for contiguous access
+            /** @brief Base address for contiguous access to the 4 MiB cartridge memory.
              */
             static constexpr uintptr_t Address = 0x24000000UL;
 
+            /** @brief Size of the cartridge in bytes.
+             */
             static constexpr size_t Size = 4 * 1024 * 1024; // 4 MiB
 
+            /** @brief Human-readable name.
+             */
             static constexpr const char *Name = "4 MiB Cartridge";
         };
 
+        /** @brief Namespace for USB Dev cartridge specifics.
+         */
         namespace CartridgeUSBDev
         {
             static constexpr CartridgeId Id = USBDevCart;
 
+            /** @brief Human-readable name.
+             */
             static constexpr const char *Name = "USB Dev Cartridge";
         };
 
+        /** @brief Namespace for Data cartridge specifics.
+         */
         namespace CartridgeData
         {
             static constexpr CartridgeId Id = DataCart;
 
-             /** @brief Data cartridge address for contiguous access
+            /** @brief Base address for contiguous access to the data cartridge memory.
              */
             static constexpr uintptr_t Address = 0x22000000UL;
 
+            /** @brief Human-readable name.
+             */
             static constexpr const char *Name = "Data Cartridge";
 
+            /** @brief Hardware ID string used for signature-based detection.
+             * 
+             *  This string ("SEGA SEGASA") is checked at the base address to identify the cartridge.
+             *  Note: Array size is 12 bytes (including null terminator if needed; strncmp handles it).
+             */
             static constexpr char HWId[] = "SEGA SEGASA";
 
+            /** @brief Size of the cartridge in bytes (placeholder).
+             * 
+             *  TODO: Determine and set actual size if known (e.g., via hardware specs).
+             */
             static constexpr size_t Size = 0; // TBD
         };
 
-        /** @brief Convert a raw cartridge ID byte to a CartridgeId
-         * @param rawId Raw cartridge ID byte
-         * @return Corresponding CartridgeId
+        /** @brief Convert a raw cartridge ID byte (read from hardware) to a CartridgeId enum.
+         * 
+         *  Currently supports only RAM cartridges; other types return None.
+         * 
+         * @param rawId Raw cartridge ID byte (8-bit value from register).
+         * @return Corresponding CartridgeId (or None if unknown).
          */
         inline static CartridgeId RawIdToCartridgeId(uint8_t rawId)
         {
@@ -104,70 +145,82 @@ namespace SRL
             }
         }
 
-        /** @brief Cartridge ID register address
+        /** @brief Address of the Cartridge ID register in memory-mapped I/O.
+         * 
+         *  Reading this 8-bit register returns the raw ID for RAM cartridges.
          */
         static constexpr uintptr_t CartridgeIdRegister = 0x24FFFFFFUL;
 
         
-        /** @brief Detect cartridge type by reading the cartridge ID register.
+        /** @brief Detect memory (RAM) cartridge by reading the ID register.
          *
-         *  This function reads the cartridge ID register to identify the type of memory cartridge inserted.
-         *  It temporarily configures the SCU (System Control Unit) for cartridge access, reads the ID,
-         *  and then restores the SCU configuration.
+         *  This function temporarily disables interrupts via the SCU to safely access the cartridge space,
+         *  reads the ID byte, and restores the SCU state. This prevents bus conflicts or interrupts during probe.
          *
+         *  Note: Only detects RAM carts (1MiB/4MiB); returns raw ID (0 for none/unknown).
+         * 
          * @return uint8_t The raw cartridge ID read from the CartridgeIdRegister.
          */
         inline static uint8_t DetectMemoryCartridge()
         {
-            // Save SCU configuration
+            // Save current SCU interrupt mask
             uint32_t scuMask = *((volatile uint32_t *)InterruptStatusRegister);
 
-            // Configure SCU for cartridge access
+            // Clear interrupt mask to configure for cartridge access (disables interrupts temporarily)
             *((volatile uint32_t *)InterruptStatusRegister) = 0x00000000;
 
-            // Read cartridge ID
+            // Read cartridge ID (volatile to ensure MMIO access)
             uint8_t cartId = *((volatile uint8_t *)CartridgeIdRegister);
 
-            // Restore SCU configuration
+            // Restore original SCU interrupt mask
             *((volatile uint32_t *)InterruptStatusRegister) = scuMask;
 
-            // Determine cartridge type based on ID
             return cartId;
         }
 
 
+        /** @brief Detect Data cartridge by checking for a known hardware ID string in memory.
+         * 
+         *  Similar to DetectMemoryCartridge, it disables interrupts via SCU, then compares a fixed string
+         *  ("SEGA SEGASA") at the cartridge's base address. This is a signature-based detection.
+         * 
+         *  Note: strncmp is used (from srl_string.hpp); comparison length is size of HWId (11 chars + null?).
+         * 
+         * @return bool True if the signature matches, false otherwise.
+         */
         inline static bool DetectDataCartridge()
         {
             bool bReturn = false;
 
-            // Save SCU configuration
+            // Save current SCU interrupt mask
             uint32_t scuMask = *((volatile uint32_t *)InterruptStatusRegister);
 
-            // Configure SCU for cartridge access
+            // Clear interrupt mask for safe access
             *((volatile uint32_t *)InterruptStatusRegister) = 0x00000000;
 
-                        // Read cartridge ID
+            // Compare HWId string at the cartridge address (cast to char* for string access)
             bReturn = (0 == strncmp((char *)CartridgeData::HWId, (char *)CartridgeData::Address, sizeof(CartridgeData::HWId)));
 
-
-            // Restore SCU configuration
+            // Restore SCU mask
             *((volatile uint32_t *)InterruptStatusRegister) = scuMask;
 
-            // Determine cartridge type based on ID
             return bReturn;
         }
 
-        /** @brief Detect cartridge type by checking RAM and USB cartridges.
+        /** @brief Comprehensive cartridge type detection.
          *
-         *  This function attempts to identify the cartridge type by first checking for a RAM cartridge
-         *  using DetectMemoryCartridge(). If no RAM cartridge is detected, it then checks for a USB
-         *  development cartridge using SRL::DevCart::CS0::isAvailable().
-         *
-         * @return CartridgeId The detected cartridge type.
+         *  Prioritizes detection:
+         *  1. RAM cartridges via ID register.
+         *  2. USB Dev cartridge (commented out; requires SRL::DevCart::CS0::isConnected()).
+         *  3. Data cartridge via string signature.
+         * 
+         *  Returns None if nothing matches. If USB check is enabled, uncomment and ensure srl_devcart.hpp is included.
+         * 
+         * @return CartridgeId The detected cartridge type (or None).
          */
         inline static CartridgeId DetectCartridgeType()
         {
-            // 1- Try to identificate a RAM cartridge
+            // 1- Try to identify a RAM cartridge
             CartridgeId ramCartId = RawIdToCartridgeId(DetectMemoryCartridge());
 
             if (ramCartId != CartridgeId::None)
@@ -187,13 +240,16 @@ namespace SRL
                 return CartridgeId::DataCart;
             }
 
-            // Determine cartridge type based on ID
+            // Fallback to RAM result (None) or extend for other types
             return ramCartId;
         }
 
-        /** @brief Get base address for cartridge type
-         * @param type Cartridge type
-         * @return Base address for t   he cartridge
+        /** @brief Get the base memory address for a given cartridge type.
+         * 
+         *  Returns nullptr for unsupported/unknown types (e.g., USBDevCart, which may not have a fixed mmap).
+         * 
+         * @param type Cartridge type.
+         * @return void* Base address (or nullptr).
          */
         inline static void *GetBaseAddressForType(SRL::Cartridge::CartridgeId type)
         {
@@ -211,9 +267,10 @@ namespace SRL
             }
         }
 
-        /** @brief Get size for cartridge type
-         * @param type Cartridge type
-         * @return Size in bytes
+        /** @brief Get the size in bytes for a given cartridge type.
+         * 
+         * @param type Cartridge type.
+         * @return size_t Size in bytes (0 for unknown or TBD like DataCart).
          */
         inline static size_t GetSizeForType(CartridgeId type)
         {
@@ -230,9 +287,12 @@ namespace SRL
             }
         }
 
-        /** @brief Get size for cartridge type
-         * @param type Cartridge type
-         * @return Size in bytes
+        /** @brief Get a human-readable string name for a cartridge type.
+         * 
+         *  Returns "Unknown Cartridge" for unrecognized types (including DataCart, which lacks a case).
+         * 
+         * @param type Cartridge type.
+         * @return const char* Name string.
          */
         inline static const char * GetStringFromType(CartridgeId type)
         {
@@ -250,9 +310,9 @@ namespace SRL
         }
 
         /**
-         * @brief Check if a specific cartridge type is present.
+         * @brief Check if a specific cartridge type is currently inserted/detected.
          * 
-         * This function detects the currently inserted cartridge type and compares it against the provided type.
+         * This performs a full detection each call; cache the result if called frequently to avoid overhead.
          * 
          * @param type The CartridgeId to check for.
          * @return true If the specified cartridge type is detected, false otherwise.
