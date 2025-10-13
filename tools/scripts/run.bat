@@ -10,6 +10,7 @@ IF "%1" == "" GOTO mednafen
 IF "%1" == "mednafen" GOTO mednafen
 IF "%1" == "kronos" GOTO kronos
 IF "%1" == "yabause" GOTO yabause
+IF "%1" == "USBGamers" GOTO USBGamers
 
 rem We do not know what emulator user wants
 echo "%1" is not supported
@@ -74,5 +75,31 @@ FOR %%F IN (./BuildDrop/*.cue) DO (
 
 GOTO end
 rem mednafen block end
+
+:USBGamers
+rem Run ftx
+where /q ftx.exe
+
+IF ERRORLEVEL 1 (
+    echo Using project ftx installation!
+    SET FTX=../../tools/bin/win/ftx/ftx.exe
+) else (
+    echo Using system's ftx installation!
+    SET FTX=ftx.exe
+)
+
+if not exist cd/data/0.bin (
+    echo "0.bin missing, please build first."
+    GOTO end
+)
+
+echo Starting FTX with %%F
+echo Make sure to reset your USB port before running this script
+start %FTX% -x ./cd/data/0.bin 0x06004000
+timeout /t 2 > nul
+start %FTX% -c
+
+GOTO end
+rem ftx block end
 
 :end
