@@ -1,141 +1,144 @@
 // saturnringlib/srl_log.hpp
+// 
+// A flexible logging system for embedded environments (e.g., Sega Saturn homebrew via Kronos emulator or USB DevCart).
+// Supports compile-time configuration of output target and minimum log level.
+// Uses template metaprogramming for zero-overhead when logs are disabled.
 
 #pragma once
 
-#include "srl_base.hpp"
-#include "srl_string.hpp"  // for snprintf
-#include "srl_debug.hpp"   // for SRL_DEBUG_MAX_LOG_LENGTH
-#include "srl_devcart.hpp" // for USB DevCart communication
+#include "srl_base.hpp"      // Base definitions (e.g., uint8_t if not using std)
+#include "srl_string.hpp"    // For snprintf (custom implementation)
+#include "srl_debug.hpp"     // For SRL_DEBUG_MAX_LOG_LENGTH (buffer size constant)
+#include "srl_devcart.hpp"   // For USB DevCart communication (CS0::write)
+
+#include <cstdint>          // For uint8_t (ensure consistency with srl_base)
+#include <type_traits>      // For std::conditional_t
 
 namespace SRL
 {
 
-    /** @brief Logger namespace that holds the logger functionality
-     * @details This class allows for writing log messages into kronos console
+    /** @brief Logger namespace that holds the logger functionality.
+     * 
+     * @details This namespace provides a compile-time configurable logging system.
+     *          Logs can be directed to different outputs (DevCart USB, Emulator MMIO, or none).
+     *          Log levels filter messages at compile-time for efficiency.
+     *          Usage: Configure via macros SRL_LOG_OUTPUT and SRL_LOG_LEVEL before include.
+     *          Example: #define SRL_LOG_OUTPUT DEV_CART
+     *                   #define SRL_LOG_LEVEL INFO
      */
     namespace Logger
     {
-        /** @brief LogLevels
-         * @details Defines the different log levels
-         */
+        /** @brief LogLevels enumeration.
+     * 
+     * @details Defines severity levels for log messages. Lower values = more verbose.
+     *          Filtering is done at compile-time via MinLevel.
+     */
         enum class LogLevels : uint8_t
         {
-            /** @brief TRACE Level, used to trace code execution while debugging
-             */
+            /** @brief TRACE: Detailed code flow tracing (debug builds only). */
             TRACE = 0,
 
-            /** @brief DEBUG Level, debug traces, may disappear at release
-             */
+            /** @brief TESTING: Debug traces (may be compiled out in release). */
             TESTING = 1,
 
-            /** @brief INFO Level, generic information messages
-             */
+            /** @brief INFO: General informational messages. */
             INFO = 2,
 
-            /** @brief WARNING Level, warning messages
-             */
+            /** @brief WARNING: Potential issues or non-critical errors. */
             WARNING = 3,
 
-            /** @brief FATAL Level, message display before a crash
-             */
+            /** @brief FATAL: Critical errors before crash/halt. */
             FATAL = 4,
 
-            /** @brief NONE Level, used to disable logging
-             */
+            /** @brief NONE: Disable all logging. */
             NONE = 99
         };
 
-        /** @brief LogOutputs
-         * @details Defines the different log output targets
+        /** @brief LogOutputs enumeration.
+         * 
+         * @details Defines possible output sinks for log messages.
          */
         enum class LogOutputs : uint8_t
         {
-            /** @brief DEV_CART Level, used for logging to the DevCart
-             */
+            /** @brief DEV_CART: Output via USB DevCart FIFO (SRL::DevCart::CS0::write). */
             DEV_CART = 0,
 
-            /** @brief EMULATOR Level, used for logging to the Emulator
-             */
+            /** @brief EMULATOR: Output via memory-mapped I/O for emulator console. */
             EMULATOR = 1,
 
-            /** @brief NONE Level, used to disable logging
-             */
+            /** @brief NONE: Disable output (dummy sink). */
             NONE = 99
         };
 
-        /** @brief DummyLogger class
-         * @details A dummy logger that does nothing
+        /** @brief DummyLogger class.
+         * 
+         * @details A no-op logger used when output is disabled or as fallback.
+         *          All operations are optimized out by compiler.
          */
         class DummyLogger
         {
-
         public:
-            /** @brief disable default constructor
-             */
+            /** @brief Deleted default constructor (static-only class). */
             DummyLogger() = delete;
 
-            /** @brief disable copy constructor
-             */
+            /** @brief Deleted copy constructor. */
             DummyLogger(const DummyLogger &) = delete;
 
-            /** @brief disable assignment operator
-             */
+            /** @brief Deleted assignment operator. */
             DummyLogger &operator=(const DummyLogger &) = delete;
 
-            /** @brief putc method for single character
-             * @param c Character to be logged
+            /** @brief No-op putc for single character.
+             *  @param c Ignored character.
              */
             static void putc(char c)
             {
-                c;
+                (void)c;  // Unused parameter
             }
 
-            /** @brief putc method for string
-             * @param c String to be logged
+            /** @brief No-op putc for string pointer.
+             *  @param c Ignored string.
              */
             static void putc(const char *c)
             {
-                c;
+                (void)c;  // Unused
             }
         };
 
-        /** @brief EmulatorLogger class
-         * @details A logger for the emulator
+        /** @brief EmulatorLogger class.
+         * 
+         * @details Logs to emulator via MMIO write to a fixed address (Kronos console emulation).
+         *          Single-byte writes; inefficient but functional for debug.
          */
         class EmulatorLogger
         {
         private:
-            /** @brief Log starts address
-             */
+            /** @brief Base address for log region (arbitrary/emulator-specific). */
             constexpr static unsigned long logStartAddress = 0x24000000UL;
 
-            /** @brief Log character output address
-             */
+            /** @brief Specific address for character output in CS1 space. */
             constexpr static unsigned long CS1 = logStartAddress + 0x1000;
 
         public:
-            /** @brief disable default constructor
-             */
+            /** @brief Deleted default constructor (static-only). */
             EmulatorLogger() = delete;
 
-            /** @brief disable copy constructor
-             */
+            /** @brief Deleted copy constructor. */
             EmulatorLogger(const EmulatorLogger &) = delete;
 
-            /** @brief disable assignment operator
-             */
+            /** @brief Deleted assignment operator. */
             EmulatorLogger &operator=(const EmulatorLogger &) = delete;
 
-            /** @brief putc method for single character
-             * @param c Character to be logged
+            /** @brief Write single character to emulator console.
+             *  @param c Character to write.
              */
             static void putc(char c)
             {
-                putc(&c);
+                putc(&c);  // Delegate to pointer version
             }
 
-            /** @brief putc method for string
-             * @param c String to be logged
+            /** @brief Write single character from pointer to emulator console.
+             *  @param c Pointer to character.
+             *  Note: Writes only the first byte; volatile for MMIO.
              */
             static void putc(const char *c)
             {
@@ -144,182 +147,131 @@ namespace SRL
             }
         };
 
-        /** @brief DevCartLogger class
-         * @details A logger for the DevCart
+        /** @brief DevCartLogger class.
+         * 
+         * @details Logs to USB DevCart via SRL::DevCart::CS0::write (byte-by-byte USB FIFO).
+         *          No internal buffering; relies on DevCart FIFO.
          */
         class DevCartLogger
         {
         public:
-            /** @brief disable default constructor
-             */
+            /** @brief Deleted default constructor (static-only). */
             DevCartLogger() = delete;
 
-            /** @brief disable copy constructor
-             */
+            /** @brief Deleted copy constructor. */
             DevCartLogger(const DevCartLogger &) = delete;
 
-            /** @brief disable assignment operator
-             */
+            /** @brief Deleted assignment operator. */
             DevCartLogger &operator=(const DevCartLogger &) = delete;
 
-            /** @brief Buffer size configuration
+            /** @brief Buffer size for internal formatting (not used here; see LogPrint).
+             *  Note: Currently unused in this class—consider for future buffering.
              */
-            static constexpr size_t bufferSize = 128; // Example buffer size
+            static constexpr size_t bufferSize = 32; // Example buffer size (placeholder)
 
-            /** @brief Log buffer
+            /** @brief Write single character to DevCart USB.
+             *  @param c Character to send.
              */
-
-            /** @brief putc method for single character
-             * @param c Character to be logged
-             */
-            static void putc(char c)
+            static void putc(const char c)
             {
-                static uint8_t buffer[bufferSize];
-                static uint8_t bufferIndex = 0;
-
-                buffer[bufferIndex++] = c;
-
-                if (c == '\n' || c == '\r' || c == '\0' || bufferIndex >= bufferSize)
-                {
-                    // size_t index = 0;
-                    // if (bufferIndex < bufferSize-3)
-                    //     index = bufferIndex;
-                    // else
-                    //     index = bufferSize-3;
-
-                    // //buffer[index++] = '\r';
-                    // buffer[index++] = '\n';
-                    // buffer[index++] = '\0'; // Ensure null-termination if buffer is full
-
-                    // Wait for DevCart to be available
-                    while (!SRL::DevCart::CS0::isConnected())
-                    {
-                        SRL::Core::Synchronize(); // Prevent watchdog reset while waiting
-                    }
-
-                    if (bufferIndex > 0)
-                    {
-                        size_t wrote = SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(const_cast<uint8_t *>(buffer)), bufferIndex);
-                        
-                        
-                        // const uint8_t ackByte = 0x06;
-                        // uint8_t response = SRL::DevCart::CS0::read();
-                        // if (response == ackByte)
-                        // {
-                        //     // Successfully sent
-                        // }
-                        // else
-                        // {
-
-                        //     // Handle transmission error (optional)
-                        // }
-                    }
-
-                    bufferIndex = 0;
-                }
+                putc(&c);   
             }
 
-            /** @brief putc method for single character
-             * @param c Character to be logged
+            /** @brief Write single byte to DevCart USB FIFO.
+             *  @param c Pointer to byte (writes only first).
+             *  Note: Casts to uint8_t* for DevCart::write; may block if FIFO full.
              */
-            static void putc(const char *c)
+            static void putc(const char * c)
             {
-                putc(*c);
+                SRL::DevCart::CS0::write(reinterpret_cast<const uint8_t *>(c));
             }
 
-            /** @brief putc method for single character
-             * @param c Character to be logged
+            /** @brief Flush any pending data (no-op here; USB FIFO auto-flushes?).
+             *  Note: Sends null terminator—may not be needed; document if for EOF.
              */
             static void flush()
             {
-                // Flush remaining data in buffer if any
-                putc('\r');
-                putc('\n');
+                // Flush remaining data in buffer if any (currently no buffer)
+                putc('\0');
             }
         };
 
+        // Compile-time configuration for output target
 #ifndef SRL_LOG_OUTPUT
-        /** @brief Minimum log level to be output
-         */
+        /** @brief Default output if SRL_LOG_OUTPUT undefined: NONE (disabled). */
         static constexpr SRL::Logger::LogOutputs LogOutput = SRL::Logger::LogOutputs::NONE;
 #else
-#define Stringify(U) SRL::Logger::LogOutputs::U
+        // Macro to stringify and select enum value
+        #define Stringify(U) SRL::Logger::LogOutputs::U
 
-        /** @brief Minimum log level to be output
-         */
+        /** @brief Configured output target (e.g., DEV_CART). */
         static constexpr SRL::Logger::LogOutputs LogOutput = Stringify(SRL_LOG_OUTPUT);
-#undef Stringify
+        #undef Stringify
 #endif
 
-        // Compile-time type selection for Output
+        // Select logger type at compile-time based on LogOutput
         using DefaultLogger = std::conditional_t<
             LogOutput == SRL::Logger::LogOutputs::DEV_CART, SRL::Logger::DevCartLogger,
             std::conditional_t<
                 LogOutput == SRL::Logger::LogOutputs::EMULATOR, SRL::Logger::EmulatorLogger,
-                SRL::Logger::DummyLogger // Default case
+                SRL::Logger::DummyLogger // Fallback
                 >>;
 
-        // Static assertion to catch invalid SRL_LOG_OUTPUT values
+        // Ensure valid configuration
         static_assert(
             LogOutput == SRL::Logger::LogOutputs::DEV_CART ||
                 LogOutput == SRL::Logger::LogOutputs::EMULATOR ||
                 LogOutput == SRL::Logger::LogOutputs::NONE,
-            "Invalid SRL_LOG_OUTPUT value");
+            "Invalid SRL_LOG_OUTPUT value: Must be DEV_CART, EMULATOR, or NONE");
 
-        /** @brief Log class
-         * @details The main log class
+        /** @brief Log class.
+         * 
+         * @details Core logging facade. Uses templates for level-based filtering and output selection.
+         *          All operations are inline and constexpr where possible for zero runtime cost when filtered.
          */
         class Log
         {
         public:
-            /** @brief disable default constructor
-             */
+            /** @brief Deleted default constructor (static-only). */
             Log() = delete;
 
-            /** @brief disable copy constructor
-             */
+            /** @brief Deleted copy constructor. */
             Log(const Log &) = delete;
 
-            /** @brief disable assignment operator
-             */
+            /** @brief Deleted assignment operator. */
             Log &operator=(const Log &) = delete;
 
+            // Compile-time configuration for minimum log level
 #ifndef SRL_LOG_LEVEL
-            /** @brief Minimum log level to be output
-             */
+            /** @brief Default min level if SRL_LOG_LEVEL undefined: NONE. */
             static constexpr SRL::Logger::LogLevels MinLevel = SRL::Logger::LogLevels::NONE;
 #else
-
-#define Stringify(U) SRL::Logger::LogLevels::U
-
-            /** @brief Minimum log level to be output
-             */
+            #define Stringify(U) SRL::Logger::LogLevels::U
+            /** @brief Configured minimum level (e.g., INFO). */
             static constexpr SRL::Logger::LogLevels MinLevel = Stringify(SRL_LOG_LEVEL);
-#undef Stringify
+            #undef Stringify
 #endif
 
-            /** @brief Log levels helper class
-             * @details A helper class for log levels
+            // Static assert for valid level (optional: add if needed)
+
+            /** @brief LogLevelHelper: Utility for level-to-string conversion.
              */
             class LogLevelHelper
             {
             public:
-                /** @brief Disable default constructor
-                 */
+                /** @brief Deleted default constructor. */
                 LogLevelHelper() = delete;
 
-                /** @brief Constructor
-                 * @param aLevel Log level
+                /** @brief Constructor with level.
+                 *  @param aLevel The log level to wrap.
                  */
                 constexpr explicit LogLevelHelper(SRL::Logger::LogLevels aLevel) : lvl(aLevel) {}
 
-                /** @brief Getter
-                 * @returns Log level
-                 */
+                /** @brief Cast to enum value. */
                 constexpr operator SRL::Logger::LogLevels() const { return lvl; }
 
-                /** @brief ToString method
-                 * @returns NULL terminated string representation of the current log level
+                /** @brief Get string representation of level.
+                 *  @return C-string (e.g., "INFO").
                  */
                 inline const char *ToString() const
                 {
@@ -341,27 +293,27 @@ namespace SRL
                         return "FATAL";
 
                     default:
-                        return "";
+                        return "";  // Unknown/empty
                     }
                 }
 
             private:
-                /** @brief private log level
-                 */
-                SRL::Logger::LogLevels lvl;
+                SRL::Logger::LogLevels lvl;  // Stored level
             };
 
-            /** @brief Get log level
-             * @returns Log level
+            /** @brief Get current minimum log level.
+             *  @return MinLevel value.
              */
             inline static SRL::Logger::LogLevels GetLogLevel()
             {
                 return MinLevel;
             }
 
-            /** @brief Log message
-             * @tparam lvl Log level
-             * @param message Custom message to show
+            /** @brief Internal raw message printer (no formatting).
+             *  @tparam lvl The level to log at.
+             *  @tparam Output Logger type (default: DefaultLogger).
+             *  @param message Null-terminated string to log.
+             *  Note: Adds "LEVEL : message\n" prefix; truncates at SRL_DEBUG_MAX_LOG_LENGTH.
              */
             template <SRL::Logger::LogLevels lvl, typename Output = DefaultLogger>
             inline static void LogPrintInternal(const char *message)
@@ -372,21 +324,21 @@ namespace SRL
                     const char *s = SRL::Logger::Log::LogLevelHelper(lvl).ToString();
                     uint8_t size = 0;
 
-                    // Write Log level
+                    // Output level string
                     while (*s && ++size < SRL_DEBUG_MAX_LOG_LENGTH)
                         Output::putc(s++);
 
-                    // Write separator
+                    // Output separator
                     s = separator;
                     while (*s && ++size < SRL_DEBUG_MAX_LOG_LENGTH)
                         Output::putc(s++);
 
-                    // Write message
+                    // Output message
                     s = message;
                     while (*s && ++size < SRL_DEBUG_MAX_LOG_LENGTH)
                         Output::putc(s++);
 
-                    // Close the string if not already done
+                    // Append newline if missing
                     if ((uint8_t)*(s - 1) != '\n')
                     {
                         Output::putc('\n');
@@ -394,10 +346,13 @@ namespace SRL
                 }
             }
 
-            /** @brief Log message
-             * @tparam lvl Log level
-             * @param message Custom message to show
-             * @param args Text arguments
+            /** @brief Formatted log printer.
+             *  @tparam lvl Log level (default: MinLevel).
+             *  @tparam Output Logger type.
+             *  @tparam Args Variadic args for snprintf.
+             *  @param message Format string.
+             *  @param args Format arguments.
+             *  Note: Uses static buffer; thread-unsafe but fine for embedded.
              */
             template <SRL::Logger::LogLevels lvl = MinLevel, typename Output = DefaultLogger, typename... Args>
             inline static void LogPrint(const char *message, Args... args)
@@ -411,9 +366,11 @@ namespace SRL
             }
         };
 
-        /** @brief Log Trace message
-         * @param message Custom message to show
-         * @param args Text arguments
+        /** @brief Convenience wrapper for TRACE level.
+         *  @tparam Output Optional output override.
+         *  @tparam Args Format args.
+         *  @param message Format string.
+         *  @param args Args.
          */
         template <typename Output = DefaultLogger, typename... Args>
         inline void LogTrace(const char *message, Args... args)
@@ -421,54 +378,39 @@ namespace SRL
             SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TRACE, Output>(message, args...);
         }
 
-        /** @brief Log Info message
-         * @param message Custom message to show
-         * @param args Text arguments
-         */
+        /** @brief Convenience wrapper for INFO level. */
         template <typename Output = DefaultLogger, typename... Args>
         inline void LogInfo(const char *message, Args... args)
         {
             SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::INFO, Output>(message, args...);
         }
 
-        /** @brief Log Debug message
-         * @param message Custom message to show
-         * @param args Text arguments
-         */
+        /** @brief Convenience wrapper for TESTING (debug) level. */
         template <typename Output = DefaultLogger, typename... Args>
         inline void LogDebug(const char *message, Args... args)
         {
             SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::TESTING, Output>(message, args...);
         }
 
-        /** @brief Log Warning message
-         * @param message Custom message to show
-         * @param args Text arguments
-         */
+        /** @brief Convenience wrapper for WARNING level. */
         template <typename Output = DefaultLogger, typename... Args>
         inline void LogWarning(const char *message, Args... args)
         {
             SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::WARNING, Output>(message, args...);
         }
 
-        /** @brief Log Fatal message
-         * @param message Custom message to show
-         * @param args Text arguments
-         */
+        /** @brief Convenience wrapper for FATAL level. */
         template <typename Output = DefaultLogger, typename... Args>
         inline void LogFatal(const char *message, Args... args)
         {
             SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::FATAL, Output>(message, args...);
         }
 
-        /** @brief Log message
-         * @param message Custom message to show
-         * @param args Text arguments
-         */
+        /** @brief General print (defaults to INFO). */
         template <typename Output = DefaultLogger, typename... Args>
         inline void LogPrint(const char *message, Args... args)
         {
-            SRL::Logger::LogInfo<Output>(message, args...);
+            SRL::Logger::Log::LogPrint<SRL::Logger::LogLevels::INFO, Output>(message, args...);
         }
-    };
-}
+    }  // namespace Logger
+}  // namespace SRL
