@@ -36,9 +36,17 @@ By modifying these parameters in the `makefile`, you can control the logging beh
 
 ## USB Gamer's cartridge
 
-![USB Gamers Cartridge connection](pics/USB Gamers Cartridge.png)
+
+![USB Gamers Cartridge connection](./pics/USB_Gamers_Cartridge.png)
 
 
 ## Kronos / Yabause
 
+![Kronos development cart configuration](./pics/kronos.png)
+
 ## Mednafen
+
+A special version of Mednafen has been modified to handle logs the same way Yabause and kronos are already doing it : https://github.com/willll/mednafenSSDev
+
+
+![Mednafen development cart configuration](./pics/mednafen.png)
