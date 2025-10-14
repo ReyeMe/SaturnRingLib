@@ -36,11 +36,21 @@ By modifying these parameters in the `makefile`, you can control the logging beh
 
 ## USB Gamer's cartridge
 
+Install https://github.com/willll/ftx
+
+Connect an OTG cable between the Gamer's cartridge and a laptop.
 
 ![USB Gamers Cartridge connection](./pics/USB_Gamers_Cartridge.png)
 
+Execute the following command to transfer the binary and start ftx in debug console mode.
+
+```sh
+./run_on_saturn.bat
+```
 
 ## Kronos / Yabause
+
+To enable logs within the console in Kronos, it needs to be enable such as :
 
 ![Kronos development cart configuration](./pics/kronos.png)
 
@@ -48,5 +58,11 @@ By modifying these parameters in the `makefile`, you can control the logging beh
 
 A special version of Mednafen has been modified to handle logs the same way Yabause and kronos are already doing it : https://github.com/willll/mednafenSSDev
 
+To enable the expansion cart, add the following line to your mednafen.cfg file:
+
+```ini
+; Expansion cart
+ss.cart debug
+```
 
 ![Mednafen development cart configuration](./pics/mednafen.png)
