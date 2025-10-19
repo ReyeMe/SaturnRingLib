@@ -6,9 +6,35 @@
  */
 namespace SRL
 {
+    namespace Types
+    {
+        /** @brief Area resolution
+         */
+        struct Resolution final
+        {
+            /** @brief Construct a new Resolution tuple
+             */
+            Resolution() : Width(0), Height(0) {}
+
+            /** @brief Construct a new Resolution tuple
+             * @param width Area width
+             * @param height Area height
+             */
+            Resolution(const uint16_t width, const uint16_t height) : Width(width), Height(height) {}
+
+            /** @brief Area width
+             */
+            uint16_t Width;
+
+            /** @brief Area height
+             */
+            uint16_t Height;
+        };
+    }
+
     /** @brief Contains TV resolutions
      */
-    class TV
+    class TV final
     {
         /** @brief Make class purely static
          */

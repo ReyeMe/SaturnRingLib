@@ -15,3 +15,8 @@ static_assert(SGL_MAX_POLYGONS > 4,
 #include "srl_tga.hpp"
 #include "srl_scene2d.hpp"
 #include "srl_scene3d.hpp"
+
+
+#if SRL_USE_SGL_SOUND_DRIVER == 1
+    #include "srl_cinepak.hpp"
+#endif
