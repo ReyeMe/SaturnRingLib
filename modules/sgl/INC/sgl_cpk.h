@@ -25,12 +25,12 @@
 
 
 /*-------------------- Include File --------------------*/
-#include <SEGA_XPT.H>
+#include <sega_xpt.h>
 #if 0
 #include <sega_gfs.h>
 #include <sega_stm.h>
 #else
-#include <SGL_CD.H>
+#include <sgl_cd.h>
 #endif
 
 
