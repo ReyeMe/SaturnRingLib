@@ -15,7 +15,7 @@ namespace SRL::Bitmap
 {
     /** @brief TGA image handling
      */
-    struct TGA : IBitmap
+    struct TGA final : IBitmap
     {
     private:
         /** @brief Size of the header
@@ -787,6 +787,10 @@ namespace SRL::Bitmap
             delete stream;
         }
 
+        /** @brief No copy constructor
+         */
+        TGA(const TGA&) = delete;
+
     public:
 
         /** @brief Construct RGB555 TGA image from file
@@ -843,7 +847,7 @@ namespace SRL::Bitmap
         /** @brief Get image info
          * @return image info
          */
-        BitmapInfo GetInfo() override
+        BitmapInfo GetInfo() const override
         {
             if (this->palette != nullptr)
             {

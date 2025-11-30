@@ -161,12 +161,14 @@ extern "C"
 
         MockBitmap(uint8_t* data, SRL::Bitmap::BitmapInfo info) : data(data), info(info) {}
 
+        ~MockBitmap() { }
+
         uint8_t* GetData() override
         {
             return data;
         }
 
-        SRL::Bitmap::BitmapInfo GetInfo() override
+        SRL::Bitmap::BitmapInfo GetInfo() const override
         {
             return info;
         }

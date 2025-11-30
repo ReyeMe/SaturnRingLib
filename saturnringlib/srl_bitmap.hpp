@@ -110,20 +110,30 @@ namespace SRL::Bitmap
      */
     struct IBitmap
     {
+    protected:
+
+        /** @brief Interface does not have a default public constructor
+         */
+        IBitmap() = default;
+
+    public:
+
+        /** @brief Destroy the IBitmap object
+         */
+        virtual ~IBitmap() = 0;
+
         /** @brief Get image data
          * @return Pointer to image data
          */
-        virtual uint8_t* GetData()
-        {
-            return nullptr;
-        }
-        
+        virtual uint8_t* GetData() = 0;
+
         /** @brief Get bitmap info
          * @return Bitmap info
          */
-        virtual BitmapInfo GetInfo()
-        {
-            return BitmapInfo(0, 0);
-        }
+        virtual BitmapInfo GetInfo() const = 0;
     };
+
+    /** @brief Virtual destructor IBitmap definition
+     */
+    inline IBitmap::~IBitmap() {}
 }

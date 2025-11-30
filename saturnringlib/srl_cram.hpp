@@ -104,6 +104,19 @@ namespace SRL
                 return this->data;
             }
 
+            /** @brief Get palette size
+             * @return Palette size in number of colors, -1 if RGB555 mode
+             */
+            int16_t GetSize() const
+            {
+                if (this->paletteMode != CRAM::TextureColorMode::RGB555)
+                {
+                    return (16 << (((uint16_t)this->paletteMode) - 2));
+                }
+
+                return -1;
+            }            
+
             /** @brief Load color data to palette
              * @param data Color data
              * @param count Number of color to load (-1 means full palette)
@@ -118,7 +131,7 @@ namespace SRL
                 {
                     if (count < 0)
                     {
-                        colorCount = (16 << (((uint16_t)this->paletteMode) - 2));
+                        colorCount = this->GetSize();
                     }
 
                     // Copy colors to CRAM
