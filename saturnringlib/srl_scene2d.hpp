@@ -532,31 +532,19 @@ namespace SRL
                 // Calculate new 4 corners
                 return Scene2D::DrawSprite(texture, texturePalette, realPoints, location.Z);
             }
-            else if (scale.X == scale.Y)
-            {
-                // Sprite attributes and command points
-                SPR_ATTR attr = Scene2D::GetSpriteAttribute(texture, texturePalette, zoomPoint);
-
-                FIXED sgl_pos[5];
-                sgl_pos[X] = location.X.RawValue();
-                sgl_pos[Y] = location.Y.RawValue();
-                sgl_pos[Z] = location.Z.RawValue();
-                sgl_pos[S] = scale.X.RawValue();
-
-                return slDispSprite(sgl_pos, &attr, 0) != 0;
-            }
             else
             {
                 // Sprite attributes and command points
                 SPR_ATTR attr = Scene2D::GetSpriteAttribute(texture, texturePalette, zoomPoint);
 
-                FIXED sgl_pos[5];
+                FIXED sgl_pos[XYZSS];
                 sgl_pos[X] = location.X.RawValue();
                 sgl_pos[Y] = location.Y.RawValue();
                 sgl_pos[Z] = location.Z.RawValue();
-                sgl_pos[S] = scale.X.RawValue();
-                sgl_pos[XYZS] = scale.Y.RawValue();
+                sgl_pos[Sh] = scale.X.RawValue();
+                sgl_pos[Sv] = scale.Y.RawValue();
 
+                // We cannot use slDispSprite, as that seems to be bugged and is drawing images 1px wider than it should
                 return slDispSpriteHV(sgl_pos, &attr, 0) != 0;
             }
         }
