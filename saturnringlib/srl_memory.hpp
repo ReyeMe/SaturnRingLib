@@ -380,7 +380,10 @@ namespace SRL
 
             /** @brief Expansion cart RAM
              */
-            CartRam = 2
+            CartRam = 2,
+
+            /** @brief Default zone, most of the time HWRAM */
+            Default
         };
 
         /** @brief Malloc for main system RAM

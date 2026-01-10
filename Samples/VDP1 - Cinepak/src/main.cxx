@@ -42,8 +42,8 @@ int main()
     player.OnCompleted += PlaybackCompleted;
 
     // Load movie
-    // It is also possible to specify custom ring buffer size, 
-    // if the default is not enough or too much, see documentation for this function, and its second parameter
+    // It is also possible to specify where ring and decode buffer are in RAM, whether they are in LW/HW or Cart ram,
+    // as well as custom ring buffer size, by using second parameter of this function, see documentation for this function, and its second parameter
     player.LoadMovie("SKYBL.CPK");
 
     // Reserve video surface
@@ -51,14 +51,14 @@ int main()
     movieSprite = SRL::VDP1::TryAllocateTexture(resolution.Width, resolution.Height, SRL::CRAM::TextureColorMode::RGB555, 0);
 
     // Clear the movie surface
-    // Get total size of the frame data
-    const auto size = player.GetResolution();
-    const auto is15bit = player.GetDepth() == SRL::CinepakPlayer::ColorDepth::RGB15;
-    const size_t length = size.Width * size.Height;
+    // Get total size of the frame data, in this case, the total length value contains number of uint8_t values
+    const size_t length = (resolution.Width * resolution.Height) << ((int)player.GetDepth() + 1);
 
-    for (size_t pixel = 0; pixel < length; pixel++)
+    // Initialize the texture in VDP1 RAM,
+    // starting movie takes a bit and this will prevent us from seeing garbage on the screen
+    for (size_t data = 0; data < length; data++)
     {
-        ((SRL::Types::HighColor*)SRL::VDP1::Textures[movieSprite].GetData())[pixel] = SRL::Types::HighColor::Colors::Black;
+        ((uint8_t*)SRL::VDP1::Textures[movieSprite].GetData())[data] = 0;
     }
 
     // Play movie

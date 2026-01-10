@@ -15,6 +15,19 @@
     #include "srl_sound.hpp"
 #endif
 
+        
+/** @brief Selects default resolution based on an option in the makefile
+ */
+#ifndef DOXYGEN
+    #ifdef SRL_HIGH_RES
+        #define INT_SRL_DEF_RES SRL::TV::Resolutions::Interlaced704x480
+    #elif SRL_MODE_PAL
+        #define INT_SRL_DEF_RES SRL::TV::Resolutions::Normal320x256
+    #else
+        #define INT_SRL_DEF_RES SRL::TV::Resolutions::Normal320x240
+    #endif
+#endif
+
 namespace SRL
 {
     /** @brief Core functions of the library
@@ -49,17 +62,25 @@ namespace SRL
 
         /** @brief Initialize basic environment
          * @param backColor Color of the screen
+         * @param resolution TV resolution
+         * @note If resolution parameter is not specified, default is controlled by SRL_MODE (with value PAL/NTSC) or SRL_HIGH_RES (with value 0/1) in the makefile
          */
-        inline static void Initialize(const Types::HighColor& backColor)
+#ifdef DOXYGEN
+        inline static void Initialize(const Types::HighColor& backColor, const TV::Resolutions resolution = TV::Resolutions::Normal320x240)
+#else
+        inline static void Initialize(const Types::HighColor& backColor, const TV::Resolutions resolution = INT_SRL_DEF_RES)
+#endif
         {
+            SRL::TV::SetScreenSize(resolution);
+
 #if defined(SRL_FRAMERATE) && (SRL_FRAMERATE > 0)
-            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
+            slInitSystem((uint16_t)resolution, SRL::VDP1::Textures->SglPtr(), SRL_FRAMERATE);
 #elif defined(SRL_FRAMERATE) && (SRL_FRAMERATE == 0)
-            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), -1);
+            slInitSystem((uint16_t)resolution, SRL::VDP1::Textures->SglPtr(), -1);
             slDynamicFrame(ON);
             SynchConst = 1;
 #else
-            slInitSystem((uint16_t)SRL::TV::Resolution, SRL::VDP1::Textures->SglPtr(), -SRL_FRAMERATE);
+            slInitSystem((uint16_t)resolution, SRL::VDP1::Textures->SglPtr(), -SRL_FRAMERATE);
             slDynamicFrame(ON);
             SynchConst = (uint8_t)(-SRL_FRAMERATE);
 #endif

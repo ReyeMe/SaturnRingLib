@@ -70,14 +70,26 @@ namespace SRL
              */
             MovieDecodeParams() : 
                 RingBufferSize(1024L*200),
+                RingBufferLocation(SRL::Memory::Zone::LWRam),
+                DecodeBufferLocation(SRL::Memory::Zone::Default),
                 PCMAddress((uint16_t*)0x25a20000),
                 PCMSize(4096 * 16),
                 ColorDepth(CinepakPlayer::ColorDepth::RGB15) {}
 
             /** @brief Size of a ring buffer
-             * @note Ring buffer will always be placed into LWRAM
+             * @note To configure where RingBuffer is allocated use MovieDecodeParams::RingBufferLocation field
              */
             uint32_t RingBufferSize;
+
+            /** @brief Location of the ring buffer in the memory, by default it is placed in LWRAM
+             */
+            SRL::Memory::Zone RingBufferLocation;
+
+            /** @brief Location of the decode buffer in the memory, by default uses autonew for allocation, contains decoded frame
+             * @note Size of the decode buffer is automatically selected based on color depth and video resolution
+             * @warning Placing decode buffer anywhere else than HWRAM might introduce stutters with a fullscreen playback
+             */
+            SRL::Memory::Zone DecodeBufferLocation;
 
             /** @brief Location of PCM buffer
              * @note Location must be somewhere in sound RAM
@@ -160,8 +172,18 @@ namespace SRL
                 }
 
                 // Initialize buffers
-                this->ringBuffer = lwnew uint32_t[decodeParams.RingBufferSize >> 2];
                 this->workBuffer = new uint32_t[is15bit ? CPK_15WORK_DSIZE : CPK_24WORK_DSIZE];
+                
+                if (decodeParams.RingBufferLocation == SRL::Memory::Zone::Default)
+                {
+                    // Allocate in the same zone as the current object
+                    this->ringBuffer = autonew uint32_t[decodeParams.RingBufferSize >> 2];
+                }
+                else
+                {
+                    // Allocate based on user setting
+                    this->ringBuffer = new(decodeParams.RingBufferLocation) uint32_t[decodeParams.RingBufferSize >> 2];
+                }
 
                 if (this->ringBuffer == nullptr || this->workBuffer == nullptr)
                 {
@@ -205,7 +227,16 @@ namespace SRL
                 this->size = SRL::Types::Resolution(header->width, header->height);
 
                 // Assign decode buffer
-                this->decodeBuffer = new uint32_t[(header->width * header->height) >> (is15bit ? 1 : 0)];
+                if (decodeParams.DecodeBufferLocation == SRL::Memory::Zone::Default)
+                {
+                    // Allocate in the same zone as the current object
+                    this->decodeBuffer = autonew uint32_t[(header->width * header->height) >> (is15bit ? 1 : 0)];
+                }
+                else
+                {
+                    // Allocate based on user setting
+                    this->decodeBuffer = new(decodeParams.DecodeBufferLocation) uint32_t[(header->width * header->height) >> (is15bit ? 1 : 0)];
+                }
 
                 if (this->decodeBuffer == nullptr)
                 {
