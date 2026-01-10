@@ -134,9 +134,13 @@ private:
          */
         uint8_t IsWireframe : 1;
 
+        /** @brief Render faces without any light applied
+         */
+        uint8_t NoLight : 1;
+
         /** @brief Reserved for future use
          */
-        uint8_t Reserved : 7;
+        uint8_t Reserved : 6;
 
         /** @brief This field is set if HasTexture field is false
          */
@@ -218,7 +222,7 @@ private:
                     (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
                     (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
                 (attributeHeader->IsWireframe != 0 ? sprPolyLine : (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon)),
-                UseLight);
+                (attributeHeader->NoLight != 0 ? No_Option : UseLight));
             #pragma GCC diagnostic pop
         }
 
@@ -273,7 +277,7 @@ private:
                     (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
                     (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
                 (attributeHeader->IsWireframe != 0 ? sprPolyLine : (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon)),
-                (attributeHeader->HasFlatShading != 0 ? UseLight : UseGouraud));
+                (attributeHeader->NoLight != 0 ? No_Option : (attributeHeader->HasFlatShading != 0 ? UseLight : UseGouraud)));
             #pragma GCC diagnostic pop
 
             *gouraudIterator += 1;

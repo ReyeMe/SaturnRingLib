@@ -14,6 +14,7 @@
 namespace SRL::Bitmap
 {
     /** @brief TGA image handling
+     * @note When loading paletted image to VDP1, a palette handler function must be provided as an argument to SRL::VDP1::TryLoadTexture function
      */
     struct TGA final : IBitmap
     {
@@ -793,7 +794,7 @@ namespace SRL::Bitmap
 
     public:
 
-        /** @brief Construct RGB555 TGA image from file
+        /** @brief Construct TGA image from file
          * @param data TGA file
          * @param settings TGA loader settings
          */
@@ -802,7 +803,7 @@ namespace SRL::Bitmap
             this->LoadData(data, &settings);
         }
 
-        /** @brief Construct RGB555 TGA image from file
+        /** @brief Construct TGA image from file
          * @param filename TGA file name
          * @param settings TGA loader settings
          */
