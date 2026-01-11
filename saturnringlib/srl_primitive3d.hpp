@@ -3,6 +3,7 @@
 #include "srl_base.hpp"
 #include "srl_color.hpp"
 #include "srl_mesh.hpp"
+#include "srl_math.hpp"
 
 namespace SRL::Types
 {
@@ -123,14 +124,14 @@ namespace SRL::Types
             for (uint16_t ring = 0; ring <= rings; ring++)
             {
                 SRL::Math::Types::Angle phi = SRL::Math::Types::Angle::FromDegrees(-90) + ringStep * ring;
-                SRL::Math::Types::Fxp y = radius * phi.Sin();
-                SRL::Math::Types::Fxp ringRadius = radius * phi.Cos();
+                SRL::Math::Types::Fxp y = radius * SRL::Math::Trigonometry::Sin(phi);
+                SRL::Math::Types::Fxp ringRadius = radius * SRL::Math::Trigonometry::Cos(phi);
 
                 for (uint16_t seg = 0; seg < segments; seg++)
                 {
                     SRL::Math::Types::Angle theta = segmentStep * seg;
-                    SRL::Math::Types::Fxp x = ringRadius * theta.Cos();
-                    SRL::Math::Types::Fxp z = ringRadius * theta.Sin();
+                    SRL::Math::Types::Fxp x = ringRadius * SRL::Math::Trigonometry::Cos(theta);
+                    SRL::Math::Types::Fxp z = ringRadius * SRL::Math::Trigonometry::Sin(theta);
 
                     mesh.Vertices[vertexIndex++] = SRL::Math::Types::Vector3D(x, y, z);
                 }
@@ -203,8 +204,8 @@ namespace SRL::Types
             for (uint16_t seg = 0; seg < segments; seg++)
             {
                 SRL::Math::Types::Angle theta = segmentStep * seg;
-                SRL::Math::Types::Fxp x = radius * theta.Cos();
-                SRL::Math::Types::Fxp z = radius * theta.Sin();
+                SRL::Math::Types::Fxp x = radius * SRL::Math::Trigonometry::Cos(theta);
+                SRL::Math::Types::Fxp z = radius * SRL::Math::Trigonometry::Sin(theta);
 
                 mesh.Vertices[seg] = SRL::Math::Types::Vector3D(x, -height, z);
                 mesh.Vertices[seg + segments] = SRL::Math::Types::Vector3D(x, height, z);
@@ -228,7 +229,7 @@ namespace SRL::Types
                 uint16_t indices[4] = { current, next, nextUp, currentUp };
 
                 SRL::Math::Types::Angle theta = segmentStep * seg + segmentStep / 2;
-                SRL::Math::Types::Vector3D normal(theta.Cos(), 0, theta.Sin());
+                SRL::Math::Types::Vector3D normal(SRL::Math::Trigonometry::Cos(theta), 0, SRL::Math::Trigonometry::Sin(theta));
 
                 mesh.Faces[faceIndex] = Polygon(normal, indices);
                 mesh.Attributes[faceIndex] = Attribute(
@@ -325,8 +326,8 @@ namespace SRL::Types
             for (uint16_t seg = 0; seg < segments; seg++)
             {
                 SRL::Math::Types::Angle theta = segmentStep * seg;
-                SRL::Math::Types::Fxp x = radius * theta.Cos();
-                SRL::Math::Types::Fxp z = radius * theta.Sin();
+                SRL::Math::Types::Fxp x = radius * SRL::Math::Trigonometry::Cos(theta);
+                SRL::Math::Types::Fxp z = radius * SRL::Math::Trigonometry::Sin(theta);
 
                 mesh.Vertices[seg] = SRL::Math::Types::Vector3D(x, -height, z);
             }
@@ -349,8 +350,8 @@ namespace SRL::Types
                 uint16_t indices[4] = { current, next, apex, apex };
 
                 SRL::Math::Types::Angle theta = segmentStep * seg + segmentStep / 2;
-                SRL::Math::Types::Fxp nx = theta.Cos();
-                SRL::Math::Types::Fxp nz = theta.Sin();
+                SRL::Math::Types::Fxp nx = SRL::Math::Trigonometry::Cos(theta);
+                SRL::Math::Types::Fxp nz = SRL::Math::Trigonometry::Sin(theta);
                 SRL::Math::Types::Vector3D normal = SRL::Math::Types::Vector3D(nx, radius / (height * 2), nz).Normalize();
 
                 mesh.Faces[faceIndex] = Polygon(normal, indices);
