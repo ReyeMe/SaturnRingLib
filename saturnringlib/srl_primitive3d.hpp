@@ -174,5 +174,227 @@ namespace SRL::Types
 
             return mesh;
         }
+
+        /** @brief Create a cylinder mesh
+         * @param radius Radius of the cylinder
+         * @param height Half-height of the cylinder (distance from center to top/bottom)
+         * @param segments Number of segments around the circumference (minimum 4)
+         * @param color Color for all faces
+         * @param capped Whether to include top and bottom cap faces
+         * @return Mesh representing the cylinder
+         */
+        static Mesh CreateCylinder(const SRL::Math::Types::Fxp& radius, const SRL::Math::Types::Fxp& height, uint16_t segments, const SRL::Types::HighColor& color, bool capped = true)
+        {
+            if (segments < 4) segments = 4;
+
+            size_t vertexCount = segments * 2;
+            size_t faceCount = segments;
+
+            if (capped)
+            {
+                vertexCount += 2;
+                faceCount += segments * 2;
+            }
+
+            Mesh mesh(vertexCount, faceCount);
+
+            SRL::Math::Types::Angle segmentStep = SRL::Math::Types::Angle::FromDegrees(360) / segments;
+
+            for (uint16_t seg = 0; seg < segments; seg++)
+            {
+                SRL::Math::Types::Angle theta = segmentStep * seg;
+                SRL::Math::Types::Fxp x = radius * theta.Cos();
+                SRL::Math::Types::Fxp z = radius * theta.Sin();
+
+                mesh.Vertices[seg] = SRL::Math::Types::Vector3D(x, -height, z);
+                mesh.Vertices[seg + segments] = SRL::Math::Types::Vector3D(x, height, z);
+            }
+
+            if (capped)
+            {
+                mesh.Vertices[segments * 2] = SRL::Math::Types::Vector3D(0, -height, 0);
+                mesh.Vertices[segments * 2 + 1] = SRL::Math::Types::Vector3D(0, height, 0);
+            }
+
+            size_t faceIndex = 0;
+
+            for (uint16_t seg = 0; seg < segments; seg++)
+            {
+                uint16_t current = seg;
+                uint16_t next = (seg + 1) % segments;
+                uint16_t currentUp = current + segments;
+                uint16_t nextUp = next + segments;
+
+                uint16_t indices[4] = { current, next, nextUp, currentUp };
+
+                SRL::Math::Types::Angle theta = segmentStep * seg + segmentStep / 2;
+                SRL::Math::Types::Vector3D normal(theta.Cos(), 0, theta.Sin());
+
+                mesh.Faces[faceIndex] = Polygon(normal, indices);
+                mesh.Attributes[faceIndex] = Attribute(
+                    Attribute::FaceVisibility::SingleSided,
+                    Attribute::SortMode::Center,
+                    0,
+                    color,
+                    0,
+                    (uint16_t)(CL32KRGB | ECdis),
+                    (uint32_t)Attribute::DisplayType::Polygon,
+                    Attribute::DisplayOption::NoOption);
+
+                faceIndex++;
+            }
+
+            if (capped)
+            {
+                uint16_t bottomCenter = segments * 2;
+                uint16_t topCenter = segments * 2 + 1;
+
+                for (uint16_t seg = 0; seg < segments; seg++)
+                {
+                    uint16_t current = seg;
+                    uint16_t next = (seg + 1) % segments;
+
+                    uint16_t bottomIndices[4] = { bottomCenter, next, current, bottomCenter };
+                    SRL::Math::Types::Vector3D bottomNormal(0, -1, 0);
+
+                    mesh.Faces[faceIndex] = Polygon(bottomNormal, bottomIndices);
+                    mesh.Attributes[faceIndex] = Attribute(
+                        Attribute::FaceVisibility::SingleSided,
+                        Attribute::SortMode::Center,
+                        0,
+                        color,
+                        0,
+                        (uint16_t)(CL32KRGB | ECdis),
+                        (uint32_t)Attribute::DisplayType::Polygon,
+                        Attribute::DisplayOption::NoOption);
+
+                    faceIndex++;
+                }
+
+                for (uint16_t seg = 0; seg < segments; seg++)
+                {
+                    uint16_t current = seg + segments;
+                    uint16_t next = ((seg + 1) % segments) + segments;
+
+                    uint16_t topIndices[4] = { topCenter, current, next, topCenter };
+                    SRL::Math::Types::Vector3D topNormal(0, 1, 0);
+
+                    mesh.Faces[faceIndex] = Polygon(topNormal, topIndices);
+                    mesh.Attributes[faceIndex] = Attribute(
+                        Attribute::FaceVisibility::SingleSided,
+                        Attribute::SortMode::Center,
+                        0,
+                        color,
+                        0,
+                        (uint16_t)(CL32KRGB | ECdis),
+                        (uint32_t)Attribute::DisplayType::Polygon,
+                        Attribute::DisplayOption::NoOption);
+
+                    faceIndex++;
+                }
+            }
+
+            return mesh;
+        }
+
+        /** @brief Create a cone mesh
+         * @param radius Radius of the cone base
+         * @param height Half-height of the cone (distance from center to apex/base)
+         * @param segments Number of segments around the circumference (minimum 4)
+         * @param color Color for all faces
+         * @param capped Whether to include bottom cap face
+         * @return Mesh representing the cone
+         */
+        static Mesh CreateCone(const SRL::Math::Types::Fxp& radius, const SRL::Math::Types::Fxp& height, uint16_t segments, const SRL::Types::HighColor& color, bool capped = true)
+        {
+            if (segments < 4) segments = 4;
+
+            size_t vertexCount = segments + 1;
+            size_t faceCount = segments;
+
+            if (capped)
+            {
+                vertexCount += 1;
+                faceCount += segments;
+            }
+
+            Mesh mesh(vertexCount, faceCount);
+
+            SRL::Math::Types::Angle segmentStep = SRL::Math::Types::Angle::FromDegrees(360) / segments;
+
+            for (uint16_t seg = 0; seg < segments; seg++)
+            {
+                SRL::Math::Types::Angle theta = segmentStep * seg;
+                SRL::Math::Types::Fxp x = radius * theta.Cos();
+                SRL::Math::Types::Fxp z = radius * theta.Sin();
+
+                mesh.Vertices[seg] = SRL::Math::Types::Vector3D(x, -height, z);
+            }
+
+            mesh.Vertices[segments] = SRL::Math::Types::Vector3D(0, height, 0);
+
+            if (capped)
+            {
+                mesh.Vertices[segments + 1] = SRL::Math::Types::Vector3D(0, -height, 0);
+            }
+
+            size_t faceIndex = 0;
+
+            for (uint16_t seg = 0; seg < segments; seg++)
+            {
+                uint16_t current = seg;
+                uint16_t next = (seg + 1) % segments;
+                uint16_t apex = segments;
+
+                uint16_t indices[4] = { current, next, apex, apex };
+
+                SRL::Math::Types::Angle theta = segmentStep * seg + segmentStep / 2;
+                SRL::Math::Types::Fxp nx = theta.Cos();
+                SRL::Math::Types::Fxp nz = theta.Sin();
+                SRL::Math::Types::Vector3D normal = SRL::Math::Types::Vector3D(nx, radius / (height * 2), nz).Normalize();
+
+                mesh.Faces[faceIndex] = Polygon(normal, indices);
+                mesh.Attributes[faceIndex] = Attribute(
+                    Attribute::FaceVisibility::SingleSided,
+                    Attribute::SortMode::Center,
+                    0,
+                    color,
+                    0,
+                    (uint16_t)(CL32KRGB | ECdis),
+                    (uint32_t)Attribute::DisplayType::Polygon,
+                    Attribute::DisplayOption::NoOption);
+
+                faceIndex++;
+            }
+
+            if (capped)
+            {
+                uint16_t bottomCenter = segments + 1;
+
+                for (uint16_t seg = 0; seg < segments; seg++)
+                {
+                    uint16_t current = seg;
+                    uint16_t next = (seg + 1) % segments;
+
+                    uint16_t bottomIndices[4] = { bottomCenter, next, current, bottomCenter };
+                    SRL::Math::Types::Vector3D bottomNormal(0, -1, 0);
+
+                    mesh.Faces[faceIndex] = Polygon(bottomNormal, bottomIndices);
+                    mesh.Attributes[faceIndex] = Attribute(
+                        Attribute::FaceVisibility::SingleSided,
+                        Attribute::SortMode::Center,
+                        0,
+                        color,
+                        0,
+                        (uint16_t)(CL32KRGB | ECdis),
+                        (uint32_t)Attribute::DisplayType::Polygon,
+                        Attribute::DisplayOption::NoOption);
+
+                    faceIndex++;
+                }
+            }
+
+            return mesh;
+        }
     };
 }

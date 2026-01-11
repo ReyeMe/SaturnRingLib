@@ -155,6 +155,106 @@ extern "C"
         mu_assert(sphere.Attributes != nullptr, buffer);
     }
 
+    MU_TEST(primitive3d_test_cylinder_vertex_count)
+    {
+        uint16_t segments = 8;
+        size_t expectedVerticesCapped = segments * 2 + 2;
+        size_t expectedFacesCapped = segments + segments * 2;
+        size_t expectedVerticesUncapped = segments * 2;
+        size_t expectedFacesUncapped = segments;
+
+        Mesh cylinderCapped = Primitive3D::CreateCylinder(Fxp(5), Fxp(10), segments, HighColor(255, 0, 0), true);
+        Mesh cylinderUncapped = Primitive3D::CreateCylinder(Fxp(5), Fxp(10), segments, HighColor(255, 0, 0), false);
+
+        snprintf(buffer, buffer_size, "Capped cylinder vertex count failed: %d != %d", (int)cylinderCapped.VertexCount, (int)expectedVerticesCapped);
+        mu_assert(cylinderCapped.VertexCount == expectedVerticesCapped, buffer);
+
+        snprintf(buffer, buffer_size, "Capped cylinder face count failed: %d != %d", (int)cylinderCapped.FaceCount, (int)expectedFacesCapped);
+        mu_assert(cylinderCapped.FaceCount == expectedFacesCapped, buffer);
+
+        snprintf(buffer, buffer_size, "Uncapped cylinder vertex count failed: %d != %d", (int)cylinderUncapped.VertexCount, (int)expectedVerticesUncapped);
+        mu_assert(cylinderUncapped.VertexCount == expectedVerticesUncapped, buffer);
+
+        snprintf(buffer, buffer_size, "Uncapped cylinder face count failed: %d != %d", (int)cylinderUncapped.FaceCount, (int)expectedFacesUncapped);
+        mu_assert(cylinderUncapped.FaceCount == expectedFacesUncapped, buffer);
+    }
+
+    MU_TEST(primitive3d_test_cylinder_vertices_not_null)
+    {
+        Mesh cylinder = Primitive3D::CreateCylinder(Fxp(5), Fxp(10), 6, HighColor(0, 255, 0));
+
+        snprintf(buffer, buffer_size, "Cylinder vertices pointer is null");
+        mu_assert(cylinder.Vertices != nullptr, buffer);
+
+        snprintf(buffer, buffer_size, "Cylinder faces pointer is null");
+        mu_assert(cylinder.Faces != nullptr, buffer);
+
+        snprintf(buffer, buffer_size, "Cylinder attributes pointer is null");
+        mu_assert(cylinder.Attributes != nullptr, buffer);
+    }
+
+    MU_TEST(primitive3d_test_cylinder_minimum_segments)
+    {
+        Mesh cylinder = Primitive3D::CreateCylinder(Fxp(5), Fxp(10), 2, HighColor(0, 0, 255), false);
+
+        snprintf(buffer, buffer_size, "Cylinder minimum segments not enforced: %d", (int)cylinder.VertexCount);
+        mu_assert(cylinder.VertexCount >= 8, buffer);
+    }
+
+    MU_TEST(primitive3d_test_cone_vertex_count)
+    {
+        uint16_t segments = 8;
+        size_t expectedVerticesCapped = segments + 2;
+        size_t expectedFacesCapped = segments * 2;
+        size_t expectedVerticesUncapped = segments + 1;
+        size_t expectedFacesUncapped = segments;
+
+        Mesh coneCapped = Primitive3D::CreateCone(Fxp(5), Fxp(10), segments, HighColor(255, 255, 0), true);
+        Mesh coneUncapped = Primitive3D::CreateCone(Fxp(5), Fxp(10), segments, HighColor(255, 255, 0), false);
+
+        snprintf(buffer, buffer_size, "Capped cone vertex count failed: %d != %d", (int)coneCapped.VertexCount, (int)expectedVerticesCapped);
+        mu_assert(coneCapped.VertexCount == expectedVerticesCapped, buffer);
+
+        snprintf(buffer, buffer_size, "Capped cone face count failed: %d != %d", (int)coneCapped.FaceCount, (int)expectedFacesCapped);
+        mu_assert(coneCapped.FaceCount == expectedFacesCapped, buffer);
+
+        snprintf(buffer, buffer_size, "Uncapped cone vertex count failed: %d != %d", (int)coneUncapped.VertexCount, (int)expectedVerticesUncapped);
+        mu_assert(coneUncapped.VertexCount == expectedVerticesUncapped, buffer);
+
+        snprintf(buffer, buffer_size, "Uncapped cone face count failed: %d != %d", (int)coneUncapped.FaceCount, (int)expectedFacesUncapped);
+        mu_assert(coneUncapped.FaceCount == expectedFacesUncapped, buffer);
+    }
+
+    MU_TEST(primitive3d_test_cone_vertices_not_null)
+    {
+        Mesh cone = Primitive3D::CreateCone(Fxp(5), Fxp(10), 6, HighColor(255, 0, 255));
+
+        snprintf(buffer, buffer_size, "Cone vertices pointer is null");
+        mu_assert(cone.Vertices != nullptr, buffer);
+
+        snprintf(buffer, buffer_size, "Cone faces pointer is null");
+        mu_assert(cone.Faces != nullptr, buffer);
+
+        snprintf(buffer, buffer_size, "Cone attributes pointer is null");
+        mu_assert(cone.Attributes != nullptr, buffer);
+    }
+
+    MU_TEST(primitive3d_test_cone_apex_position)
+    {
+        Fxp height = Fxp(10);
+        uint16_t segments = 6;
+        Mesh cone = Primitive3D::CreateCone(Fxp(5), height, segments, HighColor(128, 128, 128));
+
+        snprintf(buffer, buffer_size, "Cone apex Y position failed: %f != %f", cone.Vertices[segments].Y.As<float>(), height.As<float>());
+        mu_assert(cone.Vertices[segments].Y == height, buffer);
+
+        snprintf(buffer, buffer_size, "Cone apex X position failed: %f != 0", cone.Vertices[segments].X.As<float>());
+        mu_assert(cone.Vertices[segments].X == Fxp(0), buffer);
+
+        snprintf(buffer, buffer_size, "Cone apex Z position failed: %f != 0", cone.Vertices[segments].Z.As<float>());
+        mu_assert(cone.Vertices[segments].Z == Fxp(0), buffer);
+    }
+
     MU_TEST_SUITE(primitive3d_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&primitive3d_test_setup,
@@ -170,5 +270,11 @@ extern "C"
         MU_RUN_TEST(primitive3d_test_sphere_vertex_count);
         MU_RUN_TEST(primitive3d_test_sphere_minimum_segments);
         MU_RUN_TEST(primitive3d_test_sphere_vertices_not_null);
+        MU_RUN_TEST(primitive3d_test_cylinder_vertex_count);
+        MU_RUN_TEST(primitive3d_test_cylinder_vertices_not_null);
+        MU_RUN_TEST(primitive3d_test_cylinder_minimum_segments);
+        MU_RUN_TEST(primitive3d_test_cone_vertex_count);
+        MU_RUN_TEST(primitive3d_test_cone_vertices_not_null);
+        MU_RUN_TEST(primitive3d_test_cone_apex_position);
     }
 }
