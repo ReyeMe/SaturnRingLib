@@ -22,6 +22,7 @@
 #include "testsString.hpp"        // Include the header for string tests
 #include "testsPrimitive3D.hpp"   // Include the header for 3D primitive tests
 #include "testsCollision.hpp"     // Include the header for collision tests
+#include "testsRigidbody.hpp"     // Include the header for rigidbody tests
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
@@ -124,6 +125,9 @@ int main()
 
   // Run Collision test suite
   RUN_AND_DISPLAY_SUITE(collision_test_suite);
+
+  // Run Rigidbody test suite
+  RUN_AND_DISPLAY_SUITE(rigidbody_test_suite);
 
   // // Generate tests report
   MU_REPORT();
