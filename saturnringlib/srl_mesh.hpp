@@ -338,6 +338,21 @@ namespace SRL::Types
             this->Attributes = attributes;
         }
         
+        /** @brief Move constructor
+         * @param other Mesh to move from
+         */
+        Mesh(Mesh&& other) noexcept
+            : Vertices(other.Vertices), VertexCount(other.VertexCount),
+              Faces(other.Faces), FaceCount(other.FaceCount),
+              Attributes(other.Attributes)
+        {
+            other.Vertices = nullptr;
+            other.VertexCount = 0;
+            other.Faces = nullptr;
+            other.FaceCount = 0;
+            other.Attributes = nullptr;
+        }
+
         /** @brief Move assignment operator
          * @param other Mesh to assign
          * @return Mesh3D& Assigned mesh data
