@@ -49,6 +49,7 @@ extern "C"
     // Verifies that simple text can be printed at a specific screen coordinate
     MU_TEST(ascii_test_display_simple_text)
     {
+        // Nominal: Print should succeed for in-bounds coordinates.
         const char *text = "Hello, World!";
         bool success = ASCII::Print(text, 0, 0); // Top-left corner
         snprintf(buffer, buffer_size, "Text display failed at (0, 0) for: %s", text);
@@ -59,6 +60,8 @@ extern "C"
     // Ensures the ASCII display correctly handles attempts to print outside screen boundaries
     MU_TEST(ascii_test_display_out_of_bounds)
     {
+        // Negative: Print should fail when coordinates are out-of-bounds.
+        // Note: SRL clamps internally, but still returns false to signal invalid input.
         const char *text = "Out of bounds!";
         bool success = ASCII::Print(text, 127, 89); // Assuming these are out-of-bounds
         snprintf(buffer, buffer_size, "Out-of-bounds text display did not fail as expected");
@@ -69,10 +72,41 @@ extern "C"
     // Verifies that the ASCII display can successfully set a color palette
     MU_TEST(ascii_test_apply_color_palette)
     {
+        // Nominal: valid palette index should succeed.
         int paletteId = 2;
         bool success = ASCII::SetPalette(paletteId);
         snprintf(buffer, buffer_size, "Color palette application failed for palette ID: %d", paletteId);
         mu_assert(success, buffer);
+    }
+
+    // Negative test: palette index out-of-range should return false (and clamp internally)
+    MU_TEST(ascii_test_set_palette_out_of_range)
+    {
+        // Negative: out-of-range palette index should return false.
+        // We do not assert the clamped value because the internal state is private.
+        bool success = ASCII::SetPalette(255);
+        snprintf(buffer, buffer_size, "SetPalette(255) unexpectedly succeeded");
+        mu_assert(!success, buffer);
+    }
+
+    // Negative test: font index out-of-range should return false (and clamp internally)
+    MU_TEST(ascii_test_set_font_out_of_range)
+    {
+        // Negative: out-of-range font index should return false.
+        bool success = ASCII::SetFont(255);
+        snprintf(buffer, buffer_size, "SetFont(255) unexpectedly succeeded");
+        mu_assert(!success, buffer);
+        // Reset font to valid value for subsequent tests
+        ASCII::SetFont(0);
+    }
+
+    // Negative test: color index out-of-range should return false (and clamp internally)
+    MU_TEST(ascii_test_set_color_out_of_range)
+    {
+        // Negative: out-of-range color index should return false.
+        bool success = ASCII::SetColor(0x7FFF, 255);
+        snprintf(buffer, buffer_size, "SetColor(out-of-range) unexpectedly succeeded");
+        mu_assert(!success, buffer);
     }
 
     // Test loading a font
@@ -108,6 +142,9 @@ extern "C"
         MU_RUN_TEST(ascii_test_display_simple_text);
         MU_RUN_TEST(ascii_test_display_out_of_bounds);
         MU_RUN_TEST(ascii_test_apply_color_palette);
+        MU_RUN_TEST(ascii_test_set_palette_out_of_range);
+        MU_RUN_TEST(ascii_test_set_font_out_of_range);
+        MU_RUN_TEST(ascii_test_set_color_out_of_range);
 //        MU_RUN_TEST(ascii_test_load_font);
 //        MU_RUN_TEST(ascii_test_load_font_sg);
     }
