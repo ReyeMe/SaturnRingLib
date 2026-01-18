@@ -22,6 +22,7 @@
 #include "testsString.hpp"        // Include the header for string tests
 #include "testDSP.hpp"            // Include the header for DSP tests
 #include "testsSystem.hpp"        // Include the header for System tests
+#include "testsInterrupt.hpp"     // Include the header for Interrupt tests
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
@@ -123,7 +124,10 @@ int main()
   RUN_AND_DISPLAY_SUITE(dsp_test_suite);
 
   // Run System test suite
-  //RUN_AND_DISPLAY_SUITE(system_test_suite);
+  // RUN_AND_DISPLAY_SUITE(system_test_suite);
+
+  // Run Interrupt test suite
+  RUN_AND_DISPLAY_SUITE(interrupt_test_suite);
 
   // // Generate tests report
   MU_REPORT();
