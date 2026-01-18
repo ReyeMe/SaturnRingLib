@@ -76,79 +76,72 @@ extern "C"
      */
     MU_TEST(cram_test_base_address)
     {
+        // Nominal: SRL exposes CRAM base address as a constant pointer.
+        // This is a minimal sanity check that the constant exists and is non-null.
         void *baseAddress = (void *)CRAM::BaseAddress;
         snprintf(buffer, buffer_size, "BaseAddress not initialized correctly: %p", baseAddress);
         mu_assert(baseAddress != nullptr, buffer);
     }
 
-    // Test: Setting and getting a color in CRAM
-    // MU_TEST(cram_test_set_get_color)
-    // {
-    //     CRAM cram;
-    //     HighColor inputColor = {1, 31, 15, 7}; // Opaque color with specific values
-    //     uint16_t index = 5;
-    //
-    //     cram.SetColor(index, inputColor); // Assuming SetColor is implemented
-    //     HighColor retrievedColor = cram.GetColor(index); // Assuming GetColor is implemented
-    //
-    //     snprintf(buffer, buffer_size, "Set/Get color failed: Red != %d", inputColor.Red);
-    //     mu_assert(retrievedColor.Red == inputColor.Red, buffer);
-    //     snprintf(buffer, buffer_size, "Set/Get color failed: Green != %d", inputColor.Green);
-    //     mu_assert(retrievedColor.Green == inputColor.Green, buffer);
-    //     snprintf(buffer, buffer_size, "Set/Get color failed: Blue != %d", inputColor.Blue);
-    //     mu_assert(retrievedColor.Blue == inputColor.Blue, buffer);
-    //     snprintf(buffer, buffer_size, "Set/Get color failed: Opaque != %d", inputColor.Opaque);
-    //     mu_assert(retrievedColor.Opaque == inputColor.Opaque, buffer);
-    // }
+    MU_TEST(cram_test_allocation_mask_initially_clear)
+    {
+        // Edge: AllocationMask should default to zero (no banks used).
+        // This is SRL-side bookkeeping; it does not touch hardware.
+        for (uint16_t bank = 0; bank < 8; bank++)
+        {
+            snprintf(buffer, buffer_size, "Bank %u unexpectedly marked used", (unsigned)bank);
+            mu_assert(!CRAM::GetBankUsedState(bank, CRAM::TextureColorMode::Paletted256), buffer);
+        }
+    }
 
-    // Test: Switching texture color modes
-    // MU_TEST(cram_test_texture_color_mode) {
-    //     CRAM cram;
-    //     cram.SetTextureColorMode(CRAM::TextureColorMode::Paletted256); // Assuming SetTextureColorMode is implemented
-    //     CRAM::TextureColorMode mode = cram.GetTextureColorMode(); // Assuming GetTextureColorMode is implemented
-    //
-    //     snprintf(buffer, buffer_size, "Texture color mode not set correctly: %d != Paletted256", (uint16_t)mode);
-    //     mu_assert(mode == CRAM::TextureColorMode::Paletted256, buffer);
-    // }
+    MU_TEST(cram_test_set_get_bank_used_state_paletted256)
+    {
+        // Nominal: set/clear a single 256-color bank and ensure the bookkeeping matches.
+        constexpr uint16_t bank = 3;
 
-    // Test: Invalid color index
-    // MU_TEST(cram_test_invalid_color_index) {
-    //     CRAM cram;
-    //     uint16_t invalidIndex = 1024; // Assuming CRAM size < 1024
-    //     HighColor color = {1, 15, 15, 15};
-    //
-    //     bool success = cram.SetColor(invalidIndex, color); // Assuming SetColor returns a success flag
-    //     snprintf(buffer, buffer_size, "Setting invalid index did not fail: index = %d", invalidIndex);
-    //     mu_assert(!success, buffer);
-    // }
+        CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted256, true);
+        mu_assert(CRAM::GetBankUsedState(bank, CRAM::TextureColorMode::Paletted256), "Bank used state did not set");
 
-    // Test: Invalid texture mode
-    // MU_TEST(cram_test_invalid_texture_mode) {
-    //     CRAM cram;
-    //     uint16_t invalidMode = 9999; // Nonexistent mode value
-    //
-    //     bool success = cram.SetTextureColorMode(static_cast<CRAM::TextureColorMode>(invalidMode));
-    //     snprintf(buffer, buffer_size, "Setting invalid texture mode did not fail: mode = %d", invalidMode);
-    //     mu_assert(!success, buffer);
-    // }
+        CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted256, false);
+        mu_assert(!CRAM::GetBankUsedState(bank, CRAM::TextureColorMode::Paletted256), "Bank used state did not clear");
+    }
 
-    // Test: Maximum color index
-    // MU_TEST(cram_test_max_color_index) {
-    //     CRAM cram;
-    //     uint16_t maxIndex = 255; // Assuming CRAM supports 256 entries
-    //     HighColor color = {1, 31, 31, 31};
-    //
-    //     bool success = cram.SetColor(maxIndex, color); // Assuming SetColor is implemented
-    //     snprintf(buffer, buffer_size, "Setting max index failed: index = %d", maxIndex);
-    //     mu_assert(success, buffer);
-    //
-    //     HighColor retrievedColor = cram.GetColor(maxIndex); // Assuming GetColor is implemented
-    //     snprintf(buffer, buffer_size, "Retrieved color does not match for max index");
-    //     mu_assert(retrievedColor.Red == color.Red &&
-    //               retrievedColor.Green == color.Green &&
-    //               retrievedColor.Blue == color.Blue &&
-    //               retrievedColor.Opaque == color.Opaque, buffer);
-    // }
+    MU_TEST(cram_test_palette_rgb555_invariants)
+    {
+        // Edge/negative: RGB555 is "direct color" (no palette), so Palette::GetData()
+        // must be null and Load() must fail.
+        CRAM::Palette palette(CRAM::TextureColorMode::RGB555, 0);
+        snprintf(buffer, buffer_size, "RGB555 palette data must be null");
+        mu_assert(palette.GetData() == nullptr, buffer);
+
+        snprintf(buffer, buffer_size, "RGB555 palette size must be -1");
+        mu_assert(palette.GetSize() == -1, buffer);
+
+        // Negative case: Load is invalid in RGB555 mode.
+        SRL::Types::HighColor colors[2] = { SRL::Types::HighColor(0, 0, 0), SRL::Types::HighColor(31, 31, 31) };
+        int16_t loaded = palette.Load(colors, 2);
+        snprintf(buffer, buffer_size, "RGB555 palette Load must fail (returned %d)", (int)loaded);
+        mu_assert(loaded == -1, buffer);
+    }
+
+    MU_TEST(cram_test_palette_paletted16_size_and_stride)
+    {
+        // Nominal: Paletted16 palettes contain 16 entries; consecutive IDs should be
+        // laid out contiguously in CRAM (stride of 16 HighColor entries).
+        CRAM::Palette p0(CRAM::TextureColorMode::Paletted16, 0);
+        CRAM::Palette p1(CRAM::TextureColorMode::Paletted16, 1);
+
+        snprintf(buffer, buffer_size, "Paletted16 size mismatch (got %d)", (int)p0.GetSize());
+        mu_assert(p0.GetSize() == 16, buffer);
+
+        snprintf(buffer, buffer_size, "Paletted16 palette data must not be null");
+        mu_assert(p0.GetData() != nullptr && p1.GetData() != nullptr, buffer);
+
+        // Edge case: palette ID increments should advance by palette size.
+        ptrdiff_t delta = (p1.GetData() - p0.GetData());
+        snprintf(buffer, buffer_size, "Paletted16 stride mismatch (delta %ld)", (long)delta);
+        mu_assert(delta == 16, buffer);
+    }
 
     /**
      * @brief CRAM test suite configuration and test case registration
@@ -166,10 +159,9 @@ extern "C"
 
         // Register test cases to be executed
         MU_RUN_TEST(cram_test_base_address);
-        // MU_RUN_TEST(cram_test_set_get_color);
-        // MU_RUN_TEST(cram_test_texture_color_mode);
-        // MU_RUN_TEST(cram_test_invalid_color_index);
-        // MU_RUN_TEST(cram_test_invalid_texture_mode);
-        // MU_RUN_TEST(cram_test_max_color_index);
+        MU_RUN_TEST(cram_test_allocation_mask_initially_clear);
+        MU_RUN_TEST(cram_test_set_get_bank_used_state_paletted256);
+        MU_RUN_TEST(cram_test_palette_rgb555_invariants);
+        MU_RUN_TEST(cram_test_palette_paletted16_size_and_stride);
     }
 }
