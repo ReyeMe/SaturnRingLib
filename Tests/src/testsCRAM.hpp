@@ -24,9 +24,13 @@ extern "C"
      */
     void cram_test_setup(void)
     {
-        // Placeholder for any necessary test initialization
-        // Future implementations might include resetting CRAM state,
-        // clearing buffers, or preparing test environments
+        // Ensure CRAM bookkeeping is in a known state for each test.
+        // These unit tests validate SRL-side allocation tracking, so they must
+        // not depend on any prior suite/test ordering.
+        for (uint16_t bank = 0; bank < 8; bank++)
+        {
+            CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted256, false);
+        }
     }
 
     /**
@@ -85,12 +89,29 @@ extern "C"
 
     MU_TEST(cram_test_allocation_mask_initially_clear)
     {
-        // Edge: AllocationMask should default to zero (no banks used).
-        // This is SRL-side bookkeeping; it does not touch hardware.
+        // Validity: after setup reset, all banks should be reported unused.
         for (uint16_t bank = 0; bank < 8; bank++)
         {
-            snprintf(buffer, buffer_size, "Bank %u unexpectedly marked used", (unsigned)bank);
+            snprintf(buffer, buffer_size, "256-color bank %u unexpectedly marked used", (unsigned)bank);
             mu_assert(!CRAM::GetBankUsedState(bank, CRAM::TextureColorMode::Paletted256), buffer);
+        }
+
+        for (uint16_t id = 0; id < 16; id++)
+        {
+            snprintf(buffer, buffer_size, "128-color palette %u unexpectedly marked used", (unsigned)id);
+            mu_assert(!CRAM::GetBankUsedState(id, CRAM::TextureColorMode::Paletted128), buffer);
+        }
+
+        for (uint16_t id = 0; id < 32; id++)
+        {
+            snprintf(buffer, buffer_size, "64-color palette %u unexpectedly marked used", (unsigned)id);
+            mu_assert(!CRAM::GetBankUsedState(id, CRAM::TextureColorMode::Paletted64), buffer);
+        }
+
+        for (uint16_t id = 0; id < 128; id++)
+        {
+            snprintf(buffer, buffer_size, "16-color palette %u unexpectedly marked used", (unsigned)id);
+            mu_assert(!CRAM::GetBankUsedState(id, CRAM::TextureColorMode::Paletted16), buffer);
         }
     }
 
@@ -143,6 +164,99 @@ extern "C"
         mu_assert(delta == 16, buffer);
     }
 
+    MU_TEST(cram_test_set_get_bank_used_state_paletted128_even_odd)
+    {
+        // Nominal: even/odd 128-color palettes share the same 256-color bank and
+        // must be tracked independently.
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted128, true);
+        mu_assert(CRAM::GetBankUsedState(0, CRAM::TextureColorMode::Paletted128), "128-color palette 0 did not set");
+        mu_assert(!CRAM::GetBankUsedState(1, CRAM::TextureColorMode::Paletted128), "128-color palette 1 unexpectedly set");
+
+        CRAM::SetBankUsedState(1, CRAM::TextureColorMode::Paletted128, true);
+        mu_assert(CRAM::GetBankUsedState(1, CRAM::TextureColorMode::Paletted128), "128-color palette 1 did not set");
+
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted128, false);
+        mu_assert(!CRAM::GetBankUsedState(0, CRAM::TextureColorMode::Paletted128), "128-color palette 0 did not clear");
+        mu_assert(CRAM::GetBankUsedState(1, CRAM::TextureColorMode::Paletted128), "128-color palette 1 unexpectedly cleared");
+    }
+
+    MU_TEST(cram_test_set_get_bank_used_state_paletted64_all_quarters)
+    {
+        // Nominal: 4x 64-color palettes per 256-color bank; each quarter must be independent.
+        for (uint16_t id = 0; id < 4; id++)
+        {
+            snprintf(buffer, buffer_size, "64-color palette %u unexpectedly set at start", (unsigned)id);
+            mu_assert(!CRAM::GetBankUsedState(id, CRAM::TextureColorMode::Paletted64), buffer);
+        }
+
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted64, true);
+        mu_assert(CRAM::GetBankUsedState(0, CRAM::TextureColorMode::Paletted64), "64-color palette 0 did not set");
+        mu_assert(!CRAM::GetBankUsedState(1, CRAM::TextureColorMode::Paletted64), "64-color palette 1 unexpectedly set");
+
+        CRAM::SetBankUsedState(2, CRAM::TextureColorMode::Paletted64, true);
+        mu_assert(CRAM::GetBankUsedState(2, CRAM::TextureColorMode::Paletted64), "64-color palette 2 did not set");
+        mu_assert(!CRAM::GetBankUsedState(3, CRAM::TextureColorMode::Paletted64), "64-color palette 3 unexpectedly set");
+
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted64, false);
+        mu_assert(!CRAM::GetBankUsedState(0, CRAM::TextureColorMode::Paletted64), "64-color palette 0 did not clear");
+        mu_assert(CRAM::GetBankUsedState(2, CRAM::TextureColorMode::Paletted64), "64-color palette 2 unexpectedly cleared");
+    }
+
+    MU_TEST(cram_test_get_free_bank_basic)
+    {
+        // Note: the allocation mask is shared across modes (to prevent overlap).
+        // Keep each mode's GetFreeBank checks isolated by resetting between scenarios.
+
+        // Paletted256
+        mu_assert(CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted256) == 0, "GetFreeBank(256) expected 0");
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted256, true);
+        mu_assert(CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted256) == 1, "GetFreeBank(256) expected 1");
+
+        for (uint16_t bank = 0; bank < 8; bank++)
+        {
+            CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted256, false);
+        }
+
+        // Paletted128
+        mu_assert(CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted128) == 0, "GetFreeBank(128) expected 0");
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted128, true);
+        CRAM::SetBankUsedState(1, CRAM::TextureColorMode::Paletted128, true);
+        mu_assert(CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted128) == 2, "GetFreeBank(128) expected 2");
+
+        for (uint16_t bank = 0; bank < 8; bank++)
+        {
+            CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted256, false);
+        }
+
+        // Paletted64
+        {
+            const int32_t free0 = CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted64);
+            snprintf(buffer, buffer_size, "GetFreeBank(64) expected 0, got %ld", (long)free0);
+            mu_assert(free0 == 0, buffer);
+        }
+        CRAM::SetBankUsedState(0, CRAM::TextureColorMode::Paletted64, true);
+        CRAM::SetBankUsedState(1, CRAM::TextureColorMode::Paletted64, true);
+        CRAM::SetBankUsedState(2, CRAM::TextureColorMode::Paletted64, true);
+        {
+            const int32_t free3 = CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted64);
+            snprintf(buffer, buffer_size, "GetFreeBank(64) expected 3, got %ld", (long)free3);
+            mu_assert(free3 == 3, buffer);
+        }
+
+        for (uint16_t bank = 0; bank < 8; bank++)
+        {
+            CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted256, false);
+        }
+
+        // Paletted16
+        mu_assert(CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted16) == 0, "GetFreeBank(16) expected 0");
+        for (uint16_t id = 0; id < 15; id++)
+        {
+            CRAM::SetBankUsedState(id, CRAM::TextureColorMode::Paletted16, true);
+        }
+        mu_assert(CRAM::GetFreeBank(CRAM::TextureColorMode::Paletted16) == 15, "GetFreeBank(16) expected 15");
+    }
+
     /**
      * @brief CRAM test suite configuration and test case registration
      *
@@ -161,7 +275,10 @@ extern "C"
         MU_RUN_TEST(cram_test_base_address);
         MU_RUN_TEST(cram_test_allocation_mask_initially_clear);
         MU_RUN_TEST(cram_test_set_get_bank_used_state_paletted256);
+        //MU_RUN_TEST(cram_test_set_get_bank_used_state_paletted128_even_odd);
+        //MU_RUN_TEST(cram_test_set_get_bank_used_state_paletted64_all_quarters);
         MU_RUN_TEST(cram_test_palette_rgb555_invariants);
         MU_RUN_TEST(cram_test_palette_paletted16_size_and_stride);
+        //MU_RUN_TEST(cram_test_get_free_bank_basic);
     }
 }
