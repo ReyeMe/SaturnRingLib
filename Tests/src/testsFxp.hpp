@@ -170,6 +170,73 @@ extern "C"
         mu_assert(min == Fxp::MinValue(), buffer);
     }
 
+    // Test: Verify BuildRaw()/RawValue() round-trip
+    MU_TEST(fxp_rawvalue_buildraw_roundtrip)
+    {
+        constexpr int32_t raw = 0x00018000; // 1.5 in 16.16
+        const Fxp a1 = Fxp::BuildRaw(raw);
+        snprintf(buffer, buffer_size, "Raw roundtrip failed: 0x%08x != 0x%08x", (unsigned)a1.RawValue(), (unsigned)raw);
+        mu_assert(a1.RawValue() == raw, buffer);
+
+        constexpr int32_t rawNeg = -0x00018000;
+        const Fxp a2 = Fxp::BuildRaw(rawNeg);
+        snprintf(buffer, buffer_size, "Raw roundtrip failed: 0x%08x != 0x%08x", (unsigned)a2.RawValue(), (unsigned)rawNeg);
+        mu_assert(a2.RawValue() == rawNeg, buffer);
+    }
+
+    // Test: Verify TruncateFraction() removes fractional part (toward zero)
+    MU_TEST(fxp_truncate_fraction)
+    {
+        const Fxp p = Fxp(1.75);
+        snprintf(buffer, buffer_size, "TruncateFraction failed: %d != 1", p.TruncateFraction().As<int32_t>());
+        mu_assert(p.TruncateFraction() == 1, buffer);
+
+        const Fxp n = Fxp(-1.75);
+        snprintf(buffer, buffer_size, "TruncateFraction failed: %d != -1", n.TruncateFraction().As<int32_t>());
+        mu_assert(n.TruncateFraction() == -1, buffer);
+    }
+
+    // Test: Verify GetFraction() extracts signed fractional component
+    MU_TEST(fxp_get_fraction)
+    {
+        const Fxp p = Fxp(1.75);
+        const Fxp pf = p.GetFraction();
+        snprintf(buffer, buffer_size, "GetFraction failed: %f != 0.75", pf.As<float>());
+        mu_assert(pf == Fxp(0.75), buffer);
+
+        const Fxp n = Fxp(-1.75);
+        const Fxp nf = n.GetFraction();
+        snprintf(buffer, buffer_size, "GetFraction failed: %f != -0.75", nf.As<float>());
+        mu_assert(nf == Fxp(-0.75), buffer);
+    }
+
+    // Test: Verify Floor() semantics
+    MU_TEST(fxp_floor)
+    {
+        mu_assert(Fxp(1.25).Floor() == 1, "Floor(1.25) != 1");
+        mu_assert(Fxp(1.0).Floor() == 1, "Floor(1.0) != 1");
+        mu_assert(Fxp(-1.25).Floor() == -2, "Floor(-1.25) != -2");
+        mu_assert(Fxp(-1.0).Floor() == -1, "Floor(-1.0) != -1");
+    }
+
+    // Test: Verify Ceil() semantics
+    MU_TEST(fxp_ceil)
+    {
+        mu_assert(Fxp(1.25).Ceil() == 2, "Ceil(1.25) != 2");
+        mu_assert(Fxp(1.0).Ceil() == 1, "Ceil(1.0) != 1");
+        mu_assert(Fxp(-1.25).Ceil() == -1, "Ceil(-1.25) != -1");
+        mu_assert(Fxp(-1.0).Ceil() == -1, "Ceil(-1.0) != -1");
+    }
+
+    // Test: Verify Round() semantics (halfway cases away from zero)
+    MU_TEST(fxp_round)
+    {
+        mu_assert(Fxp(1.25).Round() == 1, "Round(1.25) != 1");
+        mu_assert(Fxp(1.5).Round() == 2, "Round(1.5) != 2");
+        mu_assert(Fxp(-1.25).Round() == -1, "Round(-1.25) != -1");
+        mu_assert(Fxp(-1.5).Round() == -2, "Round(-1.5) != -2");
+    }
+
     // Test: Modulo operation for positive numbers
     MU_TEST(fxp_ModuloTest_PositiveNumbers)
     {
@@ -1033,6 +1100,13 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         MU_RUN_TEST(fxp_conversion_to_float);
         MU_RUN_TEST(fxp_max_value_check);
         MU_RUN_TEST(fxp_min_value_check);
+
+        MU_RUN_TEST(fxp_rawvalue_buildraw_roundtrip);
+        MU_RUN_TEST(fxp_truncate_fraction);
+        MU_RUN_TEST(fxp_get_fraction);
+        MU_RUN_TEST(fxp_floor);
+        MU_RUN_TEST(fxp_ceil);
+        MU_RUN_TEST(fxp_round);
 
         MU_RUN_TEST(fxp_ModuloTest_PositiveNumbers);
         MU_RUN_TEST(fxp_ModuloTest_NegativeDividend); //Mod value test failed: mod(-10, 3) != -1
