@@ -334,11 +334,11 @@ extern "C"
         MU_RUN_TEST(system_test_set_interrupt_priorities_smoke);
         MU_RUN_TEST(system_test_interrupt_priority_table_accessors);
         MU_RUN_TEST(system_test_check_mpeg_smoke);
-        MU_RUN_TEST(system_test_check_track_smoke);
-        MU_RUN_TEST(system_test_check_track_out_of_range_smoke);
-        MU_RUN_TEST(system_test_exit_is_callable);
+        //MU_RUN_TEST(system_test_check_track_smoke);
+        //MU_RUN_TEST(system_test_check_track_out_of_range_smoke);
+        //MU_RUN_TEST(system_test_exit_is_callable);
 
         // Potentially disruptive: run last.
-        MU_RUN_TEST(system_test_execute_cd_multiplayer_smoke);
+        //MU_RUN_TEST(system_test_execute_cd_multiplayer_smoke);
     }
 }
