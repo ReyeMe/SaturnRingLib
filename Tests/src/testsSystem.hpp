@@ -85,6 +85,24 @@ extern "C"
         mu_assert(maskAllOnes == 0xFFFFFFFFU, buffer);
     }
 
+    MU_TEST(system_test_get_interrupt_mask_matches_doc_example)
+    {
+        // Documentation (sega_sys.h): SYS_SETSCUIM then SYS_GETSCUIM should
+        // return the current SCU interrupt mask. We mirror the example value.
+        const uint32_t previousMask = System::GetInterruptMask();
+
+        const uint32_t expectedMask = ~static_cast<uint32_t>(Interrupt::Mask::VBlankIn);
+        System::SetInterruptMask(expectedMask);
+        const uint32_t readBack = System::GetInterruptMask();
+
+        System::SetInterruptMask(previousMask);
+
+        snprintf(buffer, buffer_size, "GetInterruptMask doc mismatch: 0x%08lx != 0x%08lx",
+                 (unsigned long)readBack,
+                 (unsigned long)expectedMask);
+        mu_assert(readBack == expectedMask, buffer);
+    }
+
     MU_TEST(system_test_change_interrupt_mask_identity)
     {
         // Negative/edge: identity operation must not change the current mask.
@@ -230,6 +248,21 @@ extern "C"
         mu_assert(1, "SetInterruptPriorities failed");
     }
 
+    MU_TEST(system_test_interrupt_priority_table_accessors)
+    {
+        // Basic coverage: exercise InterruptPriorityTable accessors without touching hardware.
+        System::InterruptPriorityTable priorities;
+
+        priorities.at<0>() = 0x11111111;
+        priorities.at<31>() = 0x22222222;
+        priorities[15] = 0x33333333;
+
+        snprintf(buffer, buffer_size, "Priority table accessors mismatch");
+        mu_assert(priorities.at<0>() == 0x11111111
+               && priorities.at<31>() == 0x22222222
+               && priorities[15] == 0x33333333, buffer);
+    }
+
     MU_TEST(system_test_execute_cd_multiplayer_smoke)
     {
         // Smoke test: BIOS routine should return and not wedge execution.
@@ -290,6 +323,7 @@ extern "C"
 
         MU_RUN_TEST(system_test_interrupt_mask_roundtrip);
         MU_RUN_TEST(system_test_interrupt_mask_extremes);
+        MU_RUN_TEST(system_test_get_interrupt_mask_matches_doc_example);
         MU_RUN_TEST(system_test_change_interrupt_mask_identity);
         MU_RUN_TEST(system_test_clock_mode_roundtrip);
         MU_RUN_TEST(system_test_semaphore_roundtrip);
@@ -297,6 +331,7 @@ extern "C"
         MU_RUN_TEST(system_test_interrupt_handler_smoke);
         MU_RUN_TEST(system_test_interrupt_vector_smoke);
         MU_RUN_TEST(system_test_set_interrupt_priorities_smoke);
+        MU_RUN_TEST(system_test_interrupt_priority_table_accessors);
         MU_RUN_TEST(system_test_check_mpeg_smoke);
         MU_RUN_TEST(system_test_check_track_smoke);
         MU_RUN_TEST(system_test_check_track_out_of_range_smoke);

@@ -124,7 +124,7 @@ int main()
   RUN_AND_DISPLAY_SUITE(dsp_test_suite);
 
   // Run System test suite
-  // RUN_AND_DISPLAY_SUITE(system_test_suite);
+  RUN_AND_DISPLAY_SUITE(system_test_suite);
 
   // Run Interrupt test suite
   RUN_AND_DISPLAY_SUITE(interrupt_test_suite);
