@@ -20,6 +20,7 @@
 #include "testsMemoryLWRam.hpp"   // Include the header for memory LWRam tests
 #include "testsMemoryCartRam.hpp" // Include the header for memory Cart Ram tests
 #include "testsString.hpp"        // Include the header for string tests
+#include "testDSP.hpp"            // Include the header for DSP tests
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
@@ -116,6 +117,9 @@ int main()
 
   // // Run Memory CartRam test suite
   RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
+
+  // Run DSP test suite
+  RUN_AND_DISPLAY_SUITE(dsp_test_suite);
 
   // // Generate tests report
   MU_REPORT();
