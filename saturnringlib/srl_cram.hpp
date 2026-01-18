@@ -72,7 +72,8 @@ namespace SRL
             {
                 if (mode == CRAM::TextureColorMode::RGB555)
                 {
-                    this->data == nullptr;
+                    // RGB555 is direct color (no palette table), so there is no CRAM palette data pointer.
+                    this->data = nullptr;
                 }
                 else
                 {
