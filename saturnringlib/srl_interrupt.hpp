@@ -2,6 +2,9 @@
 
 #include "srl_system.hpp"
 
+#include <type_traits>
+#include <utility>
+
 // Forward declaration for our handler checker
 template<typename T>
 struct IsInterruptHandler {
@@ -502,7 +505,7 @@ namespace SRL
          *        This is enforced at compile time.
          */
         template<typename Func>
-        static constexpr bool SetHandler(Vector vector, Func&& handler) noexcept
+        static bool SetHandler(Vector vector, Func&& handler) noexcept
         {
             return SetHandlerImpl(vector, std::forward<Func>(handler));
         }
@@ -510,53 +513,35 @@ namespace SRL
     private:
         // Implementation helper that does the actual work
         template<typename Func>
-        static constexpr bool SetHandlerImpl(Vector vector, Func&& handler) noexcept
+        static bool SetHandlerImpl(Vector vector, Func&& handler) noexcept
         {
-            static_assert(std::is_invocable_v<Func>, "Handler must be callable with no arguments");
-            
-            // Compile-time validation of vector number
-            constexpr auto max_scu_vector = 0x4Fu;
-            constexpr auto max_cpu_vector = 0x8Fu;
-            const auto vector_num = static_cast<uint32_t>(vector);
-            
-            static_assert(std::is_same_v<std::decay_t<Func>, std::remove_pointer_t<std::decay_t<Func>>*>
-                || std::is_function_v<std::remove_pointer_t<std::decay_t<Func>>>>,
-                "Handler must be a function pointer or callable object");
+            static_assert(std::is_invocable_r_v<void, Func>, "Handler must be callable with no arguments and return void");
+            static_assert(std::is_convertible_v<decltype(+handler), void (*)()>, "Handler must be convertible to void(*)() (no captures)");
 
-            if constexpr (std::is_pointer_v<Func>) {
-                using FuncPtr = std::remove_pointer_t<Func>;
-                static_assert(std::is_function_v<FuncPtr>,
-                    "Handler must be a function pointer, not a pointer to member or other type");
-                
-                // For SCU vectors (0x40-0x4F), use our wrapper to verify the handler
-                if constexpr (vector_num >= 0x40 && vector_num <= 0x4F) {
-                    // This will trigger a static_assert if the function doesn't have the attribute
-                    constexpr InterruptHandlerWrapper wrapper{+handler};
-                    (void)wrapper; // Suppress unused variable warning
-                }
-            }
+            using HandlerPtr = void (*)();
+            HandlerPtr handler_ptr = +handler;
+            const auto vector_num = static_cast<uint32_t>(vector);
 
             // For SCU vectors (0x40-0x4F)
-            if (vector_num <= max_scu_vector) {
-                static_assert(static_cast<uint32_t>(System::InterruptType::Count) > max_scu_vector - 0x40,
-                    "System::InterruptType enum doesn't cover all SCU vectors");
-                
+            if (vector_num >= 0x40 && vector_num <= 0x4F)
+            {
                 System::SetInterruptHandler(
-                    static_cast<System::InterruptType>(vector_num - 0x40),
-                    reinterpret_cast<void*>(+handler)
+                    static_cast<System::InterruptType>(vector_num),
+                    reinterpret_cast<void*>(handler_ptr)
                 );
                 return true;
             }
+
             // For CPU vectors (0x60-0x8F)
-            else if (vector_num >= 0x60 && vector_num <= max_cpu_vector) {
+            if (vector_num >= 0x60 && vector_num <= 0x8F)
+            {
                 System::SetInterruptVector(
                     vector_num,
-                    reinterpret_cast<void*>(+handler)
+                    reinterpret_cast<void*>(handler_ptr)
                 );
                 return true;
             }
-            
-            // Invalid vector number
+
             return false;
         }
 

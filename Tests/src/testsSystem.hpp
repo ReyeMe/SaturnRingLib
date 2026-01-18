@@ -1,5 +1,6 @@
 #include <srl.hpp>
 #include <srl_system.hpp>
+#include <srl_interrupt.hpp>
 #include <srl_log.hpp>
 
 // https://github.com/siu/minunit
