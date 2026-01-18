@@ -9,10 +9,8 @@
 
 using namespace SRL;
 
-#if defined(SRL_INTERRUPT_TESTS_ENABLE)
-// Enable full Interrupt API coverage only when the library header compiles.
+// Interrupt API tests (srl_interrupt.hpp should compile)
 #include <srl_interrupt.hpp>
-#endif
 
 extern "C"
 {
@@ -42,7 +40,6 @@ extern "C"
         }
     }
 
-#if defined(SRL_INTERRUPT_TESTS_ENABLE)
     MU_TEST(interrupt_test_setmask_roundtrip)
     {
         // Nominal + edge: SetMask is a thin wrapper over System::SetInterruptMask.
@@ -145,20 +142,4 @@ extern "C"
         MU_RUN_TEST(interrupt_test_sethandler_invalid_vector);
         MU_RUN_TEST(interrupt_test_sethandler_cpu_vector_roundtrip);
     }
-#else
-    MU_TEST(interrupt_test_disabled)
-    {
-        // Tests are disabled unless SRL_INTERRUPT_TESTS_ENABLE is defined.
-        mu_assert(1, "Interrupt tests disabled");
-    }
-
-    MU_TEST_SUITE(interrupt_test_suite)
-    {
-        MU_SUITE_CONFIGURE_WITH_HEADER(&interrupt_test_setup,
-                                       &interrupt_test_teardown,
-                                       &interrupt_test_output_header);
-
-        MU_RUN_TEST(interrupt_test_disabled);
-    }
-#endif
 }
