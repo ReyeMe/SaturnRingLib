@@ -13,9 +13,24 @@
 #include "testsFxp.hpp"
 #include "testsHighColor.hpp"
 #include "testsMath.hpp"
+#include "testsMat33.hpp"        // Include the header for Matrix33 tests
+#include "testsMat43.hpp"        // Include the header for Matrix43 tests
+#include "testsPlane.hpp"        // Include the header for Plane tests
+#include "testsSphere.hpp"       // Include the header for Sphere tests
+#include "testsCollision.hpp"    // Include the header for Collision tests
+#include "testsFrustum.hpp"      // Include the header for Frustum tests
 #include "testsMemory.hpp"        // Include the header for memory tests
 #include "testsBase.hpp"          // Include the header for SGL tests
 #include "testsBitmap.hpp"        // Include the header for bitmap tests
+#include "testsAABB.hpp"          // Include the header for AABB tests
+#include "testsVector2D.hpp"      // Include the header for Vector2D tests
+#include "testsVector3D.hpp"      // Include the header for Vector3D tests
+#include "testsMatrixStack.hpp"   // Include the header for MatrixStack tests
+#include "testsPrecision.hpp"     // Include the header for Precision tests
+#include "testsRandom.hpp"        // Include the header for Random tests
+#include "testsSortOrder.hpp"     // Include the header for SortOrder tests
+#include "testsTrigonometry.hpp"  // Include the header for Trigonometry tests
+#include "testsUtils.hpp"         // Include the header for Utils tests
 #include "testsMemoryHWRam.hpp"   // Include the header for memory HWRam tests
 #include "testsMemoryLWRam.hpp"   // Include the header for memory LWRam tests
 #include "testsMemoryCartRam.hpp" // Include the header for memory Cart Ram tests
@@ -101,6 +116,51 @@ int main()
 
   // // Run Math test suite
   RUN_AND_DISPLAY_SUITE(math_test_suite);
+
+  // Run Matrix33 test suite
+  RUN_AND_DISPLAY_SUITE(mat33_test_suite);
+
+  // Run Matrix43 test suite
+  RUN_AND_DISPLAY_SUITE(mat43_test_suite);
+
+  // Run Plane test suite
+  RUN_AND_DISPLAY_SUITE(plane_test_suite);
+
+  // Run Sphere test suite
+  RUN_AND_DISPLAY_SUITE(sphere_test_suite);
+
+  // Run Collision test suite
+  RUN_AND_DISPLAY_SUITE(collision_test_suite);
+
+  // Run Frustum test suite
+  RUN_AND_DISPLAY_SUITE(frustum_test_suite);
+
+  // Run Vector2D test suite
+  RUN_AND_DISPLAY_SUITE(vector2d_test_suite);
+
+  // Run Vector3D test suite
+  RUN_AND_DISPLAY_SUITE(vector3d_test_suite);
+
+  // Run MatrixStack test suite
+  RUN_AND_DISPLAY_SUITE(matrix_stack_test_suite);
+
+  // Run Precision test suite
+  RUN_AND_DISPLAY_SUITE(precision_test_suite);
+
+  // Run SortOrder test suite
+  RUN_AND_DISPLAY_SUITE(sort_order_test_suite);
+
+  // Run Random test suite
+  RUN_AND_DISPLAY_SUITE(random_test_suite);
+
+  // Run Trigonometry test suite
+  RUN_AND_DISPLAY_SUITE(trigonometry_test_suite);
+
+  // Run Utils test suite
+  RUN_AND_DISPLAY_SUITE(utils_test_suite);
+
+  // Run AABB test suite
+  RUN_AND_DISPLAY_SUITE(aabb_test_suite);
 
   // // Run Memory test suite
   RUN_AND_DISPLAY_SUITE(memory_test_suite);
