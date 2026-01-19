@@ -4,6 +4,7 @@
 #include <srl_log.hpp>
 
 #include <stdint.h>
+#include <limits>
 
 // https://github.com/siu/minunit
 #include "minunit.h"
@@ -117,6 +118,39 @@ extern "C"
         mu_assert(a == b, "Full-range [min,max] should be equivalent to GetNumber() for signed");
     }
 
+    MU_TEST(random_extreme_ranges_do_not_overflow)
+    {
+        // Unsigned: very small range at the top end
+        {
+            SRL::Math::Random<uint32_t> r(0x42424242u);
+            for (int i = 0; i < 16; i++)
+            {
+                const uint32_t n = r.GetNumber(std::numeric_limits<uint32_t>::max() - 3u,
+                                               std::numeric_limits<uint32_t>::max());
+                mu_assert(n >= (std::numeric_limits<uint32_t>::max() - 3u) && n <= std::numeric_limits<uint32_t>::max(),
+                          "Top-end unsigned range should stay within bounds");
+            }
+        }
+
+        // Signed: range near INT32_MIN (avoid UB in old -number implementation)
+        {
+            SRL::Math::Random<int32_t> r(0x1111);
+            const int32_t lo = std::numeric_limits<int32_t>::min();
+            const int32_t hi = lo + 3;
+            for (int i = 0; i < 16; i++)
+            {
+                const int32_t n = r.GetNumber(lo, hi);
+                mu_assert(n >= lo && n <= hi, "Near-min signed range should stay within bounds");
+            }
+
+            // Degenerate at INT32_MIN
+            mu_assert(r.GetNumber(lo, lo) == lo, "Degenerate [min,min] should always return min");
+            // Swapped order at extremes
+            const int32_t m = r.GetNumber(hi, lo);
+            mu_assert(m >= lo && m <= hi, "Swapped near-min signed range should stay within bounds");
+        }
+    }
+
     MU_TEST_SUITE(random_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&random_test_setup,
@@ -129,5 +163,6 @@ extern "C"
         MU_RUN_TEST(random_works_for_u16_path);
         MU_RUN_TEST(random_full_range_unsigned_matches_raw);
         MU_RUN_TEST(random_full_range_signed_matches_raw);
+        MU_RUN_TEST(random_extreme_ranges_do_not_overflow);
     }
 }

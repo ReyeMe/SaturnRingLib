@@ -49,11 +49,16 @@ extern "C"
         // Fxp works too
         mu_assert(SRL::Math::Abs(Fxp(-1.5)) == Fxp(1.5), "Abs(Fxp) should work");
 
+        // Unsigned should be identity
+        mu_assert(SRL::Math::Abs(uint32_t(7)) == uint32_t(7), "Abs(unsigned) should be identity");
+
         mu_assert(SRL::Math::Max(1, 2) == 2, "Max(1,2) should be 2");
         mu_assert(SRL::Math::Max(2, 1) == 2, "Max(2,1) should be 2");
+        mu_assert(SRL::Math::Max(2, 2) == 2, "Max equal values should return that value");
 
         mu_assert(SRL::Math::Min(1, 2) == 1, "Min(1,2) should be 1");
         mu_assert(SRL::Math::Min(3, 2, 1) == 1, "Min(3,2,1) should be 1");
+        mu_assert(SRL::Math::Min(2, 2) == 2, "Min equal values should return that value");
 
         mu_assert(SRL::Math::Clamp(5, 0, 10) == 5, "Clamp within range should return value");
         mu_assert(SRL::Math::Clamp(-1, 0, 10) == 0, "Clamp below range should return min");
@@ -62,6 +67,9 @@ extern "C"
         // Clamp with negative bounds
         mu_assert(SRL::Math::Clamp(-5, -3, 3) == -3, "Clamp below negative range should return min");
         mu_assert(SRL::Math::Clamp(5, -3, 3) == 3, "Clamp above negative range should return max");
+
+        // Clamp with min==max
+        mu_assert(SRL::Math::Clamp(123, 7, 7) == 7, "Clamp(value, min==max) should return that bound");
     }
 
     MU_TEST(utils_fast_sqrt_basic)

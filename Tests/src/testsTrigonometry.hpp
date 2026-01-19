@@ -68,6 +68,10 @@ extern "C"
         mu_assert(fxp_near_trig(cos45, Fxp(0.7071), Fxp(0.02)), "Cos(45) should be approx 0.7071");
 
         mu_assert(SRL::Math::Trigonometry::Sin(Angle::FromDegrees(-90)) == Fxp(-1), "Sin(-90) should be -1");
+
+        // Periodicity / wrap-around
+        mu_assert(SRL::Math::Trigonometry::Sin(Angle::FromDegrees(450)) == Fxp(1), "Sin(450) should equal Sin(90)");
+        mu_assert(SRL::Math::Trigonometry::Cos(Angle::FromDegrees(-360)) == Fxp(1), "Cos(-360) should equal Cos(0)");
     }
 
     MU_TEST(trigonometry_tan_basic)
@@ -108,6 +112,12 @@ extern "C"
 
         const Angle a315 = SRL::Math::Trigonometry::Atan2(Fxp(-1), Fxp(1));
         mu_assert(a315 >= Angle::FromDegrees(314.9) && a315 <= Angle::FromDegrees(315.1), "Atan2(-1,1) should be ~315");
+
+        const Angle a135 = SRL::Math::Trigonometry::Atan2(Fxp(1), Fxp(-1));
+        mu_assert(a135 >= Angle::FromDegrees(134.9) && a135 <= Angle::FromDegrees(135.1), "Atan2(1,-1) should be ~135");
+
+        const Angle a225 = SRL::Math::Trigonometry::Atan2(Fxp(-1), Fxp(-1));
+        mu_assert(a225 >= Angle::FromDegrees(224.9) && a225 <= Angle::FromDegrees(225.1), "Atan2(-1,-1) should be ~225");
     }
 
     MU_TEST(trigonometry_asin_clamp_and_values)
