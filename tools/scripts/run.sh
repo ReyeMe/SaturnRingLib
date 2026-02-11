@@ -89,6 +89,26 @@ run_yabause() {
 
 }
 
+run_ymir() {
+  # We assumed that Ymir is already installed and in the PATH. Check if its true
+  if ! command -v ymir 2>&1 >/dev/null
+  then
+    echo "Ymir could not be found!"
+    exit 1
+  fi
+
+  cue_files=( ./BuildDrop/*.cue )
+
+  if [[ ${#cue_files[@]} -eq 0 ]]; then
+    echo "Stop it VBT !"
+    exit 1
+  else
+    echo "STARTING ${cue_files[0]} !"
+    ymir-sdl3 ${cue_files[0]} || exit
+    exit 0
+  fi
+}
+
 if [[ ! -d "BuildDrop" ]]; then
   echo "BuildDrop does not exist."
   exit 1
@@ -107,6 +127,11 @@ fi
 
 if [[ "$1" == "yabause" ]]; then
   run_yabause || exit
+  exit 0
+fi
+
+if [[ "$1" == "ymir" ]]; then
+  run_ymir || exit
   exit 0
 fi
 

@@ -32,6 +32,14 @@ ifneq ($(strip $(MODULES_EXTRA)),)
 	MODULE_EXTRA_INC += $(patsubst %, -I$(SDK_ROOT)/../modules_extra/%/INC, $(strip $(MODULES_EXTRA)))
 	MODULE_OBJECTS = $(MODULE_SOURCES:.c=.o)
 	OBJECTS += $(MODULE_OBJECTS:.cxx=.o)
+copy_data_files:
+	@for dir in $(patsubst %,$(SDK_ROOT)/../modules_extra/%/data/,$(strip $(MODULES_EXTRA))); do \
+		if [ -d "$$dir" ]; then \
+			echo "Found $$dir, copying..."; \
+			cp -rf "$$dir." ./cd/data/; \
+		fi; \
+	done
+all: copy_data_files
 endif
 
 COBJECTS = $(SOURCES:.c=.o)
