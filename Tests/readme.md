@@ -45,3 +45,21 @@ INFO : ***UT_END***
 ````
 
 Note : Changing SRL_LOG_LEVEL from INFO to TRACE in the makefile will make an output for every single tests.
+
+## USBGamers (real hardware)
+
+The `USBGamers` mode in `run_tests.bat` pushes the test binary to a USBGamers cartridge using `ftx`.
+
+### Requirements
+
+- USBGamers cartridge connected to the Saturn.
+- `ftx` tool available in your PATH.
+- `usbreset` tool available in your PATH (used to reset the USB device).
+
+### Run
+
+1. Build tests with `make all`.
+2. Run `./run_tests.bat USBGamers`.
+
+The script resets the USB device, uploads `cd/data/0.bin` to address `0x06004000`, and then starts the capture flow.
+The output still goes to `uts.log` like the emulator runs.
