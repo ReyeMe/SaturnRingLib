@@ -22,6 +22,14 @@ Close Kronos, everything shall be setup at that point.
 
 Execute `make all` within the `SaturnRingLib/Tests` directory from a terminal.
 
+You can override makefile defaults at build time. For example, to change the log output target:
+
+```bash
+make all SRL_LOG_OUTPUT=DEV_CART
+```
+
+Other valid values: `EMULATOR`, `DEV_CART`, `NONE`.
+
 ## Run the tests
 
 Execute `run_tests.bat` within the `SaturnRingLib/Tests` directory from a terminal, tests results will be output in both the terminal and `SaturnRingLib/Tests/uts.log`, such as:
