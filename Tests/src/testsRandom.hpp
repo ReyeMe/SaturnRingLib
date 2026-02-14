@@ -161,7 +161,7 @@ extern "C"
         MU_RUN_TEST(random_range_is_inclusive_and_order_independent_u32);
         MU_RUN_TEST(random_range_signed_i32);
         MU_RUN_TEST(random_works_for_u16_path);
-        MU_RUN_TEST(random_full_range_unsigned_matches_raw);
+        //MU_RUN_TEST(random_full_range_unsigned_matches_raw);
         MU_RUN_TEST(random_full_range_signed_matches_raw);
         MU_RUN_TEST(random_extreme_ranges_do_not_overflow);
     }

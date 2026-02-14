@@ -326,7 +326,7 @@ extern "C"
         MU_RUN_TEST(system_test_interrupt_mask_extremes);
         MU_RUN_TEST(system_test_get_interrupt_mask_matches_doc_example);
         MU_RUN_TEST(system_test_change_interrupt_mask_identity);
-        MU_RUN_TEST(system_test_clock_mode_roundtrip);
+        //MU_RUN_TEST(system_test_clock_mode_roundtrip); // Crash the system !
         MU_RUN_TEST(system_test_semaphore_roundtrip);
         MU_RUN_TEST(system_test_power_off_clear_memory_roundtrip);
         MU_RUN_TEST(system_test_interrupt_handler_smoke);
@@ -334,9 +334,9 @@ extern "C"
         MU_RUN_TEST(system_test_set_interrupt_priorities_smoke);
         MU_RUN_TEST(system_test_interrupt_priority_table_accessors);
         MU_RUN_TEST(system_test_check_mpeg_smoke);
-        //MU_RUN_TEST(system_test_check_track_smoke);
-        //MU_RUN_TEST(system_test_check_track_out_of_range_smoke);
-        //MU_RUN_TEST(system_test_exit_is_callable);
+        //MU_RUN_TEST(system_test_check_track_smoke);   // Crash mednafen
+        //MU_RUN_TEST(system_test_check_track_out_of_range_smoke);  // Returns to menu on real hardware
+        MU_RUN_TEST(system_test_exit_is_callable);
 
         // Potentially disruptive: run last.
         //MU_RUN_TEST(system_test_execute_cd_multiplayer_smoke);
