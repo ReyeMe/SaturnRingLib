@@ -10,16 +10,20 @@
   # Set timeout in seconds
   TIMEOUT=600
 
-  cleanup() {
+    cleanup() {
+      status=$?
       # Kill watchdog if it's running
       [[ -n $WATCHDOG_PID ]] && kill $WATCHDOG_PID 2>/dev/null
       # Add your cleanup tasks here
-      exit 0
-  }
+      exit $status
+    }
 
   reset_usb_device() {
     echo "Resetting USB device..."
-    usbreset "FT245R USB FIFO"
+    if ! usbreset "FT245R USB FIFO"; then
+      echo "USB reset failed"
+      exit 1
+    fi
   }
 
   # Set up trap for cleanup
@@ -53,7 +57,13 @@
     # Makes sure the USB device is reset before programming
     reset_usb_device
     sleep 2
-    ftx -x cd/data/0.bin 0x06004000
+    upload_log=$(ftx -x cd/data/0.bin 0x06004000 2>&1)
+    upload_status=$?
+    echo "$upload_log"
+    if [[ $upload_status -ne 0 ]] || echo "$upload_log" | grep -qi "Upload failed\|Send data error"; then
+      echo "Upload failed, aborting"
+      exit 1
+    fi
   else
     echo "No valid emulator specified"
     exit 1
