@@ -51,6 +51,11 @@
     # Run kronos in automation mode with no sound
     command="kronos -a -ns -i BuildDrop/UTs.cue"
   elif [ "$1" = "USBGamers" ]; then
+        # Precondition: check if cd/data/0.bin exists
+        if [ ! -f cd/data/0.bin ]; then
+          echo "ERROR: cd/data/0.bin not found. Please build the test binary before running."
+          exit 1
+        fi
     echo "Using USBGamers cartridge"
     # Optional: $2 is IPv4 for REST API control
     DEVICE_IP="$2"
