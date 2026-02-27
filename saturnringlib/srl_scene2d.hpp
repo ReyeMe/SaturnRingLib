@@ -116,7 +116,7 @@ namespace SRL
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip);
              *
-             * // Enable clipping
+             * // Enable flipping
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip);
              *
              * // Enable flip in both directions
