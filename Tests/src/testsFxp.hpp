@@ -262,9 +262,9 @@ extern "C"
     {
         // Fxp-specific edge cases
         fxp_ceil_check(-32768.0, "-32768.0", -32768); // minimum
-        fxp_ceil_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
-        fxp_ceil_check(-32767.99999, "-32767.99999", -32767); // just above min
-        fxp_ceil_check(32767.99998474, "32767.99998474", 32768); // maximum
+        fxp_ceil_check(-32768.0001, "-32768.0001", -32768); // just below min (should clamp or handle)
+        fxp_ceil_check(-32767.9999, "-32767.9999", -32767); // just above min
+        fxp_ceil_check(32767.9998474, "32767.9998474", 32768); // maximum
         fxp_ceil_check(32767.999, "32767.999", 32768); // just below max
         fxp_ceil_check(32767.0, "32767.0", 32767); // max integer
         fxp_ceil_check(1.0/65536, "1/65536", 1); // resolution step
@@ -278,14 +278,14 @@ extern "C"
         // Additional edge cases
         fxp_ceil_check(0.0, "0.0", 0); // zero
         fxp_ceil_check(-0.0, "-0.0", 0); // negative zero
-        fxp_ceil_check(0.000001, "0.000001", 1); // just above 0
-        fxp_ceil_check(-0.000001, "-0.000001", 0); // just below 0
-        fxp_ceil_check(0.999999, "0.999999", 1); // just below 1
-        fxp_ceil_check(-0.999999, "-0.999999", 0); // just above -1
-        fxp_ceil_check(2.000001, "2.000001", 3); // just above 2
-        fxp_ceil_check(-2.000001, "-2.000001", -2); // just below -2
-        fxp_ceil_check(1.999999, "1.999999", 2); // just below 2
-        fxp_ceil_check(-1.999999, "-1.999999", -1); // just above -2
+        fxp_ceil_check(0.0001, "0.0001", 1); // just above 0
+        fxp_ceil_check(-0.0001, "-0.0001", 0); // just below 0
+        fxp_ceil_check(0.9999, "0.9999", 1); // just below 1
+        fxp_ceil_check(-0.9999, "-0.9999", 0); // just above -1
+        fxp_ceil_check(2.0001, "2.0001", 3); // just above 2
+        fxp_ceil_check(-2.0001, "-2.0001", -2); // just below -2
+        fxp_ceil_check(1.9999, "1.9999", 2); // just below 2
+        fxp_ceil_check(-1.9999, "-1.9999", -1); // just above -2
         fxp_ceil_check(0.5, "0.5", 1); // positive half
         fxp_ceil_check(-0.5, "-0.5", 0); // negative half
     }
@@ -304,7 +304,7 @@ extern "C"
         // Fxp-specific edge cases
         fxp_round_check(-32768.0, "-32768.0", -32768); // minimum
         fxp_round_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
-        fxp_round_check(-32767.99999, "-32767.99999", -32768); // just above min
+        fxp_round_check(-32767.9999, "-32767.9999", -32768); // just above min
         fxp_round_check(32766.99998474, "32766.99998474", 32767); // maximum
         fxp_round_check(32767.999, "32767.999", 32768); // just below max
         fxp_round_check(32767.0, "32767.0", 32767); // max integer
