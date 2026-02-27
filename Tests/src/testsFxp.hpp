@@ -213,19 +213,41 @@ extern "C"
     // Test: Verify Floor() semantics
     MU_TEST(fxp_floor)
     {
-        mu_assert(Fxp(1.25).Floor() == 1, "Floor(1.25) != 1");
-        mu_assert(Fxp(1.0).Floor() == 1, "Floor(1.0) != 1");
-        mu_assert(Fxp(-1.25).Floor() == -2, "Floor(-1.25) != -2");
-        mu_assert(Fxp(-1.0).Floor() == -1, "Floor(-1.0) != -1");
+        int32_t f1 = Fxp(1.25).Floor().As<int32_t>();
+        snprintf(buffer, buffer_size, "Floor(1.25): expected %d, got %d", 1, f1);
+        mu_assert(f1 == 1, buffer);
+
+        int32_t f2 = Fxp(1.0).Floor().As<int32_t>();
+        snprintf(buffer, buffer_size, "Floor(1.0): expected %d, got %d", 1, f2);
+        mu_assert(f2 == 1, buffer);
+
+        int32_t f3 = Fxp(-1.25).Floor().As<int32_t>();
+        snprintf(buffer, buffer_size, "Floor(-1.25): expected %d, got %d", -2, f3);
+        mu_assert(f3 == -2, buffer);
+
+        int32_t f4 = Fxp(-1.0).Floor().As<int32_t>();
+        snprintf(buffer, buffer_size, "Floor(-1.0): expected %d, got %d", -1, f4);
+        mu_assert(f4 == -1, buffer);
     }
 
     // Test: Verify Ceil() semantics
     MU_TEST(fxp_ceil)
     {
-        mu_assert(Fxp(1.25).Ceil() == 2, "Ceil(1.25) != 2");
-        mu_assert(Fxp(1.0).Ceil() == 1, "Ceil(1.0) != 1");
-        mu_assert(Fxp(-1.25).Ceil() == -1, "Ceil(-1.25) != -1");
-        mu_assert(Fxp(-1.0).Ceil() == -1, "Ceil(-1.0) != -1");
+        int32_t c1 = Fxp(1.25).Ceil().As<int32_t>();
+        snprintf(buffer, buffer_size, "Ceil(1.25): expected %d, got %d", 2, c1);
+        mu_assert(c1 == 2, buffer);
+
+        int32_t c2 = Fxp(1.0).Ceil().As<int32_t>();
+        snprintf(buffer, buffer_size, "Ceil(1.0): expected %d, got %d", 1, c2);
+        mu_assert(c2 == 1, buffer);
+
+        int32_t c3 = Fxp(-1.25).Ceil().As<int32_t>();
+        snprintf(buffer, buffer_size, "Ceil(-1.25): expected %d, got %d", -1, c3);
+        mu_assert(c3 == -1, buffer);
+
+        int32_t c4 = Fxp(-1.0).Ceil().As<int32_t>();
+        snprintf(buffer, buffer_size, "Ceil(-1.0): expected %d, got %d", -1, c4);
+        mu_assert(c4 == -1, buffer);
     }
 
     // Test: Verify Round() semantics (halfway cases away from zero)
