@@ -210,138 +210,180 @@ extern "C"
         mu_assert(nf == Fxp(-0.75), buffer);
     }
 
+    // Helper function to test Floor()
+    void fxp_floor_check(double input, const char * input_str, int32_t expected)
+    {
+        int32_t actual = Fxp::Convert(input).Floor().As<int32_t>();
+        snprintf(buffer, buffer_size, "Floor(%s): expected %d, got %d", input_str, expected, actual);
+        mu_assert(actual == expected, buffer);
+    }
+
     // Test: Verify Floor() semantics
     MU_TEST(fxp_floor)
     {
-        int32_t f1 = Fxp(1.25).Floor().As<int32_t>();
-        snprintf(buffer, buffer_size, "Floor(1.25): expected %d, got %d", 1, f1);
-        mu_assert(f1 == 1, buffer);
+        // Fxp-specific edge cases
+        fxp_floor_check(-32768.0, "-32768.0", -32768); // minimum
+        fxp_floor_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
+        fxp_floor_check(-32767.99999, "-32767.99999", -32768); // just above min
+        fxp_floor_check(32767.99998474, "32767.99998474", 32767); // maximum
+        fxp_floor_check(32767.999, "32767.999", 32767); // just below max
+        fxp_floor_check(32767.0, "32767.0", 32767); // max integer
+        fxp_floor_check(1.0/65536, "1/65536", 0); // resolution step
+        fxp_floor_check(-1.0/65536, "-1/65536", -1); // negative resolution step
 
-        int32_t f2 = Fxp(1.0).Floor().As<int32_t>();
-        snprintf(buffer, buffer_size, "Floor(1.0): expected %d, got %d", 1, f2);
-        mu_assert(f2 == 1, buffer);
+        fxp_floor_check(1.25, "1.25", 1);
+        fxp_floor_check(1.0, "1.0", 1);
+        fxp_floor_check(-1.25, "-1.25", -2);
+        fxp_floor_check(-1.0, "-1.0", -1);
 
-        int32_t f3 = Fxp(-1.25).Floor().As<int32_t>();
-        snprintf(buffer, buffer_size, "Floor(-1.25): expected %d, got %d", -2, f3);
-        mu_assert(f3 == -2, buffer);
+        // Additional edge cases
+        fxp_floor_check(0.0, "0.0", 0); // zero
+        fxp_floor_check(-0.0, "-0.0", 0); // negative zero
+        fxp_floor_check(0.999999, "0.999999", 0); // just below 1
+        fxp_floor_check(-0.999999, "-0.999999", -1); // just above -1
+        fxp_floor_check(2.999999, "2.999999", 2); // just below 3
+        fxp_floor_check(-2.999999, "-2.999999", -3); // just above -3
+        fxp_floor_check(1.999999, "1.999999", 1); // just below 2
+        fxp_floor_check(-1.999999, "-1.999999", -2); // just above -2
+        fxp_floor_check(0.5, "0.5", 0); // positive half
+        fxp_floor_check(-0.5, "-0.5", -1); // negative half
+    }
 
-        int32_t f4 = Fxp(-1.0).Floor().As<int32_t>();
-        snprintf(buffer, buffer_size, "Floor(-1.0): expected %d, got %d", -1, f4);
-        mu_assert(f4 == -1, buffer);
+    // Helper function to test Ceil()
+    void fxp_ceil_check(double input, const char * input_str, int32_t expected)
+    {
+        int32_t actual = Fxp::Convert(input).Ceil().As<int32_t>();
+        snprintf(buffer, buffer_size, "Ceil(%s): expected %d, got %d", input_str, expected, actual);
+        mu_assert(actual == expected, buffer);
     }
 
     // Test: Verify Ceil() semantics
     MU_TEST(fxp_ceil)
     {
-        int32_t c1 = Fxp(1.25).Ceil().As<int32_t>();
-        snprintf(buffer, buffer_size, "Ceil(1.25): expected %d, got %d", 2, c1);
-        mu_assert(c1 == 2, buffer);
+        // Fxp-specific edge cases
+        fxp_ceil_check(-32768.0, "-32768.0", -32768); // minimum
+        fxp_ceil_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
+        fxp_ceil_check(-32767.99999, "-32767.99999", -32767); // just above min
+        fxp_ceil_check(32767.99998474, "32767.99998474", 32768); // maximum
+        fxp_ceil_check(32767.999, "32767.999", 32768); // just below max
+        fxp_ceil_check(32767.0, "32767.0", 32767); // max integer
+        fxp_ceil_check(1.0/65536, "1/65536", 1); // resolution step
+        fxp_ceil_check(-1.0/65536, "-1/65536", 0); // negative resolution step
 
-        int32_t c2 = Fxp(1.0).Ceil().As<int32_t>();
-        snprintf(buffer, buffer_size, "Ceil(1.0): expected %d, got %d", 1, c2);
-        mu_assert(c2 == 1, buffer);
+        fxp_ceil_check(1.25, "1.25", 2);
+        fxp_ceil_check(1.0, "1.0", 1);
+        fxp_ceil_check(-1.25, "-1.25", -1);
+        fxp_ceil_check(-1.0, "-1.0", -1);
 
-        int32_t c3 = Fxp(-1.25).Ceil().As<int32_t>();
-        snprintf(buffer, buffer_size, "Ceil(-1.25): expected %d, got %d", -1, c3);
-        mu_assert(c3 == -1, buffer);
+        // Additional edge cases
+        fxp_ceil_check(0.0, "0.0", 0); // zero
+        fxp_ceil_check(-0.0, "-0.0", 0); // negative zero
+        fxp_ceil_check(0.000001, "0.000001", 1); // just above 0
+        fxp_ceil_check(-0.000001, "-0.000001", 0); // just below 0
+        fxp_ceil_check(0.999999, "0.999999", 1); // just below 1
+        fxp_ceil_check(-0.999999, "-0.999999", 0); // just above -1
+        fxp_ceil_check(2.000001, "2.000001", 3); // just above 2
+        fxp_ceil_check(-2.000001, "-2.000001", -2); // just below -2
+        fxp_ceil_check(1.999999, "1.999999", 2); // just below 2
+        fxp_ceil_check(-1.999999, "-1.999999", -1); // just above -2
+        fxp_ceil_check(0.5, "0.5", 1); // positive half
+        fxp_ceil_check(-0.5, "-0.5", 0); // negative half
+    }
 
-        int32_t c4 = Fxp(-1.0).Ceil().As<int32_t>();
-        snprintf(buffer, buffer_size, "Ceil(-1.0): expected %d, got %d", -1, c4);
-        mu_assert(c4 == -1, buffer);
+    // Helper function to test Round()
+    void fxp_round_check(double input, const char * input_str, int32_t expected)
+    {
+        int32_t actual = Fxp::Convert(input).Round().As<int32_t>();
+        snprintf(buffer, buffer_size, "Round(%s): expected %d, got %d", input_str, expected, actual);
+        mu_assert(actual == expected, buffer);
     }
 
     // Test: Verify Round() semantics (halfway cases away from zero)
     MU_TEST(fxp_round)
     {
-        mu_assert(Fxp(1.25).Round() == 1, "Round(1.25) != 1");
-        mu_assert(Fxp(1.5).Round() == 2, "Round(1.5) != 2");
-        mu_assert(Fxp(-1.25).Round() == -1, "Round(-1.25) != -1");
-        mu_assert(Fxp(-1.5).Round() == -2, "Round(-1.5) != -2");
+        // Fxp-specific edge cases
+        fxp_round_check(-32768.0, "-32768.0", -32768); // minimum
+        fxp_round_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
+        fxp_round_check(-32767.99999, "-32767.99999", -32768); // just above min
+        fxp_round_check(32766.99998474, "32766.99998474", 32767); // maximum
+        fxp_round_check(32767.999, "32767.999", 32768); // just below max
+        fxp_round_check(32767.0, "32767.0", 32767); // max integer
+        fxp_round_check(1.0/65536, "1/65536", 0); // resolution step
+        fxp_round_check(-1.0/65536, "-1/65536", 0); // negative resolution step
+
+        fxp_round_check(1.25, "1.25", 1);
+        fxp_round_check(1.5, "1.5", 2);
+        fxp_round_check(-1.25, "-1.25", -1);
+        fxp_round_check(-1.5, "-1.5", -2);
+
+        // Additional edge cases
+        fxp_round_check(0.0, "0.0", 0); // zero
+        fxp_round_check(-0.0, "-0.0", 0); // negative zero
+        fxp_round_check(0.499999, "0.499999", 0); // just below half
+        fxp_round_check(0.5, "0.5", 1); // exactly half
+        fxp_round_check(0.500001, "0.500001", 1); // just above half
+        fxp_round_check(-0.499999, "-0.499999", 0); // just above negative half
+        fxp_round_check(-0.5, "-0.5", -1); // exactly negative half
+        fxp_round_check(-0.500001, "-0.500001", -1); // just below negative half
+        fxp_round_check(1.499999, "1.499999", 1); // just below 1.5
+        fxp_round_check(1.5, "1.5", 2); // exactly 1.5
+        fxp_round_check(1.500001, "1.500001", 2); // just above 1.5
+        fxp_round_check(-1.499999, "-1.499999", -1); // just above -1.5
+        fxp_round_check(-1.5, "-1.5", -2); // exactly -1.5
+        fxp_round_check(-1.500001, "-1.500001", -2); // just below -1.5
+    }
+
+    // Helper function to test Modulo
+    void fxp_modulo_check(int32_t a, int32_t b, int32_t expected)
+    {
+        Fxp a1 = Fxp::Convert(static_cast<int16_t>(a));
+        Fxp b1 = Fxp::Convert(static_cast<int16_t>(b));
+        int32_t actual = (a1 % b1).As<int32_t>();
+        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d (got %d)", a, b, expected, actual);
+        mu_assert(actual == expected, buffer);
     }
 
     // Test: Modulo operation for positive numbers
     MU_TEST(fxp_ModuloTest_PositiveNumbers)
     {
-        Fxp a1 = 10;
-        Fxp b1 = 3;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
-        mu_assert((a1 % b1) == 1, buffer);
-
-        a1 = 20;
-        b1 = 5;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
-        mu_assert((a1 % b1) == 0, buffer);
+        fxp_modulo_check(10, 3, 1);
+        fxp_modulo_check(20, 5, 0);
     }
 
     // Test: Modulo operation with negative dividend
     MU_TEST(fxp_ModuloTest_NegativeDividend)
     {
-        Fxp a1 = -10;
-        Fxp b1 = 3;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
-        mu_assert((a1 % b1) == -1, buffer);
-
-        a1 = -20;
-        b1 = 5;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
-        mu_assert((a1 % b1) == 0, buffer);
+        fxp_modulo_check(-10, 3, -1);
+        fxp_modulo_check(-20, 5, 0);
     }
 
     // Test: Modulo operation with negative divisor
     MU_TEST(fxp_ModuloTest_NegativeDivisor)
     {
-        Fxp a1 = 10;
-        Fxp b1 = -3;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
-        mu_assert((a1 % b1) == 1, buffer);
-
-        a1 = 20;
-        b1 = -5;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
-        mu_assert((a1 % b1) == 0, buffer);
+        fxp_modulo_check(10, -3, 1);
+        fxp_modulo_check(20, -5, 0);
     }
 
     // Test: Modulo operation with both dividend and divisor negative
     MU_TEST(fxp_ModuloTest_NegativeDividendAndDivisor)
     {
-        Fxp a1 = -10;
-        Fxp b1 = -3;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
-        mu_assert((a1 % b1) == -1, buffer);
-
-        a1 = -20;
-        b1 = -5;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 0);
-        mu_assert((a1 % b1) == 0, buffer);
+        fxp_modulo_check(-10, -3, -1);
+        fxp_modulo_check(-20, -5, 0);
     }
 
     // Test: Modulo operation with large numbers
     MU_TEST(fxp_ModuloTest_LargeNumbers)
     {
-        Fxp a1 = SHRT_MAX;
-        Fxp b1 = 3;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
-        mu_assert((a1 % b1) == 1, buffer);
-
+        fxp_modulo_check(SHRT_MAX, 3, 1);
         // FAILS : Mod value test failed: mod(-32767, 3) != -1
-        // a1 = -SHRT_MAX;
-        // b1 = 3;
-        // snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
-        // mu_assert((a1 % b1) == -1, buffer);
+        // fxp_modulo_check(-SHRT_MAX, 3, -1);
     }
 
     // Test: Edge cases (smallest/largest integers)
     MU_TEST(fxp_ModuloTest_EdgeCases)
     {
-        Fxp a1 = SHRT_MAX;
-        Fxp b1 = 2;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), 1);
-        mu_assert((a1 % b1) == 1, buffer);
-
-        a1 = -SHRT_MAX;
-        b1 = 2;
-        snprintf(buffer, buffer_size, "Mod value test failed: mod(%d, %d) != %d", a1.As<int32_t>(), b1.As<int32_t>(), -1);
-        mu_assert((a1 % b1) == -1, buffer);
+        fxp_modulo_check(SHRT_MAX, 2, 1);
+        fxp_modulo_check(-SHRT_MAX, 2, -1);
     }
 
     // Test: Positive numbers
