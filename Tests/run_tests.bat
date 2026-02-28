@@ -86,14 +86,21 @@
         if [ "$latch_period" -gt 0 ]; then
           echo "Waiting for latch period ($latch_period s) to expire..."
           latch_left=$latch_period
+          latch_timeout=$((latch_period + 10)) # 10s grace period
+          latch_elapsed=0
           while [ $latch_left -gt 0 ]; do
             sleep 1
+            latch_elapsed=$((latch_elapsed + 1))
             latch_now=$(curl -s "http://$DEVICE_IP/api/v1/status" | grep -o '"latch":[0-9]*' | cut -d':' -f2)
             [ -z "$latch_now" ] && latch_now=0
             if [ "$latch_now" -eq 0 ]; then
               break
             fi
             latch_left=$latch_now
+            if [ $latch_elapsed -ge $latch_timeout ]; then
+              echo "[ERROR] Latch wait timed out after $latch_timeout seconds."
+              break
+            fi
           done
         fi
         echo "Toggling ON..."
