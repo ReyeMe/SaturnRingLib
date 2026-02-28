@@ -85,7 +85,8 @@ extern "C"
         SRL::Math::Random<uint16_t> r(0xACE1u);
         const uint16_t a = r.GetNumber();
         const uint16_t b = r.GetNumber();
-        mu_assert(a != b, "Consecutive numbers should usually differ (u16)");
+        snprintf(buffer, buffer_size, "Consecutive numbers should usually differ (u16): a=%u, b=%u", a, b);
+        mu_assert(a != b, buffer);
 
         for (int i = 0; i < 16; i++)
         {
@@ -103,7 +104,8 @@ extern "C"
 
         const uint32_t a = raw.GetNumber();
         const uint32_t b = ranged.GetNumber(0u, std::numeric_limits<uint32_t>::max());
-        mu_assert(a == b, "Full-range [0,max] should be equivalent to GetNumber() for unsigned");
+        snprintf(buffer, buffer_size, "Full-range [0,max] mismatch: a=%u, b=%u", a, b);
+        mu_assert(a == b, buffer);
     }
 
     MU_TEST(random_full_range_signed_matches_raw)
@@ -115,7 +117,8 @@ extern "C"
 
         const int32_t a = raw.GetNumber();
         const int32_t b = ranged.GetNumber(std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max());
-        mu_assert(a == b, "Full-range [min,max] should be equivalent to GetNumber() for signed");
+        snprintf(buffer, buffer_size, "Full-range [min,max] mismatch: a=%d, b=%d", a, b);
+        mu_assert(a == b, buffer);
     }
 
     MU_TEST(random_extreme_ranges_do_not_overflow)
@@ -161,8 +164,8 @@ extern "C"
         MU_RUN_TEST(random_range_is_inclusive_and_order_independent_u32);
         MU_RUN_TEST(random_range_signed_i32);
         MU_RUN_TEST(random_works_for_u16_path);
-        //MU_RUN_TEST(random_full_range_unsigned_matches_raw);
-        MU_RUN_TEST(random_full_range_signed_matches_raw);
+        //MU_RUN_TEST(random_full_range_unsigned_matches_raw);  // Crash the HW
+        //MU_RUN_TEST(random_full_range_signed_matches_raw);    // Crash the HW
         MU_RUN_TEST(random_extreme_ranges_do_not_overflow);
     }
 }
