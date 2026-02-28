@@ -292,8 +292,9 @@ extern "C"
     }
     MU_TEST(frustum_translated_view)
     {
-        const Vector3D translation(int16_t{10}, int16_t{20}, int16_t{30});
-        const Matrix43 view = Matrix43::CreateTranslation(translation);
+        const Vector3D eye(10, 20, 30);
+        const Vector3D target = eye + Vector3D(0, 0, -1);
+        const Matrix43 view = Matrix43::CreateLookAt(eye, target);
 
         Frustum f = make_test_frustum();
         f.Update(view);
@@ -303,14 +304,14 @@ extern "C"
             mu_assert(f.GetPlane(i).IsValid(), "Translated frustum planes should be valid");
 
         // A point inside the translated frustum should be classified as Inside.
-        const Vector3D insidePoint = translation + Vector3D(int16_t{0}, int16_t{0}, -(f.NearDist + f.FarDist) / Fxp(int16_t{2}));
+        const Vector3D insidePoint = eye + Vector3D(0, 0, -(f.NearDist + f.FarDist) / Fxp(int16_t{2}));
         mu_assert(f.Classify(insidePoint) != Frustum::FrustumRelationship::Outside, "Point inside translated frustum should not be Outside");
     }
     MU_TEST(frustum_translated_rotated_view)
     {
-        const Vector3D translation(int16_t{10}, int16_t{20}, int16_t{30});
-        const Matrix33 rotation = Matrix33::CreateRotation(Angle::FromDegrees(Fxp(int16_t{45})), Angle::FromDegrees(Fxp(int16_t{45})), Angle::FromDegrees(Fxp(int16_t{45})));
-        const Matrix43 view(rotation, translation);
+        const Vector3D eye(10, 20, 30);
+        const Vector3D target(5, 15, 25);
+        const Matrix43 view = Matrix43::CreateLookAt(eye, target);
 
         Frustum f = make_test_frustum();
         f.Update(view);
@@ -320,7 +321,8 @@ extern "C"
             mu_assert(f.GetPlane(i).IsValid(), "Translated/rotated frustum planes should be valid");
 
         // A point inside the transformed frustum should be classified as Inside.
-        const Vector3D insidePoint = translation - view.Row2 * ((f.NearDist + f.FarDist) / Fxp(int16_t{2}));
+        const Vector3D forward = (target - eye).Normalized<SRL::Math::Precision::Accurate>();
+        const Vector3D insidePoint = eye + forward * ((f.NearDist + f.FarDist) / Fxp(int16_t{2}));
         mu_assert(f.Classify(insidePoint) != Frustum::FrustumRelationship::Outside, "Point inside translated/rotated frustum should not be Outside");
     }
 
