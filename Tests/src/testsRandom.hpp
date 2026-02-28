@@ -95,9 +95,61 @@ extern "C"
         }
     }
 
-    MU_TEST(random_full_range_unsigned_matches_raw)
+    MU_TEST(random_full_range_uint16_matches_raw)
     {
-        const uint32_t seed = 0xDEADBEEFu;
+        const uint16_t seed = 0xBEEF;
+
+        SRL::Math::Random<uint16_t> raw(seed);
+        SRL::Math::Random<uint16_t> ranged(seed);
+
+        const uint16_t a = raw.GetNumber();
+        const uint16_t b = ranged.GetNumber(0u, std::numeric_limits<uint16_t>::max());
+        snprintf(buffer, buffer_size, "Full-range [0,max] mismatch: a=%u, b=%u", a, b);
+        mu_assert(a == b, buffer);
+    }
+
+    MU_TEST(random_full_range_int16_matches_raw)
+    {
+        const int16_t seed = 0x1234;
+
+        SRL::Math::Random<int16_t> raw(seed);
+        SRL::Math::Random<int16_t> ranged(seed);
+
+        const int16_t a = raw.GetNumber();
+        const int16_t b = ranged.GetNumber(std::numeric_limits<int16_t>::min(), std::numeric_limits<int16_t>::max());
+        snprintf(buffer, buffer_size, "Full-range [min,max] mismatch: a=%d, b=%d", a, b);
+        mu_assert(a == b, buffer);
+    }
+
+    MU_TEST(random_full_range_uint8_matches_raw)
+    {
+        const uint8_t seed = 0xAB;
+
+        SRL::Math::Random<uint8_t> raw(seed);
+        SRL::Math::Random<uint8_t> ranged(seed);
+
+        const uint8_t a = raw.GetNumber();
+        const uint8_t b = ranged.GetNumber(0u, std::numeric_limits<uint8_t>::max());
+        snprintf(buffer, buffer_size, "Full-range [0,max] mismatch: a=%u, b=%u", a, b);
+        mu_assert(a == b, buffer);
+    }
+
+    MU_TEST(random_full_range_int8_matches_raw)
+    {
+        const int8_t seed = 0x12;
+
+        SRL::Math::Random<int8_t> raw(seed);
+        SRL::Math::Random<int8_t> ranged(seed);
+
+        const int8_t a = raw.GetNumber();
+        const int8_t b = ranged.GetNumber(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
+        snprintf(buffer, buffer_size, "Full-range [min,max] mismatch: a=%d, b=%d", a, b);
+        mu_assert(a == b, buffer);
+    }
+
+    MU_TEST(random_full_range_uint32_matches_raw)
+    {
+        const uint32_t seed = 0xCAFEBABEu;
 
         SRL::Math::Random<uint32_t> raw(seed);
         SRL::Math::Random<uint32_t> ranged(seed);
@@ -105,6 +157,19 @@ extern "C"
         const uint32_t a = raw.GetNumber();
         const uint32_t b = ranged.GetNumber(0u, std::numeric_limits<uint32_t>::max());
         snprintf(buffer, buffer_size, "Full-range [0,max] mismatch: a=%u, b=%u", a, b);
+        mu_assert(a == b, buffer);
+    }
+
+    MU_TEST(random_full_range_int32_matches_raw)
+    {
+        const int32_t seed = 0x87654321;
+
+        SRL::Math::Random<int32_t> raw(seed);
+        SRL::Math::Random<int32_t> ranged(seed);
+
+        const int32_t a = raw.GetNumber();
+        const int32_t b = ranged.GetNumber(std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max());
+        snprintf(buffer, buffer_size, "Full-range [min,max] mismatch: a=%d, b=%d", a, b);
         mu_assert(a == b, buffer);
     }
 
@@ -164,8 +229,12 @@ extern "C"
         MU_RUN_TEST(random_range_is_inclusive_and_order_independent_u32);
         MU_RUN_TEST(random_range_signed_i32);
         MU_RUN_TEST(random_works_for_u16_path);
-        //MU_RUN_TEST(random_full_range_unsigned_matches_raw);  // Crash the HW
-        //MU_RUN_TEST(random_full_range_signed_matches_raw);    // Crash the HW
+        //MU_RUN_TEST(random_full_range_uint32_matches_raw);    // Crash the HW
+        //MU_RUN_TEST(random_full_range_int32_matches_raw);     // Crash the HW
+        //MU_RUN_TEST(random_full_range_uint16_matches_raw);   // Crash the HW
+        //MU_RUN_TEST(random_full_range_int16_matches_raw);    // Crash the HW
+        //MU_RUN_TEST(random_full_range_uint8_matches_raw);    // Crash the HW
+        //MU_RUN_TEST(random_full_range_int8_matches_raw);     // Crash the HW
         MU_RUN_TEST(random_extreme_ranges_do_not_overflow);
     }
 }
