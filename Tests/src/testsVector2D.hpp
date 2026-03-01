@@ -47,6 +47,10 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests construction of Vector2D objects.
+     * @details Verifies default, uniform, component, and copy constructors.
+     */
     MU_TEST(vector2d_construction)
     {
         const Vector2D a;
@@ -62,6 +66,10 @@ extern "C"
         mu_assert(d == c, "Copy ctor should copy");
     }
 
+    /**
+     * @brief Tests abs and sort operations for Vector2D.
+     * @details Checks component-wise abs and ascending/descending sort.
+     */
     MU_TEST(vector2d_abs_and_sort)
     {
         const Vector2D v(-3, 2);
@@ -72,6 +80,10 @@ extern "C"
         mu_assert(s.Sort<SRL::Math::SortOrder::Descending>() == Vector2D(3, 1), "Sort descending failed");
     }
 
+    /**
+     * @brief Tests dot, cross, and multidot operations for Vector2D.
+     * @details Verifies dot product, cross product, and multidot accumulation.
+     */
     MU_TEST(vector2d_dot_cross_multidot)
     {
         const Vector2D a(3, 4);
@@ -87,6 +99,10 @@ extern "C"
         mu_assert(sum == Fxp(11), "MultiDotAccumulate incorrect");
     }
 
+    /**
+     * @brief Tests length and length squared calculations for Vector2D.
+     * @details Checks behavior for overflow guard and threshold values.
+     */
     MU_TEST(vector2d_length_lengthsquared_overflow_guard)
     {
         const Vector2D v(3, 4);
@@ -101,6 +117,10 @@ extern "C"
         mu_assert(minv.LengthSquared() == Fxp::MaxValue(), "LengthSquared should return MaxValue for MinValue component");
     }
 
+    /**
+     * @brief Tests normalization for Vector2D.
+     * @details Verifies normalization of zero and nonzero vectors, and unit length.
+     */
     MU_TEST(vector2d_normalize_zero_and_nonzero)
     {
         const Vector2D z = Vector2D::Zero();
@@ -114,6 +134,10 @@ extern "C"
         mu_assert(fxp_near_vec2(lenSq, Fxp(1), Fxp(0.01)), "Normalize should produce approximately unit-length vector");
     }
 
+    /**
+     * @brief Tests distance and distance squared calculations for Vector2D.
+     * @details Verifies exact and approximate results for distance calculations.
+     */
     MU_TEST(vector2d_distance_and_distancesquared)
     {
         const Vector2D a(1, 2);
@@ -125,6 +149,10 @@ extern "C"
         mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo(Accurate) should be ~5 for (1,2)-(4,6)");
     }
 
+    /**
+     * @brief Tests projection and reflection for Vector2D.
+     * @details Verifies projection onto axes and reflection across normals and zero.
+     */
     MU_TEST(vector2d_project_and_reflect_corner_cases)
     {
         const Vector2D v(3, 4);
@@ -140,6 +168,10 @@ extern "C"
         mu_assert(unchanged == v, "Reflect with zero normal should return input");
     }
 
+    /**
+     * @brief Tests lerp, smoothstep, and clamp operations for Vector2D.
+     * @details Verifies interpolation and clamping for edge and out-of-range cases.
+     */
     MU_TEST(vector2d_lerp_smoothstep_clamp)
     {
         const Vector2D a(1, 2);
@@ -157,6 +189,10 @@ extern "C"
         mu_assert(Vector2D::Smoothstep(a, b, Fxp(2)) == b, "Smoothstep should clamp t>1 to end");
     }
 
+    /**
+     * @brief Tests shift operations for Vector2D with negative values.
+     * @details Verifies left and right shift scaling for negative components.
+     */
     MU_TEST(vector2d_shift_ops_with_negative)
     {
         const Vector2D v(-1, 2);

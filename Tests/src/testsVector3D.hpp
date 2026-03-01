@@ -1,10 +1,9 @@
+
 #pragma once
 
 #include <srl.hpp>
 #include <srl_log.hpp>
-
 #include <utility>
-
 // https://github.com/siu/minunit
 #include "minunit.h"
 
@@ -17,21 +16,25 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
+    /**
+     * @brief Sets up the environment for Vector3D unit tests.
+     */
     void vector3d_test_setup(void)
     {
         // No initialization needed
     }
 
+    /**
+     * @brief Cleans up the environment after each Vector3D unit test.
+     */
     void vector3d_test_teardown(void)
     {
         // No cleanup required
     }
 
-    static inline bool fxp_near_vec3(const Fxp& a, const Fxp& b, const Fxp& tol)
-    {
-        return (a - b).Abs() <= tol;
-    }
-
+    /**
+     * @brief Displays a header for the Vector3D test suite upon the first error.
+     */
     void vector3d_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -47,6 +50,18 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Helper to compare two Fxp values for near-equality.
+     */
+    static inline bool fxp_near_vec3(const Fxp& a, const Fxp& b, const Fxp& tol)
+    {
+        return (a - b).Abs() <= tol;
+    }
+
+    /**
+     * @brief Tests construction of Vector3D objects.
+     * @details Verifies default, uniform, component, and Vector2D+z constructors.
+     */
     MU_TEST(vector3d_construction)
     {
         const Vector3D a;
@@ -63,6 +78,10 @@ extern "C"
         mu_assert(from2 == Vector3D(1, 2, 3), "Vector3D(Vector2D,z) ctor should set X,Y from v2 and Z");
     }
 
+    /**
+     * @brief Tests abs, sort, and comparison operations for Vector3D.
+     * @details Checks component-wise abs, ascending/descending sort, and lexicographic comparison.
+     */
     MU_TEST(vector3d_abs_sort_and_comparisons)
     {
         const Vector3D v(-3, 2, -1);
@@ -77,6 +96,10 @@ extern "C"
         mu_assert(a < b, "Lexicographic compare should consider Z when X,Y equal");
     }
 
+    /**
+     * @brief Tests dot, cross, and multidot operations for Vector3D.
+     * @details Verifies dot product, right-hand rule for cross product, and multidot accumulation.
+     */
     MU_TEST(vector3d_dot_cross_multidot)
     {
         const Vector3D a(1, 2, 3);
@@ -94,6 +117,10 @@ extern "C"
         mu_assert(sum == Fxp(32), "MultiDotAccumulate incorrect");
     }
 
+    /**
+     * @brief Tests length and length squared calculations for Vector3D.
+     * @details Checks behavior below, at, above, and beyond threshold values.
+     */
     MU_TEST(vector3d_length_and_lengthsquared_thresholds)
     {
         const Vector3D v(2, 3, 6);
@@ -113,6 +140,10 @@ extern "C"
         mu_assert(tooBig.LengthSquared() == Fxp::MaxValue(), "LengthSquared at/above 200 should return MaxValue");
     }
 
+    /**
+     * @brief Tests normalization and triangle normal calculation for Vector3D.
+     * @details Verifies normalization of zero and nonzero vectors, and normal calculation for triangle.
+     */
     MU_TEST(vector3d_normalize_zero_and_triangle_normal)
     {
         const Vector3D z = Vector3D::Zero();
@@ -126,6 +157,10 @@ extern "C"
         mu_assert(n == Vector3D(0, 0, 1), "CalcNormal for XY triangle should be +Z");
     }
 
+    /**
+     * @brief Tests projection, reflection, and distance calculations for Vector3D.
+     * @details Verifies projection onto axes, reflection across normals, and distance calculations.
+     */
     MU_TEST(vector3d_project_reflect_and_distance)
     {
         const Vector3D v(2, 3, 0);
@@ -144,6 +179,10 @@ extern "C"
         mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "DistanceTo(Accurate) should be ~7.071 for (1,2,3)-(4,6,8)");
     }
 
+    /**
+     * @brief Tests lerp, smoothstep, and clamp operations for Vector3D.
+     * @details Verifies interpolation and clamping behavior for edge and out-of-range cases.
+     */
     MU_TEST(vector3d_lerp_smoothstep_clamp)
     {
         const Vector3D a(1, 2, 3);
@@ -160,6 +199,10 @@ extern "C"
         mu_assert(Vector3D::Smoothstep(a, b, Fxp(2)) == b, "Smoothstep should clamp t>1 to end");
     }
 
+    /**
+     * @brief Tests shift operations for Vector3D with negative values.
+     * @details Verifies left and right shift scaling for negative components.
+     */
     MU_TEST(vector3d_shift_ops_with_negative)
     {
         const Vector3D v(-1, 2, -3);
@@ -167,6 +210,9 @@ extern "C"
         mu_assert((v >> 1) == Vector3D(Fxp(-0.5), 1, Fxp(-1.5)), "Right shift should scale components by 0.5");
     }
 
+    /**
+     * @brief Defines the Vector3D test suite and its configuration.
+     */
     MU_TEST_SUITE(vector3d_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&vector3d_test_setup,
