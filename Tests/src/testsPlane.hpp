@@ -1,8 +1,8 @@
+
 #pragma once
 
 #include <srl.hpp>
 #include <srl_log.hpp>
-
 // https://github.com/siu/minunit
 #include "minunit.h"
 
@@ -19,6 +19,7 @@ extern "C"
      * @brief Sets up the environment for Plane unit tests.
      */
     void plane_test_setup(void) {}
+
     /**
      * @brief Cleans up the environment after each Plane unit test.
      */
@@ -74,6 +75,7 @@ extern "C"
 
     /**
      * @brief Tests projecting and reflecting points and vectors across a plane.
+     * @details Verifies projection and reflection operations for points and vectors.
      */
     MU_TEST(plane_project_and_reflect)
     {
@@ -108,6 +110,7 @@ extern "C"
 
     /**
      * @brief Tests that creating a plane from three collinear (degenerate) points returns a default plane.
+     * @details Verifies that degenerate input falls back to a default plane.
      */
     MU_TEST(plane_from_points_degenerate_returns_default)
     {
