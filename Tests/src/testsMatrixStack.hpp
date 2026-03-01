@@ -12,16 +12,25 @@ using namespace SRL::Logger;
 
 extern "C"
 {
+    /**
+     * @brief Sets up the environment for Matrix Stack unit tests.
+     */
     void matrix_stack_test_setup(void)
     {
         // No initialization needed
     }
 
+    /**
+     * @brief Cleans up the environment after each Matrix Stack unit test.
+     */
     void matrix_stack_test_teardown(void)
     {
         // No cleanup required
     }
 
+    /**
+     * @brief Displays a header for the Matrix Stack test suite upon the first error.
+     */
     void matrix_stack_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -45,6 +54,11 @@ extern "C"
                m.Row3 == Vector3D(0, 0, 0);
     }
 
+    /**
+     * @brief Tests the initial state of a newly constructed matrix stack.
+     * @details Verifies that a new stack is empty (contains only the base identity matrix),
+     *          has a depth of 0, and its top matrix is the identity matrix.
+     */
     MU_TEST(matrix_stack_construction_and_identity)
     {
         const MatrixStack s;
@@ -53,6 +67,12 @@ extern "C"
         mu_assert(matrix43_is_identity(s.Top()), "Top of new stack should be identity");
     }
 
+    /**
+     * @brief Tests the core stack operations: Push, Pop, and Clear.
+     * @details Verifies that `Push` increases stack depth and updates the top matrix,
+     *          `Pop` decreases depth and restores the previous matrix, and `Clear` resets
+     *          the stack to its initial identity state.
+     */
     MU_TEST(matrix_stack_push_pop_clear)
     {
         MatrixStack s;
@@ -73,6 +93,11 @@ extern "C"
         mu_assert(matrix43_is_identity(s.Top()), "After clear, top should be identity");
     }
 
+    /**
+     * @brief Tests that the matrix stack does not overflow its predefined maximum depth.
+     * @details Verifies that pushing more matrices than the stack's capacity does not
+     *          increase the depth beyond `MAX_DEPTH - 1`.
+     */
     MU_TEST(matrix_stack_overflow_is_ignored)
     {
         MatrixStack s;
@@ -86,6 +111,11 @@ extern "C"
         mu_assert(s.GetDepth() == (MatrixStack::MAX_DEPTH - 1), "Depth should not exceed MAX_DEPTH-1");
     }
 
+    /**
+     * @brief Tests applying transformations to the top of the stack and transforming points/vectors.
+     * @details Verifies that `TranslateTop`, `ScaleTop`, and `RotateTop` modify the top matrix correctly,
+     *          and that `TransformPoint` and `TransformVector` apply the cumulative transformation as expected.
+     */
     MU_TEST(matrix_stack_translate_scale_and_transform)
     {
         MatrixStack s;
@@ -111,6 +141,11 @@ extern "C"
         mu_assert(matrix43_is_identity(s.Top()), "RotateTop with zero angles should keep identity");
     }
 
+    /**
+     * @brief Tests stack underflow behavior and the restoration of the parent matrix after a pop.
+     * @details Verifies that calling `Pop` on an empty stack does not cause an underflow and
+     *          that after a push/pop sequence, the original parent matrix is correctly restored.
+     */
     MU_TEST(matrix_stack_pop_underflow_and_parent_restore)
     {
         MatrixStack s;
@@ -128,6 +163,9 @@ extern "C"
         mu_assert(s.Top().Row3 == Vector3D(0, 0, 0), "After pop, should restore parent matrix");
     }
 
+    /**
+     * @brief Defines the test suite for all Matrix Stack functionality.
+     */
     MU_TEST_SUITE(matrix_stack_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&matrix_stack_test_setup,

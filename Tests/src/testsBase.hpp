@@ -66,10 +66,10 @@ extern "C"
     }
 
     /**
-     * @brief Test the SglType struct
-     *
-     * Verifies that the SglType struct correctly casts between
-     * the C++ class and the SGL type.
+     * @brief Tests the `SrlType` class template for wrapping C++ objects for SGL compatibility.
+     * @details This test verifies that the `SglType` wrapper can correctly provide a C-style
+     *          pointer to its underlying C++ object, allowing for interoperability between
+     *          C++ code and C-style SGL functions.
      */
     MU_TEST(sgl_test_sgltype)
     {

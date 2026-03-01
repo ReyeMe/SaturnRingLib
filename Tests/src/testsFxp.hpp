@@ -16,19 +16,25 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    // Setup function called before each test to prepare the test environment
+    /**
+     * @brief Sets up the environment for fixed-point (Fxp) unit tests.
+     */
     void fxp_test_setup(void)
     {
         // No initialization needed
     }
 
-    // Teardown function called after each test to clean up the test environment
+    /**
+     * @brief Cleans up the environment after each fixed-point (Fxp) unit test.
+     */
     void fxp_test_teardown(void)
     {
         // No cleanup required
     }
 
-    // Outputs an error header when the first test failure occurs
+    /**
+     * @brief Displays a header for the fixed-point (Fxp) test suite upon the first error.
+     */
     void fxp_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -44,7 +50,7 @@ extern "C"
         }
     }
 
-    // Test: Verify fixed-point initialization with zero
+    /** @brief Tests initialization of a fixed-point number with zero. */
     MU_TEST(fxp_initialization_zero)
     {
         Fxp a1 = 0;
@@ -52,7 +58,7 @@ extern "C"
         mu_assert(a1 == 0, buffer);
     }
 
-    // Test: Verify fixed-point initialization with one
+    /** @brief Tests initialization of a fixed-point number with one. */
     MU_TEST(fxp_initialization_one)
     {
         Fxp a1 = 1;
@@ -60,7 +66,7 @@ extern "C"
         mu_assert(a1 == 1, buffer);
     }
 
-    // Test: Verify the assignment operator for fixed-point numbers
+    /** @brief Tests the assignment operator for fixed-point numbers. */
     MU_TEST(fxp_assignment_operator)
     {
         Fxp a1 = 1;
@@ -69,7 +75,7 @@ extern "C"
         mu_assert(b1 == 1, buffer);
     }
 
-    // Test: Verify the copy constructor for fixed-point numbers
+    /** @brief Tests the copy constructor for fixed-point numbers. */
     MU_TEST(fxp_copy_constructor)
     {
         Fxp a1 = 1;
@@ -78,7 +84,7 @@ extern "C"
         mu_assert(b1 == 1, buffer);
     }
 
-    // Test: Verify equality comparison for fixed-point numbers
+    /** @brief Tests the equality comparison operator (==) for fixed-point numbers. */
     MU_TEST(fxp_equality_check)
     {
         Fxp a1 = 1;
@@ -87,7 +93,7 @@ extern "C"
         mu_assert(a1 == b1, buffer);
     }
 
-    // Test: Verify initialization with double and float values
+    /** @brief Tests initialization from floating-point literals (double and float). */
     MU_TEST(fxp_initialization_with_doubles)
     {
         Fxp a1(10.0);
@@ -96,7 +102,7 @@ extern "C"
         mu_assert(a1 == b1, buffer);
     }
 
-    // Test: Verify inequality comparison for fixed-point numbers
+    /** @brief Tests the inequality comparison operator (!=) for fixed-point numbers. */
     MU_TEST(fxp_inequality_check)
     {
         Fxp a1(10.0);
@@ -105,7 +111,7 @@ extern "C"
         mu_assert(a1 != b1, buffer);
     }
 
-    // Test: Verify addition of fixed-point numbers
+    /** @brief Tests the addition of two fixed-point numbers. */
     MU_TEST(fxp_arithmetic_addition)
     {
         Fxp a1(10.5);
@@ -115,7 +121,7 @@ extern "C"
         mu_assert(result == Fxp(15.75), buffer);
     }
 
-    // Test: Verify subtraction of fixed-point numbers
+    /** @brief Tests the subtraction of two fixed-point numbers. */
     MU_TEST(fxp_arithmetic_subtraction)
     {
         Fxp a1(10.5);
@@ -125,7 +131,7 @@ extern "C"
         mu_assert(result == Fxp(5.25), buffer);
     }
 
-    // Test: Verify multiplication of fixed-point numbers
+    /** @brief Tests the multiplication of two fixed-point numbers. */
     MU_TEST(fxp_arithmetic_multiplication)
     {
         Fxp a1(3.0);
@@ -135,7 +141,7 @@ extern "C"
         mu_assert(result == Fxp(12.0), buffer);
     }
 
-    // Test: Verify division of fixed-point numbers
+    /** @brief Tests the division of two fixed-point numbers. */
     MU_TEST(fxp_arithmetic_division)
     {
         Fxp a1(10.0);
@@ -145,7 +151,7 @@ extern "C"
         mu_assert(result == Fxp(5.0), buffer);
     }
 
-    // Test: Conversion of fixed-point number to float
+    /** @brief Tests the conversion of a fixed-point number to a float. */
     MU_TEST(fxp_conversion_to_float)
     {
         Fxp a1 = 10;
@@ -154,7 +160,7 @@ extern "C"
         mu_assert(result == 10.0f, buffer);
     }
 
-    // Test: Verify maximum value of fixed-point number
+    /** @brief Verifies the maximum value constant of the Fxp class. */
     MU_TEST(fxp_max_value_check)
     {
         Fxp max = Fxp::MaxValue();
@@ -162,7 +168,7 @@ extern "C"
         mu_assert(max == Fxp::MaxValue(), buffer);
     }
 
-    // Test: Verify minimum value of fixed-point number
+    /** @brief Verifies the minimum value constant of the Fxp class. */
     MU_TEST(fxp_min_value_check)
     {
         Fxp min = Fxp::MinValue();
@@ -170,7 +176,7 @@ extern "C"
         mu_assert(min == Fxp::MinValue(), buffer);
     }
 
-    // Test: Verify BuildRaw()/RawValue() round-trip
+    /** @brief Tests the round-trip conversion between a raw integer and a fixed-point number. */
     MU_TEST(fxp_rawvalue_buildraw_roundtrip)
     {
         constexpr int32_t raw = 0x00018000; // 1.5 in 16.16
@@ -184,7 +190,7 @@ extern "C"
         mu_assert(a2.RawValue() == rawNeg, buffer);
     }
 
-    // Test: Verify TruncateFraction() removes fractional part (toward zero)
+    /** @brief Tests the `TruncateFraction` method, which should remove the fractional part of a number. */
     MU_TEST(fxp_truncate_fraction)
     {
         const Fxp p = Fxp(1.75);
@@ -196,7 +202,7 @@ extern "C"
         mu_assert(n.TruncateFraction() == -1, buffer);
     }
 
-    // Test: Verify GetFraction() extracts signed fractional component
+    /** @brief Tests the `GetFraction` method, which should extract the signed fractional component. */
     MU_TEST(fxp_get_fraction)
     {
         const Fxp p = Fxp(1.75);
@@ -218,7 +224,7 @@ extern "C"
         mu_assert(actual == expected, buffer);
     }
 
-    // Test: Verify Floor() semantics
+    /** @brief Tests the `Floor` method for various positive, negative, and edge-case values. */
     MU_TEST(fxp_floor)
     {
         // Fxp-specific edge cases
@@ -257,7 +263,7 @@ extern "C"
         mu_assert(actual == expected, buffer);
     }
 
-    // Test: Verify Ceil() semantics
+    /** @brief Tests the `Ceil` method for various positive, negative, and edge-case values. */
     MU_TEST(fxp_ceil)
     {
         // Fxp-specific edge cases
@@ -298,7 +304,7 @@ extern "C"
         mu_assert(actual == expected, buffer);
     }
 
-    // Test: Verify Round() semantics (halfway cases away from zero)
+    /** @brief Tests the `Round` method, which rounds to the nearest integer (halfway cases away from zero). */
     MU_TEST(fxp_round)
     {
         // Fxp-specific edge cases
@@ -343,35 +349,35 @@ extern "C"
         mu_assert(actual == expected, buffer);
     }
 
-    // Test: Modulo operation for positive numbers
+    /** @brief Tests the modulo operator (%) for positive numbers. */
     MU_TEST(fxp_ModuloTest_PositiveNumbers)
     {
         fxp_modulo_check(10, 3, 1);
         fxp_modulo_check(20, 5, 0);
     }
 
-    // Test: Modulo operation with negative dividend
+    /** @brief Tests the modulo operator (%) with a negative dividend. */
     MU_TEST(fxp_ModuloTest_NegativeDividend)
     {
         fxp_modulo_check(-10, 3, -1);
         fxp_modulo_check(-20, 5, 0);
     }
 
-    // Test: Modulo operation with negative divisor
+    /** @brief Tests the modulo operator (%) with a negative divisor. */
     MU_TEST(fxp_ModuloTest_NegativeDivisor)
     {
         fxp_modulo_check(10, -3, 1);
         fxp_modulo_check(20, -5, 0);
     }
 
-    // Test: Modulo operation with both dividend and divisor negative
+    /** @brief Tests the modulo operator (%) with both a negative dividend and divisor. */
     MU_TEST(fxp_ModuloTest_NegativeDividendAndDivisor)
     {
         fxp_modulo_check(-10, -3, -1);
         fxp_modulo_check(-20, -5, 0);
     }
 
-    // Test: Modulo operation with large numbers
+    /** @brief Tests the modulo operator (%) with large number values. */
     MU_TEST(fxp_ModuloTest_LargeNumbers)
     {
         fxp_modulo_check(SHRT_MAX, 3, 1);
@@ -379,14 +385,14 @@ extern "C"
         // fxp_modulo_check(-SHRT_MAX, 3, -1);
     }
 
-    // Test: Edge cases (smallest/largest integers)
+    /** @brief Tests the modulo operator (%) with edge-case integer values (SHRT_MAX, -SHRT_MAX). */
     MU_TEST(fxp_ModuloTest_EdgeCases)
     {
         fxp_modulo_check(SHRT_MAX, 2, 1);
         fxp_modulo_check(-SHRT_MAX, 2, -1);
     }
 
-    // Test: Positive numbers
+    /** @brief Tests the greater than operator (>) with positive integers. */
     MU_TEST(fxp_GreaterThanTest_PositiveNumbers)
     {
         Fxp a1 = 5;
@@ -405,7 +411,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Negative numbers
+    /** @brief Tests the greater than operator (>) with negative integers. */
     MU_TEST(fxp_GreaterThanTest_NegativeNumbers)
     {
         Fxp a1 = -3;
@@ -424,7 +430,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Mixed positive and negative numbers
+    /** @brief Tests the greater than operator (>) with mixed positive and negative integers. */
     MU_TEST(fxp_GreaterThanTest_MixedNumbers)
     {
         Fxp a1 = 3;
@@ -438,7 +444,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Comparison with zero
+    /** @brief Tests the greater than operator (>) with integers and zero. */
     MU_TEST(fxp_GreaterThanTest_ComparisonWithZero)
     {
         Fxp a1 = 3;
@@ -457,7 +463,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Basic comparisons
+    /** @brief Tests the greater than operator (>) with basic floating point values. */
     MU_TEST(fxp_GreaterThanFloatTest_BasicComparisons)
     {
         Fxp a1(5.5);
@@ -476,7 +482,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Negative numbers
+    /** @brief Tests the greater than operator (>) with negative floating point values. */
     MU_TEST(fxp_GreaterThanFloatTest_NegativeNumbers)
     {
         Fxp a1(-5.5);
@@ -495,7 +501,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Mixed positive and negative numbers
+    /** @brief Tests the greater than operator (>) with mixed positive and negative floating point values. */
     MU_TEST(fxp_GreaterThanFloatTest_MixedNumbers)
     {
         Fxp a1(5.5);
@@ -509,7 +515,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Comparison with zero
+    /** @brief Tests the greater than operator (>) with floating point values and zero. */
     MU_TEST(fxp_GreaterThanFloatTest_ComparisonWithZero)
     {
         Fxp a1(3.3);
@@ -528,7 +534,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Very small differences
+    /** @brief Tests the greater than operator (>) with very small floating point differences. */
     MU_TEST(fxp_GreaterThanFloatTest_VerySmallDifferences)
     {
         constexpr float a = 1.1f;
@@ -568,7 +574,7 @@ extern "C"
         mu_assert(!(b1 > a1), buffer);
     }
 
-    // Test: Integer and negative float comparisons
+    /** @brief Tests the greater than operator (>) between integers and negative floating point values. */
     MU_TEST(fxp_GreaterThanMixedTest_IntAndNegativeFloat)
     {
         Fxp a1 = -3;
@@ -587,7 +593,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Mixed positive and negative values
+    /** @brief Tests the greater than operator (>) with mixed positive integers and negative floats. */
     MU_TEST(fxp_GreaterThanMixedTest_MixedPositiveAndNegativeValues)
     {
         Fxp a1 = 5;
@@ -601,7 +607,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Integer comparison with zero float
+    /** @brief Tests the greater than operator (>) between integers and zero as a float. */
     MU_TEST(fxp_GreaterThanMixedTest_IntWithZeroFloat)
     {
         Fxp a1 = 3;
@@ -620,7 +626,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Precision edge cases
+    /** @brief Tests the greater than operator (>) with values that are very close, testing precision limits. */
     MU_TEST(fxp_GreaterThanMixedTest_PrecisionEdgeCases)
     {
         Fxp a1 = 1;
@@ -634,7 +640,7 @@ extern "C"
         mu_assert(!(a1 > b1), buffer);
     }
 
-    // Test: Less than comparison between fixed-point numbers
+    /** @brief Tests the less than (<) comparison operator. */
     MU_TEST(fxp_comparison_lessthan)
     {
         Fxp a1 = 5;
@@ -653,7 +659,7 @@ extern "C"
         mu_assert(!(a1 < b1), buffer);
     }
 
-    // Test: Greater than or equal comparison between fixed-point numbers
+    /** @brief Tests the greater than or equal (>=) comparison operator. */
     MU_TEST(fxp_comparison_greaterthan_or_equal)
     {
         Fxp a1 = 10;
@@ -672,7 +678,7 @@ extern "C"
         mu_assert(a1 >= b1, buffer);
     }
 
-    // Test: Less than or equal comparison between fixed-point numbers
+    /** @brief Tests the less than or equal (<=) comparison operator. */
     MU_TEST(fxp_comparison_lessthan_or_equal)
     {
         Fxp a1 = 5;
@@ -691,7 +697,7 @@ extern "C"
         mu_assert(a1 <= b1, buffer);
     }
 
-    // Test: Greater than comparison between fixed-point and integer
+    /** @brief Tests the greater than (>) comparison between a fixed-point number and an integer. */
     MU_TEST(fxp_comparison_greater_than_int)
     {
         Fxp a1 = 10;
@@ -710,7 +716,7 @@ extern "C"
         mu_assert(!(a1 > b3), buffer);
     }
 
-    // Test: Less than comparison between fixed-point and integer
+    /** @brief Tests the less than (<) comparison between a fixed-point number and an integer. */
     MU_TEST(fxp_comparison_less_than_int)
     {
         Fxp a1 = 5;
@@ -729,7 +735,7 @@ extern "C"
         mu_assert(!(a1 < b3), buffer);
     }
 
-    // Test: Greater than or equal comparison between fixed-point and integer
+    /** @brief Tests the greater than or equal (>=) comparison between a fixed-point number and an integer. */
     MU_TEST(fxp_comparison_greater_than_or_equal_int)
     {
         Fxp a1 = 10;
@@ -748,7 +754,7 @@ extern "C"
         mu_assert(a1 >= b3, buffer);
     }
 
-    // Test: Less than or equal comparison between fixed-point and integer
+    /** @brief Tests the less than or equal (<=) comparison between a fixed-point number and an integer. */
     MU_TEST(fxp_comparison_less_than_or_equal_int)
     {
         Fxp a1 = 5;
@@ -767,7 +773,7 @@ extern "C"
         mu_assert(a1 <= b3, buffer);
     }
 
-    // Test: Greater than comparison between fixed-point and float
+    /** @brief Tests the greater than (>) comparison between a fixed-point number and a float. */
     MU_TEST(fxp_comparison_greater_than_float)
     {
         Fxp a1 = 10;
@@ -786,7 +792,7 @@ extern "C"
         mu_assert(!(a1 > b3), buffer);
     }
 
-    // Test: Less than comparison between fixed-point and float
+    /** @brief Tests the less than (<) comparison between a fixed-point number and a float. */
     MU_TEST(fxp_comparison_less_than_float)
     {
         Fxp a1 = 5;
@@ -805,7 +811,7 @@ extern "C"
         mu_assert(!(a1 < b3), buffer);
     }
 
-    // Test: Greater than or equal comparison between fixed-point and float
+    /** @brief Tests the greater than or equal (>=) comparison between a fixed-point number and a float. */
     MU_TEST(fxp_comparison_greater_than_or_equal_float)
     {
         Fxp a1 = 10;
@@ -824,7 +830,7 @@ extern "C"
         mu_assert(a1 >= b3, buffer);
     }
 
-    // Test: Less than or equal comparison between fixed-point and float
+    /** @brief Tests the less than or equal (<=) comparison between a fixed-point number and a float. */
     MU_TEST(fxp_comparison_less_than_or_equal_float)
     {
         Fxp a1 = 5;
@@ -843,213 +849,7 @@ extern "C"
         mu_assert(a1 <= b3, buffer);
     }
 
-    // Test: Edge case for addition (overflow)
-    // MU_TEST(fxp_arithmetic_addition_overflow)
-    // {
-    //     Fxp a1 = LLONG_MAX;
-    //     Fxp a2 = 1;
-    //     Fxp result = a1 + a2;
-    //     snprintf(buffer, buffer_size, "Addition overflow test failed: %d + %d != %d", a1.As<int32_t>(), a2.As<int32_t>(), result.As<int32_t>());
-    //     mu_assert(result == LLONG_MAX, buffer);
-    // }
-
-    // Test: Edge case for subtraction (underflow)
-    // MU_TEST(fxp_arithmetic_subtraction_underflow)
-    // {
-    //     Fxp a1 = LLONG_MIN;
-    //     Fxp a2 = 1;
-    //     Fxp result = a1 - a2;
-    //     snprintf(buffer, buffer_size, "Subtraction underflow test failed: %d - %d != %d", a1.As<int32_t>(), a2.As<int32_t>(), result.As<int32_t>());
-    //     mu_assert(result == LLONG_MIN, buffer);
-    // }
-
-    // Test: Edge case for multiplication (overflow)
-    // MU_TEST(fxp_arithmetic_multiplication_overflow)
-    // {
-    //     Fxp a1 = LLONG_MAX / 2;
-    //     Fxp a2 = 3;
-    //     Fxp result = a1 * a2;
-    //     snprintf(buffer, buffer_size, "Multiplication overflow test failed: %d * %d != %d", a1.As<int32_t>(), a2.As<int32_t>(), result.As<int32_t>());
-    //     mu_assert(result == LLONG_MAX, buffer);
-    // }
-
-    // Test: Edge case for division (division by zero)
-    /*
-MU_TEST(fxp_arithmetic_division_by_zero)
-{
-    Fxp a1 = 10;
-    Fxp a2 = 0;
-    try
-    {
-        Fxp result = a1 / a2;
-        mu_fail("Division by zero did not throw an exception");
-    }
-    catch (const std::exception &e)
-    {
-        snprintf(buffer, buffer_size, "Division by zero test passed: %s", e.what());
-        mu_assert(true, buffer);
-    }
-}
-    */
-
-    // Test: Edge case for division (minimum value divided by -1)
-    // MU_TEST(fxp_arithmetic_division_min_by_negative_one)
-    // {
-    //     Fxp a1 = LLONG_MAX;
-    //     Fxp a2 = -1;
-    //     Fxp result = a1 / a2;
-    //     snprintf(buffer, buffer_size, "Division min by -1 test failed: %d / %d != %d", a1.As<int32_t>(), a2.As<int32_t>(), result.As<int32_t>());
-    //     mu_assert(result == LLONG_MAX, buffer);
-    // }
-
-    // Test: Edge case for addition with int (overflow)
-    // MU_TEST(fxp_arithmetic_addition_int_overflow)
-    // {
-    //     Fxp a1 = LLONG_MAX;
-    //     constexpr int a2 = 1;
-    //     Fxp result = a1 + a2;
-    //     snprintf(buffer, buffer_size, "Addition overflow test failed: %d + %d != %d", a1.As<int32_t>(), a2, result.As<int32_t>());
-    //     mu_assert(result == LLONG_MAX, buffer);
-    // }
-
-    // Test: Edge case for subtraction with int (underflow)
-    // MU_TEST(fxp_arithmetic_subtraction_int_underflow)
-    // {
-    //     Fxp a1 = LLONG_MIN;
-    //     constexpr int a2 = 1;
-    //     Fxp result = a1 - a2;
-    //     snprintf(buffer, buffer_size, "Subtraction underflow test failed: %d - %d != %d", a1.As<int32_t>(), a2, result.As<int32_t>());
-    //     mu_assert(result == LLONG_MIN, buffer);
-    // }
-
-    // Test: Edge case for multiplication with int (overflow)
-    // MU_TEST(fxp_arithmetic_multiplication_int_overflow)
-    // {
-    //     Fxp a1 = LLONG_MAX / 2;
-    //     constexpr int a2 = 3;
-    //     Fxp result = a1 * a2;
-    //     snprintf(buffer, buffer_size, "Multiplication overflow test failed: %d * %d != %d", a1.As<int32_t>(), a2, result.As<int32_t>());
-    //     mu_assert(result == LLONG_MAX, buffer);
-    // }
-
-    // Test: Edge case for division with int (division by zero)
-    /*
-MU_TEST(fxp_arithmetic_division_int_by_zero)
-{
-    Fxp a1 = 10;
-    int a2 = 0;
-    try
-    {
-        Fxp result = a1 / a2;
-        mu_fail("Division by zero did not throw an exception");
-    }
-    catch (const std::exception &e)
-    {
-        snprintf(buffer, buffer_size, "Division by zero test passed: %s", e.what());
-        mu_assert(true, buffer);
-    }
-}
-    */
-
-    // Test: Edge case for addition with float (overflow)
-    // MU_TEST(fxp_arithmetic_addition_float_overflow)
-    // {
-    //     Fxp a1 = FLT_MAX;
-    //     constexpr float a2 = 1.0f;
-    //     Fxp result = a1 + a2;
-    //     snprintf(buffer, buffer_size, "Addition overflow test failed: %f + %f != %f", a1.As<float>(), a2, result.As<float>());
-    //     mu_assert(result == FLT_MAX, buffer);
-    // }
-
-    // Test: Edge case for subtraction with float (underflow)
-    // MU_TEST(fxp_arithmetic_subtraction_float_underflow)
-    // {
-    //     Fxp a1 = FLT_MIN;
-    //     constexpr float a2 = 1.0f;
-    //     Fxp result = a1 - a2;
-    //     snprintf(buffer, buffer_size, "Subtraction underflow test failed: %f - %f != %f", a1.As<float>(), a2, result.As<float>());
-    //     mu_assert(result == FLT_MIN, buffer);
-    // }
-
-    // Test: Edge case for multiplication with float (overflow)
-    // MU_TEST(fxp_arithmetic_multiplication_float_overflow)
-    // {
-    //     Fxp a1 = FLT_MAX / 2.0f;
-    //     constexpr float a2 = 3.0f;
-    //     Fxp result = a1 * a2;
-    //     snprintf(buffer, buffer_size, "Multiplication overflow test failed: %f * %f != %f", a1.As<float>(), a2, result.As<float>());
-    //     mu_assert(result == FLT_MAX, buffer);
-    // }
-
-    // Test: Edge case for division with float (division by zero)
-    /*
-MU_TEST(fxp_arithmetic_division_float_by_zero)
-{
-    Fxp a1 = 10.0f;
-    float a2 = 0.0f;
-    try
-    {
-        Fxp result = a1 / a2;
-        mu_fail("Division by zero did not throw an exception");
-    }
-    catch (const std::exception &e)
-    {
-        snprintf(buffer, buffer_size, "Division by zero test passed: %s", e.what());
-        mu_assert(true, buffer);
-    }
-}
-    */
-
-    // Test: Edge case for addition with double (overflow)
-    // MU_TEST(fxp_arithmetic_addition_double_overflow)
-    // {
-    //     Fxp a1 = DBL_MAX;
-    //     constexpr double a2 = 1.0;
-    //     Fxp result = a1 + a2;
-    //     snprintf(buffer, buffer_size, "Addition overflow test failed: %f + %f != %f", a1.As<double>(), a2, result.As<double>());
-    //     mu_assert(result == DBL_MAX, buffer);
-    // }
-
-    // Test: Edge case for subtraction with double (underflow)
-    // MU_TEST(fxp_arithmetic_subtraction_double_underflow)
-    // {
-    //     Fxp a1 = DBL_MIN;
-    //     constexpr double a2 = 1.0;
-    //     Fxp result = a1 - a2;
-    //     snprintf(buffer, buffer_size, "Subtraction underflow test failed: %f - %f != %f", a1.As<double>(), a2, result.As<double>());
-    //     mu_assert(result == DBL_MIN, buffer);
-    // }
-
-    // Test: Edge case for multiplication with double (overflow)
-    // MU_TEST(fxp_arithmetic_multiplication_double_overflow)
-    // {
-    //     Fxp a1 = DBL_MAX / 2.0;
-    //     constexpr double a2 = 3.0;
-    //     Fxp result = a1 * a2;
-    //     snprintf(buffer, buffer_size, "Multiplication overflow test failed: %f * %f != %f", a1.As<double>(), a2, result.As<double>());
-    //     mu_assert(result == DBL_MAX, buffer);
-    // }
-
-    // Test: Edge case for division with double (division by zero)
-    /*
-MU_TEST(fxp_arithmetic_division_double_by_zero)
-{
-    Fxp a1 = 10.0;
-    double a2 = 0.0;
-    try
-    {
-        Fxp result = a1 / a2;
-        mu_fail("Division by zero did not throw an exception");
-    }
-    catch (const std::exception &e)
-    {
-        snprintf(buffer, buffer_size, "Division by zero test passed: %s", e.what());
-        mu_assert(true, buffer);
-    }
-}
-    */
-
-    // Test: Verify fixed-point initialization with unsigned int
+    /** @brief Tests initialization of a fixed-point number from an unsigned int. */
     MU_TEST(fxp_initialization_unsigned_int)
     {
         constexpr unsigned int value = 10;
@@ -1058,7 +858,7 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value, buffer);
     }
 
-    // Test: Verify fixed-point initialization with int
+    /** @brief Tests initialization of a fixed-point number from a signed int. */
     MU_TEST(fxp_initialization_int)
     {
         constexpr int value = -10;
@@ -1067,7 +867,7 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value, buffer);
     }
 
-    // Test: Verify fixed-point initialization with float
+    /** @brief Tests initialization of a fixed-point number from a float. */
     MU_TEST(fxp_initialization_float)
     {
         constexpr float value = 10.5f;
@@ -1076,7 +876,7 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value, buffer);
     }
 
-    // Test: Verify fixed-point initialization with double
+    /** @brief Tests initialization of a fixed-point number from a double. */
     MU_TEST(fxp_initialization_double)
     {
         constexpr double value = 20.25;
@@ -1085,7 +885,7 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value, buffer);
     }
 
-    // Test: Verify fixed-point initialization with char
+    /** @brief Tests initialization of a fixed-point number from a char. */
     MU_TEST(fxp_initialization_char)
     {
         constexpr char value = 'A';
@@ -1094,7 +894,7 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value, buffer);
     }
 
-    // Test: Verify fixed-point initialization with bool
+    /** @brief Tests initialization of a fixed-point number from a boolean. */
     MU_TEST(fxp_initialization_bool)
     {
         constexpr bool value1 = true;
@@ -1108,7 +908,7 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value2, buffer);
     }
 
-    // Test: Verify fixed-point initialization with short
+    /** @brief Tests initialization of a fixed-point number from a short. */
     MU_TEST(fxp_initialization_short)
     {
         short value = 32767;
@@ -1117,24 +917,9 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         mu_assert(a1 == value, buffer);
     }
 
-    // Test: Verify fixed-point initialization with long
-    // MU_TEST(fxp_initialization_long)
-    // {
-    //     long value = 2147483647;
-    //     Fxp a1 = value;
-    //     snprintf(buffer, buffer_size, "%ld != %ld", a1.As<long>(), value);
-    //     mu_assert(a1 == value, buffer);
-    // }
-
-    // Test: Verify fixed-point initialization with long long
-    // MU_TEST(fxp_initialization_long_long)
-    // {
-    //     long long value = 9223372036854775807LL;
-    //     Fxp a1 = value;
-    //     snprintf(buffer, buffer_size, "%lld != %lld", a1.As<long long>(), value);
-    //     mu_assert(a1 == value, buffer);
-    // }
-
+    /**
+     * @brief Defines the test suite for all fixed-point (Fxp) functionality.
+     */
     MU_TEST_SUITE(fxp_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
@@ -1208,19 +993,5 @@ MU_TEST(fxp_arithmetic_division_double_by_zero)
         MU_RUN_TEST(fxp_comparison_greater_than_or_equal_float);
         MU_RUN_TEST(fxp_comparison_less_than_or_equal_float);
 
-        // Edge case tests
-        //MU_RUN_TEST(fxp_arithmetic_division_min_by_negative_one);
-        //MU_RUN_TEST(fxp_arithmetic_addition_int_overflow);
-        //MU_RUN_TEST(fxp_arithmetic_subtraction_int_underflow);
-        //MU_RUN_TEST(fxp_arithmetic_multiplication_int_overflow);
-        // MU_RUN_TEST(fxp_arithmetic_division_int_by_zero);
-        //MU_RUN_TEST(fxp_arithmetic_addition_float_overflow);
-        //MU_RUN_TEST(fxp_arithmetic_subtraction_float_underflow);
-        //MU_RUN_TEST(fxp_arithmetic_multiplication_float_overflow);
-        // MU_RUN_TEST(fxp_arithmetic_division_float_by_zero);
-        //MU_RUN_TEST(fxp_arithmetic_addition_double_overflow);
-        //MU_RUN_TEST(fxp_arithmetic_subtraction_double_underflow);
-        //MU_RUN_TEST(fxp_arithmetic_multiplication_double_overflow);
-        // MU_RUN_TEST(fxp_arithmetic_division_double_by_zero);
     }
 }

@@ -34,6 +34,10 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests the classification of a point relative to a plane.
+     * @details Verifies that a point is correctly identified as being in front of, behind, or intersecting a plane.
+     */
     MU_TEST(collision_classify_point_plane)
     {
         const Plane plane(Vector3D::UnitY(), 0);
@@ -42,6 +46,11 @@ extern "C"
         mu_assert(Classify(Vector3D(0, 0, 0), plane) == PlaneRelationship::Intersects, "Point on plane should Intersect");
     }
 
+    /**
+     * @brief Tests the classification of a sphere relative to a plane.
+     * @details Verifies that a sphere is correctly identified as being completely in front of, completely behind,
+     *          or intersecting a plane.
+     */
     MU_TEST(collision_classify_sphere_plane)
     {
         const Plane plane(Vector3D::UnitY(), 0);
@@ -55,6 +64,11 @@ extern "C"
         mu_assert(Classify(inter, plane) == PlaneRelationship::Intersects, "Sphere crossing plane should Intersect");
     }
 
+    /**
+     * @brief Tests the classification of an Axis-Aligned Bounding Box (AABB) relative to a plane.
+     * @details Verifies that an AABB is correctly identified as being completely in front of, completely behind,
+     *          or intersecting a plane.
+     */
     MU_TEST(collision_classify_aabb_plane)
     {
         const Plane plane(Vector3D::UnitY(), 0);
@@ -68,6 +82,10 @@ extern "C"
         mu_assert(Classify(back, plane) == PlaneRelationship::Back, "AABB below plane should be Back");
     }
 
+    /**
+     * @brief Tests various intersection and containment scenarios between different geometric primitives.
+     * @details This test covers nominal cases for intersection and containment between AABBs, spheres, planes, and points.
+     */
     MU_TEST(collision_intersects_and_contains_nominal)
     {
         const AABB a(Vector3D(0, 0, 0), Vector3D(1, 1, 1));
@@ -102,6 +120,9 @@ extern "C"
         mu_assert(!Intersects(Vector3D(Fxp(1.1), 0, 0), a), "Point outside AABB should not intersect");
     }
 
+    /**
+     * @brief Defines the test suite for all collision detection functionality.
+     */
     MU_TEST_SUITE(collision_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&collision_test_setup,

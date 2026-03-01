@@ -45,8 +45,11 @@ extern "C"
         }
     }
 
-    // Test basic text display functionality
-    // Verifies that simple text can be printed at a specific screen coordinate
+    /**
+     * @brief Tests the basic functionality of displaying a simple text string.
+     * @details This test verifies that a standard text string can be printed successfully at a valid
+     *          on-screen coordinate (in this case, the top-left corner).
+     */
     MU_TEST(ascii_test_display_simple_text)
     {
         // Nominal: Print should succeed for in-bounds coordinates.
@@ -56,8 +59,11 @@ extern "C"
         mu_assert(success, buffer);
     }
 
-    // Test out-of-bounds text display handling
-    // Ensures the ASCII display correctly handles attempts to print outside screen boundaries
+    /**
+     * @brief Tests the handling of attempts to display text outside of the screen boundaries.
+     * @details This test ensures that the ASCII display class correctly identifies and reports
+     *          attempts to print text at coordinates that are off-screen.
+     */
     MU_TEST(ascii_test_display_out_of_bounds)
     {
         // Negative: Print should fail when coordinates are out-of-bounds.
@@ -68,8 +74,10 @@ extern "C"
         mu_assert(!success, buffer);
     }
 
-    // Test color palette application
-    // Verifies that the ASCII display can successfully set a color palette
+    /**
+     * @brief Tests the ability to apply a valid color palette to the ASCII display.
+     * @details This test verifies that setting a valid color palette by its index is a successful operation.
+     */
     MU_TEST(ascii_test_apply_color_palette)
     {
         // Nominal: valid palette index should succeed.
@@ -79,7 +87,11 @@ extern "C"
         mu_assert(success, buffer);
     }
 
-    // Negative test: palette index out-of-range should return false (and clamp internally)
+    /**
+     * @brief Tests that setting a color palette with an out-of-range index is correctly handled.
+     * @details This test ensures that `SetPalette` returns `false` when given an index that
+     *          exceeds the valid range of palettes.
+     */
     MU_TEST(ascii_test_set_palette_out_of_range)
     {
         // Negative: out-of-range palette index should return false.
@@ -89,7 +101,11 @@ extern "C"
         mu_assert(!success, buffer);
     }
 
-    // Negative test: font index out-of-range should return false (and clamp internally)
+    /**
+     * @brief Tests that setting a font with an out-of-range index is correctly handled.
+     * @details This test ensures that `SetFont` returns `false` when given an index that
+     *          exceeds the valid range of loaded fonts.
+     */
     MU_TEST(ascii_test_set_font_out_of_range)
     {
         // Negative: out-of-range font index should return false.
@@ -100,7 +116,11 @@ extern "C"
         ASCII::SetFont(0);
     }
 
-    // Negative test: color index out-of-range should return false (and clamp internally)
+    /**
+     * @brief Tests that setting a color with an out-of-range index is correctly handled.
+     * @details This test ensures that `SetColor` returns `false` when given an index that
+     *          exceeds the valid range of colors within a palette.
+     */
     MU_TEST(ascii_test_set_color_out_of_range)
     {
         // Negative: out-of-range color index should return false.
@@ -131,8 +151,11 @@ extern "C"
     //     mu_assert(/* condition */, "Font loading failed");
     // }
 
-    // Define the test suite for ASCII-related functionality
-    // Configures and runs a comprehensive set of tests for the ASCII display class
+    /**
+     * @brief Defines the test suite for all ASCII-related functionality.
+     * @details This suite configures and runs a comprehensive set of tests for the ASCII display class,
+     *          covering text printing, bounds checking, and color/font management.
+     */
     MU_TEST_SUITE(ascii_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&ascii_test_setup,

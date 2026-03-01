@@ -15,19 +15,25 @@ extern "C"
     extern char buffer[];
     extern uint32_t suite_error_counter;
 
-    // UT setup function, called before every tests
+    /**
+     * @brief Sets up the environment for Euler Angles unit tests.
+     */
     void euler_angles_test_setup(void)
     {
         // Nothing to do here
     }
 
-    // UT teardown function, called after every tests
+    /**
+     * @brief Cleans up the environment after each Euler Angles unit test.
+     */
     void euler_angles_test_teardown(void)
     {
         /* Nothing */
     }
 
-    // UT output header function, called on the first test failure
+    /**
+     * @brief Displays a header for the Euler Angles test suite upon the first error.
+     */
     void euler_angles_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -43,7 +49,9 @@ extern "C"
         }
     }
 
-    // Test initialization of Euler angles to zero
+    /**
+     * @brief Tests that a default-constructed EulerAngles object is initialized to zero.
+     */
     MU_TEST(euler_angles_test_initialization_zero)
     {
         EulerAngles euler;
@@ -55,7 +63,9 @@ extern "C"
         mu_assert(euler.roll.ToDegrees() == 0, buffer);
     }
 
-    // Test setting Euler angles
+    /**
+     * @brief Tests setting the pitch, yaw, and roll of an EulerAngles object.
+     */
     MU_TEST(euler_angles_test_set_angles)
     {
         EulerAngles euler;
@@ -70,7 +80,10 @@ extern "C"
         mu_assert(euler.roll.ToDegrees() == 60, buffer);
     }
 
-    // Test normalization of Euler angles
+    /**
+     * @brief Tests the normalization of Euler angles.
+     * @details Verifies that angles outside the standard range [0, 360) are correctly wrapped around.
+     */
     MU_TEST(euler_angles_test_normalization)
     {
         EulerAngles euler;
@@ -85,7 +98,9 @@ extern "C"
         mu_assert(euler.roll.ToDegrees() == 0, buffer);
     }
 
-    // Test addition of Euler angles
+    /**
+     * @brief Tests the addition of two EulerAngles objects.
+     */
     MU_TEST(euler_angles_test_addition)
     {
         EulerAngles euler1;
@@ -107,7 +122,9 @@ extern "C"
         mu_assert(result.roll.ToDegrees() == 90, buffer);
     }
 
-    // Test subtraction of Euler angles
+    /**
+     * @brief Tests the subtraction of two EulerAngles objects.
+     */
     MU_TEST(euler_angles_test_subtraction)
     {
         EulerAngles euler1;
@@ -129,7 +146,9 @@ extern "C"
         mu_assert(result.roll.ToDegrees() == 30, buffer);
     }
 
-    // Define the test suite with all unit tests
+    /**
+     * @brief Defines the test suite for all Euler angle functionality.
+     */
     MU_TEST_SUITE(euler_angles_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&euler_angles_test_setup,

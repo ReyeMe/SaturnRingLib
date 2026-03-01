@@ -40,6 +40,9 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests that a default-constructed AABB is a zero-sized box at the origin.
+     */
     MU_TEST(aabb_default_construction)
     {
         constexpr AABB box;
@@ -50,6 +53,9 @@ extern "C"
         mu_assert(box.GetMax() == Vector3D::Zero(), "Default AABB max should be zero");
     }
 
+    /**
+     * @brief Tests the AABB constructor that takes a center point and a uniform size.
+     */
     MU_TEST(aabb_construction_center_and_uniform_size)
     {
         constexpr Vector3D center(1, 2, 3);
@@ -60,6 +66,9 @@ extern "C"
         mu_assert(!box.IsDegenerate(), "Non-zero uniform AABB should not be degenerate");
     }
 
+    /**
+     * @brief Tests that constructing an AABB with a negative uniform size correctly uses its absolute value.
+     */
     MU_TEST(aabb_construction_negative_uniform_size)
     {
         constexpr Vector3D center(1, 2, 3);
@@ -71,6 +80,9 @@ extern "C"
         mu_assert(box.GetMax() == Vector3D(5, 6, 7), "Negative size ctor should produce correct max");
     }
 
+    /**
+     * @brief Tests the AABB constructor that takes a center point and non-uniform half-extents.
+     */
     MU_TEST(aabb_construction_center_and_half_extents)
     {
         constexpr Vector3D center(1, 2, 3);
@@ -82,6 +94,9 @@ extern "C"
         mu_assert(box.GetMax() == Vector3D(2, 4, 6), "AABB max incorrect for center+halfExtents");
     }
 
+    /**
+     * @brief Tests that constructing an AABB with negative components in the half-extents vector correctly uses their absolute values.
+     */
     MU_TEST(aabb_construction_negative_half_extents_components)
     {
         constexpr Vector3D center(1, 2, 3);
@@ -92,6 +107,9 @@ extern "C"
         mu_assert(box.GetMax() == Vector3D(2, 4, 6), "Normalized half-extents should give correct max");
     }
 
+    /**
+     * @brief Tests creating an AABB from two points (min and max corners).
+     */
     MU_TEST(aabb_from_min_max)
     {
         constexpr Vector3D min(-1, 0, -3);
@@ -103,6 +121,9 @@ extern "C"
         mu_assert(box.GetMax() == max, "FromMinMax max incorrect");
     }
 
+    /**
+     * @brief Tests that `FromMinMax` correctly handles the case where the input points are swapped (max passed as min and vice-versa).
+     */
     MU_TEST(aabb_from_min_max_swapped_inputs)
     {
         constexpr Vector3D a(3, 2, 1);
@@ -112,6 +133,9 @@ extern "C"
         mu_assert(box.GetMax() == Vector3D(3, 2, 1), "FromMinMax should normalize swapped inputs (max)");
     }
 
+    /**
+     * @brief Tests that `FromMinMax` with two equal points creates a degenerate (zero-sized) AABB at that point.
+     */
     MU_TEST(aabb_from_min_max_equal_points_degenerate)
     {
         constexpr Vector3D p(1, 2, 3);
@@ -123,6 +147,9 @@ extern "C"
         mu_assert(box.GetMax() == p, "FromMinMax(equal) max should equal point");
     }
 
+    /**
+     * @brief Tests that `IsDegenerate` returns true if any of the AABB's half-extents are zero.
+     */
     MU_TEST(aabb_is_degenerate_any_axis)
     {
         constexpr AABB xZero(Vector3D::Zero(), Vector3D(0, 1, 1));
@@ -136,6 +163,9 @@ extern "C"
         mu_assert(!noneZero.IsDegenerate(), "AABB with all non-zero half-extents should not be degenerate");
     }
 
+    /**
+     * @brief Tests the calculation of the AABB's volume and surface area.
+     */
     MU_TEST(aabb_volume_and_surface_area)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 2, 3));
@@ -149,6 +179,9 @@ extern "C"
         mu_assert(flat.GetVolume() == 0, "Degenerate AABB volume should be 0");
     }
 
+    /**
+     * @brief Tests expanding an AABB by a given margin.
+     */
     MU_TEST(aabb_expand)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 2, 3));
@@ -160,6 +193,9 @@ extern "C"
         mu_assert(same.GetHalfExtents() == box.GetHalfExtents(), "Expand(0) should not change halfExtents");
     }
 
+    /**
+     * @brief Tests that expanding with a negative margin shrinks the AABB and clamps at zero size.
+     */
     MU_TEST(aabb_expand_negative_margin_shrinks_and_clamps)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 2, 3));
@@ -174,6 +210,9 @@ extern "C"
         mu_assert(collapsed.GetMax() == Vector3D::Zero(), "Collapsed AABB max should equal center");
     }
 
+    /**
+     * @brief Tests that shrinking can cause a partial collapse on one axis while shrinking others.
+     */
     MU_TEST(aabb_expand_negative_margin_partial_collapse)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(Fxp(0.5), 1, 1));
@@ -181,6 +220,9 @@ extern "C"
         mu_assert(shrunk.GetHalfExtents() == Vector3D(0, Fxp(0.25), Fxp(0.25)), "Expand(-0.75) should clamp X to 0 and shrink others");
     }
 
+    /**
+     * @brief Tests encapsulating a point, verifying behavior for points inside and outside the AABB.
+     */
     MU_TEST(aabb_encapsulate_point_inside_and_outside)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 1, 1));
@@ -198,6 +240,9 @@ extern "C"
         mu_assert(expanded.GetHalfExtents() == Vector3D(Fxp(1.5), 1, 1), "Encapsulate(point) halfExtents incorrect");
     }
 
+    /**
+     * @brief Tests that encapsulating a point on the AABB's boundary results in no change.
+     */
     MU_TEST(aabb_encapsulate_point_on_boundary_no_change)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 1, 1));
@@ -206,6 +251,9 @@ extern "C"
         mu_assert(same.GetMax() == box.GetMax(), "Encapsulate(boundary) should keep max");
     }
 
+    /**
+     * @brief Tests encapsulating a point starting from a degenerate (point-sized) AABB.
+     */
     MU_TEST(aabb_encapsulate_point_from_degenerate_box)
     {
         constexpr AABB pointBox(Vector3D::Zero(), Vector3D::Zero());
@@ -216,6 +264,9 @@ extern "C"
         mu_assert(expanded.GetHalfExtents() == Vector3D(Fxp(0.5), 0, 0), "Encapsulate from pointBox halfExtents incorrect");
     }
 
+    /**
+     * @brief Tests encapsulating another AABB, creating a bounding box that contains both.
+     */
     MU_TEST(aabb_encapsulate_aabb)
     {
         constexpr AABB a(Vector3D::Zero(), Vector3D(1, 1, 1));
@@ -234,6 +285,9 @@ extern "C"
         mu_assert(ai.GetMax() == a.GetMax(), "Encapsulate(inner AABB) should keep max");
     }
 
+    /**
+     * @brief Tests scaling an AABB by a uniform factor.
+     */
     MU_TEST(aabb_scale)
     {
         constexpr AABB box(Vector3D(1, 2, 3), Vector3D(1, 2, 3));
@@ -246,6 +300,9 @@ extern "C"
         mu_assert(zeroed.IsDegenerate(), "Scale(0) should be degenerate");
     }
 
+    /**
+     * @brief Tests that scaling by a negative factor uses the factor's magnitude.
+     */
     MU_TEST(aabb_scale_negative_factor_uses_magnitude)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 2, 3));
@@ -253,6 +310,9 @@ extern "C"
         mu_assert(scaled.GetHalfExtents() == Vector3D(2, 4, 6), "Scale(-2) should behave like Scale(2)");
     }
 
+    /**
+     * @brief Tests scaling an AABB by a fractional factor.
+     */
     MU_TEST(aabb_scale_fractional)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(2, 4, 6));
@@ -260,6 +320,9 @@ extern "C"
         mu_assert(scaled.GetHalfExtents() == Vector3D(1, 2, 3), "Scale(0.5) should scale half-extents down");
     }
 
+    /**
+     * @brief Tests the `GetClosestPoint` method to find the point on the AABB's surface closest to a given point.
+     */
     MU_TEST(aabb_closest_point)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 1, 1));
@@ -269,12 +332,18 @@ extern "C"
         mu_assert(box.GetClosestPoint(Vector3D(2, -3, Fxp(0.5))) == Vector3D(1, -1, Fxp(0.5)), "ClosestPoint clamp failed on multiple axes");
     }
 
+    /**
+     * @brief Tests `GetClosestPoint` on a degenerate AABB, which should always return the AABB's center.
+     */
     MU_TEST(aabb_closest_point_degenerate_box)
     {
         constexpr AABB pointBox(Vector3D(1, 2, 3), Vector3D::Zero());
         mu_assert(pointBox.GetClosestPoint(Vector3D(999, -999, 0)) == Vector3D(1, 2, 3), "Degenerate AABB closest point should be its center");
     }
 
+    /**
+     * @brief Tests that `GetVertices` returns the 8 corner points of the AABB in the correct order.
+     */
     MU_TEST(aabb_vertices)
     {
         constexpr AABB box(Vector3D::Zero(), Vector3D(1, 2, 3));
@@ -290,6 +359,9 @@ extern "C"
         mu_assert(v[7] == Vector3D(-1, 2, 3), "Vertex 7 incorrect");
     }
 
+    /**
+     * @brief Tests that `GetVertices` for a degenerate AABB returns 8 vertices all at the center point.
+     */
     MU_TEST(aabb_vertices_degenerate)
     {
         constexpr AABB box(Vector3D(1, 2, 3), Vector3D::Zero());
@@ -300,6 +372,9 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests the `SetPosition` method of the AABB.
+     */
     MU_TEST(aabb_set_position)
     {
         AABB box(Vector3D::Zero(), Vector3D(1, 1, 1));
@@ -307,6 +382,9 @@ extern "C"
         mu_assert(box.GetPosition() == Vector3D(3, 4, 5), "SetPosition did not update position");
     }
 
+    /**
+     * @brief Tests merging two AABBs, which is equivalent to `Encapsulate`.
+     */
     MU_TEST(aabb_merge)
     {
         constexpr AABB a(Vector3D::Zero(), Vector3D(1, 1, 1));
@@ -319,6 +397,9 @@ extern "C"
         mu_assert(merged.GetHalfExtents() == Vector3D(2, 1, 1), "Merge halfExtents incorrect");
     }
 
+    /**
+     * @brief Tests the creation of an "infinite" AABB.
+     */
     MU_TEST(aabb_infinite)
     {
         constexpr AABB inf = AABB::Infinite();

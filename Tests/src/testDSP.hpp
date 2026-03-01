@@ -90,7 +90,10 @@ extern "C"
         return false;
     }
 
-    /** @brief Test DSP program load/start/end flow
+    /**
+     * @brief Tests the fundamental DSP program execution flow: loading, starting, and waiting for completion.
+     * @details This test loads a minimal program that consists of a single 'END' instruction,
+     *          starts the DSP, and then waits for the DSP to signal that it has finished execution.
      */
     MU_TEST(dsp_test_load_start_and_end)
     {
@@ -106,7 +109,10 @@ extern "C"
         mu_assert(ended, "DSP did not signal end within timeout");
     }
 
-    /** @brief Test that WriteData writes into the data port and sets address
+    /**
+     * @brief Tests the ability to write data to the DSP's RAM and read it back.
+     * @details This test performs a round-trip data verification by writing a block of data to the DSP's
+     *          data RAM via the MMIO port and then reading the same block back to ensure its integrity.
      */
     MU_TEST(dsp_test_write_read_data_roundtrip)
     {
@@ -138,7 +144,10 @@ extern "C"
         }
     }
 
-    /** @brief Test that Start sets the start bit/pc and Stop clears control
+    /**
+     * @brief Verifies that the DSP control registers are correctly manipulated by the Start and Stop functions.
+     * @details This test checks that `SRL::SCU::DSP::Start()` correctly sets the DSP's control register
+     *          to begin execution and that `SRL::SCU::DSP::Stop()` clears the register to halt it.
      */
     MU_TEST(dsp_test_start_and_stop)
     {
@@ -154,7 +163,10 @@ extern "C"
         mu_assert_int_eq(0, (int)ReadRegister32(SRL::SCU::DSP::RegisterMap::RwCtrl));
     }
 
-    /** @brief Test CheckEnd returns NotEnded when interrupt is not set
+    /**
+     * @brief Tests that `CheckEnd` correctly reports `NotEnded` when no program has completed.
+     * @details This test ensures that after stopping the DSP and consuming any stale completion signals,
+     *          a call to `CheckEnd` returns the `NotEnded` state as expected.
      */
     MU_TEST(dsp_test_check_end_not_ended)
     {

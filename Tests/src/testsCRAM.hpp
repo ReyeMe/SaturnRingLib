@@ -16,11 +16,7 @@ extern "C"
     extern char buffer[];
 
     /**
-     * @brief Set up routine for CRAM unit tests
-     *
-     * This function is called before each test in the CRAM test suite.
-     * Currently, it does not perform any specific setup operations,
-     * but provides a hook for future initialization requirements.
+     * @brief Sets up the environment for CRAM (Color RAM) unit tests.
      */
     void cram_test_setup(void)
     {
@@ -34,26 +30,15 @@ extern "C"
     }
 
     /**
-     * @brief Tear down routine for CRAM unit tests
-     *
-     * This function is called after each test in the CRAM test suite.
-     * Currently, it does not perform any specific cleanup operations,
-     * but provides a hook for future resource release or state reset.
+     * @brief Cleans up the environment after each CRAM unit test.
      */
     void cram_test_teardown(void)
     {
         // Placeholder for any necessary test cleanup
-        // Future implementations might include freeing resources,
-        // resetting global state, or clearing temporary data
     }
 
     /**
-     * @brief Output header for test suite error reporting
-     *
-     * This function is called on the first test failure to print
-     * a header indicating that CRAM unit test errors have occurred.
-     * It increments a global error counter to ensure the header
-     * is printed only once per test suite run.
+     * @brief Displays a header for the CRAM test suite upon the first error.
      */
     void cram_test_output_header(void)
     {
@@ -72,11 +57,8 @@ extern "C"
     }
 
     /**
-     * @brief Test the base address initialization of the CRAM
-     *
-     * Verifies that the CRAM base address is properly initialized
-     * and is not a null pointer. This ensures that the memory
-     * address for CRAM operations is valid before further testing.
+     * @brief Tests that the CRAM base address is a valid, non-null pointer.
+     * @details This is a minimal sanity check that the `CRAM::BaseAddress` constant is properly initialized.
      */
     MU_TEST(cram_test_base_address)
     {
@@ -87,6 +69,11 @@ extern "C"
         mu_assert(baseAddress != nullptr, buffer);
     }
 
+    /**
+     * @brief Verifies that the CRAM allocation mask is clear after initialization.
+     * @details This test ensures that after the test setup routine, all palette banks
+     *          for all color modes are reported as unused.
+     */
     MU_TEST(cram_test_allocation_mask_initially_clear)
     {
         // Validity: after setup reset, all banks should be reported unused.
@@ -115,6 +102,11 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests setting and getting the used state for a 256-color palette bank.
+     * @details This test ensures that the bookkeeping for a single 256-color bank can be
+     *          correctly set to 'used' and then cleared.
+     */
     MU_TEST(cram_test_set_get_bank_used_state_paletted256)
     {
         // Nominal: set/clear a single 256-color bank and ensure the bookkeeping matches.
@@ -127,6 +119,11 @@ extern "C"
         mu_assert(!CRAM::GetBankUsedState(bank, CRAM::TextureColorMode::Paletted256), "Bank used state did not clear");
     }
 
+    /**
+     * @brief Tests the specific invariants of the non-paletted RGB555 color mode.
+     * @details Verifies that for `RGB555`, the `Palette` object correctly reports a null
+     *          data pointer and a size of -1, and that attempting to load colors into it fails.
+     */
     MU_TEST(cram_test_palette_rgb555_invariants)
     {
         // Edge/negative: RGB555 is "direct color" (no palette), so Palette::GetData()
@@ -145,6 +142,11 @@ extern "C"
         mu_assert(loaded == -1, buffer);
     }
 
+    /**
+     * @brief Verifies the size and memory layout (stride) of 16-color palettes.
+     * @details This test checks that a `Paletted16` palette has the correct size (16) and that
+     *          consecutive palette IDs correspond to contiguous blocks of memory in CRAM.
+     */
     MU_TEST(cram_test_palette_paletted16_size_and_stride)
     {
         // Nominal: Paletted16 palettes contain 16 entries; consecutive IDs should be
@@ -164,6 +166,11 @@ extern "C"
         mu_assert(delta == 16, buffer);
     }
 
+    /**
+     * @brief Tests independent tracking of even and odd 128-color palettes.
+     * @details Verifies that two 128-color palettes sharing the same underlying 256-color CRAM bank
+     *          can be marked as 'used' and 'unused' independently.
+     */
     MU_TEST(cram_test_set_get_bank_used_state_paletted128_even_odd)
     {
         // Nominal: even/odd 128-color palettes share the same 256-color bank and
@@ -180,6 +187,11 @@ extern "C"
         mu_assert(CRAM::GetBankUsedState(1, CRAM::TextureColorMode::Paletted128), "128-color palette 1 unexpectedly cleared");
     }
 
+    /**
+     * @brief Tests independent tracking of 64-color palettes within a single bank.
+     * @details Verifies that the four 64-color palettes residing within a single 256-color CRAM bank
+     *          can be managed independently.
+     */
     MU_TEST(cram_test_set_get_bank_used_state_paletted64_all_quarters)
     {
         // Nominal: 4x 64-color palettes per 256-color bank; each quarter must be independent.
@@ -202,6 +214,11 @@ extern "C"
         mu_assert(CRAM::GetBankUsedState(2, CRAM::TextureColorMode::Paletted64), "64-color palette 2 unexpectedly cleared");
     }
 
+    /**
+     * @brief Tests the `GetFreeBank` function for finding available palette banks.
+     * @details Verifies that `GetFreeBank` correctly identifies the next available bank index
+     *          for various palette color modes as banks are progressively marked 'used'.
+     */
     MU_TEST(cram_test_get_free_bank_basic)
     {
         // Note: the allocation mask is shared across modes (to prevent overlap).
@@ -258,11 +275,7 @@ extern "C"
     }
 
     /**
-     * @brief CRAM test suite configuration and test case registration
-     *
-     * Configures the test suite with setup, teardown, and error reporting functions.
-     * Registers individual test cases to be executed during the test run.
-     * Currently only runs the base address initialization test.
+     * @brief Defines the test suite for all CRAM-related functionality.
      */
     MU_TEST_SUITE(cram_test_suite)
     {

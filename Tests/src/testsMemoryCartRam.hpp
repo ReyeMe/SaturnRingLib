@@ -1,11 +1,13 @@
 #include <srl.hpp>
 #include <srl_log.hpp>
 #include "srl_memory.hpp"
-
+#include "srl_cartridge.hpp"
+        
 // https://github.com/siu/minunit
 #include "minunit.h"
 
 using namespace SRL;
+using namespace SRL::Cartridge;
 
 extern "C"
 {
@@ -22,7 +24,12 @@ extern "C"
      */
     void memory_CartRam_test_setup(void)
     {
-        // Placeholder for any necessary test initialization
+        // Validate that a memory cartridge is detected before running tests
+        CartridgeId detected = DetectCartridgeType();
+        if (detected != CartridgeId::Cart1MiB && detected != CartridgeId::Cart4MiB)
+        {
+            mu_fail("No valid memory cartridge detected. Aborting CartRam tests.");
+        }
     }
 
     /**

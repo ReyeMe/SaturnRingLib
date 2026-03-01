@@ -15,9 +15,18 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
+    /**
+     * @brief Sets up the environment for 4x3 Matrix (Mat43) unit tests.
+     */
     void mat43_test_setup(void) {}
+    /**
+     * @brief Cleans up the environment after each 4x3 Matrix (Mat43) unit test.
+     */
     void mat43_test_teardown(void) {}
 
+    /**
+     * @brief Displays a header for the 4x3 Matrix (Mat43) test suite upon the first error.
+     */
     void mat43_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -33,6 +42,9 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests that an identity matrix transformation does not alter points or vectors.
+     */
     MU_TEST(mat43_identity_transform)
     {
         constexpr Matrix43 I = Matrix43::Identity();
@@ -41,6 +53,11 @@ extern "C"
         mu_assert(I.TransformVector(p) == p, "Identity should not change vectors");
     }
 
+    /**
+     * @brief Tests the creation of a translation matrix and its inversion.
+     * @details Verifies that a translation matrix correctly transforms points (but not vectors)
+     *          and that its inverse correctly undoes the transformation.
+     */
     MU_TEST(mat43_translation_and_invert)
     {
         const Matrix43 t = Matrix43::CreateTranslation(Vector3D(5, -2, 1));
@@ -53,6 +70,9 @@ extern "C"
         mu_assert(inv.TransformPoint(t.TransformPoint(p)) == p, "Invert should undo translation for points");
     }
 
+    /**
+     * @brief Tests that multiplying two translation matrices correctly combines their translations.
+     */
     MU_TEST(mat43_multiplication_combines_translations)
     {
         const Matrix43 a = Matrix43::CreateTranslation(Vector3D(1, 0, 0));
@@ -61,6 +81,10 @@ extern "C"
         mu_assert(c.Row3 == Vector3D(1, 2, 0), "Translation multiplication should add translations");
     }
 
+    /**
+     * @brief Tests the transformation of a vector by a 90-degree rotation matrix around the Y-axis.
+     * @details Verifies that the rotation correctly transforms a vector and that its inverse restores the original vector.
+     */
     MU_TEST(mat43_rotation_y_90_vector)
     {
         const Matrix43 r = Matrix43::CreateRotationY(Angle::FromDegrees(90));
@@ -72,6 +96,9 @@ extern "C"
         mu_assert(inv.TransformVector(r.TransformVector(forward)) == forward, "Invert should undo rotation for vectors");
     }
 
+    /**
+     * @brief Defines the test suite for all 4x3 Matrix (Mat43) functionality.
+     */
     MU_TEST_SUITE(mat43_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&mat43_test_setup,
