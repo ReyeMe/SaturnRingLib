@@ -39,6 +39,11 @@ extern "C"
         }
     }
 
+    /**
+     * @brief Tests the basic math utility functions: Abs, Min, Max, and Clamp.
+     * @details This test verifies the correctness of these functions for integer and fixed-point types,
+     * including edge cases like negative numbers, zero, and clamping at boundaries.
+     */
     MU_TEST(utils_abs_min_max_clamp)
     {
         mu_assert(SRL::Math::Abs(-5) == 5, "Abs(-5) should be 5");
@@ -72,6 +77,11 @@ extern "C"
         mu_assert(SRL::Math::Clamp(123, 7, 7) == 7, "Clamp(value, min==max) should return that bound");
     }
 
+    /**
+     * @brief Tests the FastSqrt integer square root function for basic correctness and monotonicity.
+     * @details It checks perfect squares and verifies that the function's output is non-decreasing
+     * for an increasing sequence of inputs.
+     */
     MU_TEST(utils_fast_sqrt_basic)
     {
         //mu_assert(SRL::Math::Integer::FastSqrt(0) == 0, "FastSqrt(0) should be 0"); // 0 is not supported by the current implementation (returns 1), so we skip this test for now 
