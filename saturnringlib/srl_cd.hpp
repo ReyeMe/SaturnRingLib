@@ -323,9 +323,11 @@ namespace SRL
                     this->Handle = nullptr;
                 }
 
+                this->readBytes = 0;
+
                 if (this->workBuffer != nullptr)
                 {
-                    delete this->workBuffer;
+                    delete[] this->workBuffer;
                     this->workBuffer = nullptr;
                 }
             }
@@ -343,6 +345,17 @@ namespace SRL
                 {
                     this->readBytes = 0;
                     this->Handle = GFS_Open(this->identifier);
+
+                    // Defensive reset: ensure every file starts reading at byte 0.
+                    if (this->Handle != nullptr)
+                    {
+                        if (GFS_Seek(this->Handle, 0, Cd::SeekMode::Absolute) < 0)
+                        {
+                            GFS_Close(this->Handle);
+                            this->Handle = nullptr;
+                            return false;
+                        }
+                    }
                 }
 
                 return this->Handle != nullptr;
