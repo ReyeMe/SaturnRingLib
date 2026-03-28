@@ -79,6 +79,11 @@ ifeq ($(strip ${SRL_MAX_CD_RETRIES}),)
 	SRL_MAX_CD_RETRIES=5
 endif
 
+# Use TLSF by default if not specified otherwise
+ifeq ($(strip ${SRL_MALLOC_METHOD}),)
+	SRL_MALLOC_METHOD = TLSF
+endif
+
 ifeq ($(strip ${SRL_HIGH_RES}), 1)
 	CCFLAGS += -DSRL_HIGH_RES
 endif
@@ -182,10 +187,11 @@ SATURNMATHPPDIR = $(MODDIR)/SaturnMathPP
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
 
+# Include TLSF sources if required
 ifdef SRL_MALLOC_METHOD
-	ifeq ($(SRL_MALLOC_METHOD), TLSF)
+	ifeq ($(strip ${SRL_MALLOC_METHOD}),TLSF)
 		SYSSOURCES += $(TLSFDIR)/tlsf.c
-		USE_TLSF_ALLOCATOR := TRUE
+		CCFLAGS +=-DUSE_TLSF_ALLOCATOR -I$(TLSFDIR)
 	endif
 endif
 
@@ -193,7 +199,7 @@ SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
 CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing \
-					-I$(DUMMYIDIR) -I$(SATURNMATHPPDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(TLSFDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
+					-I$(DUMMYIDIR) -I$(SATURNMATHPPDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
 					-Xlinker "$(BUILD_MAP)" -Xlinker -e -Xlinker ___Start -nostartfiles
 
@@ -338,7 +344,7 @@ convert_audio_to_raw() { \
 		else \
 			sox "$$audiofile" -t raw -r 44100 -e signed-integer -b 16 -c 2 "$$rawfile"; \
 		fi; \
-		size=$$(stat -c%s "$$rawfile"); \
+		size=$$(stat -f%z "$$rawfile" 2>/dev/null || stat -c%s "$$rawfile"); \
 		target_sectors=$$((size / 2352)); \
 		if [ $$((size % 2352)) -ne 0 ]; then \
 			target_sectors=$$((target_sectors + 1)); \
@@ -359,8 +365,8 @@ endef
 add_audio_to_bin_cue: create_bin_cue
 	@$(CONVERT_AUDIO_TO_RAW); \
 	track=2; \
-	total_size=$$(stat -c%s "$(BUILD_BIN)"); \
-  sectors=$$((total_size / 2352)); \
+	total_size=$$(stat -f%z "$(BUILD_BIN)" 2>/dev/null || stat -c%s "$(BUILD_BIN)"); \
+ 	sectors=$$((total_size / 2352)); \
 	echo "Starting with $$total_size bytes ($$sectors sectors)"; \
 	# Find audio files and convert them to raw \
 	if [ -f "$(MUSIC_DIR)/tracklist" ]; then \
@@ -429,7 +435,7 @@ add_audio_to_bin_cue: create_bin_cue
 			exit 1; \
 		fi; \
 		echo '    INDEX 01' $$msf >> "$(BUILD_CUE)"; \
-		size=$$(stat -c%s "$$i"); \
+		size=$$(stat -f%z "$$i" 2>/dev/null || stat -c%s "$$i"); \
 		if [ $$((size % 2352)) -ne 0 ]; then \
 			echo "  ERROR: File $$i is not sector-aligned ($$size bytes)"; \
 			echo "  File size must be a multiple of 2352 bytes"; \

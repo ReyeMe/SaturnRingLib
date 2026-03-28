@@ -8,7 +8,10 @@ extern "C" {
     extern char _heap_end;
 }
 
+#if defined(USE_TLSF_ALLOCATOR)
 #include <tlsf.h>
+#endif
+
 #include <stdlib.h>
 
 namespace SRL
@@ -70,6 +73,43 @@ namespace SRL
             return (ptr >= (void*)zone.Address && ptr <= (char*)zone.Address + zone.Size);
         }
 
+#if defined(USE_TLSF_ALLOCATOR)
+
+        /** @brief Get report on the allocator in specified memory zone
+         * @param zone Memory zone
+         * @return State report
+         */
+        inline static const Report GetTlsfReport(const MemoryZone& zone)
+        {
+            size_t location = 0;
+            auto report = Report { 0, 0, 0, zone.Size, 0 };
+            auto pool = tlsf_get_pool(zone.Address);
+            tlsf_walk_pool(pool, SRL::Memory::WalkTlsfPool, &report);
+            report.AllocationHeaders += tlsf_alloc_overhead() * (report.FreeBlocks + report.UsedBlocks);
+            return report;
+        }
+
+        /** @brief Walk through allocation pool
+         * @param ptr Block pointer
+         * @param size Block size
+         * @param used Indicates whether block is in use or not
+         * @param user User data
+         */
+        inline static void WalkTlsfPool(void* ptr, size_t size, int used, void* user)
+        {
+            auto report = (Report*)user;
+
+            if (used)
+            {
+                report->UsedBlocks++;
+            }
+            else
+            {
+                report->FreeSize += size;
+                report->FreeBlocks++;
+            }
+        }
+#endif
         /** @brief Reye's simple malloc
          */
         class SimpleMalloc
@@ -426,7 +466,7 @@ namespace SRL
                 };
                 #endif
             }
-            
+
         public:
 
             /** @brief Check whether pointer is in range of the memory zone
@@ -459,6 +499,7 @@ namespace SRL
                 
                 #if defined(USE_TLSF_ALLOCATOR)
                 tlsf_free(HighWorkRam::zone.Address, ptr);
+                tlsf_free(Memory::HighWorkRam::zone.Address, ptr);
                 #else
                 Memory::SimpleMalloc::Free(HighWorkRam::zone, ptr);
                 #endif
@@ -477,6 +518,7 @@ namespace SRL
                 
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_malloc(HighWorkRam::zone.Address, size);
+                return tlsf_malloc(Memory::HighWorkRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(HighWorkRam::zone, size);
                 #endif
@@ -501,7 +543,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_realloc(HighWorkRam::zone.Address, ptr, size);
+                return tlsf_realloc(Memory::HighWorkRam::zone.Address, ptr, size);
                 #else
                 return Memory::SimpleMalloc::Realloc(HighWorkRam::zone, ptr, size);
                 #endif
@@ -513,7 +555,7 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GenerateTlsfReport(HighWorkRam::zone.Address).FreeSize;
+                return Memory::GetTlsfReport(HighWorkRam::zone).FreeSize;
                 #else
                 return Memory::SimpleMalloc::GetReport(HighWorkRam::zone).FreeSize;
                 #endif
@@ -525,7 +567,7 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GenerateTlsfReport(HighWorkRam::zone.Address);
+                return Memory::GetTlsfReport(HighWorkRam::zone);
                 #else
                 return Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
                 #endif
@@ -545,7 +587,7 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                auto report = Memory::GenerateTlsfReport(HighWorkRam::zone.Address);
+                auto report = Memory::GetTlsfReport(HighWorkRam::zone);
                 return report.TotalSize - report.FreeSize;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
@@ -602,6 +644,7 @@ namespace SRL
 
                 #if defined(USE_TLSF_ALLOCATOR)
                 LowWorkRam::zone = Memory::MemoryZone
+                LowWorkRam::zone = Memory::MemoryZone
                 {
                     tlsf_create_with_pool((void*)address, size),
                     size
@@ -647,6 +690,7 @@ namespace SRL
                 
                 #if defined(USE_TLSF_ALLOCATOR)
                 tlsf_free(LowWorkRam::zone.Address, ptr);
+                tlsf_free(LowWorkRam::zone.Address, ptr);
                 #else
                 Memory::SimpleMalloc::Free(LowWorkRam::zone, ptr);
                 #endif
@@ -664,6 +708,7 @@ namespace SRL
                 }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
+                return tlsf_malloc(LowWorkRam::zone.Address, size);
                 return tlsf_malloc(LowWorkRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(LowWorkRam::zone, size);
@@ -690,6 +735,7 @@ namespace SRL
                 
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
+                return tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
                 #else
                 return Memory::SimpleMalloc::Realloc(LowWorkRam::zone, ptr, size);
                 #endif
@@ -713,7 +759,7 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GenerateTlsfReport(LowWorkRam::zone.Address);
+                return Memory::GetTlsfReport(LowWorkRam::zone);
                 #else
                 return Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
                 #endif
@@ -733,8 +779,7 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                auto report = Memory::GenerateTlsfReport(LowWorkRam::zone.Address);
-                return report.TotalSize - report.FreeSize;
+                auto report = Memory::GetTlsfReport(LowWorkRam::zone);
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
                 return report.TotalSize - report.FreeSize;
