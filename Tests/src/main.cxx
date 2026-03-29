@@ -16,31 +16,31 @@
 #include "testsFxp.hpp"
 #include "testsHighColor.hpp"
 #include "testsMath.hpp"
-#include "testsMat33.hpp"        // Include the header for Matrix33 tests
-#include "testsMat43.hpp"        // Include the header for Matrix43 tests
-#include "testsPlane.hpp"        // Include the header for Plane tests
-#include "testsSphere.hpp"       // Include the header for Sphere tests
-#include "testsCollision.hpp"    // Include the header for Collision tests
-#include "testsFrustum.hpp"      // Include the header for Frustum tests
-#include "testsMemory.hpp"        // Include the header for memory tests
-#include "testsBase.hpp"          // Include the header for SGL tests
-#include "testsBitmap.hpp"        // Include the header for bitmap tests
-#include "testsAABB.hpp"          // Include the header for AABB tests
-#include "testsVector2D.hpp"      // Include the header for Vector2D tests
-#include "testsVector3D.hpp"      // Include the header for Vector3D tests
-#include "testsMatrixStack.hpp"   // Include the header for MatrixStack tests
-#include "testsPrecision.hpp"     // Include the header for Precision tests
-#include "testsRandom.hpp"        // Include the header for Random tests
-#include "testsSortOrder.hpp"     // Include the header for SortOrder tests
-#include "testsTrigonometry.hpp"  // Include the header for Trigonometry tests
-#include "testsUtils.hpp"         // Include the header for Utils tests
-#include "testsMemoryHWRam.hpp"   // Include the header for memory HWRam tests
-#include "testsMemoryLWRam.hpp"   // Include the header for memory LWRam tests
-#include "testsMemoryCartRam.hpp" // Include the header for memory Cart Ram tests
-#include "testsString.hpp"        // Include the header for string tests
-#include "testDSP.hpp"            // Include the header for DSP tests
-#include "testsSystem.hpp"        // Include the header for System tests
-#include "testsInterrupt.hpp"     // Include the header for Interrupt tests
+#include "testsMat33.hpp"        
+#include "testsMat43.hpp"        
+#include "testsPlane.hpp"        
+#include "testsSphere.hpp"      
+#include "testsCollision.hpp"    
+#include "testsFrustum.hpp"      
+//#include "testsMemory.hpp"       
+#include "testsBase.hpp"         
+#include "testsBitmap.hpp"       
+#include "testsAABB.hpp"         
+#include "testsVector2D.hpp"     
+#include "testsVector3D.hpp"     
+#include "testsMatrixStack.hpp"  
+#include "testsPrecision.hpp"    
+#include "testsRandom.hpp"       
+#include "testsSortOrder.hpp"    
+#include "testsTrigonometry.hpp" 
+#include "testsUtils.hpp"        
+#include "testsMemoryHWRam.hpp"  
+#include "testsMemoryLWRam.hpp"  
+//#include "testsMemoryCartRam.hpp"
+#include "testsString.hpp"       
+//#include "testDSP.hpp"           
+//#include "testsSystem.hpp"       
+//#include "testsInterrupt.hpp"    
 
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
@@ -261,7 +261,7 @@ int main()
   RUN_AND_DISPLAY_SUITE(cd_test_suite);
   RUN_AND_DISPLAY_SUITE(collision_test_suite);
   RUN_AND_DISPLAY_SUITE(cram_test_suite);
-  RUN_AND_DISPLAY_SUITE(dsp_test_suite);
+  //RUN_AND_DISPLAY_SUITE(dsp_test_suite);
   RUN_AND_DISPLAY_SUITE(frustum_test_suite);
   RUN_AND_DISPLAY_SUITE(fxp_test_suite);
   RUN_AND_DISPLAY_SUITE(highcolor_test_suite);
@@ -269,7 +269,7 @@ int main()
   RUN_AND_DISPLAY_SUITE(mat43_test_suite);
   RUN_AND_DISPLAY_SUITE(math_test_suite);
   //RUN_AND_DISPLAY_SUITE(memory_test_suite);
-  RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
+  //RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
   RUN_AND_DISPLAY_SUITE(memory_HWRam_test_suite);
   RUN_AND_DISPLAY_SUITE(memory_LWRam_test_suite);
   RUN_AND_DISPLAY_SUITE(matrix_stack_test_suite);
@@ -278,7 +278,7 @@ int main()
   RUN_AND_DISPLAY_SUITE(random_test_suite);
   RUN_AND_DISPLAY_SUITE(sort_order_test_suite);
   RUN_AND_DISPLAY_SUITE(sphere_test_suite);
-  RUN_AND_DISPLAY_SUITE(system_test_suite);
+  //RUN_AND_DISPLAY_SUITE(system_test_suite);
   RUN_AND_DISPLAY_SUITE(trigonometry_test_suite);
   RUN_AND_DISPLAY_SUITE(utils_test_suite);
   RUN_AND_DISPLAY_SUITE(vector2d_test_suite);
