@@ -15,40 +15,23 @@ extern "C"
     extern char buffer[];
 
     /**
-     * @brief Set up routine for bitmap unit tests
-     *
-     * This function is called before each test in the bitmap test suite.
-     * Currently, it does not perform any specific setup operations,
-     * but provides a hook for future initialization requirements.
+     * @brief Sets up the environment for each bitmap unit test.
      */
     void bitmap_test_setup(void)
     {
         // Placeholder for any necessary test initialization
-        // Future implementations might include resetting bitmap state,
-        // clearing buffers, or preparing test environments
     }
 
     /**
-     * @brief Tear down routine for bitmap unit tests
-     *
-     * This function is called after each test in the bitmap test suite.
-     * Currently, it does not perform any specific cleanup operations,
-     * but provides a hook for future resource release or state reset.
+     * @brief Cleans up the environment after each bitmap unit test.
      */
     void bitmap_test_teardown(void)
     {
         // Placeholder for any necessary test cleanup
-        // Future implementations might include freeing resources,
-        // resetting global state, or clearing temporary data
     }
 
     /**
-     * @brief Output header for test suite error reporting
-     *
-     * This function is called on the first test failure to print
-     * a header indicating that bitmap unit test errors have occurred.
-     * It increments a global error counter to ensure the header
-     * is printed only once per test suite run.
+     * @brief Displays a header for the bitmap test suite upon the first error.
      */
     void bitmap_test_output_header(void)
     {
@@ -67,10 +50,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the initialization of the Palette struct
-     *
-     * Verifies that the Palette struct is properly initialized with the correct
-     * number of colors and that the Colors array is allocated correctly.
+     * @brief Tests the initialization of the `Palette` struct.
+     * @details Verifies that the `Palette` struct is properly initialized with the correct
+     *          number of colors and that the `Colors` array is allocated.
      */
     MU_TEST(palette_test_initialization)
     {
@@ -85,10 +67,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the destruction of the Palette struct
-     *
-     * Verifies that the Palette struct is properly destroyed and that the Colors
-     * array is deallocated correctly.
+     * @brief Tests the destruction of the `Palette` struct.
+     * @details Verifies that a dynamically allocated `Palette` can be deleted without
+     *          causing memory errors, implying correct deallocation.
      */
     MU_TEST(palette_test_destruction)
     {
@@ -102,10 +83,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the initialization of the BitmapInfo struct without a palette
-     *
-     * Verifies that the BitmapInfo struct is properly initialized with the correct
-     * width, height, and default color mode.
+     * @brief Tests the initialization of the `BitmapInfo` struct without a palette.
+     * @details Verifies that `BitmapInfo` is properly initialized with the correct
+     *          width, height, and a default color mode.
      */
     MU_TEST(bitmap_info_test_initialization_no_palette)
     {
@@ -124,10 +104,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the initialization of the BitmapInfo struct with a palette
-     *
-     * Verifies that the BitmapInfo struct is properly initialized with the correct
-     * width, height, palette, and color mode based on the palette size.
+     * @brief Tests the initialization of the `BitmapInfo` struct with a palette.
+     * @details Verifies that `BitmapInfo` is properly initialized with the correct
+     *          width, height, palette pointer, and the corresponding paletted color mode.
      */
     MU_TEST(bitmap_info_test_initialization_with_palette)
     {
@@ -151,7 +130,7 @@ extern "C"
     }
 
     /**
-     * @brief Mock implementation of the IBitmap interface for testing
+     * @brief A mock implementation of the `IBitmap` interface for testing purposes.
      */
     class MockBitmap : public SRL::Bitmap::IBitmap
     {
@@ -175,9 +154,9 @@ extern "C"
     };
 
     /**
-     * @brief Test the GetData method of the IBitmap interface
-     *
-     * Verifies that the GetData method returns the correct data pointer.
+     * @brief Tests the `GetData` method of the `IBitmap` interface.
+     * @details Verifies that the `GetData` method of a class implementing `IBitmap`
+     *          returns the correct pointer to the bitmap's raw pixel data.
      */
     MU_TEST(ibitmap_test_get_data)
     {
@@ -190,9 +169,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the GetInfo method of the IBitmap interface
-     *
-     * Verifies that the GetInfo method returns the correct BitmapInfo object.
+     * @brief Tests the `GetInfo` method of the `IBitmap` interface.
+     * @details Verifies that the `GetInfo` method of a class implementing `IBitmap`
+     *          returns a `BitmapInfo` object with the correct properties.
      */
     MU_TEST(ibitmap_test_get_info)
     {
@@ -213,11 +192,8 @@ extern "C"
     }
 
     /**
-     * @brief bitmap test suite configuration and test case registration
-     *
-     * Configures the test suite with setup, teardown, and error reporting functions.
-     * Registers individual test cases to be executed during the test run.
-     * Currently runs the base address initialization test and palette tests.
+     * @brief Defines the test suite for bitmap-related functionality.
+     * @details Configures and registers test cases for `Palette`, `BitmapInfo`, and the `IBitmap` interface.
      */
     MU_TEST_SUITE(bitmap_test_suite)
     {

@@ -11,21 +11,27 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    // Setup function for CD tests
+    /**
+     * @brief Sets up the environment for CD (Compact Disc) unit tests.
+     */
     void cd_test_setup(void)
     {
         // Initialize the CD system for testing
         SRL::Cd::Initialize();
     }
 
-    // Teardown function for CD tests
+    /**
+     * @brief Cleans up the environment after each CD unit test.
+     */
     void cd_test_teardown(void)
     {
         // Reset the current directory to the root directory
         SRL::Cd::ChangeDir(static_cast<const char *>(nullptr));
     }
 
-    // Output header function for CD tests
+    /**
+     * @brief Displays a header for the CD test suite upon the first error.
+     */
     void cd_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -41,7 +47,11 @@ extern "C"
         }
     }
 
-    // Test: Verify that a file exists and can be opened and closed properly.
+    /**
+     * @brief Tests basic file operations: existence check, opening, and closing.
+     * @details Verifies that a known file exists, can be successfully opened (retrieving a valid identifier),
+     *          and then properly closed.
+     */
     MU_TEST(cd_test_file_exists)
     {
         const char *filename = "CD_UT.TXT";
@@ -84,7 +94,11 @@ extern "C"
         mu_assert(exists, buffer);
     }
 
-    // Test: Verify that a file can be read and its contents match expected values.
+    /**
+     * @brief Tests reading the contents of a file and verifying its content.
+     * @details Opens a known text file, reads its content into a buffer, and then compares
+     *          the content line-by-line against an expected set of strings.
+     */
     MU_TEST(cd_test_read_file)
     {
         const char *filename = "CD_UT.TXT";
@@ -149,7 +163,11 @@ extern "C"
         mu_assert(accessPointer > 0, buffer);
     }
 
-    // Test: File reading in a specific directory
+    /**
+     * @brief Tests reading a file located within a specific directory.
+     * @details Changes the current directory, then attempts to open and read a file within that
+     *          directory to verify its contents.
+     */
     MU_TEST(cd_test_read_file2)
     {
         const char *dirname = "ROOT";
@@ -219,7 +237,11 @@ extern "C"
         mu_assert(accessPointer > 0, buffer);
     }
 
-    // Test: Verify behavior when attempting to open a null file.
+    /**
+     * @brief Tests the system's behavior when attempting to operate on a `nullptr` file.
+     * @details Ensures that attempting to check existence, open, or close a file initialized
+     *          with `nullptr` fails gracefully and does not lead to crashes.
+     */
     MU_TEST(cd_test_null_file)
     {
         SRL::Cd::File file(nullptr);
@@ -242,7 +264,11 @@ extern "C"
         mu_assert(!isopen, buffer);
     }
 
-    // Test: Verify behavior when attempting to open a missing file.
+    /**
+     * @brief Tests the system's behavior when attempting to operate on a non-existent file.
+     * @details Verifies that all operations on a file that does not exist on the disc
+     *          (existence check, open, close) fail as expected.
+     */
     MU_TEST(cd_test_missing_file)
     {
         const char *filename = "MISSING.TXT";
@@ -266,7 +292,10 @@ extern "C"
         mu_assert(!isopen, buffer);
     }
 
-    // Test: Verify seeking to the beginning of a file.
+    /**
+     * @brief Tests seeking to the beginning of a file.
+     * @details Verifies that `Seek(0)` correctly moves the file's access pointer to the start.
+     */
     MU_TEST(cd_file_seek_test_beginning)
     {
         const char *dirname = "ROOT";
@@ -296,7 +325,10 @@ extern "C"
         mu_assert(accessPointer == 0, buffer);
     }
 
-    // Test: Verify seeking to a specific offset
+    /**
+     * @brief Tests seeking to a specific offset within a file.
+     * @details Verifies that seeking to a valid, non-zero offset correctly updates the file's access pointer.
+     */
     MU_TEST(cd_file_seek_test_offset)
     {
         const char *dirname = "ROOT";
@@ -327,7 +359,11 @@ extern "C"
         mu_assert(accessPointer == offset, buffer);
     }
 
-    // Test: Verify seeking relative to the current position
+    /**
+     * @brief Tests seeking relative to the current position in a file.
+     * @details Verifies that a seek operation correctly updates the access pointer from its current
+     *          position rather than from the beginning of the file.
+     */
     MU_TEST(cd_file_seek_test_relative)
     {
         const char *dirname = "ROOT";
@@ -360,7 +396,10 @@ extern "C"
         mu_assert(accessPointer == new_offset, buffer);
     }
 
-    // Test: Verify seeking to an invalid negative offset
+    /**
+     * @brief Tests seeking to an invalid negative offset.
+     * @details Verifies that attempting to seek to a negative position returns a seek error.
+     */
     MU_TEST(cd_file_seek_test_invalid_negative)
     {
         const char *dirname = "ROOT";
@@ -386,7 +425,10 @@ extern "C"
         mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
     }
 
-    // Test: Verify seeking to an invalid offset (beyond file size)
+    /**
+     * @brief Tests seeking to an offset beyond the end of the file.
+     * @details Verifies that attempting to seek past the file's size returns a seek error.
+     */
     MU_TEST(cd_file_seek_test_invalid_beyond)
     {
         const char *dirname = "ROOT";
@@ -412,7 +454,10 @@ extern "C"
         mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
     }
 
-    // Test: Verify seeking to the exact file size
+    /**
+     * @brief Tests seeking to the exact end of the file.
+     * @details Verifies that seeking to an offset equal to the file's size is a valid operation.
+     */
     MU_TEST(cd_file_seek_test_file_size)
     {
         const char *dirname = "ROOT";
@@ -442,7 +487,10 @@ extern "C"
         mu_assert(accessPointer == file.Size.Bytes, buffer);
     }
 
-    // Test: Verify reading zero bytes
+    /**
+     * @brief Tests the behavior of reading zero bytes from a file.
+     * @details Verifies that a read operation with a length of zero returns an error code.
+     */
     MU_TEST(cd_test_read_zero_bytes)
     {
         const char *dirname = "ROOT";
@@ -471,7 +519,11 @@ extern "C"
         mu_assert(size == -1, buffer);
     }
 
-    // Test: Verify LoadBytes functionality
+    /**
+     * @brief Tests the `LoadBytes` functionality for directly loading file content.
+     * @details Verifies that `LoadBytes` can read a specified number of bytes from a file
+     *          into a buffer and that the content is correct.
+     */
     MU_TEST(cd_test_load_bytes)
     {
         const char *dirname = "ROOT";
@@ -499,7 +551,11 @@ extern "C"
         mu_assert(cmp == 0, buffer);
     }
 
-    // Test: Verify ReadSectors functionality
+    /**
+     * @brief Tests reading a file's content on a sector-by-sector basis.
+     * @details Verifies that `ReadSectors` successfully reads a sector of data from a file
+     *          and that the content matches expectations.
+     */
     MU_TEST(cd_test_read_sectors)
     {
         const char *dirname = "ROOT";
@@ -535,7 +591,11 @@ extern "C"
         mu_assert(cmp == 0, buffer);
     }
 
-    // Test: Verify IsEOF functionality
+    /**
+     * @brief Tests the end-of-file (`IsEOF`) detection functionality.
+     * @details Verifies that `IsEOF` returns true only when the file's access pointer
+     *          is at the end of the file.
+     */
     MU_TEST(cd_test_is_eof)
     {
         const char *dirname = "ROOT";
@@ -570,7 +630,11 @@ extern "C"
         mu_assert(!isEOF, buffer);
     }
 
-    // Test: Verify changing to a valid directory
+    /**
+     * @brief Tests changing to a known valid directory.
+     * @details Verifies that the `ChangeDir` function returns a success code when navigating
+     *          to a directory that is known to exist.
+     */
     MU_TEST(cd_test_change_to_valid_directory)
     {
         const char *validDir = "ROOT";
@@ -581,7 +645,11 @@ extern "C"
         mu_assert(result >= Cd::ErrorCode::ErrorOk, buffer);
     }
 
-    // Test: Verify changing to an invalid directory
+    /**
+     * @brief Tests changing to a non-existent directory.
+     * @details Verifies that `ChangeDir` returns an appropriate error code when attempting
+     *          to navigate to a directory that does not exist.
+     */
     MU_TEST(cd_test_change_to_invalid_directory)
     {
         const char *invalidDir = "INVALID";
@@ -592,7 +660,11 @@ extern "C"
         mu_assert(result == Cd::ErrorCode::ErrorNoName || result == Cd::ErrorCode::ErrorNExit, buffer);
     }
 
-    // Test: Verify navigating to the parent directory
+    /**
+     * @brief Tests navigating to the parent directory ("..").
+     * @details Verifies that after changing into a subdirectory, using ".." successfully
+     *          returns to the parent directory.
+     */
     MU_TEST(cd_test_navigate_to_parent_directory)
     {
         const char *subDir = "ROOT";
@@ -608,19 +680,11 @@ extern "C"
         mu_assert(result >= Cd::ErrorCode::ErrorOk, buffer);
     }
 
-    // Test: Verify navigating to the root directory
-    // MU_TEST(cd_test_navigate_to_root_directory)
-    // {
-    //     // Change to a subdirectory to ensure we're not already at root
-    //     SRL::Cd::ChangeDir("ROOT");
-
-    //     // Change to the root directory
-    //     int32_t result = SRL::Cd::ChangeDir(nullptr);
-    //     snprintf(buffer, buffer_size, "Failed to change to root directory: %d", result);
-    //     mu_assert(result >= Cd::ErrorCode::ErrorOk, buffer);
-    // }
-
-    // Test: Verify TableOfContents retrieval
+    /**
+     * @brief Tests retrieving and validating the CD's Table of Contents (TOC).
+     * @details Verifies that the `GetTable` function returns a TOC with valid first and last
+     *          track numbers and that the first track has a valid type (Data or Audio).
+     */
     MU_TEST(cd_test_table_of_contents)
     {
         Cd::TableOfContents toc = Cd::TableOfContents::GetTable();
@@ -639,7 +703,9 @@ extern "C"
         mu_assert(type == Cd::TableOfContents::TrackType::Data || type == Cd::TableOfContents::TrackType::Audio, buffer);
     }
 
-    // Test suite for CD-related tests
+    /**
+     * @brief Defines the test suite for all CD-related functionality.
+     */
     MU_TEST_SUITE(cd_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&cd_test_setup,

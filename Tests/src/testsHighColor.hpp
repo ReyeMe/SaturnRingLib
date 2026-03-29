@@ -15,39 +15,23 @@ extern "C"
     extern char buffer[];
 
     /**
-     * @brief Preparation routine for HighColor unit tests
-     *
-     * This function is called before each test in the HighColor test suite.
-     * Currently serves as a placeholder for potential future test initialization
-     * requirements, such as setting up test data or resetting test environment.
+     * @brief Sets up the environment for HighColor unit tests.
      */
     void highcolor_test_setup(void)
     {
         // Placeholder for any future test initialization needs
-        // Can be expanded to include specific setup operations
-        // for more complex HighColor testing scenarios
     }
 
     /**
-     * @brief Cleanup routine for HighColor unit tests
-     *
-     * This function is called after each test in the HighColor test suite.
-     * Currently serves as a placeholder for potential resource release
-     * or state reset operations that might be needed during testing.
+     * @brief Cleans up the environment after each HighColor unit test.
      */
     void highcolor_test_teardown(void)
     {
         // Placeholder for any future test cleanup requirements
-        // Can be used to free resources, reset global states,
-        // or perform any necessary post-test operations
     }
 
     /**
-     * @brief Error reporting header for HighColor test suite
-     *
-     * Prints a standardized error header when the first test failure occurs.
-     * Uses a global error counter to ensure the header is printed only once
-     * during a test suite execution, preventing redundant error messages.
+     * @brief Displays a header for the HighColor test suite upon the first error.
      */
     void highcolor_test_output_header(void)
     {
@@ -66,11 +50,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the initialization of HighColor with specific values
-     *
-     * Verifies that a HighColor object can be correctly initialized
-     * with predefined values for opacity, blue, green, and red channels.
-     * Ensures that each channel is set to the expected value during creation.
+     * @brief Tests the initialization of a HighColor object with specific channel values.
+     * @details Verifies that a HighColor object is correctly initialized with predefined values
+     *          for its opacity, red, green, and blue channels.
      */
     MU_TEST(highcolor_test_initialization)
     {
@@ -89,11 +71,8 @@ extern "C"
     }
 
     /**
-     * @brief Test the maximum value limits for color channels
-     *
-     * Verifies that a HighColor object can be initialized with
-     * maximum values (31) for all color channels, including opacity.
-     * Ensures the color representation handles maximum intensity correctly.
+     * @brief Tests the initialization of a HighColor object with maximum channel values.
+     * @details Verifies that all color channels (R, G, B) can be set to their maximum value of 31.
      */
     MU_TEST(highcolor_test_max_values)
     {
@@ -110,11 +89,8 @@ extern "C"
     }
 
     /**
-     * @brief Test the minimum value limits for color channels
-     *
-     * Verifies that a HighColor object can be initialized with
-     * minimum values (0) for all color channels, including opacity.
-     * Ensures the color representation handles minimum intensity correctly.
+     * @brief Tests the initialization of a HighColor object with minimum channel values.
+     * @details Verifies that all color channels (R, G, B) and opacity can be set to their minimum value of 0.
      */
     MU_TEST(highcolor_test_min_values)
     {
@@ -133,11 +109,9 @@ extern "C"
     }
 
     /**
-     * @brief Test the opacity toggling functionality
-     *
-     * Verifies that the opacity of a HighColor object can be
-     * dynamically changed between opaque (1) and transparent (0) states.
-     * Ensures the opacity setting can be modified after initial creation.
+     * @brief Tests the ability to toggle the opacity of a HighColor object.
+     * @details Verifies that the `Opaque` member can be changed from 1 (opaque) to 0 (transparent)
+     *          and back again after initialization.
      */
     MU_TEST(highcolor_test_toggle_opacity)
     {
@@ -156,11 +130,8 @@ extern "C"
     }
 
     /**
-     * @brief Test the color blending functionality
-     *
-     * Verifies that the Blend method correctly combines two separate
-     * color instances by averaging their respective color channel values.
-     * Ensures that color mixing produces the expected intermediate color.
+     * @brief Tests the color blending functionality between two HighColor objects.
+     * @details Verifies that the `Blend` method correctly averages the RGB channel values of two colors.
      */
     MU_TEST(highcolor_test_blending)
     {
@@ -179,11 +150,9 @@ extern "C"
     }
 
     /**
-     * @brief Test conversion of HighColor to 16-bit integer representation
-     *
-     * Verifies that the GetABGR method correctly converts a HighColor
-     * instance to its corresponding 16-bit integer (ABGR) format.
-     * Ensures accurate bit-level color representation conversion.
+     * @brief Tests the conversion of a HighColor object to its 16-bit integer representation.
+     * @details Verifies that the `GetABGR` method correctly packs the color channels into a
+     *          `uint16_t` in ABGR format.
      */
     MU_TEST(highcolor_test_to_integer)
     {
@@ -196,11 +165,9 @@ extern "C"
     }
 
     /**
-     * @brief Test conversion of 16-bit integer to HighColor representation
-     *
-     * Verifies that the FromARGB15 method correctly reconstructs a HighColor
-     * instance from its 16-bit integer representation.
-     * Ensures accurate bit-level color reconstruction from integer format.
+     * @brief Tests the creation of a HighColor object from a 16-bit integer.
+     * @details Verifies that the `FromARGB15` static method correctly unpacks a `uint16_t`
+     *          into the respective color channels of a HighColor object.
      */
     MU_TEST(highcolor_test_from_integer)
     {
@@ -218,11 +185,7 @@ extern "C"
     }
 
     /**
-     * @brief Configure and register HighColor test suite
-     *
-     * Sets up the test suite with initialization, cleanup, and error reporting
-     * functions. Registers all individual test cases to be executed during
-     * the HighColor unit testing process.
+     * @brief Defines the test suite for all HighColor functionality.
      */
     MU_TEST_SUITE(highcolor_test_suite)
     {

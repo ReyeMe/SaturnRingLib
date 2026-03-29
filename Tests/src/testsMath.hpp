@@ -14,42 +14,23 @@ extern "C"
     extern char buffer[];
 
     /**
-     * @brief Preparation routine for mathematical unit tests
-     *
-     * This function is called before each test in the Math test suite.
-     * Currently serves as a placeholder for potential future test initialization
-     * requirements, such as setting up test data or resetting test environment.
-     * Provides a hook for any necessary pre-test setup operations.
+     * @brief Sets up the environment for math-related unit tests.
      */
     void math_test_setup(void)
     {
-        // Placeholder for potential future test initialization needs
-        // Can be expanded to include specific setup operations
-        // for more complex mathematical testing scenarios
+        // Placeholder for any future test initialization needs
     }
 
     /**
-     * @brief Cleanup routine for mathematical unit tests
-     *
-     * This function is called after each test in the Math test suite.
-     * Currently serves as a placeholder for potential resource release
-     * or state reset operations that might be needed during testing.
-     * Provides a mechanism for post-test cleanup and resource management.
+     * @brief Cleans up the environment after each math-related unit test.
      */
     void math_test_teardown(void)
     {
-        // Placeholder for potential future test cleanup requirements
-        // Can be used to free resources, reset global states,
-        // or perform any necessary post-test operations
+        // Placeholder for any future test cleanup requirements
     }
 
     /**
-     * @brief Error reporting header for Math test suite
-     *
-     * Prints a standardized error header when the first test failure occurs.
-     * Utilizes a global error counter to ensure the header is printed only once
-     * during a test suite execution, preventing redundant error messages.
-     * Provides clear identification of mathematical unit test failures.
+     * @brief Displays a header for the math test suite upon the first error.
      */
     void math_test_output_header(void)
     {
@@ -68,17 +49,9 @@ extern "C"
     }
 
     /**
-     * @brief Test trigonometric sine function for standard angles
-     *
-     * Verifies the sine function's correctness for key standard angles:
-     * 0°, 90°, 180°, and 360°. Checks that the calculated sine values
-     * match the expected mathematical results within a small tolerance.
-     *
-     * Test cases cover:
-     * - Zero angle (0°)
-     * - Right angle (90°)
-     * - Straight angle (180°)
-     * - Full rotation (360°)
+     * @brief Tests the trigonometric sine function for standard angles (0, 90, 180, 360 degrees).
+     * @details Verifies that the calculated sine values match their expected mathematical results
+     *          within a small tolerance.
      */
     MU_TEST(math_test_sin_standard_angles)
     {
@@ -103,17 +76,9 @@ extern "C"
     }
 
     /**
-     * @brief Test trigonometric cosine function for standard angles
-     *
-     * Verifies the cosine function's correctness for key standard angles:
-     * 0°, 90°, 180°, and 360°. Checks that the calculated cosine values
-     * match the expected mathematical results within a small tolerance.
-     *
-     * Test cases cover:
-     * - Zero angle (0°)
-     * - Right angle (90°)
-     * - Straight angle (180°)
-     * - Full rotation (360°)
+     * @brief Tests the trigonometric cosine function for standard angles (0, 90, 180, 360 degrees).
+     * @details Verifies that the calculated cosine values match their expected mathematical results
+     *          within a small tolerance.
      */
     MU_TEST(math_test_cos_standard_angles)
     {
@@ -138,16 +103,9 @@ extern "C"
     }
 
     /**
-     * @brief Test trigonometric functions for negative angles
-     *
-     * Validates sine and cosine calculations for negative angles,
-     * specifically focusing on -90 degrees. Ensures that the mathematical
-     * library correctly handles signed angle inputs and produces
-     * mathematically accurate results.
-     *
-     * Test case covers:
-     * - Sine of negative right angle (-90°)
-     * - Cosine of negative right angle (-90°)
+     * @brief Tests trigonometric functions for negative angles.
+     * @details Validates that sine and cosine calculations for negative angles produce correct results,
+     *          specifically testing with -90 degrees.
      */
     MU_TEST(math_test_negative_angles)
     {
@@ -164,15 +122,9 @@ extern "C"
     }
 
     /**
-     * @brief Test trigonometric functions for large angle values
-     *
-     * Verifies sine and cosine calculations for angles beyond the standard
-     * 360-degree range. Checks that the mathematical library correctly
-     * normalizes large angles and produces expected trigonometric results.
-     *
-     * Test case covers:
-     * - Sine of 450 degrees (equivalent to 90 degrees)
-     * - Cosine of 450 degrees (equivalent to 90 degrees)
+     * @brief Tests trigonometric functions for angles greater than 360 degrees.
+     * @details Verifies that sine and cosine calculations correctly handle angle normalization
+     *          by testing with an angle of 450 degrees (equivalent to 90 degrees).
      */
     MU_TEST(math_test_large_angles)
     {
@@ -189,15 +141,9 @@ extern "C"
     }
 
     /**
-     * @brief Test trigonometric functions for small angle precision
-     *
-     * Evaluates the mathematical library's precision for trigonometric
-     * calculations with very small angle inputs. Ensures accurate
-     * sine and cosine computations near zero degrees.
-     *
-     * Test case covers:
-     * - Sine of a very small angle (0.1 degrees)
-     * - Cosine of a very small angle (0.1 degrees)
+     * @brief Tests the precision of trigonometric functions for very small angles.
+     * @details Evaluates sine and cosine for a small angle (0.1 degrees) to ensure the
+     *          calculations are accurate to a high degree of precision.
      */
     MU_TEST(math_test_small_angles)
     {
@@ -214,11 +160,7 @@ extern "C"
     }
 
     /**
-     * @brief Configure and register mathematical test suite
-     *
-     * Sets up the test suite with initialization, cleanup, and error reporting
-     * functions. Registers all individual trigonometric test cases to be
-     * executed during the mathematical unit testing process.
+     * @brief Defines the test suite for all general math and trigonometry functionality.
      */
     MU_TEST_SUITE(math_test_suite)
     {
