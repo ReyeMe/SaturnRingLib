@@ -260,17 +260,12 @@ namespace SRL
                             //determine if value is negative
                             bool isNegative = val < 0;
         
-                            //get the abosule value (why not just use abs() here ?)
                             uint32_t absValue = static_cast<uint32_t>(isNegative ? -val : val);
-                           
                             int32_t IntegerPart = absValue  >> 16;
-        
-                            uint32_t maskFractional = 0xffff;
-                            uint32_t FractionPart = absValue & maskFractional ;
-        
+                                                             
                             // Scale fractional part to 5 decimal digits
-                            FractionPart = (FractionPart * 100000 + 0x8000) >> 16;
-        
+                            int32_t FractionPart = SRL::Math::Abs((arg->GetFraction() * 1.5258789).RawValue());
+                            
                             if(isNegative)
                             {
                                 tmpBuffer[bufferPos++] = '-';
