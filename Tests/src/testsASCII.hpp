@@ -13,6 +13,7 @@ extern "C"
 
     extern const uint8_t buffer_size;
     extern char buffer[];
+    extern uint32_t suite_error_counter;
 
     // UT setup function, called before every tests
     void ascii_test_setup(void)

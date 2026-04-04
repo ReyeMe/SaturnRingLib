@@ -24,21 +24,21 @@ namespace SRL
          * @{
          */
 
-        /** @brief Draw SRL::Types::SmoothMesh
-         * @param mesh SRL::Types::SmoothMesh to draw
+        /** @brief Draw SRL::Types::SmoothMeshData
+         * @param mesh SRL::Types::SmoothMeshData to draw
          * @param light Light direction unit vector (This is independent of the SRL::Scene3D::SetDirectionalLight)
          */
-        static void DrawSmoothMesh(Types::SmoothMesh& mesh, SRL::Math::Types::Vector3D& light)
+        static void DrawSmoothMesh(Types::SmoothMeshData& mesh, SRL::Math::Types::Vector3D& light)
         {
             slPutPolygonX(mesh.SglPtr(), (FIXED*)&light);
         }
 
         /** @brief Draw SRL::Types::Mesh
          * @param mesh SRL::Types::Mesh to draw
-         * @param slaveOnly Value indicates whether processing of the SRL::Types::Mesh should be handled only on the slave CPU
+         * @param slaveOnly Value indicates whether processing of the SRL::Types::MeshData should be handled only on the slave CPU
          * @return True on success
          */
-        static bool DrawMesh(Types::Mesh& mesh, const bool slaveOnly = false)
+        static bool DrawMesh(Types::MeshData& mesh, const bool slaveOnly = false)
         {
             if (slaveOnly)
             {
@@ -51,10 +51,10 @@ namespace SRL
         /** @brief Draw SRL::Types::Mesh with orthographic projection
          * @note Light source calculations and clipping cannot be performed with this function.
          * @param mesh SRL::Types::Mesh to draw
-         * @param attribute Indicates an attribute in the SRL::Types::Mesh that will be shared by all polygons.<br>If set to 0, each polygon is displayed using the data at the beginning of the attribute table, otherwise specified attribute data will be displayed.
+         * @param attribute Indicates an attribute in the SRL::Types::MeshData that will be shared by all polygons.<br>If set to 0, each polygon is displayed using the data at the beginning of the attribute table, otherwise specified attribute data will be displayed.
          * @return True On success
          */
-        static bool DrawOrthographicMesh(Types::Mesh& mesh, uint16_t attribute)
+        static bool DrawOrthographicMesh(Types::MeshData& mesh, uint16_t attribute)
         {
             return slDispPolygon(mesh.SglPtr(), attribute);
         }

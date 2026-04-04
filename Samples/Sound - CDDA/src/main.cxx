@@ -3,6 +3,7 @@
 // Using to shorten names for Vector and HighColor
 using namespace SRL::Types;
 using namespace SRL::Math::Types;
+using namespace SRL::Input;
 
 const auto DarkGreen = HighColor::FromRGB555(0, 8, 0);
 
@@ -189,7 +190,7 @@ public:
             delete this->circles[circle];
         }
 
-        delete this->circles;
+        delete[] this->circles;
     }
 
     /** @brief Push volume into the meter history
@@ -217,35 +218,116 @@ public:
     }
 };
 
+enum class PlaybackStatus {
+    STOPPED,
+    PLAYING,
+    PAUSED
+};
+
 // Main program entry 
 int main()
 {
     // Initialize library
-	SRL::Core::Initialize(HighColor::Colors::Black);
-    SRL::Debug::Print(1,1, "Sound CDDA sample");
+    SRL::Core::Initialize(HighColor::Colors::Black);
+
+    Digital port0(0); // Initialize gamepad on port 0
+
+    SRL::Debug::Print(1,  1, "Sound CDDA sample");
+    SRL::Debug::Print(1, 24, "<Y [Stop]>");
+    SRL::Debug::Print(1, 25, "<Z [Play/Pause]>");
+    SRL::Debug::Print(1, 26, "<L [Prev] R [Next]>");
     
     // Setup camera location
     Vector3D cameraLocation = Vector3D(0.0, -20.0, -40.0);
-
+    
     // Load Volume meter
     auto leftMeter = new VolumeMeter(Vector3D(10.0, 0.0, 0.0), 3.0, -1.0, 16);
     auto rightMeter = new VolumeMeter(Vector3D(-10.0, 0.0, 0.0), 3.0, -1.0, 16);
-
+    
     // Initialize rotation angle
     Angle rotation = 0;
     Angle rotationStep = Angle::FromDegrees(0.2);
-
+    
     // Start analyzers
     SRL::Sound::Cdda::Analysis::Start();
+    
+    // CD playback state
+    size_t currentTrack = 2;
+    const size_t numberOfTracks = 4; // including the data track
+    const bool repeat = true; // Always repeat tracks
+    PlaybackStatus status = PlaybackStatus::PLAYING;
 
     // Play first CD audio track on loop
-    SRL::Sound::Cdda::PlaySingle(2, true);
+    SRL::Sound::Cdda::PlaySingle(currentTrack, repeat);
+    
+    const size_t trackTitleBufferLen = 10;
+    char trackTitleBuffer[trackTitleBufferLen];
 
     // Main loop
     size_t updateTick = 0;
 
 	while(1)
 	{
+        // Handle input
+        if (port0.IsConnected())
+        {
+            if (port0.WasPressed(Digital::Button::R))
+            {
+                currentTrack = (currentTrack == numberOfTracks) ? 2 : currentTrack + 1;
+                SRL::Sound::Cdda::PlaySingle(currentTrack, repeat);
+                status = PlaybackStatus::PLAYING;
+            }
+            else if (port0.WasPressed(Digital::Button::L))
+            {
+                currentTrack = (currentTrack == 2) ? numberOfTracks : currentTrack - 1;
+                SRL::Sound::Cdda::PlaySingle(currentTrack, repeat);
+                status = PlaybackStatus::PLAYING;
+            }
+            else if (port0.WasPressed(Digital::Button::Y))
+            {
+                SRL::Sound::Cdda::StopPause();
+                status = PlaybackStatus::STOPPED;
+            }
+            else if (port0.WasPressed(Digital::Button::Z))
+            {
+                if (status == PlaybackStatus::PLAYING)
+                {
+                    SRL::Sound::Cdda::StopPause();
+                    status = PlaybackStatus::PAUSED;
+                }
+                else
+                {
+                    if (status == PlaybackStatus::STOPPED)
+                    {
+                        SRL::Sound::Cdda::PlaySingle(currentTrack, repeat);
+                    }
+                    else // PAUSED
+                    {
+                        SRL::Sound::Cdda::Resume();
+                    }
+                    status = PlaybackStatus::PLAYING;
+                }
+            }
+        }
+
+        // Update UI
+        snprintf(trackTitleBuffer, trackTitleBufferLen, "Track %02u", currentTrack);
+        SRL::Debug::Print(1, 23, trackTitleBuffer);
+        
+        // Display playback status
+        switch (status)
+        {
+            case PlaybackStatus::PLAYING:
+                SRL::Debug::Print(1, 22, "Status: PLAYING");
+                break;
+            case PlaybackStatus::PAUSED:
+                SRL::Debug::Print(1, 22, "Status: PAUSED ");
+                break;
+            case PlaybackStatus::STOPPED:
+                SRL::Debug::Print(1, 22, "Status: STOPPED");
+                break;
+        }
+
         // Load identity matrix
         SRL::Scene3D::LoadIdentity();
         

@@ -15,7 +15,7 @@ int main()
 
     // Load teapot
     // Original model file can be found in the models folder in root of the sample
-    // Model was converted with ModelConverter (see https://github.com/ReyeMe/ModelConverter-linux), command parameters were: ModelConverter -i "D:\teapot.obj" -o "D:\FPOT.NYA" -s 1.0
+    // Model was converted with ModelConverter (see https://github.com/ReyeMe/ModelConverter-linux), command parameters were: ModelConverter -i "D:\teapot.obj" -o "D:\FPOT.NYA" -t Flat -s 1.0
     ModelObject teapot = ModelObject("FPOT.NYA");
 
     // Setup camera location

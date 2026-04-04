@@ -243,7 +243,7 @@ namespace SRL::Input
         /** @brief Get state of the peripheral in the previous frame
          * @return PerDigital* Peripheral data
          */
-        PerDigital* GetPreviousFrameState()
+        PerDigital* GetPreviousFrameState() const
         {
             return &Management::PeripheralsPreviousState[this->Port];
         }
@@ -251,7 +251,7 @@ namespace SRL::Input
         /** @brief Get state of the peripheral in the current frame
          * @return PerDigital* Peripheral data
          */
-        PerDigital* GetCurrentFrameState()
+        PerDigital* GetCurrentFrameState() const
         {
             return &Management::Peripherals[this->Port];
         }
@@ -261,7 +261,7 @@ namespace SRL::Input
         /** @brief Indicates whether peripheral is connected or not
          * @return true if connected
          */
-        virtual bool IsConnected()
+        virtual bool IsConnected() const
         {
             return Management::IsConnected(this->Port);
         }
@@ -269,7 +269,7 @@ namespace SRL::Input
         /** @brief Gets connected peripheral type
          *  @return Peripheral type
          */
-        PeripheralType GetType()
+        PeripheralType GetType() const
         {
             return Management::GetType(this->Port);
         }
@@ -277,7 +277,7 @@ namespace SRL::Input
         /** @brief Gets connected peripheral type family
          *  @return Peripheral type family
          */
-        PeripheralFamily GetFamily()
+        PeripheralFamily GetFamily() const
         {
             return Management::GetFamily(this->Port);
         }
@@ -317,7 +317,7 @@ namespace SRL::Input
         /** @brief Indicates whether peripheral is connected or not
          * @return true if connected
          */
-        bool IsConnected() override
+        bool IsConnected() const override
         {
             Input::PeripheralType type = this->GetType();
             return type == Input::PeripheralType::Mouse ||
@@ -329,7 +329,7 @@ namespace SRL::Input
          * @return true Button was pressed
          * @return false Button was not pressed
          */
-        bool virtual IsHeld(const Button& button)
+        bool virtual IsHeld(const Button& button) const
         {
             return (this->GetCurrentFrameState()->data & ((uint16_t)button)) == 0;
         }
@@ -339,7 +339,7 @@ namespace SRL::Input
          * @return true Button was released
          * @return false Button was not released
          */
-        bool virtual WasReleased(const Button& button)
+        bool virtual WasReleased(const Button& button) const
         {
             uint16_t current = this->GetCurrentFrameState()->data;
             uint16_t last = this->GetPreviousFrameState()->data;
@@ -351,7 +351,7 @@ namespace SRL::Input
          * @return true Button was pressed
          * @return false Button was not pressed
          */
-        bool virtual WasPressed(const Button& button)
+        bool virtual WasPressed(const Button& button) const
         {
             uint16_t current = this->GetCurrentFrameState()->data;
             uint16_t last = this->GetPreviousFrameState()->data;
@@ -361,7 +361,7 @@ namespace SRL::Input
         /** @brief Get the pointer position
          *  @return Vector2D Pointer position
          */
-        SRL::Math::Types::Vector2D virtual GetPosition()
+        SRL::Math::Types::Vector2D virtual GetPosition() const
         {
             PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
             return SRL::Math::Types::Vector2D((int16_t)data->x, (int16_t)data->y);
@@ -478,7 +478,7 @@ namespace SRL::Input
         /** @brief Indicates whether peripheral is connected or not
          * @return true if connected
          */
-        bool IsConnected() override
+        bool IsConnected() const override
         {
             return Gun::IsDeviceConnected(this->Port);
         }
@@ -488,7 +488,7 @@ namespace SRL::Input
          * @return true Button was pressed
          * @return false Button was not pressed
          */
-        bool virtual IsHeld(const Button& button)
+        bool virtual IsHeld(const Button& button) const
         {
             return (this->GetCurrentFrameState()->data & ((uint16_t)button)) == 0;
         }
@@ -498,7 +498,7 @@ namespace SRL::Input
          * @return true Button was released
          * @return false Button was not released
          */
-        bool virtual WasReleased(const Button& button)
+        bool virtual WasReleased(const Button& button) const
         {
             uint16_t current = this->GetCurrentFrameState()->data;
             uint16_t last = this->GetPreviousFrameState()->data;
@@ -510,7 +510,7 @@ namespace SRL::Input
          * @return true Button was pressed
          * @return false Button was not pressed
          */
-        bool virtual WasPressed(const Button& button)
+        bool virtual WasPressed(const Button& button) const
         {
             uint16_t current = this->GetCurrentFrameState()->data;
             uint16_t last = this->GetPreviousFrameState()->data;
@@ -520,7 +520,7 @@ namespace SRL::Input
         /** @brief Get the hit position
          *  @return Vector2D hit position
          */
-        SRL::Math::Types::Vector2D virtual GetPosition()
+        SRL::Math::Types::Vector2D virtual GetPosition() const
         {
             PerPoint* data = (PerPoint*)this->GetCurrentFrameState();
             return SRL::Math::Types::Vector2D((int16_t)data->x, (int16_t)data->y);
@@ -741,7 +741,7 @@ namespace SRL::Input
         /** @brief Indicates whether peripheral is connected or not
          * @return true if connected
          */
-        bool IsConnected() override
+        bool IsConnected() const override
         {
             return this->GetFamily() == Input::PeripheralFamily::Digital;
         }
@@ -751,7 +751,7 @@ namespace SRL::Input
          * @return true Button was pressed
          * @return false Button was not pressed
          */
-        bool virtual IsHeld(const Button& button)
+        bool virtual IsHeld(const Button& button) const
         {
             return (this->GetCurrentFrameState()->data & ((uint16_t)button)) == 0;
         }
@@ -761,7 +761,7 @@ namespace SRL::Input
          * @return true Button was released
          * @return false Button was not released
          */
-        bool virtual WasReleased(const Button& button)
+        bool virtual WasReleased(const Button& button) const
         {
             uint16_t current = this->GetCurrentFrameState()->data;
             uint16_t last = this->GetPreviousFrameState()->data;
@@ -773,7 +773,7 @@ namespace SRL::Input
          * @return true Button was pressed
          * @return false Button was not pressed
          */
-        bool virtual WasPressed(const Button& button)
+        bool virtual WasPressed(const Button& button) const
         {
             uint16_t current = this->GetCurrentFrameState()->data;
             uint16_t last = this->GetPreviousFrameState()->data;
@@ -822,7 +822,7 @@ namespace SRL::Input
         /** @brief Indicates whether peripheral is connected or not
          * @return true if connected
          */
-        bool IsConnected() override
+        bool IsConnected() const override
         {
             return this->GetFamily() == Input::PeripheralFamily::Analog;
         }
@@ -831,7 +831,7 @@ namespace SRL::Input
          * @param axis Analog axis
          * @return uint8_t value in range of 0 to 256
          */
-        uint8_t virtual GetAxis(const Axis axis)
+        uint8_t virtual GetAxis(const Axis axis) const
         {
             PerAnalog* data = this->Port < Management::MaxPeripherals ? (PerAnalog*)this->GetCurrentFrameState() : nullptr;
 

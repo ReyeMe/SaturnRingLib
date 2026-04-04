@@ -14,8 +14,9 @@
 namespace SRL::Bitmap
 {
     /** @brief TGA image handling
+     * @note When loading paletted image to VDP1, a palette handler function must be provided as an argument to SRL::VDP1::TryLoadTexture function
      */
-    struct TGA : IBitmap
+    struct TGA final : IBitmap
     {
     private:
         /** @brief Size of the header
@@ -787,9 +788,13 @@ namespace SRL::Bitmap
             delete stream;
         }
 
+        /** @brief No copy constructor
+         */
+        TGA(const TGA&) = delete;
+
     public:
 
-        /** @brief Construct RGB555 TGA image from file
+        /** @brief Construct TGA image from file
          * @param data TGA file
          * @param settings TGA loader settings
          */
@@ -798,7 +803,7 @@ namespace SRL::Bitmap
             this->LoadData(data, &settings);
         }
 
-        /** @brief Construct RGB555 TGA image from file
+        /** @brief Construct TGA image from file
          * @param filename TGA file name
          * @param settings TGA loader settings
          */
@@ -843,7 +848,7 @@ namespace SRL::Bitmap
         /** @brief Get image info
          * @return image info
          */
-        BitmapInfo GetInfo() override
+        BitmapInfo GetInfo() const override
         {
             if (this->palette != nullptr)
             {

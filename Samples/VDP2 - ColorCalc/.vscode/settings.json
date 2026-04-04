@@ -1,0 +1,39 @@
+{
+    "files.exclude": {
+        "**/*.o": true,
+        "**/*.bat": true,
+		"[Cc][Dd]/[Bb]uild[Dd]rop**" : true,
+    },
+    "files.watcherExclude": {
+        "**/*.o": true,
+        "**/*.bat": true,
+		"[Cc][Dd]/[Bb]uild[Dd]rop**" : true,
+    },
+	"C_Cpp.loggingLevel": "Debug",
+	"files.associations": {
+        "*.H": "c",
+        "*.C": "c",
+        "*.h": "c",
+        "*.c": "c",
+        "*.HPP": "cpp",
+        "*.CXX": "cpp",
+        "*.hpp": "cpp",
+        "*.cxx": "cpp",
+        "*.def": "c"
+    },
+    "cmake.configureOnOpen": false,
+    "makefile.makefilePath": "./makefile",
+    "C_Cpp.default.cppStandard": "c++23",
+    "C_Cpp.default.cStandard": "c17",
+    "C_Cpp.formatting": "vcFormat",
+    "C_Cpp.vcFormat.newLine.beforeOpenBrace.function": "newLine",
+    "C_Cpp.vcFormat.newLine.beforeOpenBrace.block": "newLine",
+    "C_Cpp.vcFormat.newLine.beforeOpenBrace.namespace": "newLine",
+    "C_Cpp.vcFormat.newLine.beforeOpenBrace.type": "newLine",
+    "C_Cpp.vcFormat.newLine.beforeOpenBrace.lambda": "newLine",
+    "C_Cpp.vcFormat.indent.lambdaBracesWhenParameter": false,
+    "C_Cpp.inlayHints.autoDeclarationTypes.enabled": true,
+    "C_Cpp.inlayHints.autoDeclarationTypes.showOnLeft": true,
+    "C_Cpp.inlayHints.referenceOperator.enabled": true,
+    "C_Cpp.inlayHints.referenceOperator.showSpace": true
+}

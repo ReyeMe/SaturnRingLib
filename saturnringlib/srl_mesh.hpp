@@ -142,7 +142,7 @@ namespace SRL::Types
 
         /** @brief Construct a new empty Attribute
          */
-        Attribute() :
+        constexpr Attribute() :
             Visibility(FaceVisibility::SingleSided),
             Sort(0),
             Texture(0),
@@ -161,7 +161,7 @@ namespace SRL::Types
          *  @param type Display type (sprite, polygon, etc)
          *  @param options Display options (light, gouraud, depth shading)
          */
-        Attribute(const FaceVisibility visibility, const SortMode sort, const uint16_t texture, uint16_t color, uint16_t gouraud, uint16_t mode, uint32_t type, uint16_t options) :
+        constexpr Attribute(const FaceVisibility visibility, const SortMode sort, const uint16_t texture, uint16_t color, uint16_t gouraud, uint16_t mode, uint32_t type, uint16_t options) :
             Visibility(visibility),
             Sort(sort | (((type) >> 16) & 0x1c) | options),
             Texture(texture),
@@ -181,7 +181,7 @@ namespace SRL::Types
          * @param type Display type of the quad
          * @param option Display options
          */
-        Attribute(
+        constexpr Attribute(
             const FaceVisibility visibility,
             const SortMode sort,
             const uint16_t texture,
@@ -264,13 +264,13 @@ namespace SRL::Types
     {
         /** @brief Construct a new Polygon object
          */
-        Polygon() : Normal(), Vertices { 0, 0, 0, 0 } { }
+        constexpr Polygon() : Normal(), Vertices { 0, 0, 0, 0 } { }
 
         /** @brief Construct a new Polygon object
          * @param normal Normal vector
          * @param vertices Polygon vertex indicies
          */
-        Polygon(const SRL::Math::Types::Vector3D& normal, const uint16_t vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
+        constexpr Polygon(const SRL::Math::Types::Vector3D& normal, const uint16_t vertices[4]) : Normal(normal), Vertices { vertices[0], vertices[1], vertices[2], vertices[3] } { }
 
         /** @brief Normal vector of the polygon
          */
@@ -281,46 +281,59 @@ namespace SRL::Types
         uint16_t Vertices[4];
     };
 
-    /** @brief 3D mesh
+    /** @brief 3D mesh data
      */
-    struct Mesh : public SRL::SGL::SglType<Mesh, PDATA>
+    struct MeshData : public SRL::SGL::SglType<MeshData, PDATA>
     {
+        /** @brief Construct a new empty mesh data object
+         */
+        constexpr MeshData() { }
+
         /** @brief Vertices of the mesh
          */
-        SRL::Math::Types::Vector3D *Vertices;
+        SRL::Math::Types::Vector3D *Vertices = nullptr;
 
         /** @brief Number of vertices of the mesh
          */
-        size_t VertexCount;
+        size_t VertexCount = 0;
 
         /** @brief Mesh faces
          */
-        Polygon *Faces;
+        Polygon *Faces = nullptr;
 
         /** @brief Number of faces
          */
-        size_t FaceCount;
+        size_t FaceCount = 0;
 
         /** @brief Face attributes
          */
-        Attribute *Attributes;
+        Attribute *Attributes = nullptr;
+    };
 
+    /** @brief 3D managed mesh data
+     */
+    struct Mesh : public MeshData
+    {
         /** @brief Construct a new empty mesh object
          */
-        Mesh() : Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr) { }
+        constexpr Mesh() : MeshData() { }
 
         /** @brief Construct a new empty mesh object and initialize its arrays
+         * @warning This constructor will also allocate Vertices, Faces and Attributes arrays
          * @param vertexCount Number of vertices in the mesh
-         * @param polygonCount Number of polygons in the mesh
+         * @param faceCount Number of faces in the mesh
          */
-        Mesh(const size_t& vertexCount, const size_t& polygonCount) : FaceCount(polygonCount), VertexCount(vertexCount)
+        Mesh(const size_t& vertexCount, const size_t& faceCount) : MeshData()
         {
+            this->FaceCount = faceCount;
+            this->VertexCount = vertexCount;
             this->Vertices = autonew SRL::Math::Types::Vector3D[vertexCount];
-            this->Faces = autonew Polygon[polygonCount];
-            this->Attributes = autonew Attribute[polygonCount];
+            this->Faces = autonew Polygon[faceCount];
+            this->Attributes = autonew Attribute[faceCount];
         }
 
         /** @brief Construct a new mesh object from existing data
+         * @warning When object is deleted, referenced vertices, faces and attributes arrays are deleted as well
          * @param vertexCount Number of points
          * @param vertices Vertex data
          * @param faceCount Number of faces
@@ -331,8 +344,10 @@ namespace SRL::Types
             SRL::Math::Types::Vector3D* vertices,
             const size_t& faceCount,
             Polygon* faces,
-            Attribute* attributes) : FaceCount(faceCount), VertexCount(vertexCount)
+            Attribute* attributes) : MeshData()
         {
+            this->VertexCount = vertexCount;
+            this->FaceCount = faceCount;
             this->Vertices = vertices;
             this->Faces = faces;
             this->Attributes = attributes;
@@ -347,17 +362,17 @@ namespace SRL::Types
             if (this != &other)
             {
                 // Steal resources from the source object
-                delete[] this->Vertices;
-                this->Vertices = other.Vertices;
-                this->VertexCount = other.VertexCount;
+                delete this->Attributes;
+                this->Attributes = other.Attributes;
 
-                delete[] this->Faces;
+                delete this->Faces;
                 this->Faces = other.Faces;
                 this->FaceCount = other.FaceCount;
 
-                delete[] this->Attributes;
-                this->Attributes = other.Attributes;
-
+                delete this->Vertices;
+                this->Vertices = other.Vertices;
+                this->VertexCount = other.VertexCount;
+                
                 // Reset the source object
                 other.Vertices = nullptr;
                 other.VertexCount = 0;
@@ -373,51 +388,72 @@ namespace SRL::Types
          */
         ~Mesh()
         {
-            // Release resources
-            delete[] this->Vertices;
-            delete[] this->Faces;
-            delete[] this->Attributes;
+            if (this->Attributes != nullptr)
+            {
+                delete this->Attributes;
+            }
+
+            if (this->Faces != nullptr)
+            {
+                delete this->Faces;
+            }
+
+            if (this->Vertices != nullptr)
+            {
+                delete this->Vertices;
+            }
         }
     };
 
-    /** @brief 3D smooths mesh
+    /** @brief 3D smooth mesh data
      */
-    struct SmoothMesh : public SRL::SGL::SglType<SmoothMesh, XPDATA>
+    struct SmoothMeshData : public SRL::SGL::SglType<SmoothMeshData, XPDATA>
     {
+        /** @brief Construct a new empty mesh data object
+         */
+        constexpr SmoothMeshData() { }
+
         /** @brief Vertices of the mesh
          */
-        SRL::Math::Types::Vector3D *Vertices;
+        SRL::Math::Types::Vector3D *Vertices = nullptr;
 
         /** @brief Number of vertices of the mesh
          */
-        size_t VertexCount;
+        size_t VertexCount = 0;
 
         /** @brief Mesh faces
          */
-        Polygon *Faces;
+        Polygon *Faces = nullptr;
 
         /** @brief Number of faces
          */
-        size_t FaceCount;
+        size_t FaceCount = 0;
 
         /** @brief Face attributes
          */
-        Attribute *Attributes;
-
+        Attribute *Attributes = nullptr;
+        
         /** @brief Normal vector data for vertices
          */
-        SRL::Math::Types::Vector3D* Normals;
+        SRL::Math::Types::Vector3D* Normals = nullptr;
+    };
 
+    /** @brief 3D smooth managed mesh
+     */
+    struct SmoothMesh : public SmoothMeshData
+    {
         /** @brief Construct a new empty mesh object
          */
-        SmoothMesh() : Normals(nullptr), Attributes(nullptr), FaceCount(0), Faces(nullptr), VertexCount(0), Vertices(nullptr)  { }
+        constexpr SmoothMesh() : SmoothMeshData()  { }
         
         /** @brief Construct a new empty mesh object and initialize its arrays
          * @param vertexCount Number of vertices in the mesh
          * @param faceCount Number of polygons in the mesh
          */
-        SmoothMesh(const size_t& vertexCount, const size_t& faceCount) : FaceCount(faceCount), VertexCount(vertexCount)
+        SmoothMesh(const size_t& vertexCount, const size_t& faceCount) : SmoothMeshData()
         {
+            this->VertexCount = vertexCount;
+            this->FaceCount = faceCount;
             this->Vertices = autonew SRL::Math::Types::Vector3D[vertexCount];
             this->Faces = autonew Polygon[faceCount];
             this->Attributes = autonew Attribute[faceCount];
@@ -437,8 +473,10 @@ namespace SRL::Types
             const size_t& faceCount,
             Polygon* faces,
             Attribute* attributes,
-            SRL::Math::Types::Vector3D* normals) : FaceCount(faceCount), VertexCount(vertexCount)
+            SRL::Math::Types::Vector3D* normals) : SmoothMeshData()
         {
+            this->VertexCount = vertexCount;
+            this->FaceCount = faceCount;
             this->Vertices = vertices;
             this->Faces = faces;
             this->Attributes = attributes;
@@ -485,10 +523,25 @@ namespace SRL::Types
         ~SmoothMesh()
         {
             // Release resources
-            delete[] this->Vertices;
-            delete[] this->Faces;
-            delete[] this->Attributes;
-            delete[] this->Normals;
+            if (this->Normals != nullptr)
+            {
+                delete[] this->Normals;
+            }
+
+            if (this->Attributes != nullptr)
+            {
+                delete[] this->Attributes;
+            }
+
+            if (this->Faces != nullptr)
+            {
+                delete[] this->Faces;
+            }
+
+            if (this->Vertices != nullptr)
+            {
+                delete[] this->Vertices;
+            }
         }
     };
 }

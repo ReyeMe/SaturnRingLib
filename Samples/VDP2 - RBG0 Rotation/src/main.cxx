@@ -10,12 +10,11 @@ using namespace SRL::Types;
 using namespace SRL::Math::Types;
 using namespace SRL::Input;
 
-static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
+static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map)
 {
     SRL::VDP2::RBG0::ScrollDisable();//turn off scroll display so we dont see junk when loading to VRAM
     SRL::VDP2::ClearVRAM();//Clearing VDP2 VRAM because use differs between Rotation Modes
-    SRL::VDP2::RBG0::LoadTilemap(*map);//Transfer Tilemap to VRAM again 
-    
+    SRL::VDP2::RBG0::LoadTilemap(*map);//Transfer Tilemap to VRAM again
     switch (config)
     {
     case 0:
@@ -29,8 +28,8 @@ static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
     case 1:
         /*configure RBG0 with 2 Axis rotation:
         -X and Z axis rotation displays correctly while Y rotation causes scaling/skewing
-        -Snes Mode7 style effect like Maio Kart/F-Zero
-        -Works for 3D games where there is no rolling around camera's axis*/
+        -Snes Mode7 style effect like Mario Kart/F-Zero
+        -Works for 3D ground in games where there is no rolling around camera's axis*/
         SRL::VDP2::RBG0::SetRotationMode(SRL::VDP2::RotationMode::TwoAxis);
         SRL::Debug::Print(1,5,"Rotation Mode <L [2 Axis] R>");
         break;
@@ -43,7 +42,7 @@ static void LoadRBG0(uint8_t config, SRL::Tilemap::ITilemap* map )
         SRL::Debug::Print(1,5,"Rotation Mode <L [3 Axis] R>");
         break;
     }
-   
+    slBMPaletteRbg0(9);
     SRL::VDP2::RBG0::ScrollEnable();//Turn Scroll Display back on
 }
 
@@ -64,7 +63,7 @@ int main()
     //SRL::VDP2::RBG0::ScrollEnable();//enable display of RBG0 
     
     //variables to store current RBG0 rotation
-    int16_t angY = (int16_t)DEGtoANG(0.0);
+    int16_t angY = (int16_t)DEGtoANG(0.1);
     int16_t angZ = (int16_t)DEGtoANG(0.0);
     int16_t angX = (int16_t)DEGtoANG(0.0);
     SRL::Debug::Print(1,3,"Rotating Scroll Modes Sample");

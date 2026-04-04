@@ -32,7 +32,7 @@ function DownloadFile($url, $targetFile)
         #Register the event from WebClient.DownloadProgressChanged to monitor download progress.
         Register-ObjectEvent -InputObject $Downloader -EventName DownloadProgressChanged -SourceIdentifier WebClient.DownloadProgressChanged | Out-Null
 
-        #Wait two seconds for the registration to fully complete
+        #Wait three seconds for the registration to fully complete
         Start-Sleep -Seconds 3
 
         if ($FileDownload.IsFaulted) {
@@ -150,3 +150,4 @@ else {
 
 Write-Host -NoNewLine 'Press any key to continue...';
 $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
+Write-Host ""

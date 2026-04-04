@@ -1,0 +1,12 @@
+# Other files
+**.zip
+
+# Build binaries and object files
+**.o
+0.bin
+[Bb]uild[Dd]rop/**
+
+# SEGA sound driver binaries
+**/cd/data/SDDRVS.*
+**/cd/data/BOOTSND.MAP
+**/cd/data/3BANDANA.EXB

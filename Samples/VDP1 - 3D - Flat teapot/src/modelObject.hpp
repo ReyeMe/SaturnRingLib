@@ -134,9 +134,13 @@ private:
          */
         uint8_t IsWireframe : 1;
 
+        /** @brief Render faces without any light applied
+         */
+        uint8_t NoLight : 1;
+
         /** @brief Reserved for future use
          */
-        uint8_t Reserved : 7;
+        uint8_t Reserved : 6;
 
         /** @brief This field is set if HasTexture field is false
          */
@@ -213,12 +217,12 @@ private:
                 textureIndex,
                 color,
                 CL32KRGB,
-                    CL32KRGB | ECdis |
+                    CL32KRGB |
                     (attributeHeader->HasMeshEffect != 0 ? MESHon : MESHoff) |
                     (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
                     (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
                 (attributeHeader->IsWireframe != 0 ? sprPolyLine : (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon)),
-                UseLight);
+                (attributeHeader->NoLight != 0 ? No_Option : UseLight));
             #pragma GCC diagnostic pop
         }
 
@@ -267,13 +271,13 @@ private:
                 textureIndex,
                 color,
                 (attributeHeader->HasFlatShading != 0 ? CL32KRGB : *gouraudIterator),
-                    CL32KRGB | ECdis |
+                    CL32KRGB |
                     (attributeHeader->HasMeshEffect != 0 ? MESHon : MESHoff) |
                     (attributeHeader->HasFlatShading != 0 ? 0 : CL_Gouraud) |
                     (attributeHeader->HasTransparency != 0 ? CL_Trans : 0) |
                     (attributeHeader->HasHalfBrightness != 0 ? CL_Half : 0),
                 (attributeHeader->IsWireframe != 0 ? sprPolyLine : (attributeHeader->HasTexture != 0 ? sprNoflip : sprPolygon)),
-                (attributeHeader->HasFlatShading != 0 ? UseLight : UseGouraud));
+                (attributeHeader->NoLight != 0 ? No_Option : (attributeHeader->HasFlatShading != 0 ? UseLight : UseGouraud)));
             #pragma GCC diagnostic pop
 
             *gouraudIterator += 1;
@@ -287,6 +291,70 @@ private:
     }
 
 public:
+
+     /** @brief Initializes a new empty model object
+     */
+
+     ModelObject()
+     {
+        // empty constructor
+     }
+
+     /** @brief Loads a model object from a file
+     * @param modelFile Model file
+     * @param gouraudTableStart Offset in gouraud table (used only with smooth meshes)
+     */
+    
+     void LoadFile(const char* modelFile, size_t gouraudTableStart = 0)
+     {
+        SRL::Cd::File file = SRL::Cd::File(modelFile);
+
+        char* fileBuffer = new char[file.Size.Bytes];
+        file.LoadBytes(0, file.Size.Bytes, fileBuffer);
+
+        char* iterator = fileBuffer;
+        
+        ModelHeader* header = GetAndIterate<ModelHeader>(iterator);
+
+        // Set defaults
+        this->startTextureIndex = -1;
+        this->textureCount = header->TextureCount;
+        this->meshCount = header->MeshCount;
+        this->type = header->Type;
+        this->gouraudOffset = gouraudTableStart;
+        size_t gouraudIterator = 0xe000 + this->gouraudOffset;
+
+        this->meshes = header->Type == 1 ? (void*)new SRL::Types::SmoothMesh[this->meshCount] : (void*)new SRL::Types::Mesh[this->meshCount];
+
+        if (header->Type == 1)
+        {
+            for (size_t meshIndex = 0; meshIndex < this->meshCount; meshIndex++)
+            {
+                this->LoadSmoothMesh(&iterator, &gouraudIterator, meshIndex, header);
+            }
+        }
+        else
+        {
+            for (size_t meshIndex = 0; meshIndex < this->meshCount; meshIndex++)
+            {
+                this->LoadFlatMesh(&iterator, meshIndex, header);
+            }
+        }
+
+        // Load textures
+        for (size_t textureIndex = 0; textureIndex < this->textureCount; textureIndex++)
+        {
+            // Get header
+            TextureHeader* textureHeader = GetAndIterate<TextureHeader>(iterator);
+
+            // Get texture data
+            int32_t spriteIndex = SRL::VDP1::TryLoadTexture(textureHeader->Width, textureHeader->Height, SRL::CRAM::TextureColorMode::RGB555, 0, textureHeader->Data());
+        }
+
+        // Free the read file
+        delete fileBuffer;
+    }
+
 
     /** @brief Initializes a new model object from a file
      * @param modelFile Model file

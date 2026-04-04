@@ -30,6 +30,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: Setup iso2raw tool
+        run: |
+          cd $GITHUB_WORKSPACE
+          ./tools/scripts/getiso2raw.sh v0.2.2
       - name: Build
         run: |
           cd $GITHUB_WORKSPACE/Tests

@@ -49,11 +49,11 @@ int main()
     delete coverOff;                                                                     // Frees main RAM
 
     // Get screen size
-    constexpr int16_t halfWidth = SRL::TV::Width >> 1;
+    const Fxp halfWidth = (int16_t)(SRL::TV::Width >> 1);
     Fxp minimumWidth = -halfWidth;
     Fxp maximumWidth = halfWidth;
 
-    constexpr int16_t halfHeight = SRL::TV::Height >> 1;
+    const Fxp halfHeight = (int16_t)(SRL::TV::Height >> 1);
     Fxp minimumHeight = -halfHeight;
     Fxp maximumHeight = halfHeight;
     Vector2D screenMiddlePoint = Vector2D(maximumWidth, maximumHeight);

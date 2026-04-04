@@ -51,7 +51,7 @@ public:
     /** @brief Get image info
      * @return image info
      */
-    SRL::Bitmap::BitmapInfo GetInfo() override
+    SRL::Bitmap::BitmapInfo GetInfo() const override
     {
         return SRL::Bitmap::BitmapInfo(this->width, this->height);
     }

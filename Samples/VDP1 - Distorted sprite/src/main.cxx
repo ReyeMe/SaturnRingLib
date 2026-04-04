@@ -29,12 +29,12 @@ int main()
     delete tga;                                                 // Frees main RAM
 
     // Get screen size
-    constexpr uint16_t halfWidth = SRL::TV::Width >> 1;
-    Fxp minimumWidth = -halfWidth;
+    const int16_t halfWidth = SRL::TV::Width >> 1;
+    Fxp minimumWidth = (int16_t)-halfWidth;
     Fxp maximumWidth = halfWidth;
 
-    constexpr uint16_t halfHeight = SRL::TV::Height >> 1;
-    Fxp minimumHeight = -halfHeight;
+    const int16_t halfHeight = SRL::TV::Height >> 1;
+    Fxp minimumHeight = (int16_t)-halfHeight;
     Fxp maximumHeight = halfHeight;
 
     // Initialize random number function

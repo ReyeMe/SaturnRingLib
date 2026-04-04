@@ -10,6 +10,7 @@ IF "%1" == "" GOTO mednafen
 IF "%1" == "mednafen" GOTO mednafen
 IF "%1" == "kronos" GOTO kronos
 IF "%1" == "yabause" GOTO yabause
+IF "%1" == "ymir" GOTO ymir
 
 rem We do not know what emulator user wants
 echo "%1" is not supported
@@ -74,5 +75,25 @@ FOR %%F IN (./BuildDrop/*.cue) DO (
 
 GOTO end
 rem mednafen block end
+
+:ymir
+rem Run ymir
+where /q ymir-sdl3.exe
+
+IF ERRORLEVEL 1 (
+    echo Using project Ymir installation!
+    SET YMIR=../../emulators/ymir/ymir-sdl3.exe
+) else (
+    echo Using system's Ymir installation!
+    SET YMIR=ymir-sdl3.exe
+)
+
+FOR %%F IN (./BuildDrop/*.cue) DO (
+    start %YMIR% ./BuildDrop/%%F
+    exit /b
+)
+
+GOTO end
+rem ymir block end
 
 :end

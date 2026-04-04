@@ -1,3 +1,4 @@
+
 #pragma once
 
 extern "C" {
@@ -25,19 +26,37 @@ namespace SRL
                 return this->done;
             }
 
+            /** @brief Task Running Status getter
+             * @returns Task Running Status
+             */
+            virtual bool IsRunning()
+            {
+                return this->running;
+            }
+
             /** @brief Start the Task on Slave SH2, then set its status to Done
              */
             virtual void Start()
             {
-                this->Do();
+                if (!this->running)
+                {
+                    this->running = true;
+                    this->Do();
+                }
                 this->done = true;
+                this->running = false;
             }
 
             /** @brief Reset Task Status before running
+             * @return true if the task is ready to run, false if it is already running
              */
-            virtual void ResetTask()
+            virtual bool ResetTask()
             {
-                this->done = false;
+                if (!this->running)
+                {
+                    this->done = false;
+                }
+                return !this->done;
             }
 
         protected:
@@ -45,9 +64,14 @@ namespace SRL
              */
             volatile bool done;
 
+            /** @brief Holds a value indicating whether task has been completed
+             * @return true if the task has been completed, false otherwise
+             */
+            volatile bool running;
+
             /** @brief Constructor
              */
-            ITask() : done(false) {}
+            ITask() : done(false), running(false) {}
 
             /** @brief Abstract method that defines the task's behavior
              */
@@ -61,6 +85,10 @@ namespace SRL
     private:
 
         /** @brief Internal Wrapper function executed on Slave SH2 CPU
+         * @param pTask Pointer to the ITask object to be executed
+         * This function is called by the slSlaveFunc to execute the task on the Slave SH2.
+         * It casts the void pointer to ITask and calls its Start method.
+         * @note This function is not meant to be called directly, it is used internally by the library.
         */
         inline static void SlaveTask(void * pTask)
         {
@@ -75,8 +103,10 @@ namespace SRL
         */
         inline static void ExecuteOnSlave(Types::ITask & task)
         {
-            task.ResetTask();
-            slSlaveFunc(SlaveTask, static_cast<void *>(&task));
+            if(task.ResetTask())
+            {
+                slSlaveFunc(SlaveTask, static_cast<void *>(&task));
+            }
         }
 
     };

@@ -6,7 +6,15 @@ else
   export COMPILER_DIR=../../Compiler;
 fi
 
-export PATH=${COMPILER_DIR}/linux/sh2eb-elf/bin:${PATH};
+host_platform="$(uname -s)"
+if [ "$host_platform" = "Darwin" ]; then
+  export PATH=${COMPILER_DIR}/mac/sh2eb-elf/bin:${PATH};
+elif [ "$host_platform" = "Linux" ]; then
+  export PATH=${COMPILER_DIR}/linux/sh2eb-elf/bin:${PATH};
+else
+  echo "Unsupported host platform: $host_platform"
+  exit 1
+fi
 
 if [[ $# -eq 0 ]]; then
   printf "\033[91mNo target specified! Defaulting to debug...\033[0m\r\n"

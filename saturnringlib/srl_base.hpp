@@ -63,7 +63,10 @@ extern "C" void __attribute__((weak)) __cxa_pure_virtual()
 
 /** @brief Saturn ring library
  */
-namespace SRL { }
+namespace SRL
+{
+    class Core;
+}
 
 /** @brief Value types
  */

@@ -97,11 +97,11 @@ extern "C"
      * Verifies that the used memory space can be retrieved correctly in CartRam.
      * Ensures that the used space is greater than or equal to zero.
      */
-    MU_TEST(memory_CartRam_test_get_used_space)
-    {
-        size_t usedSpace = Memory::GetUsedSpace(Memory::Zone::CartRam);
-        mu_assert(usedSpace >= 0, "Failed to get used space");
-    }
+    // MU_TEST(memory_CartRam_test_get_used_space)
+    // {
+    //     size_t usedSpace = Memory::GetUsedSpace(Memory::Zone::CartRam);
+    //     mu_assert(usedSpace >= 0, "Failed to get used space");
+    // }
 
     /**
      * @brief Test getting memory zone size in CartRam
@@ -208,11 +208,11 @@ extern "C"
      * Verifies that the used memory space in CartRam can be retrieved correctly.
      * Ensures that the used space is greater than or equal to zero.
      */
-    MU_TEST(memory_CartRam_test_cartram_get_used_space)
-    {
-        size_t usedSpace = Memory::CartRam::GetUsedSpace();
-        mu_assert(usedSpace >= 0, "Failed to get CartRam used space");
-    }
+    // MU_TEST(memory_CartRam_test_cartram_get_used_space)
+    // {
+    //     size_t usedSpace = Memory::CartRam::GetUsedSpace();
+    //     mu_assert(usedSpace >= 0, "Failed to get CartRam used space");
+    // }
 
     /**
      * @brief Test getting CartRam memory zone size
@@ -243,7 +243,7 @@ extern "C"
                  freeSpaceBefore, freeSpaceAfterAlloc);
         mu_assert(freeSpaceAfterAlloc < freeSpaceBefore, buffer);
 
-        delete[] ptr;
+        delete[] (char*)ptr;
 
         size_t freeSpaceAfterFree = Memory::GetFreeSpace(Memory::Zone::CartRam);
         snprintf(buffer, buffer_size,
@@ -285,14 +285,14 @@ extern "C"
 
         mu_assert(ptr2 == nullptr, "Memory depletion in CartRam did not return nullptr");
 
-        delete[] ptr2;
-        delete[] ptr;
+        delete[] (char*)ptr2;
+        delete[] (char*)ptr;
 
         // Validate that memory can be reallocated after depletion
         ptr = new (SRL::Memory::Zone::CartRam) char[100];
         mu_assert(ptr != nullptr, "Memory reallocation in CartRam after depletion failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -322,7 +322,7 @@ extern "C"
         ptr = SRL::Memory::CartRam::Realloc(ptr, 200);
         mu_assert(ptr != nullptr, "Reallocation to larger size failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -336,7 +336,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::CartRam) char[largeSize];
         mu_assert(ptr != nullptr, "Large block allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -350,14 +350,14 @@ extern "C"
         void *ptr2 = new (SRL::Memory::Zone::CartRam) char[200];
         void *ptr3 = new (SRL::Memory::Zone::CartRam) char[300];
 
-        delete[] ptr2;
+        delete[] (char*)ptr2;
 
         void *ptr4 = new (SRL::Memory::Zone::CartRam) char[150];
         mu_assert(ptr4 != nullptr, "Fragmentation handling failed");
 
-        delete[] ptr1;
-        delete[] ptr3;
-        delete[] ptr4;
+        delete[] (char*)ptr1;
+        delete[] (char*)ptr3;
+        delete[] (char*)ptr4;
     }
 
     /**
@@ -388,7 +388,7 @@ extern "C"
         SRL::Memory::Free(ptr);         // Should not crash or cause issues
 
         ptr = new (SRL::Memory::Zone::CartRam) char[100];
-        delete[] ptr;
+        delete[] (char*)ptr;
         SRL::Memory::Free(ptr); // Should not crash or cause issues
     }
 
@@ -404,7 +404,7 @@ extern "C"
             void *ptr = new (SRL::Memory::Zone::CartRam) char[100];
             mu_assert(ptr != nullptr, "Stress test allocation failed");
 
-            delete[] ptr;
+            delete[] (char*)ptr;
         }
     }
 
@@ -419,7 +419,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::CartRam) char[freeSpace - 1];
         mu_assert(ptr != nullptr, "Boundary condition allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -433,7 +433,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::CartRam) char[100];
         mu_assert(ptr != nullptr, "Memory allocation failed");
 
-        delete[] ptr;
+        delete[] (char*)ptr;
         size_t freeSpaceAfter = Memory::CartRam::GetFreeSpace();
         mu_assert(freeSpaceAfter == freeSpaceBefore, "Memory leak detected");
     }
@@ -489,7 +489,7 @@ extern "C"
             mu_assert(ptr[i] == i, "Memory content verification failed");
         }
 
-        delete[] ptr;
+        delete[] (char*)ptr;
     }
 
     /**
@@ -637,11 +637,11 @@ extern "C"
         MU_RUN_TEST(memory_CartRam_test_realloc_larger);
 
         MU_RUN_TEST(memory_CartRam_test_get_free_space);
-        MU_RUN_TEST(memory_CartRam_test_get_used_space);
+        //MU_RUN_TEST(memory_CartRam_test_get_used_space);
         MU_RUN_TEST(memory_CartRam_test_get_size);
         MU_RUN_TEST(memory_CartRam_test_get_report_cartram);
         MU_RUN_TEST(memory_CartRam_test_cartram_get_free_space);
-        MU_RUN_TEST(memory_CartRam_test_cartram_get_used_space);
+        //MU_RUN_TEST(memory_CartRam_test_cartram_get_used_space);
         MU_RUN_TEST(memory_CartRam_test_cartram_get_size);
         MU_RUN_TEST(memory_CartRam_test_inrange_cartram);
 

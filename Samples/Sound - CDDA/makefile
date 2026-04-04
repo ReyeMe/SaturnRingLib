@@ -24,6 +24,12 @@ CD_NAME = Sound_CDDA
 # Directory build will be placed into
 BUILD_DROP = ./BuildDrop
 
+# Custom SOX filters for audio conversion
+# These filters must be exported for the conversion process to access them
+# Usage: Add ":filtername" to a track in the tracklist file (e.g., "trackname.mp3:normalize")
+export SRL_SOX_FILTERS_normalize = highpass 80 bass -4 120 compand 0.3,1 -70,-70,-60,-40,-20,-15 -3 -90 0.2 norm -3
+export SRL_SOX_FILTERS_radio = highpass 80 compand 0.3,1 6:-70,-60,-20 -5 -90 0.2 norm -3
+
 # SRL installation directory
 SRL_INSTALL_ROOT ?= ../..
 

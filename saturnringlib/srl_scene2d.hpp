@@ -6,6 +6,7 @@
 namespace SRL
 {
     /** @brief Rendering of VDP1 sprites and shapes
+     * @note Z/depth does not cause perspective calculation, it is used only for sorting
      */
     class Scene2D
     {
@@ -115,7 +116,7 @@ namespace SRL
              * // or
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip);
              *
-             * // Enable clipping
+             * // Enable flipping
              * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Flip, SRL::Scene2D::FlipEffect::HorizontalFlip);
              *
              * // Enable flip in both directions
@@ -241,6 +242,51 @@ namespace SRL
             BottomRight = 0xf
         };
 
+        /** @brief Command control type
+         */
+        enum class CommandType : uint16_t
+        {
+            /** @brief Standard sprite command
+             */
+            StandardSprite = 0x0,
+            
+            /** @brief Rectangle sprite command
+             */
+            RectangleSprite = 0x1,
+            
+            /** @brief Textured sprite sprite command
+             */
+            Texture = 0x2,
+
+            /** @brief Filled polygon command
+             */
+            Polygon = 0x4,
+            
+            /** @brief Polyline command
+             */
+            PolyLine = 0x5,
+
+            /** @brief Simple line segment command
+             */
+            LineSegment = 0x6,
+            
+            /** @brief System clip change command
+             */
+            SystemClip = 0x9,
+            
+            /** @brief User clip change command
+             */
+            UserClip = 0x8,
+            
+            /** @brief Change relative coordinates for VDP1 command table
+             */
+            BasePosition = 0xA,
+
+            /** @brief Draw end command
+             */
+            End = 0x80,
+        };
+
     private:
 
         /** @brief Base address of the gouraud table
@@ -304,31 +350,71 @@ namespace SRL
             return Scene2D::Effects.Gouraud >= SRL::Scene2D::GouraudTableBase;
         }
 
-        /** @brief Generates base shape command
-         * @param type Sprite type
+    public:
+
+        /**
+         * @name Sprite/Shape command creation
+         * @{
+         */
+
+        /** @brief Generates sprite command based on current effect flags
+         * @param type Sprite type see SRL::Scene2D::CommandType
          * @param color Sprite color
          * @return Sprite command
          */
-        static constexpr inline SPRITE GetShapeCommand(uint16_t type, Types::HighColor color)
+        static constexpr inline SPRITE GetSpriteCommand(Scene2D::CommandType type, Types::HighColor color)
         {
-            SPRITE sprite;
-            sprite.COLR = color;
-            sprite.CTRL = type | (Scene2D::IsGouraudEnabled() ? UseGouraud : 0);
+            uint16_t gouraudEnabled = Scene2D::IsGouraudEnabled();
 
-            sprite.PMOD = 0x0080 |
-                ((CL32KRGB & 7) << 3) |
-                (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
-                (Scene2D::Effects.ScreenDoors << 8) |
-                (Scene2D::Effects.Clipping << 9) |
-                (Scene2D::Effects.HalfTransparency ? 0x3 : 0 );
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wnarrowing"
+            return {
+                // Control
+                (int8_t)type | (gouraudEnabled << 7),
 
-            sprite.GRDA = (Scene2D::IsGouraudEnabled() ? Scene2D::Effects.Gouraud : 0);
-            return sprite;
+                // Link address
+                0,
+
+                // Put mode
+                (uint16_t)(0x0080 |
+                    ((CL32KRGB & 7) << 3) |
+                    (gouraudEnabled << 2) |
+                    (Scene2D::Effects.ScreenDoors << 8) |
+                    (Scene2D::Effects.Clipping << 9) |
+                    (Scene2D::Effects.HalfTransparency ? 0x3 : 0 )),
+
+                // Sprite Color
+                color,
+
+                // Texture source
+                0,
+
+                // Texture size
+                0,
+
+                // X,Y coordinates as 16bit integer, repeated 4 times
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+
+                // Gouraud
+                Scene2D::Effects.Gouraud,
+
+                // Dummy variable
+                0
+            };
+            #pragma GCC diagnostic pop
         }
 
-        /** @brief Generates sprite attributes struct
+        /** @brief Generates sprite attributes struct based on current effect flags
          * @param texture Texture identifier
          * @param texturePalette Palette override
+         * @param zoomPoint Sprite zoom (origin) point
          * @return Sprite attributes
          */
         static constexpr inline SPR_ATTR GetSpriteAttribute(
@@ -394,12 +480,46 @@ namespace SRL
                 (zoomPoint << 8));
             #pragma GCC diagnostic pop
         }
-    public:
+
+        /** @} */
 
         /**
          * @name Draw functions
          * @{
          */
+
+        /** @brief Draw sprite by using a custom command
+         * @param command Custom command
+         * @param depth Depth sort value
+         * @return True on success
+         */
+        static bool Draw(SPRITE* command, const SRL::Math::Types::Fxp& depth)
+        {
+            return slSetSprite(command, depth.RawValue());
+        }
+
+        /** @brief Draw sprite by using custom attributes
+         * @param attributes Custom sprite attributes
+         * @param arguments Sprite attribute arguments
+         * @return True on success
+         */
+        static bool Draw(SPR_ATTR* attributes, const SRL::Math::Types::Fxp* arguments)
+        {
+            // We cannot use slDispSprite, as that seems to be bugged and is drawing images 1px wider than it should
+            return slDispSpriteHV((FIXED*)arguments, attributes, 0) != 0;
+        }
+
+        /** @brief Draw sprite by using custom attributes and 4 points
+         * @param attributes Custom sprite attributes
+         * @param points Corners of the sprite in screen coordinates
+         * @param depth Depth sort value
+         * @return True on success
+         */
+        static bool Draw(SPR_ATTR* attributes, const SRL::Math::Types::Vector2D points[4], const SRL::Math::Types::Fxp depth)
+        {
+            // We cannot use slDispSprite, as that seems to be bugged and is drawing images 1px wider than it should
+            return slDispSprite4P((FIXED*)points, depth.RawValue(), attributes) != 0;
+        }
 
         /** @brief Draw sprite from 4 points
          * @param texture Sprite texture
@@ -532,31 +652,19 @@ namespace SRL
                 // Calculate new 4 corners
                 return Scene2D::DrawSprite(texture, texturePalette, realPoints, location.Z);
             }
-            else if (scale.X == scale.Y)
-            {
-                // Sprite attributes and command points
-                SPR_ATTR attr = Scene2D::GetSpriteAttribute(texture, texturePalette, zoomPoint);
-
-                FIXED sgl_pos[5];
-                sgl_pos[X] = location.X.RawValue();
-                sgl_pos[Y] = location.Y.RawValue();
-                sgl_pos[Z] = location.Z.RawValue();
-                sgl_pos[S] = scale.X.RawValue();
-
-                return slDispSprite(sgl_pos, &attr, 0) != 0;
-            }
             else
             {
                 // Sprite attributes and command points
                 SPR_ATTR attr = Scene2D::GetSpriteAttribute(texture, texturePalette, zoomPoint);
 
-                FIXED sgl_pos[5];
+                FIXED sgl_pos[XYZSS];
                 sgl_pos[X] = location.X.RawValue();
                 sgl_pos[Y] = location.Y.RawValue();
                 sgl_pos[Z] = location.Z.RawValue();
-                sgl_pos[S] = scale.X.RawValue();
-                sgl_pos[XYZS] = scale.Y.RawValue();
+                sgl_pos[Sh] = scale.X.RawValue();
+                sgl_pos[Sv] = scale.Y.RawValue();
 
+                // We cannot use slDispSprite, as that seems to be bugged and is drawing images 1px wider than it should
                 return slDispSpriteHV(sgl_pos, &attr, 0) != 0;
             }
         }
@@ -621,7 +729,7 @@ namespace SRL
         */
         static bool DrawLine(const SRL::Math::Types::Vector2D& start,const SRL::Math::Types::Vector2D& end, const Types::HighColor& color, const SRL::Math::Types::Fxp sort)
         {
-            SPRITE line = Scene2D::GetShapeCommand(FUNC_Line, color);
+            SPRITE line = Scene2D::GetSpriteCommand(Scene2D::CommandType::LineSegment, color);
             line.XA = start.X.As<int16_t>();
             line.YA = start.Y.As<int16_t>();
             line.XB = end.X.As<int16_t>();
@@ -637,7 +745,7 @@ namespace SRL
          */
         static bool DrawPolygon(SRL::Math::Types::Vector2D points[4], const bool fill, const Types::HighColor& color, const SRL::Math::Types::Fxp sort)
         {
-            SPRITE polygon = Scene2D::GetShapeCommand(fill ? FUNC_Polygon : FUNC_PolyLine, color);
+            SPRITE polygon = Scene2D::GetSpriteCommand(fill ? Scene2D::CommandType::Polygon : Scene2D::CommandType::PolyLine, color);
             polygon.XA = points[0].X.As<int16_t>();
             polygon.YA = points[0].Y.As<int16_t>();
             polygon.XB = points[1].X.As<int16_t>();

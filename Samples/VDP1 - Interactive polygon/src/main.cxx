@@ -54,11 +54,11 @@ int main()
     table[3] = HighColor(200, 200, 200);
 
     // Get screen size
-    constexpr uint16_t halfWidth = SRL::TV::Width >> 1;
+    const Fxp halfWidth = (int16_t)(SRL::TV::Width >> 1);
     Fxp minimumWidth = -halfWidth;
     Fxp maximumWidth = halfWidth;
 
-    constexpr uint16_t halfHeight = SRL::TV::Height >> 1;
+    const Fxp halfHeight = (int16_t)(SRL::TV::Height >> 1);
     Fxp minimumHeight = -halfHeight;
     Fxp maximumHeight = halfHeight;
 
@@ -180,20 +180,10 @@ int main()
                 polygonPoints[currentHandle] + Vector2D(5.0, 5.0),
                 polygonPoints[currentHandle] + Vector2D(-5.0, 5.0)
             };
-
+            
             SRL::Scene2D::DrawPolygon(handle, false, HighColor::Colors::White, 500.0);
         }
 
-        Vector2D handle2[] = 
-        {
-            cursorLocation + Vector2D(-5.0, -5.0),
-            cursorLocation + Vector2D(5.0, -5.0),
-            cursorLocation + Vector2D(5.0, 5.0),
-            cursorLocation + Vector2D(-5.0, 5.0)
-        };
-
-        SRL::Scene2D::DrawPolygon(handle2, false, HighColor::Colors::White, 500.0);
-        
         // Draw polygon
         SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::Gouraud, 0);
         SRL::Scene2D::DrawPolygon(polygonPoints, filledPolygon, HighColor::Colors::Magenta, 550.0);

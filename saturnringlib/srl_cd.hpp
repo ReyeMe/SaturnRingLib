@@ -622,39 +622,90 @@ namespace SRL
         {
             if (!Cd::isInitialized)
             {
+                // Initialize GFS
                 GFS_DIRTBL_TYPE(&Cd::GfsDirectories) = GFS_DIR_NAME;
                 GFS_DIRTBL_DIRNAME(&Cd::GfsDirectories) = Cd::GfsDirectoryNames;
                 GFS_DIRTBL_NDIR(&Cd::GfsDirectories) = SRL_MAX_CD_FILES;
                 Cd::isInitialized = (GFS_Init(SRL_MAX_CD_BACKGROUND_JOBS, Cd::GfsWork, &Cd::GfsDirectories) <= 2);
             }
+            
             return Cd::isInitialized;
         }
 
         /** @brief Change current directory
          * @param name Directory name (NULL for root directory)
+         * @returns number of files or error code
          */
-        inline static void ChangeDir(const char *name)
+        inline static int32_t ChangeDir(const char *name)
         {
-            ChangeDir(const_cast<char *>(name));
+            return ChangeDir(const_cast<char *>(name));
         }
 
         /** @brief Change current directory
          * @param name Directory name (NULL for root directory)
+         * @returns number of files or error code
          */
-        inline static void ChangeDir(char *name)
+        inline static int32_t ChangeDir(char *name)
         {
-            if (name == nullptr)
+            if (name != nullptr && name[0] != '\0')
             {
-                name = (char *)0;
-            }
+                int32_t fid = GFS_NameToId((int8_t *)name);
+                GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
+                GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
+                GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
+                
+                int32_t code = GFS_LoadDir(fid, &GfsDirectories);
 
-            int32_t fid = GFS_NameToId((int8_t *)name);
-            GFS_DIRTBL_TYPE(&GfsDirectories) = GFS_DIR_NAME;
-            GFS_DIRTBL_DIRNAME(&GfsDirectories) = Cd::GfsDirectoryNames;
-            GFS_DIRTBL_NDIR(&GfsDirectories) = SRL_MAX_CD_FILES;
-            GFS_LoadDir(fid, &GfsDirectories);
-            GFS_SetDir(&GfsDirectories);
+                if (code >= ErrorCode::ErrorOk)
+                {
+                    code = GFS_SetDir(&GfsDirectories);
+                }
+
+                return code;
+            }
+            else
+            {
+                int32_t selfAddress;
+                int32_t parentAddress;
+                int32_t err = ErrorCode::ErrorOk;
+                int32_t files = 0;
+
+                do
+                {
+                    GfsDirId self;
+                    GfsDirId parent;
+                    
+                    // Switch to parent
+                    if ((err = Cd::ChangeDir("..")) != ErrorCode::ErrorOk)
+                    {
+                        return err;
+                    }
+
+                    // We switched to a folder
+                    files = err;
+                    
+                    // Get info about parent and current folder
+                    if ((err = (ErrorCode)GFS_GetDirInfo(0, &self)) != ErrorCode::ErrorOk)
+                    {
+                        return err;
+                    }
+                    
+                    if ((err = (ErrorCode)GFS_GetDirInfo(1, &parent)) != ErrorCode::ErrorOk)
+                    {
+                        return err;
+                    }
+
+                    // Compare folder address
+                    selfAddress = self.dirrec.fad;
+                    parentAddress = parent.dirrec.fad;
+                }
+                while (selfAddress != parentAddress);
+                
+                // Return number of files in the folder
+                return files;
+            }
         }
+
 
         /** @brief Table of contents of the CD
          */
