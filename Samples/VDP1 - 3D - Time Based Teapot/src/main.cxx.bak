@@ -1,0 +1,82 @@
+// Samples/VDP1 - 3D - Time-based Teapot/src/main.cxx
+// Time-based animation example using SRL Timer DeltaTime
+#include <srl.hpp>
+#include <srl_timer.hpp>
+#include "modelObject.hpp"
+
+// Using to shorten names for Vector and HighColor
+using namespace SRL::Types;
+using namespace SRL::Math::Types;
+using namespace SRL::Input;
+
+// Main program entry
+int main()
+{
+    // Initialize library
+    SRL::Core::Initialize(HighColor(0x31, 0x14, 0x32));
+    SRL::Timer::Init();  // Initialize timer for time-based animation
+    SRL::Debug::Print(1, 1, "VDP1 3D Time-based teapot");
+
+    // Load teapot
+    ModelObject teapot = ModelObject("FPOT.NYA");
+
+    // Setup camera location
+    Vector3D cameraLocation = Vector3D(0.0, -7.0, -40.0);
+
+    // Setup light
+    Vector3D lightDirection = Vector3D(0.2, 0.0, 0.2);
+    SRL::Scene3D::SetDirectionalLight(lightDirection);
+
+    // Initialize rotation angle using Angle type for BAM compatibility
+    Angle rotation = Angle::Zero();
+
+    // Rotation speed: 45 degrees per second (time-based, not frame-based!)
+    // This will rotate at exactly 45°/second regardless of frame rate
+    const Angle rotationSpeed = Angle::FromDegrees(45.0);
+
+    // Time tracking variables
+    uint32_t frameCount = 0;
+    uint32_t lowMin = 0xFFFFFFFF;
+    uint32_t lowMax = 0;
+
+    auto startTime = SRL::Timer::Capture();
+
+    // Main program loop
+    while (1)
+    {
+        // Update global timer - calculates DeltaTimeSecs from last frame
+        SRL::Timer::Update();
+        frameCount++;
+
+        // Update rotation based on elapsed time (time-based animation)
+        // This works at any frame rate - 30fps, 60fps, variable, etc.
+        rotation += SRL::Timer::DeltaSeconds * rotationSpeed.ToTurns();
+
+        SRL::Debug::PrintClearScreen();
+        SRL::Debug::Print(1, 3, "Delta Milliseconds: %fms", SRL::Timer::DeltaMilliseconds);
+        SRL::Debug::Print(1, 4, "Delta Seconds: %fs", SRL::Timer::DeltaSeconds);
+        SRL::Debug::Print(1, 5, "Total frames: %u", frameCount);
+        auto currentTime = SRL::Timer::Capture();
+        auto elapsed = currentTime - startTime;
+        SRL::Debug::Print(1, 6, "Total passed ticks high: %u", elapsed.high);
+        SRL::Debug::Print(1, 7, "Total passed ticks low: %u", elapsed.low);
+        SRL::Debug::Print(1, 8, "Total passed seconds: %fs", elapsed.ToSeconds());
+
+        // Load identity matrix
+        SRL::Scene3D::LoadIdentity();
+
+        // Set camera location and direction
+        SRL::Scene3D::LookAt(cameraLocation, Vector3D(), Angle::FromDegrees(0.0));
+
+        // Rotate teapot using time-based angle
+        SRL::Scene3D::RotateY(rotation);
+
+        // Draw teapot
+        teapot.Draw();
+
+        // Refresh screen
+        SRL::Core::Synchronize();
+    }
+
+    return 0;
+}
