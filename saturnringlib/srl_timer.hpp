@@ -87,14 +87,14 @@ namespace SRL
             uint8_t  minutes;
             uint8_t  seconds;
 
-            /// @brief Private constructor, only accessible by Tickstamp::ToClock().
+            /** @brief Private constructor, only accessible by Tickstamp::ToClock(). */
             constexpr ClockTime(uint16_t h, uint8_t m, uint8_t s, uint16_t ms) noexcept
                 : hours(h), milliseconds(ms), minutes(m), seconds(s)
             {
             }
 
         public:
-            /// @brief Default constructor. Initializes to 00:00:00.000.
+            /** @brief Default constructor. Initializes to 00:00:00.000. */
             constexpr ClockTime() noexcept : hours(0), milliseconds(0), minutes(0), seconds(0) {}
 
             uint16_t Hours()        const noexcept { return hours; }         ///< Hours component (0–546)
@@ -129,14 +129,14 @@ namespace SRL
             const uint32_t MinutesDivider;       ///< For ToMinutes(): frequency / 128 * 60
         };
 
-        /// @brief 26MHz divider configuration (NTSC: 26.6875 MHz, PAL: 26.8741 MHz)
+        /** @brief 26MHz divider configuration (NTSC: 26.6875 MHz, PAL: 26.8741 MHz) */
         static inline constexpr DividerConfig DividerConfig26Mhz = {
             .SecondsDivider = static_cast<uint32_t>(Base26MhzCPUFrequency / 128),
             .MillisecondsDivider = static_cast<uint32_t>(Base26MhzCPUFrequency / 128 / 1000),
             .MinutesDivider = static_cast<uint32_t>(Base26MhzCPUFrequency / 128 * 60)
         };
         
-        /// @brief 28MHz divider configuration (NTSC: 28.4375 MHz, PAL: 28.63636 MHz)
+        /** @brief 28MHz divider configuration (NTSC: 28.4375 MHz, PAL: 28.63636 MHz) */
         static inline constexpr DividerConfig DividerConfig28Mhz = {
             .SecondsDivider = static_cast<uint32_t>(Base28MhzCPUFrequency / 128),
             .MillisecondsDivider = static_cast<uint32_t>(Base28MhzCPUFrequency / 128 / 1000),
@@ -144,10 +144,6 @@ namespace SRL
         };
 
         static inline const DividerConfig* dividerConfig = &DividerConfig26Mhz;
-
-
-
-
 
         // Grant Timer class access to private configuration
         friend class Timer;
@@ -207,16 +203,36 @@ namespace SRL
             return ts;
         }
 
+        /** @brief Initializes divider configuration based on current system clock mode.
+         *  @details Selects appropriate divider configuration (26MHz or 28MHz) 
+         *           based on the detected system clock mode.
+         */
         static void InitDivider()
         {
             dividerConfig = (System::GetClockMode() == System::ClockMode::Mode26MHz) ? &DividerConfig26Mhz : &DividerConfig28Mhz;
         }
 
-        /// @brief Returns the active seconds divisor (for debug).
+        /** @brief Returns the active seconds divisor for current clock mode.
+         *  @details Returns the divisor value used for converting ticks to seconds.
+         *           The divisor depends on the current system clock mode (26MHz or 28MHz).
+         *           Primarily useful for debugging or validation of timing calculations.
+         *  @return The seconds divisor value (frequency / 128).
+         */
         static uint32_t GetSecondsDivider() { return dividerConfig->SecondsDivider; }
-        /// @brief Returns the active milliseconds divisor (for debug).
+
+        /** @brief Returns the active milliseconds divisor for current clock mode.
+         *  @details Returns the divisor value used for converting ticks to milliseconds.
+         *           The divisor depends on the current system clock mode (26MHz or 28MHz).
+         *           Primarily useful for debugging or validation of timing calculations.
+         *  @return The milliseconds divisor value (frequency / 128 / 1000).
+         */
         static uint32_t GetMillisecondsDivider() { return dividerConfig->MillisecondsDivider; }
 
+        /** @brief Overrides automatic divider selection with manual choice.
+         *  @param use26Mhz If true, uses 26MHz divider configuration; otherwise uses 28MHz.
+         *  @details Allows manual override of the automatic clock mode detection
+         *           for testing or specific hardware requirements.
+         */
         static void OverrideDivider(bool use26Mhz)
         {
             dividerConfig = use26Mhz ? &DividerConfig26Mhz : &DividerConfig28Mhz;
@@ -569,35 +585,62 @@ namespace SRL
     {
     public:
         using Fxp = Math::Types::Fxp;
-        // FRT hardware register offsets
+
+        /** @brief FRT hardware register base address. */
         static constexpr uintptr_t frtBase = 0xfffffe10;
-        static constexpr uint8_t tierOffset = 0x00;  // Timer Interrupt Enable Register
+
+        /** @brief Timer Interrupt Enable Register offset. */
+        static constexpr uint8_t tierOffset = 0x00;
+
+        /** @brief Timer Control/Status Register offset. */
         static constexpr uint8_t statusOffset = 0x01;
+
+        /** @brief Timer Control Register offset. */
         static constexpr uint8_t controlOffset = 0x06;
 
-        // FRT register bit definitions
+        /** @brief TIER overflow interrupt enable bit. */
         static constexpr uint8_t tierOverflowIrq = 0x02;
+
+        /** @brief TCR clock selection mask. */
         static constexpr uint8_t tcrClockMask = 0x03;
 
-        // SH-2 interrupt controller registers for FRT
-        static constexpr uintptr_t vcrdAddr = 0xFFFFFE68;   ///< VCRD: FRT overflow vector number register
-        static constexpr uintptr_t iprbAddr = 0xFFFFFE60;   ///< IPRB: Interrupt priority register B (SCI + FRT)
-        static constexpr uint8_t frtFoviVector = 0x66;       ///< FRT overflow interrupt vector number
-        static constexpr uint8_t frtPriorityLevel = 0x0F;    ///< Maximum priority level for FRT interrupt
+        /** @brief VCRD: FRT overflow vector number register address. */
+        static constexpr uintptr_t vcrdAddr = 0xFFFFFE68;
 
-        // Register references
+        /** @brief IPRB: Interrupt priority register B address (SCI + FRT). */
+        static constexpr uintptr_t iprbAddr = 0xFFFFFE60;
+
+        /** @brief FRT overflow interrupt vector number. */
+        static constexpr uint8_t frtFoviVector = 0x66;
+
+        /** @brief Maximum priority level for FRT interrupt. */
+        static constexpr uint8_t frtPriorityLevel = 0x0F;
+
+        /** @brief Timer Interrupt Enable Register reference.
+         *  @details Volatile reference to the FRT TIER register at frtBase + tierOffset.
+         *           Controls which FRT interrupts are enabled (overflow, compare A/B).
+         */
         static inline volatile uint8_t& tierReg = *reinterpret_cast<volatile uint8_t*>(frtBase + tierOffset);
+
+        /** @brief Timer Control/Status Register reference.
+         *  @details Volatile reference to the FRT TCSR register at frtBase + statusOffset.
+         *           Contains status flags and control bits for the FRT.
+         */
         static inline volatile uint8_t& statusReg = *reinterpret_cast<volatile uint8_t*>(frtBase + statusOffset);
+
+        /** @brief Timer Control Register reference.
+         *  @details Volatile reference to the FRT TCR register at frtBase + controlOffset.
+         *           Controls the FRT clock source and counter operation.
+         */
         static inline volatile uint8_t& controlReg = *reinterpret_cast<volatile uint8_t*>(frtBase + controlOffset);
 
-        /// @brief 32-bit overflow counter (incremented by FrtHandler on each FRT overflow).
+        /** @brief 32-bit overflow counter (incremented by FrtHandler on each FRT overflow). */
         static inline volatile uint32_t timer32 = 0;
 
-        /// @brief Frame-level timestamp for delta time calculations.
-        /// @details Updated by Update(). Used internally for frame delta calculation.
+        /** @brief Frame-level timestamp for delta time calculations.
+         *  @details Updated by Update(). Used internally for frame delta calculation.
+         */
         static inline Tickstamp frameSnapshot = Tickstamp(0, 0);
-
-    public:
         /** @name Timing State
          * Pre-calculated timing values for frame-rate independent operations.
          */
@@ -713,14 +756,15 @@ namespace SRL
         static inline Fxp DeltaMinutes = 0;
         //@}
 
-        /// @brief Initializes timer system for SRL usage.
-        /// @details Uses SGL's default PHI_128 FRT configuration (~222 kHz, ~4.47μs precision).
-        ///          - Disables FRT interrupts during setup
-        ///          - Clears FRT counter and status
-        ///          - Sets up VCRD/IPRB for overflow interrupt routing
-        ///          - Installs overflow handler and enables interrupt
-        ///          Region (NTSC/PAL) is determined at compile time via SRL_MODE.
-        ///          System clock mode (26/28 MHz) is auto-detected at runtime.
+        /** @brief Initializes timer system for SRL usage.
+         *  @details Uses SGL's default PHI_128 FRT configuration (~222 kHz, ~4.47μs precision).
+         *           - Disables FRT interrupts during setup
+         *           - Clears FRT counter and status
+         *           - Sets up VCRD/IPRB for overflow interrupt routing
+         *           - Installs overflow handler and enables interrupt
+         *           Region (NTSC/PAL) is determined at compile time via SRL_MODE.
+         *           System clock mode (26/28 MHz) is auto-detected at runtime.
+         */
         static void Init()
         {
             Tickstamp::InitDivider();
@@ -853,9 +897,10 @@ namespace SRL
         //@}
 
     private:
-        /// @brief FRT overflow interrupt handler.
-        /// @details Increments timer32 by 1 and clears interrupt flag.
-        ///          Uses interrupt_handler attribute to generate rte (not rts).
+        /** @brief FRT overflow interrupt handler.
+         *  @details Increments timer32 by 1 and clears interrupt flag.
+         *           Uses interrupt_handler attribute to generate rte (not rts).
+         */
         static void __attribute__((interrupt_handler)) frtHandler()
         {
             // Increment overflow counter
@@ -866,7 +911,6 @@ namespace SRL
             (void)status;
             statusReg &= ~tierOverflowIrq;
         }
-
     };
 }
 //@}
