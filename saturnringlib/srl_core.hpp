@@ -10,6 +10,7 @@
 #include "srl_input.hpp"
 #include "srl_slave.hpp"
 #include "srl_scene3d.hpp"
+#include "srl_timer.hpp"
 
 #if SRL_USE_SGL_SOUND_DRIVER == 1
     #include "srl_sound.hpp"
@@ -109,6 +110,9 @@ namespace SRL
 
             // All was initialized
             SRL::TV::TVOn();
+
+            // Initialize timer system
+            SRL::Timer::Init();
         }
 
         /** @brief Wait until graphic processing time is reached
@@ -121,6 +125,9 @@ namespace SRL
             SRL::Input::Management::RefreshPeripherals();
             SRL::Input::Gun::Synchronize();
             Core::OnAfterSync.Invoke();
+
+            // Update timer delta values
+            SRL::Timer::Update();
         }
     };
 };

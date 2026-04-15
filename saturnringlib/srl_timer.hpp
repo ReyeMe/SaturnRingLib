@@ -9,8 +9,8 @@ namespace SRL
 {
     /** @brief High-precision 48-bit timestamp with DVU hardware acceleration.
      *  @details Stores timer values as a 48-bit composite (32-bit overflow counter + 16-bit FRT).
-     *           The internal representation uses 64-bit storage (high=Timer32, low=FRT<<16) to
-     *           enable hardware-accelerated division via the SH-2 DVU.
+     *  The internal representation uses 64-bit storage (high=Timer32, low=FRT<<16) to
+     *  enable hardware-accelerated division via the SH-2 DVU.
      *
      *  @par Architecture & PHI_128 Mode:
      *  This class is designed specifically for the Sega Saturn's FRT (Free Running Timer) running
@@ -52,18 +52,17 @@ namespace SRL
      *  @endcode
      *
      *  @warning This class assumes FRT is configured in PHI_128 mode (SGL default).
-     *           Behavior is undefined if the FRT clock mode is changed after initialization.
+     *  Behavior is undefined if the FRT clock mode is changed after initialization.
      */
     class Tickstamp final
     {
     public:
-        using Fxp = Math::Types::Fxp;
         /** @brief Immutable clock display format (HH:MM:SS.mmm).
          *  @details Returned by Tickstamp::ToClock(). Uses only 1 DVU division
-         *           internally (minutes-based), then integer arithmetic for split.
-         *           Intended for GUI display only — not for precise calculations
-         *           or comparisons. Uses pure truncation throughout the chain
-         *           (minutes → seconds → milliseconds) for consistent display.
+         *  internally (minutes-based), then integer arithmetic for split.
+         *  Intended for GUI display only — not for precise calculations
+         *  or comparisons. Uses pure truncation throughout the chain
+         *  (minutes → seconds → milliseconds) for consistent display.
          *
          *  @par Precision chain:
          *  - Minutes: 16-bit Fxp fraction → ~0.9ms precision per second
@@ -81,7 +80,9 @@ namespace SRL
         struct ClockTime
         {
         private:
+            /// @cond Internal - friend declarations for Tickstamp (hidden from Doxygen)
             friend struct Tickstamp;
+            /// @endcond
             uint16_t hours;
             uint16_t milliseconds;
             uint8_t  minutes;
@@ -103,6 +104,9 @@ namespace SRL
             uint16_t Milliseconds() const noexcept { return milliseconds; }  ///< Milliseconds component (0–999)
         };
     private:
+        /// @cond Internal - friend declarations for testing (hidden from Doxygen)
+        friend class TimerTest;
+        /// @endcond
 #ifdef SRL_MODE_PAL
         static constexpr float Base26MhzCPUFrequency = 26874100;  ///< PAL 26MHz base frequency
         static constexpr float Base28MhzCPUFrequency = 28636360;  ///< PAL 28MHz base frequency
@@ -113,7 +117,7 @@ namespace SRL
 
         /** @brief Divider configuration for DVU 64/32 division.
          *  @details Stores pre-calculated divisors for time-to-tick conversions.
-         *           Divisors use frequency/128 to match PHI_128 tick rate directly.
+         *  Divisors use frequency/128 to match PHI_128 tick rate directly.
          *
          *  @par DVU Division:
          *  The DVU performs (ticks << 16) / divisor, where:
@@ -135,7 +139,7 @@ namespace SRL
             .MillisecondsDivider = static_cast<uint32_t>(Base26MhzCPUFrequency / 128 / 1000),
             .MinutesDivider = static_cast<uint32_t>(Base26MhzCPUFrequency / 128 * 60)
         };
-        
+
         /** @brief 28MHz divider configuration (NTSC: 28.4375 MHz, PAL: 28.63636 MHz) */
         static inline constexpr DividerConfig DividerConfig28Mhz = {
             .SecondsDivider = static_cast<uint32_t>(Base28MhzCPUFrequency / 128),
@@ -144,9 +148,56 @@ namespace SRL
         };
 
         static inline const DividerConfig* dividerConfig = &DividerConfig26Mhz;
-
+        /// @cond Internal - friend declarations for Timer (hidden from Doxygen)
         // Grant Timer class access to private configuration
         friend class Timer;
+        /// @endcond
+
+        /** @brief Construct from raw internal values (no shift).
+         *  @internal Used by operator- to return pre-shifted results.
+         */
+        static Tickstamp FromRaw(uint32_t high, uint32_t low) noexcept
+        {
+            Tickstamp ts;
+            ts.High = high;
+            ts.Low = low;
+            return ts;
+        }
+
+        /** @brief Initializes divider configuration based on current system clock mode.
+         *  @details Selects appropriate divider configuration (26MHz or 28MHz)
+         *  based on the detected system clock mode.
+         */
+        static void InitDivider()
+        {
+            dividerConfig = (System::GetClockMode() == System::ClockMode::Mode26MHz) ? &DividerConfig26Mhz : &DividerConfig28Mhz;
+        }
+
+        /** @brief Returns the active seconds divisor for current clock mode.
+         *  @details Returns the divisor value used for converting ticks to seconds.
+         *  The divisor depends on the current system clock mode (26MHz or 28MHz).
+         *  Primarily useful for debugging or validation of timing calculations.
+         *  @return The seconds divisor value (frequency / 128).
+         */
+        static uint32_t GetSecondsDivider() { return dividerConfig->SecondsDivider; }
+
+        /** @brief Returns the active milliseconds divisor for current clock mode.
+         *  @details Returns the divisor value used for converting ticks to milliseconds.
+         *  The divisor depends on the current system clock mode (26MHz or 28MHz).
+         *  Primarily useful for debugging or validation of timing calculations.
+         *  @return The milliseconds divisor value (frequency / 128 / 1000).
+         */
+        static uint32_t GetMillisecondsDivider() { return dividerConfig->MillisecondsDivider; }
+
+        /** @brief Overrides automatic divider selection with manual choice.
+         *  @param use26Mhz If true, uses 26MHz divider configuration; otherwise uses 28MHz.
+         *  @details Allows manual override of the automatic clock mode detection
+         *  for testing or specific hardware requirements.
+         */
+        static void OverrideDivider(bool use26Mhz)
+        {
+            dividerConfig = use26Mhz ? &DividerConfig26Mhz : &DividerConfig28Mhz;
+        }
 
         /** @brief Reusable DVU 64/32-bit division helper.
          *  @param divisor 32-bit divisor for the division
@@ -154,9 +205,9 @@ namespace SRL
          *  @param low Low 16 bits of 48-bit dividend (in upper 16 bits of uint32_t)
          *  @return 32-bit result from DVU (lower 32 bits of 64/32 result)
          *  @details Performs 64-bit division using SH-2 DVU hardware.
-         *           Critical: DVSR must be written before DVDNTL to trigger operation.
+         *  Critical: DVSR must be written before DVDNTL to trigger operation.
          */
-        static inline uint32_t Division64x32(uint32_t divisor, uint32_t high, uint32_t low) noexcept
+        static inline uint32_t Division64By32(uint32_t divisor, uint32_t high, uint32_t low) noexcept
         {
             // Use the same register access as Timer class
             constexpr uintptr_t dvuBase = 0xFFFFF000;  ///< DVU hardware register base address
@@ -174,7 +225,7 @@ namespace SRL
          *  @param h High 32 bits (Timer32 overflow counter)
          *  @param frt_val FRT register value (16-bit)
          *  @details Stores values directly. The FRT is placed in the upper 16 bits of low
-         *           (big-endian layout) for DVU 64-bit division compatibility.
+         *  (big-endian layout) for DVU 64-bit division compatibility.
          *
          *  @par Example:
          *  @code
@@ -191,52 +242,6 @@ namespace SRL
 
         /** @brief Default constructor. Initializes to zero. */
         Tickstamp() = default;
-
-        /** @brief Construct from raw internal values (no shift).
-         *  @internal Used by operator- to return pre-shifted results.
-         */
-        static Tickstamp FromRaw(uint32_t high, uint32_t low) noexcept
-        {
-            Tickstamp ts;
-            ts.High = high;
-            ts.Low = low;
-            return ts;
-        }
-
-        /** @brief Initializes divider configuration based on current system clock mode.
-         *  @details Selects appropriate divider configuration (26MHz or 28MHz) 
-         *           based on the detected system clock mode.
-         */
-        static void InitDivider()
-        {
-            dividerConfig = (System::GetClockMode() == System::ClockMode::Mode26MHz) ? &DividerConfig26Mhz : &DividerConfig28Mhz;
-        }
-
-        /** @brief Returns the active seconds divisor for current clock mode.
-         *  @details Returns the divisor value used for converting ticks to seconds.
-         *           The divisor depends on the current system clock mode (26MHz or 28MHz).
-         *           Primarily useful for debugging or validation of timing calculations.
-         *  @return The seconds divisor value (frequency / 128).
-         */
-        static uint32_t GetSecondsDivider() { return dividerConfig->SecondsDivider; }
-
-        /** @brief Returns the active milliseconds divisor for current clock mode.
-         *  @details Returns the divisor value used for converting ticks to milliseconds.
-         *           The divisor depends on the current system clock mode (26MHz or 28MHz).
-         *           Primarily useful for debugging or validation of timing calculations.
-         *  @return The milliseconds divisor value (frequency / 128 / 1000).
-         */
-        static uint32_t GetMillisecondsDivider() { return dividerConfig->MillisecondsDivider; }
-
-        /** @brief Overrides automatic divider selection with manual choice.
-         *  @param use26Mhz If true, uses 26MHz divider configuration; otherwise uses 28MHz.
-         *  @details Allows manual override of the automatic clock mode detection
-         *           for testing or specific hardware requirements.
-         */
-        static void OverrideDivider(bool use26Mhz)
-        {
-            dividerConfig = use26Mhz ? &DividerConfig26Mhz : &DividerConfig28Mhz;
-        }
 
         /** @name Compile-Time Builders
          * Create Tickstamps at compile time with no runtime conversion overhead.
@@ -266,8 +271,8 @@ namespace SRL
          *  @tparam Seconds Time value in seconds as float template parameter
          *  @return const reference to the appropriate Tickstamp for current frequency
          *  @details Calculates two complete Tickstamps at compile time (26MHz and 28MHz),
-         *           stores them in static constexpr variables, then returns a reference
-         *           to the correct one at runtime.
+         *  stores them in static constexpr variables, then returns a reference
+         *  to the correct one at runtime.
          *
          *  @par Example:
          *  @code
@@ -287,8 +292,8 @@ namespace SRL
          *  @tparam Milliseconds Time value in milliseconds as float template parameter
          *  @return const reference to the appropriate Tickstamp for current frequency
          *  @details Calculates two complete Tickstamps at compile time (26MHz and 28MHz),
-         *           stores them in static constexpr variables, then returns a reference
-         *           to the correct one at runtime.
+         *  stores them in static constexpr variables, then returns a reference
+         *  to the correct one at runtime.
          *
          *  @par Example:
          *  @code
@@ -308,8 +313,8 @@ namespace SRL
          *  @tparam Minutes Time value in minutes as float template parameter
          *  @return const reference to the appropriate Tickstamp for current frequency
          *  @details Calculates two complete Tickstamps at compile time (26MHz and 28MHz),
-         *           stores them in static constexpr variables, then returns a reference
-         *           to the correct one at runtime.
+         *  stores them in static constexpr variables, then returns a reference
+         *  to the correct one at runtime.
          *
          *  @par Example:
          *  @code
@@ -329,28 +334,28 @@ namespace SRL
         /** @name Core Operations
          * Essential timer operations for time calculations.
          */
-
-         /** @brief 64-bit subtraction with borrow (hardware-accelerated).
-          *  @param other Tickstamp to subtract from this one (this - other)
-          *  @return New Tickstamp containing the difference
-          *  @details Performs atomic 64-bit subtraction using inline SH-2 assembly (subc).
-          *           The operation handles overflow/borrow correctly across the 64-bit range.
-          *
-          *  @par Operation:
-          *  @code
-          *  result = this - other;  // 64-bit subtraction with carry/borrow
-          *  @endcode
-          *
-          *  @par Example:
-          *  @code
-          *  Tickstamp later = Timer::Capture();
-          *  Tickstamp earlier = Timer::Capture();
-          *  Tickstamp diff = later - earlier;  // Time elapsed between captures
-           *  @endcode
-           *
-           *  @note This is the primary method for calculating time deltas. The result
-           *        maintains full 48-bit precision for subsequent conversion.
-               */
+         //@{
+        /** @brief 64-bit subtraction with borrow (hardware-accelerated).
+         *  @param other Tickstamp to subtract from this one (this - other)
+         *  @return New Tickstamp containing the difference
+         *  @details Performs atomic 64-bit subtraction using inline SH-2 assembly (subc).
+         *  The operation handles overflow/borrow correctly across the 64-bit range.
+         *
+         *  @par Operation:
+         *  @code
+         *  result = this - other;  // 64-bit subtraction with carry/borrow
+         *  @endcode
+         *
+         *  @par Example:
+         *  @code
+         *  Tickstamp later = Timer::Capture();
+         *  Tickstamp earlier = Timer::Capture();
+         *  Tickstamp diff = later - earlier;  // Time elapsed between captures
+         *  @endcode
+         *
+         *  @note This is the primary method for calculating time deltas. The result
+         *  maintains full 48-bit precision for subsequent conversion.
+         */
         Tickstamp operator-(const Tickstamp& other) const noexcept
         {
             uint32_t temp_high = this->High;
@@ -369,7 +374,7 @@ namespace SRL
         /** @brief Converts ticks to milliseconds using DVU hardware acceleration.
          *  @return Time in milliseconds as fixed-point number (Fxp 16.16 format).
          *  @details Uses SH-2 DVU for 64-bit division: (ticks << 16) / (frequency / 1000).
-         *           Provides millisecond resolution but with reduced maximum range.
+         *  Provides millisecond resolution but with reduced maximum range.
          *
          *  @par Range:
          *  - Minimum: ~0.00447 milliseconds (1 tick at PHI_128)
@@ -382,12 +387,12 @@ namespace SRL
          *  (>30 seconds), use ToSeconds() instead to avoid overflow.
          *
          *  @warning **CRITICAL**: The 32767 ms limit (~32.8 seconds) is much smaller
-         *           than ToSeconds(). If you need to measure durations longer than
-         *           30 seconds, always use ToSeconds().
+         *  than ToSeconds(). If you need to measure durations longer than
+         *  30 seconds, always use ToSeconds().
          *
          *  @par Example:
          *  @code
-         *  Tickstamp elapsed = Timer::DeltaTicks;
+         *  Tickstamp elapsed = Timer::DeltaTicks();
          *  Fxp ms = elapsed.ToMilliseconds();
          *  if (ms > 16.0) {  // More than 16ms (>60fps)
          *      // Handle slow frame
@@ -396,15 +401,15 @@ namespace SRL
          *
          *  @see ToSeconds() for longer range (up to 9.1 hours)
          */
-        Fxp ToMilliseconds() const noexcept
+        Math::Types::Fxp ToMilliseconds() const noexcept
         {
-            return Fxp::BuildRaw(Division64x32(dividerConfig->MillisecondsDivider, High, Low));
+            return Math::Types::Fxp::BuildRaw(Division64By32(dividerConfig->MillisecondsDivider, High, Low));
         }
 
         /** @brief Converts ticks to seconds using DVU hardware acceleration.
          *  @return Time in seconds as fixed-point number (Fxp 16.16 format).
          *  @details Uses SH-2 DVU for 64-bit division: (ticks << 16) / frequency.
-         *           The result is in 16.16 fixed-point format with hardware precision.
+         *  The result is in 16.16 fixed-point format with hardware precision.
          *
          *  @par Range:
          *  - Minimum: ~0.00000447 seconds (1 tick at PHI_128)
@@ -415,27 +420,26 @@ namespace SRL
          *  Typical accuracy within ±0.1% for normal game timing (1ms to 1 hour).
          *
          *  @warning **CRITICAL**: The return type Fxp 16.16 has a hard limit of 32767.
-         *           If your ticks represent more than 32767 seconds, the result will
-         *           overflow and produce incorrect values.
+         *  If your ticks represent more than 32767 seconds, the result will
+         *  overflow and produce incorrect values.
          *
          *  @par Example:
          *  @code
-         *  Tickstamp elapsed = Timer::DeltaTicks;
+         *  Tickstamp elapsed = Timer::DeltaTicks();
          *  Fxp seconds = elapsed.ToSeconds();
          *  @endcode
          *
          *  @see ToMilliseconds() for millisecond precision (shorter range)
          */
-        Fxp ToSeconds() const noexcept
+        Math::Types::Fxp ToSeconds() const noexcept
         {
-            return Fxp::BuildRaw(Division64x32(dividerConfig->SecondsDivider, High, Low));
+            return Math::Types::Fxp::BuildRaw(Division64By32(dividerConfig->SecondsDivider, High, Low));
         }
-
 
         /** @brief Converts ticks to minutes using DVU hardware acceleration.
          *  @return Time in minutes as fixed-point number (Fxp 16.16 format).
          *  @details Uses SH-2 DVU for 64-bit division: (ticks << 16) / (frequency * 60).
-         *           Provides the longest Fxp range of all conversion methods.
+         *  Provides the longest Fxp range of all conversion methods.
          *
          *  @par Range:
          *  - **Maximum: 32767 minutes (~22.7 days)**
@@ -456,16 +460,16 @@ namespace SRL
          *
          *  @see ToSeconds() for second-precision timing
          */
-        Fxp ToMinutes() const noexcept
+        Math::Types::Fxp ToMinutes() const noexcept
         {
-            return Fxp::BuildRaw(Division64x32(dividerConfig->MinutesDivider, High, Low));
+            return Math::Types::Fxp::BuildRaw(Division64By32(dividerConfig->MinutesDivider, High, Low));
         }
 
         /** @brief Converts ticks to clock display format (HH:MM:SS.mmm) using 1 DVU division.
          *  @return Immutable ClockTime with hours, minutes, seconds, and milliseconds.
          *  @details Performs a single DVU division via minutes divisor, then extracts
-         *           seconds and milliseconds from fractional parts using pure truncation.
-         *           Much cheaper than calling ToSeconds() + ToMinutes() separately.
+         *  seconds and milliseconds from fractional parts using pure truncation.
+         *  Much cheaper than calling ToSeconds() + ToMinutes() separately.
          *
          *  @par How it works:
          *  1. DVU divides ticks by minutes divisor → Fxp 16.16 total minutes
@@ -495,14 +499,14 @@ namespace SRL
          *
          *  @note ClockTime is immutable — use ToSeconds()/ToMinutes() for comparisons.
          *  @note Pure truncation means exact second boundaries may show as SS-1:999
-         *        instead of SS:000. This is consistent and visually correct for display.
+         *  instead of SS:000. This is consistent and visually correct for display.
          *  @see ToSeconds(), ToMinutes(), ToMilliseconds() for Fxp precision
          */
         ClockTime ToClock() const noexcept
         {
             // Single DVU division: get total minutes as Fxp 16.16
             // Range: up to 32767 minutes (~546 hours / ~22.7 days)
-            uint32_t rawMinutes = Division64x32(dividerConfig->MinutesDivider, High, Low);
+            uint32_t rawMinutes = Division64By32(dividerConfig->MinutesDivider, High, Low);
 
             // Integer part = total minutes, fractional part = sub-minute
             uint32_t totalMinutes = rawMinutes >> 16;
@@ -530,9 +534,9 @@ namespace SRL
     /** @brief High-precision hardware timer with DVU-accelerated conversions.
      *
      *  @details The Timer class provides Sega Saturn game developers with precise,
-     *           hardware-accelerated timing capabilities. It combines the SH-2's
-     *           FRT (Free Running Timer) for counting and DVU (Division Unit) for
-     *           fast fixed-point conversions.
+     *  hardware-accelerated timing capabilities. It combines the SH-2's
+     *  FRT (Free Running Timer) for counting and DVU (Division Unit) for
+     *  fast fixed-point conversions.
      *
      *  @par Key Features:
      *  - **48-bit timer range**: Up to ~673 days of continuous timing
@@ -554,14 +558,8 @@ namespace SRL
      *
      *  @par Basic Usage:
      *  @code
-     *  // Initialize once at startup
-     *  Timer::Init();  // Auto-detects region and clock mode
-     *
-     *  // Per-frame update (in your main loop)
-     *  Timer::Update();
-     *
-     *  // Use delta time for animation
-     *  Fxp delta = Timer::DeltaSeconds;
+     *  // Use delta time for animation (called automatically by Core::Synchronize)
+     *  Fxp delta = Timer::DeltaSeconds();
      *  position = position + velocity * delta;
      *  @endcode
      *
@@ -575,17 +573,22 @@ namespace SRL
      *  @endcode
      *
      *  @warning The hardware can track up to ~673 days, but the Fxp 16.16 format limits
-     *           conversions: ToMilliseconds() to ~32.8s, ToSeconds() to ~9.1h,
-     *           ToMinutes() to ~22.7 days. For GUI display use ToClock() which returns
-     *           a ClockTime struct with no Fxp limitation (up to ~546 hours).
+     *  conversions: ToMilliseconds() to ~32.8s, ToSeconds() to ~9.1h,
+     *  ToMinutes() to ~22.7 days. For GUI display use ToClock() which returns
+     *  a ClockTime struct with no Fxp limitation (up to ~546 hours).
      *
      *  @see Tickstamp
      */
     class Timer final
     {
-    public:
-        using Fxp = Math::Types::Fxp;
-
+        /// @cond Internal - friend declarations for testing and core access (hidden from Doxygen)
+        friend class Core;
+        friend class TimerTest;
+        /// @endcond
+        /** @name Hardware Configuration
+         * FRT hardware register addresses and configuration constants.
+         */
+         //@{
         /** @brief FRT hardware register base address. */
         static constexpr uintptr_t frtBase = 0xfffffe10;
 
@@ -615,155 +618,75 @@ namespace SRL
 
         /** @brief Maximum priority level for FRT interrupt. */
         static constexpr uint8_t frtPriorityLevel = 0x0F;
+        //@}
 
+        /** @name Hardware Register References
+         * Volatile references to FRT hardware registers.
+         */
+         //@{
         /** @brief Timer Interrupt Enable Register reference.
          *  @details Volatile reference to the FRT TIER register at frtBase + tierOffset.
-         *           Controls which FRT interrupts are enabled (overflow, compare A/B).
+         *  Controls which FRT interrupts are enabled (overflow, compare A/B).
          */
         static inline volatile uint8_t& tierReg = *reinterpret_cast<volatile uint8_t*>(frtBase + tierOffset);
 
         /** @brief Timer Control/Status Register reference.
          *  @details Volatile reference to the FRT TCSR register at frtBase + statusOffset.
-         *           Contains status flags and control bits for the FRT.
+         *  Contains status flags and control bits for the FRT.
          */
         static inline volatile uint8_t& statusReg = *reinterpret_cast<volatile uint8_t*>(frtBase + statusOffset);
 
         /** @brief Timer Control Register reference.
          *  @details Volatile reference to the FRT TCR register at frtBase + controlOffset.
-         *           Controls the FRT clock source and counter operation.
+         *  Controls the FRT clock source and counter operation.
          */
         static inline volatile uint8_t& controlReg = *reinterpret_cast<volatile uint8_t*>(frtBase + controlOffset);
+        //@}
 
-        /** @brief 32-bit overflow counter (incremented by FrtHandler on each FRT overflow). */
+        /** @name Internal State
+         * Private state variables for timer operation.
+         */
+         //@{
+        /** @brief 32-bit overflow counter (incremented by frtHandler on each FRT overflow).
+         *  @details Public for diagnostic purposes in tests.
+         */
         static inline volatile uint32_t timer32 = 0;
 
         /** @brief Frame-level timestamp for delta time calculations.
          *  @details Updated by Update(). Used internally for frame delta calculation.
          */
         static inline Tickstamp frameSnapshot = Tickstamp(0, 0);
-        /** @name Timing State
-         * Pre-calculated timing values for frame-rate independent operations.
-         */
-         //@{
+
         /** @brief Frame delta ticks (raw elapsed ticks between frames).
-         *  @details Pre-calculated each frame by Update(). Stores the raw 48-bit tick
-         *           count elapsed since the previous frame. Access is zero-cycle (no
-         *           function call overhead).
-         *
-         *  @par Usage:
-         *  Use DeltaTicks when you need maximum precision or when doing custom
-         *  time calculations. For most cases, prefer DeltaSeconds or DeltaMilliseconds.
-         *
-         *  @code
-         *  Tickstamp elapsed = Timer::DeltaTicks;
-         *  uint32_t rawTicks = elapsed.low;  // Lower 32 bits
-         *  uint32_t overflows = elapsed.high;  // Upper 32 bits (overflow counter)
-         *  @endcode
-         *
-         *  @note This is a 48-bit value split across two 32-bit fields. The total
-         *        tick count is (high << 16) | (low >> 16) in 48-bit terms.
-         *
-         *  @see DeltaSeconds, DeltaMilliseconds, Update()
+         *  @details Private storage for delta timing values. Modified only by Update().
          */
-        static inline Tickstamp DeltaTicks = Tickstamp(0, 0);
+        static inline Tickstamp deltaTicks = Tickstamp(0, 0);
 
         /** @brief Frame delta time in seconds (fixed-point 16.16).
-         *  @details Pre-calculated each frame by Update(). Represents the time elapsed
-         *           between the current frame and the previous frame, in seconds.
-         *
-         *  @par Range:
-         *  - Typical 60fps: ~0.0167 seconds (16.7ms)
-         *  - Typical 30fps: ~0.0333 seconds (33.3ms)
-         *  - **Fxp limit: 32767 seconds (~9.1 hours)**
-         *
-         *  @par Hardware vs Fxp Limit:
-         *  The hardware timer can track up to ~673 days, but DeltaSeconds returns Fxp
-         *  which has a hard limit of 32767. For game frames this is never an issue.
-         *
-         *  @par Usage:
-         *  Use for frame-rate independent animation, physics updates, and game logic.
-         *  Multiply by velocity values to get distance traveled this frame.
-         *
-         *  @code
-         *  // Move object at constant speed regardless of frame rate
-         *  Fxp speed = 100.0;  // 100 units per second
-         *  position = position + speed * Timer::DeltaSeconds;
-         *  @endcode
-         *
-         *  @warning DeltaSeconds is updated by Update(). Call it once per frame
-         *           at the start of your main loop for consistent timing.
-         *
-         *  @see DeltaMilliseconds for millisecond precision
+         *  @details Private storage for delta timing values. Modified only by Update().
          */
-        static inline Fxp DeltaSeconds = 0;
+        static inline Math::Types::Fxp deltaSeconds = 0;
 
         /** @brief Frame delta time in milliseconds (fixed-point 16.16).
-         *  @details Pre-calculated each frame by Update(). Represents the time elapsed
-         *           between frames in milliseconds with higher resolution than seconds.
-         *
-         *  @par Range:
-         *  - Typical 60fps: ~16.7 milliseconds
-         *  - Typical 30fps: ~33.3 milliseconds
-         *  - **Fxp limit: 32767 milliseconds (~32.8 seconds)**
-         *
-         *  @par Usage:
-         *  Use when you need millisecond precision for short-duration events,
-         *  input debouncing, or animation keyframe timing.
-         *
-         *  @code
-         *  // Check if enough time has passed for input repeat
-         *  if (Timer::DeltaMilliseconds.As<int>() > 100) {  // 100ms elapsed
-         *      // Process repeating input
-         *  }
-         *  @endcode
-         *
-         *  @warning The 32767ms limit (~32.8s) is the Fxp format limit. The hardware
-         *           timer itself can track up to ~673 days (PHI_128). For measuring longer
-         *           durations than 32.8s, use DeltaSeconds instead.
-         *
-         *  @see DeltaSeconds for longer range (up to 9.1 hours in Fxp)
+         *  @details Private storage for delta timing values. Modified only by Update().
          */
-        static inline Fxp DeltaMilliseconds = 0;
+        static inline Math::Types::Fxp deltaMilliseconds = 0;
 
         /** @brief Frame delta time in minutes (fixed-point 16.16).
-         *  @details Pre-calculated each frame by Update(). Represents the time elapsed
-         *           since the previous frame with minute precision.
-         *
-         *  @par Precision and Range:
-         *  - **Hardware precision**: ~4.47μs per tick (PHI_128)
-         *  - **Fxp precision**: ~0.9ms per unit (16.16 format)
-         *  - **Fxp limit: 32767 minutes (~22.7 days)**
-         *
-         *  @par Usage:
-         *  Use for long-term game timers, auto-save intervals, session tracking,
-         *  and any timing that spans minutes to days.
-         *
-         *  @code
-         *  // Auto-save every 5 minutes of gameplay
-         *  static Fxp gameTime = 0;
-         *  gameTime = gameTime + Timer::DeltaMinutes;
-         *  if (gameTime > 5.0) {
-         *      SaveGame();
-         *      gameTime = 0;
-         *  }
-         *  @endcode
-         *
-         *  @note DeltaMinutes provides the longest range among delta variables while
-         *        maintaining fixed-point precision. Ideal for persistent game state.
-         *
-         *  @see DeltaSeconds for frame-level precision, DeltaMilliseconds for short-term timing
+         *  @details Private storage for delta timing values. Modified only by Update().
          */
-        static inline Fxp DeltaMinutes = 0;
+        static inline Math::Types::Fxp deltaMinutes = 0;
         //@}
 
         /** @brief Initializes timer system for SRL usage.
          *  @details Uses SGL's default PHI_128 FRT configuration (~222 kHz, ~4.47μs precision).
-         *           - Disables FRT interrupts during setup
-         *           - Clears FRT counter and status
-         *           - Sets up VCRD/IPRB for overflow interrupt routing
-         *           - Installs overflow handler and enables interrupt
-         *           Region (NTSC/PAL) is determined at compile time via SRL_MODE.
-         *           System clock mode (26/28 MHz) is auto-detected at runtime.
+         *  - Disables FRT interrupts during setup
+         *  - Clears FRT counter and status
+         *  - Sets up VCRD/IPRB for overflow interrupt routing
+         *  - Installs overflow handler and enables interrupt
+         *  Region (NTSC/PAL) is determined at compile time via SRL_MODE.
+         *  System clock mode (26/28 MHz) is auto-detected at runtime.
+         *  @note Called automatically by Core::Initialize.
          */
         static void Init()
         {
@@ -795,10 +718,163 @@ namespace SRL
 
             // Step 7: Enable FRT overflow interrupt (FRT_OVIE = 0x02 in TIER)
             tierReg = tierOverflowIrq;
-            
+
             // Initialize frame snapshot to current time to prevent large delta on first Update()
             frameSnapshot = Capture();
         }
+
+        /** @brief Updates frame-level timing state.
+         *  @details Captures current time, calculates delta from previous frame, and
+         *  updates all timing globals (deltaTicks, deltaSeconds, deltaMilliseconds, deltaMinutes).
+         *  This is the primary method for frame-rate independent timing.
+         *
+         *  @par What It Updates:
+         *  - frameSnapshot: Current timestamp (saved for next frame)
+         *  - deltaTicks: Raw tick count elapsed
+         *  - deltaSeconds: Elapsed time in seconds (Fxp 16.16)
+         *  - deltaMilliseconds: Elapsed time in ms (Fxp 16.16)
+         *  - deltaMinutes: Elapsed time in minutes (Fxp 16.16)
+         *
+         *  @par Delta Time Values:
+         *  | FPS  | DeltaSeconds | DeltaMilliseconds | DeltaMinutes |
+         *  |------|--------------|-------------------|--------------|
+         *  | 60   | ~0.0167s     | ~16.7ms           | ~0.000278m   |
+         *  | 30   | ~0.0333s     | ~33.3ms           | ~0.000556m   |
+         *  | 15   | ~0.0667s     | ~66.7ms           | ~0.001111m   |
+         */
+        static void Update()
+        {
+            Tickstamp now = Capture();
+            deltaTicks = now - frameSnapshot;
+            deltaSeconds = deltaTicks.ToSeconds();
+            deltaMilliseconds = deltaTicks.ToMilliseconds();
+            deltaMinutes = deltaTicks.ToMinutes();
+            frameSnapshot = now;
+        }
+
+        static void __attribute__((interrupt_handler)) frtHandler()
+        {
+            // Increment overflow counter
+            timer32 += 1;
+
+            // Clear overflow interrupt flag
+            volatile uint8_t status = statusReg;
+            (void)status;
+            statusReg &= ~tierOverflowIrq;
+        }
+        //@}
+
+    public:
+        /** @name Timing State
+         * Pre-calculated timing values for frame-rate independent operations.
+         */
+         //@{
+        /** @brief Frame delta ticks (raw elapsed ticks between frames).
+         *  @details Pre-calculated each frame by Core::Synchronize(). Stores the raw 48-bit tick
+         *  count elapsed since the previous frame. Access is zero-cycle (no
+         *  function call overhead).
+         *
+         *  @par Usage:
+         *  Use DeltaTicks() when you need maximum precision or when doing custom
+         *  time calculations. For most cases, prefer DeltaSeconds() or DeltaMilliseconds().
+         *
+         *  @code
+         *  const Tickstamp& elapsed = Timer::DeltaTicks();
+         *  uint32_t rawTicks = elapsed.low;  // Lower 32 bits
+         *  uint32_t overflows = elapsed.high;  // Upper 32 bits (overflow counter)
+         *  @endcode
+         *
+         *  @note This is a 48-bit value split across two 32-bit fields. The total
+         *  tick count is (high << 16) | (low >> 16) in 48-bit terms.
+         *
+         *  @see DeltaSeconds(), DeltaMilliseconds()
+         */
+        static const Tickstamp& DeltaTicks() noexcept { return deltaTicks; }
+
+        /** @brief Frame delta time in seconds (fixed-point 16.16).
+         *  @details Pre-calculated each frame by Core::Synchronize(). Represents the time elapsed
+         *  between the current frame and the previous frame, in seconds.
+         *
+         *  @par Range:
+         *  - Typical 60fps: ~0.0167 seconds (16.7ms)
+         *  - Typical 30fps: ~0.0333 seconds (33.3ms)
+         *  - **Fxp limit: 32767 seconds (~9.1 hours)**
+         *
+         *  @par Hardware vs Fxp Limit:
+         *  The hardware timer can track up to ~673 days, but DeltaSeconds returns Fxp
+         *  which has a hard limit of 32767. For game frames this is never an issue.
+         *
+         *  @par Usage:
+         *  Use for frame-rate independent animation, physics updates, and game logic.
+         *  Multiply by velocity values to get distance traveled this frame.
+         *
+         *  @code
+         *  // Move object at constant speed regardless of frame rate
+         *  Fxp speed = 100.0;  // 100 units per second
+         *  position = position + speed * Timer::DeltaSeconds();
+         *  @endcode
+         *
+         *  @see DeltaMilliseconds() for millisecond precision
+         */
+        static const Math::Types::Fxp& DeltaSeconds() noexcept { return deltaSeconds; }
+
+        /** @brief Frame delta time in milliseconds (fixed-point 16.16).
+         *  @details Pre-calculated each frame by Core::Synchronize(). Represents the time elapsed
+         *  between frames in milliseconds with higher resolution than seconds.
+         *
+         *  @par Range:
+         *  - Typical 60fps: ~16.7 milliseconds
+         *  - Typical 30fps: ~33.3 milliseconds
+         *  - **Fxp limit: 32767 milliseconds (~32.8 seconds)**
+         *
+         *  @par Usage:
+         *  Use when you need millisecond precision for short-duration events,
+         *  input debouncing, or animation keyframe timing.
+         *
+         *  @code
+         *  // Check if enough time has passed for input repeat
+         *  if (Timer::DeltaMilliseconds().As<int>() > 100) {  // 100ms elapsed
+         *      // Process repeating input
+         *  }
+         *  @endcode
+         *
+         *  @warning The 32767ms limit (~32.8s) is the Fxp format limit. The hardware
+         *  timer itself can track up to ~673 days (PHI_128). For measuring longer
+         *  durations than 32.8s, use DeltaSeconds() instead.
+         *
+         *  @see DeltaSeconds() for longer range (up to 9.1 hours in Fxp)
+         */
+        static const Math::Types::Fxp& DeltaMilliseconds() noexcept { return deltaMilliseconds; }
+
+        /** @brief Frame delta time in minutes (fixed-point 16.16).
+         *  @details Pre-calculated each frame by Core::Synchronize(). Represents the time elapsed
+         *  since the previous frame with minute precision.
+         *
+         *  @par Precision and Range:
+         *  - **Hardware precision**: ~4.47μs per tick (PHI_128)
+         *  - **Fxp precision**: ~0.9ms per unit (16.16 format)
+         *  - **Fxp limit: 32767 minutes (~22.7 days)**
+         *
+         *  @par Usage:
+         *  Use for long-term game timers, auto-save intervals, session tracking,
+         *  and any timing that spans minutes to days.
+         *
+         *  @code
+         *  // Auto-save every 5 minutes of gameplay
+         *  static Fxp gameTime = 0;
+         *  gameTime = gameTime + Timer::DeltaMinutes();
+         *  if (gameTime > 5.0) {
+         *      SaveGame();
+         *      gameTime = 0;
+         *  }
+         *  @endcode
+         *
+         *  @note DeltaMinutes provides the longest range among delta variables while
+         *  maintaining fixed-point precision. Ideal for persistent game state.
+         *
+         *  @see DeltaSeconds() for frame-level precision, DeltaMilliseconds() for short-term timing
+         */
+        static const Math::Types::Fxp& DeltaMinutes() noexcept { return deltaMinutes; }
         //@}
 
         /** @name Core Operations
@@ -808,9 +884,9 @@ namespace SRL
         /** @brief Captures current hardware state into a Tickstamp.
          *  @return Tickstamp containing the current 48-bit timer value.
          *  @details Atomically reads the FRT register and combines it with the overflow
-         *           counter to produce a consistent snapshot. The result format is:
-         *           - high = Timer32 (32-bit overflow counter)
-         *           - low = FRT << 16 (16-bit FRT shifted to upper 16 bits)
+         *  counter to produce a consistent snapshot. The result format is:
+         *  - high = Timer32 (32-bit overflow counter)
+         *  - low = FRT << 16 (16-bit FRT shifted to upper 16 bits)
          *
          *  @par Format:
          *  The returned Tickstamp stores the 48-bit tick count in a 64-bit layout
@@ -829,13 +905,8 @@ namespace SRL
          *  Fxp seconds = elapsed.ToSeconds();
          *  @endcode
          *
-         *  @note This function disables interrupts briefly to ensure atomic reading
-         *        of FRT and Timer32. The overhead is minimal (~10 cycles).
-         *
-         *  @warning Do not store Tickstamp values for long-term comparison without
-         *           accounting for the 48-bit wraparound at ~673 days (PHI_128).
-         *
-         *  @see Update() for automatic per-frame capture
+         *  @note This function uses a memory barrier to ensure consistent ordering
+         *  of FRT and timer32 reads. The overhead is minimal (~1-2 cycles).
          */
         static Tickstamp Capture() noexcept
         {
@@ -847,70 +918,7 @@ namespace SRL
             __asm__ volatile("" : : : "memory");
             return Tickstamp(timer32, frtValue);  // high=overflow, frt=FRT direct
         }
-
-        /** @brief Updates frame-level timing state (call once per frame).
-         *  @details Captures current time, calculates delta from previous frame, and
-         *           updates all timing globals (DeltaTicks, DeltaSeconds, DeltaMilliseconds, DeltaMinutes).
-         *           This is the primary method for frame-rate independent timing.
-         *
-         *  @par Call Location:
-         *  Call at the **very start** of your main game loop, before any updates:
-         *  @code
-         *  while (gameRunning) {
-         *      Timer::Update();  // Update timing first
-         *
-         *      // Now use fresh delta values for all updates
-         *      UpdatePhysics(Timer::DeltaSeconds);
-         *      UpdateAnimation(Timer::DeltaSeconds);
-         *      RenderFrame();
-         *  }
-         *  @endcode
-         *
-         *  @par What It Updates:
-         *  - FrameSnapshot: Current timestamp (saved for next frame)
-         *  - DeltaTicks: Raw tick count elapsed
-         *  - DeltaSeconds: Elapsed time in seconds (Fxp 16.16)
-         *  - DeltaMilliseconds: Elapsed time in ms (Fxp 16.16)
-         *  - DeltaMinutes: Elapsed time in minutes (Fxp 16.16)
-         *
-         *  @par Delta Time Values:
-         *  | FPS  | DeltaSeconds | DeltaMilliseconds | DeltaMinutes |
-         *  |------|--------------|-------------------|--------------|
-         *  | 60   | ~0.0167s     | ~16.7ms           | ~0.000278m   |
-         *  | 30   | ~0.0333s     | ~33.3ms           | ~0.000556m   |
-         *  | 15   | ~0.0667s     | ~66.7ms           | ~0.001111m   |
-         *
-         *  @note If the game is paused or stalled, delta time can grow large.
-         *        Consider clamping to avoid physics explosions (e.g., max 0.1s).
-         *
-         *  @see Capture() for manual timestamp capture
-         */
-        static void Update()
-        {
-            Tickstamp now = Capture();
-            DeltaTicks = now - frameSnapshot;
-            DeltaSeconds = DeltaTicks.ToSeconds();
-            DeltaMilliseconds = DeltaTicks.ToMilliseconds();
-            DeltaMinutes = DeltaTicks.ToMinutes();
-            frameSnapshot = now;
-        }
         //@}
-
-    private:
-        /** @brief FRT overflow interrupt handler.
-         *  @details Increments timer32 by 1 and clears interrupt flag.
-         *           Uses interrupt_handler attribute to generate rte (not rts).
-         */
-        static void __attribute__((interrupt_handler)) frtHandler()
-        {
-            // Increment overflow counter
-            timer32 += 1;
-
-            // Clear overflow interrupt flag
-            volatile uint8_t status = statusReg;
-            (void)status;
-            statusReg &= ~tierOverflowIrq;
-        }
     };
 }
 //@}

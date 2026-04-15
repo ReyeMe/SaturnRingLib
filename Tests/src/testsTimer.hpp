@@ -33,12 +33,26 @@ static SRL::Tickstamp MakeTickstamp(uint64_t ticks)
     return SRL::Tickstamp::FromTicks(ticks);
 }
 
+namespace SRL
+{
+    // Friend class to access private Timer and Tickstamp methods for testing
+    class TimerTest
+    {
+    public:
+        static void Init() { Timer::Init(); }
+        static void Update() { Timer::Update(); }
+        static volatile uint32_t& GetTimer32() { return Timer::timer32; }
+        static void InitDivider() { Tickstamp::InitDivider(); }
+        static void OverrideDivider(bool use26Mhz) { Tickstamp::OverrideDivider(use26Mhz); }
+    };
+}
+
 extern "C"
 {
     void timer_test_setup(void)
     {
         // Initialize with current clock mode (auto-detected)
-        SRL::Tickstamp::InitDivider();
+        SRL::TimerTest::InitDivider();
     }
     void timer_test_teardown(void) {}
 
@@ -206,26 +220,26 @@ MU_TEST(timer_update_and_delta_variables)
 {
     timer_test_output_header();
     // Initialize timer hardware first
-    SRL::Timer::Init();
+    TimerTest::Init();
     
     // First Update() establishes baseline
-    SRL::Timer::Update();
+    TimerTest::Update();
     
     // Let some FRT ticks pass (busy-wait ensures measurable difference)
     // 10000 iterations needed for PHI_128 on Mednafen due to emulation granularity
     for (int i = 0; i < 10000; i++) { __asm__ volatile("nop"); }
     
     // Second Update() should produce a small but positive delta
-    SRL::Timer::Update();
+    TimerTest::Update();
     
-    mu_assert(SRL::Timer::DeltaSeconds >= Fxp(0.0), "DeltaSeconds should be non-negative after Update");
-    mu_assert(SRL::Timer::DeltaMilliseconds >= Fxp(0.0), "DeltaMilliseconds should be non-negative after Update");
+    mu_assert(SRL::Timer::DeltaSeconds() >= Fxp(0.0), "DeltaSeconds should be non-negative after Update");
+    mu_assert(SRL::Timer::DeltaMilliseconds() >= Fxp(0.0), "DeltaMilliseconds should be non-negative after Update");
     
     // DeltaTicks should represent some elapsed time
     // Note: On Mednafen emulator, FRT may not advance during busy-wait
     // but on real hardware it should. We just check operation completed.
-    (void)SRL::Timer::DeltaTicks.High;  // Access to verify no crash
-    (void)SRL::Timer::DeltaTicks.Low;
+    (void)SRL::Timer::DeltaTicks().High;  // Access to verify no crash
+    (void)SRL::Timer::DeltaTicks().Low;
 }
 
 /** @brief Test precision with small vs large tick values
@@ -271,11 +285,11 @@ MU_TEST(timer_clock_mode_override)
     SRL::Tickstamp ts = MakeTickstamp(1000000);
 
     // Set 26MHz mode
-    SRL::Tickstamp::OverrideDivider(true);
+    SRL::TimerTest::OverrideDivider(true);
     Fxp seconds26 = ts.ToSeconds();
 
     // Set 28MHz mode
-    SRL::Tickstamp::OverrideDivider(false);
+    SRL::TimerTest::OverrideDivider(false);
     Fxp seconds28 = ts.ToSeconds();
 
     // 28MHz has higher frequency, so same ticks = less time
@@ -411,15 +425,15 @@ MU_TEST(timer_tickstamp_to_clock)
 MU_TEST(timer_delta_minutes)
 {
     timer_test_output_header();
-    SRL::Timer::Init();
+    TimerTest::Init();
 
     // Run a few updates to get measurable deltas
-    SRL::Timer::Update();
+    TimerTest::Update();
     for (int i = 0; i < 5000; i++) { __asm__ volatile("nop"); }
-    SRL::Timer::Update();
+    TimerTest::Update();
 
-    float secs = SRL::Timer::DeltaSeconds.As<float>();
-    float mins = SRL::Timer::DeltaMinutes.As<float>();
+    float secs = SRL::Timer::DeltaSeconds().As<float>();
+    float mins = SRL::Timer::DeltaMinutes().As<float>();
 
     mu_assert(mins >= 0.0f, "DeltaMinutes should be non-negative");
     // Minutes should be approximately seconds / 60
@@ -439,16 +453,16 @@ MU_TEST(timer_delta_minutes)
 MU_TEST(timer_multiple_updates)
 {
     timer_test_output_header();
-    SRL::Timer::Init();
+    TimerTest::Init();
 
     // First update
-    SRL::Timer::Update();
-    SRL::Tickstamp firstDelta = SRL::Timer::DeltaTicks;
+    TimerTest::Update();
+    SRL::Tickstamp firstDelta = SRL::Timer::DeltaTicks();
 
     // Second update
     for (int i = 0; i < 5000; i++) { __asm__ volatile("nop"); }
-    SRL::Timer::Update();
-    SRL::Tickstamp secondDelta = SRL::Timer::DeltaTicks;
+    TimerTest::Update();
+    SRL::Tickstamp secondDelta = SRL::Timer::DeltaTicks();
 
     // Both should have valid delta timestamps
     // Note: On Mednafen emulator, FRT may not advance, but values should be valid
@@ -514,7 +528,7 @@ MU_TEST(timer_hardware_integration)
 {
     timer_test_output_header();
     // Initialize timer hardware
-    SRL::Timer::Init();
+    TimerTest::Init();
 
     // Capture two timestamps with a small gap
     SRL::Tickstamp t1 = SRL::Timer::Capture();
@@ -545,7 +559,7 @@ MU_TEST(timer_initialization)
 {
     timer_test_output_header();
 
-    SRL::Timer::Init();
+    TimerTest::Init();
 
     // After Init, should be able to capture
     SRL::Tickstamp ts = SRL::Timer::Capture();
@@ -553,9 +567,9 @@ MU_TEST(timer_initialization)
     mu_assert(ts.High == 0, "Initial capture should have High=0 (no overflows yet)");
 
     // First Update() should establish baseline
-    SRL::Timer::Update();
+    TimerTest::Update();
     // DeltaTicks might be zero or some value after first update
-    mu_assert(SRL::Timer::DeltaSeconds >= Fxp(0.0), "DeltaSeconds should be non-negative");
+    mu_assert(SRL::Timer::DeltaSeconds() >= Fxp(0.0), "DeltaSeconds should be non-negative");
 }
 
 /** @brief Test compile-time builders from seconds (hybrid dual-frequency)
@@ -571,15 +585,13 @@ MU_TEST(timer_from_seconds_builder)
     timer_test_output_header();
 
     // Test at 26MHz
-    SRL::Tickstamp::OverrideDivider(true);
+    SRL::TimerTest::OverrideDivider(true);
     SRL::Tickstamp ts26 = SRL::Tickstamp::FromSeconds<1.0f>();
-    SRL::Logger::LogDebug("FromSeconds 26MHz: High=%d Low=%d", ts26.High, ts26.Low);
-    
+
     // Test at 28MHz
-    SRL::Tickstamp::OverrideDivider(false);
+    SRL::TimerTest::OverrideDivider(false);
     SRL::Tickstamp ts28 = SRL::Tickstamp::FromSeconds<1.0f>();
-    SRL::Logger::LogDebug("FromSeconds 28MHz: High=%d Low=%d", ts28.High, ts28.Low);
-    
+
     // Verify: PHI_128 ticks: 26MHz/128=208496/sec → High=3, 28MHz/128=222168/sec → High=3
     mu_assert(ts26.High >= 3 && ts26.High <= 4, "1 second @ 26MHz: High should be ~3");
     mu_assert(ts28.High >= 3 && ts28.High <= 4, "1 second @ 28MHz: High should be ~3");
@@ -600,16 +612,14 @@ MU_TEST(timer_from_milliseconds_builder)
     timer_test_output_header();
 
     // Test at 26MHz
-    SRL::Tickstamp::OverrideDivider(true);
+    SRL::TimerTest::OverrideDivider(true);
     SRL::Tickstamp ts1_26 = SRL::Tickstamp::FromMilliseconds<16.667f>();
     SRL::Tickstamp ts2_26 = SRL::Tickstamp::FromMilliseconds<500.0f>();
-    SRL::Logger::LogDebug("FromMilliseconds 500ms 26MHz: High=%d Low=%d", ts2_26.High, ts2_26.Low);
     
     // Test at 28MHz
-    SRL::Tickstamp::OverrideDivider(false);
+    SRL::TimerTest::OverrideDivider(false);
     SRL::Tickstamp ts1_28 = SRL::Tickstamp::FromMilliseconds<16.667f>();
     SRL::Tickstamp ts2_28 = SRL::Tickstamp::FromMilliseconds<500.0f>();
-    SRL::Logger::LogDebug("FromMilliseconds 500ms 28MHz: High=%d Low=%d", ts2_28.High, ts2_28.Low);
     
     // Verify: PHI_128 ticks: 500ms @ 26MHz → ~104248 ticks → High=1, 28MHz → High=1
     mu_assert(ts2_26.High >= 1 && ts2_26.High <= 2, "500ms @ 26MHz: High should be ~1");
@@ -631,17 +641,15 @@ MU_TEST(timer_from_minutes_builder)
     timer_test_output_header();
 
     // Test at 26MHz
-    SRL::Tickstamp::OverrideDivider(true);
+    SRL::TimerTest::OverrideDivider(true);
     const auto& fiveMinutes26 = SRL::Tickstamp::FromMinutes<5.0f>();
     SRL::Tickstamp ts_26 = fiveMinutes26;
-    SRL::Logger::LogDebug("FromMinutes 5min 26MHz: High=%d Low=%d", ts_26.High, ts_26.Low);
-    
+
     // Test at 28MHz - must call FromMinutes again after changing divider
-    SRL::Tickstamp::OverrideDivider(false);
+    SRL::TimerTest::OverrideDivider(false);
     const auto& fiveMinutes28 = SRL::Tickstamp::FromMinutes<5.0f>();
     SRL::Tickstamp ts_28 = fiveMinutes28;
-    SRL::Logger::LogDebug("FromMinutes 5min 28MHz: High=%d Low=%d", ts_28.High, ts_28.Low);
-    
+
     // Verify: PHI_128: 5min @ 26MHz → ~62.5M ticks → High=954, 28MHz → High=1016
     mu_assert(ts_26.High >= 940 && ts_26.High <= 970, "5 minutes @ 26MHz: High should be ~954");
     mu_assert(ts_28.High >= 1000 && ts_28.High <= 1035, "5 minutes @ 28MHz: High should be ~1016");
@@ -659,7 +667,7 @@ MU_TEST(timer_diagnostic_overflow)
     timer_test_output_header();
 
     // Initialize timer
-    SRL::Timer::Init();
+    TimerTest::Init();
 
     // Read initial register state
     volatile uint8_t* tierPtr = reinterpret_cast<volatile uint8_t*>(0xFFFFFE10);
@@ -675,11 +683,7 @@ MU_TEST(timer_diagnostic_overflow)
     uint16_t vcrd0 = *vcrdPtr;
     uint16_t iprb0 = *iprbPtr;
     uint16_t frc0 = *frcPtr;
-    uint32_t t32_0 = SRL::Timer::timer32;
-
-    LogDebug("DIAG INIT: TIER=%02X TCSR=%02X TCR=%02X", tier0, tcsr0, tcr0);
-    LogDebug("DIAG INIT: VCRD=%04X IPRB=%04X", vcrd0, iprb0);
-    LogDebug("DIAG INIT: FRC=%u T32=%u", frc0, t32_0);
+    uint32_t t32_0 = SRL::TimerTest::GetTimer32();
 
     // Wait long enough for multiple overflows
     // PHI_8 @ ~28MHz: overflow every ~18.4ms
@@ -689,31 +693,24 @@ MU_TEST(timer_diagnostic_overflow)
 
     uint16_t frc1 = *frcPtr;
     uint8_t tcsr1 = *tcsrPtr;
-    uint32_t t32_1 = SRL::Timer::timer32;
-    LogDebug("DIAG WAIT1: FRC=%u TCSR=%02X T32=%u", frc1, tcsr1, t32_1);
+    uint32_t t32_1 = SRL::TimerTest::GetTimer32();
 
     // Wait again
     for (volatile int i = 0; i < 500000; i++) { __asm__ volatile("nop"); }
 
     uint16_t frc2 = *frcPtr;
     uint8_t tcsr2 = *tcsrPtr;
-    uint32_t t32_2 = SRL::Timer::timer32;
-    LogDebug("DIAG WAIT2: FRC=%u TCSR=%02X T32=%u", frc2, tcsr2, t32_2);
+    uint32_t t32_2 = SRL::TimerTest::GetTimer32();
 
     // Wait a third time
     for (volatile int i = 0; i < 500000; i++) { __asm__ volatile("nop"); }
 
     uint16_t frc3 = *frcPtr;
     uint8_t tcsr3 = *tcsrPtr;
-    uint32_t t32_3 = SRL::Timer::timer32;
-    LogDebug("DIAG WAIT3: FRC=%u TCSR=%02X T32=%u", frc3, tcsr3, t32_3);
+    uint32_t t32_3 = SRL::TimerTest::GetTimer32();
 
     // Check: did the OVF flag in TCSR get set? (bit 1 = OVF)
-    LogDebug("DIAG OVF flags: %02X %02X %02X", tcsr1 & 0x02, tcsr2 & 0x02, tcsr3 & 0x02);
-
     // The real test: did timer32 increment?
-    LogDebug("DIAG T32 progression: %u -> %u -> %u", t32_1, t32_2, t32_3);
-
     mu_assert(t32_3 > 0, "timer32 should have incremented after waiting for overflow");
 }
 
