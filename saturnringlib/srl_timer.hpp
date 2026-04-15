@@ -80,7 +80,8 @@ namespace SRL
         struct ClockTime
         {
         private:
-            /// @cond Internal - friend declarations for Tickstamp (hidden from Doxygen)
+            /// @cond Internal
+            // Grant access to Tickstamp for private constructor
             friend struct Tickstamp;
             /// @endcond
             uint16_t hours;
@@ -104,7 +105,8 @@ namespace SRL
             uint16_t Milliseconds() const noexcept { return milliseconds; }  ///< Milliseconds component (0–999)
         };
     private:
-        /// @cond Internal - friend declarations for testing (hidden from Doxygen)
+        /// @cond Internal
+        // Grant access to TimerTest for testing
         friend class TimerTest;
         /// @endcond
 #ifdef SRL_MODE_PAL
@@ -148,8 +150,8 @@ namespace SRL
         };
 
         static inline const DividerConfig* dividerConfig = &DividerConfig26Mhz;
-        /// @cond Internal - friend declarations for Timer (hidden from Doxygen)
-        // Grant Timer class access to private configuration
+        /// @cond Internal
+        // Grant access to Timer class for private configuration
         friend class Timer;
         /// @endcond
 
@@ -237,7 +239,18 @@ namespace SRL
 
     public:
 
+        /** @brief High 32 bits of the 48-bit timestamp.
+         *  @details Contains the Timer32 overflow counter, incremented each time
+         *  the 16-bit FRT wraps around. Combined with Low, forms a 48-bit timestamp
+         *  with ~673 days of range at PHI_128 tick rate.
+         */
         uint32_t High;  ///< High 32 bits (overflow counter)
+
+        /** @brief Low 32 bits formatted for DVU division.
+         *  @details Contains the 16-bit FRT value shifted left by 16 bits (FRT << 16).
+         *  This layout enables efficient 64/32-bit division using the SH-2's DVU
+         *  hardware unit, where the actual tick value is (Low >> 16).
+         */
         uint32_t Low;   ///< Low 32 bits for DVU (FRT << 16)
 
         /** @brief Default constructor. Initializes to zero. */
@@ -581,7 +594,8 @@ namespace SRL
      */
     class Timer final
     {
-        /// @cond Internal - friend declarations for testing and core access (hidden from Doxygen)
+        /// @cond Internal
+        // Grant access to Core and TimerTest for testing and core access (hidden from Doxygen)
         friend class Core;
         friend class TimerTest;
         /// @endcond
