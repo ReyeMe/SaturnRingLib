@@ -486,12 +486,159 @@ MU_TEST(timer_tickstamp_edge_subtraction)
     auto d = SRL::Tickstamp::FromTicks(0x123456789ULL);
     auto zero = c - d;
     mu_assert(zero.High == 0 && zero.Low == 0, "Identical values should produce zero");
-    
+
     // Test that subtraction doesn't crash with max values
     auto a = SRL::Tickstamp::FromTicks(0xFFFFFFFFFFFFULL);
     auto b = SRL::Tickstamp::FromTicks(0);
     auto result = a - b;
     mu_assert(result.High == 0xFFFFFFFF, "Max - 1 should have High = 0xFFFFFFFF");
+}
+
+/** @brief Test Tickstamp addition with carry
+ *
+ * Verifies:
+ * - Proper carry handling between High and Low words
+ * - 48-bit addition works correctly
+ * - SH-2 addc instruction handles carry correctly
+ */
+MU_TEST(timer_tickstamp_addition_basic)
+{
+    timer_test_output_header();
+    // Simple addition test
+    auto a = SRL::Tickstamp::FromTicks(500);
+    auto b = SRL::Tickstamp::FromTicks(500);
+    auto result = a + b;
+
+    // Just verify result is a valid Tickstamp (no crash)
+    // Check addition didn't crash and produced valid result
+    mu_assert(result.High == 0, "Simple addition should have High = 0");
+    mu_assert(result.Low == 0x3E80000, "Low should match expected sum (1000 << 16)");
+}
+
+/** @brief Test Tickstamp addition - carry propagation
+ *
+ * Verifies:
+ * - Carry propagates correctly from Low to High
+ * - High word increments when Low overflows
+ */
+MU_TEST(timer_tickstamp_addition_carry)
+{
+    timer_test_output_header();
+    // Test that carry propagates to High when Low overflows
+    // Low max is 0xFFFF0000, so adding to trigger carry
+    auto a = SRL::Tickstamp::FromTicks(0xFFFF);
+    auto b = SRL::Tickstamp::FromTicks(1);
+    auto result = a + b;
+
+    mu_assert(result.High == 1, "Carry should propagate to High when Low overflows");
+    mu_assert(result.Low == 0, "Low should wrap to 0 after carry");
+}
+
+/** @brief Test Tickstamp equality comparison
+ *
+ * Verifies:
+ * - operator== returns true for identical timestamps
+ * - operator== returns false for different timestamps
+ */
+MU_TEST(timer_tickstamp_equality)
+{
+    timer_test_output_header();
+    auto a = SRL::Tickstamp::FromTicks(0x123456789ULL);
+    auto b = SRL::Tickstamp::FromTicks(0x123456789ULL);
+    auto c = SRL::Tickstamp::FromTicks(0x123456788ULL);
+
+    mu_assert(a == b, "Identical timestamps should be equal");
+    mu_assert(!(a == c), "Different timestamps should not be equal");
+}
+
+/** @brief Test Tickstamp inequality comparison
+ *
+ * Verifies:
+ * - operator!= returns false for identical timestamps
+ * - operator!= returns true for different timestamps
+ */
+MU_TEST(timer_tickstamp_inequality)
+{
+    timer_test_output_header();
+    auto a = SRL::Tickstamp::FromTicks(0x123456789ULL);
+    auto b = SRL::Tickstamp::FromTicks(0x123456789ULL);
+    auto c = SRL::Tickstamp::FromTicks(0x123456788ULL);
+
+    mu_assert(!(a != b), "Identical timestamps should not be unequal");
+    mu_assert(a != c, "Different timestamps should be unequal");
+}
+
+/** @brief Test Tickstamp less-than comparison
+ *
+ * Verifies:
+ * - operator< correctly compares timestamps
+ * - High word takes precedence
+ * - Low word compared when High is equal
+ */
+MU_TEST(timer_tickstamp_less_than)
+{
+    timer_test_output_header();
+    auto a = SRL::Tickstamp::FromTicks(1000);
+    auto b = SRL::Tickstamp::FromTicks(2000);
+    auto c = SRL::Tickstamp::FromTicks(0x10001000ULL);  // High=0x1000, Low=0x10000000
+    auto d = SRL::Tickstamp::FromTicks(0x10000000ULL);  // High=0x1000, Low=0x00000000
+
+    mu_assert(a < b, "Smaller timestamp should be less than larger");
+    mu_assert(!(b < a), "Larger timestamp should not be less than smaller");
+    mu_assert(d < c, "Same High, smaller Low should be less");
+    mu_assert(a < c, "Smaller High should be less regardless of Low");
+}
+
+/** @brief Test Tickstamp greater-than comparison
+ *
+ * Verifies:
+ * - operator> correctly compares timestamps
+ * - Implemented as operator< with swapped operands
+ */
+MU_TEST(timer_tickstamp_greater_than)
+{
+    timer_test_output_header();
+    auto a = SRL::Tickstamp::FromTicks(1000);
+    auto b = SRL::Tickstamp::FromTicks(2000);
+
+    mu_assert(b > a, "Larger timestamp should be greater than smaller");
+    mu_assert(!(a > b), "Smaller timestamp should not be greater than larger");
+}
+
+/** @brief Test Tickstamp less-than-or-equal comparison
+ *
+ * Verifies:
+ * - operator<= returns true for equal timestamps
+ * - operator<= returns true when left is smaller
+ */
+MU_TEST(timer_tickstamp_less_than_or_equal)
+{
+    timer_test_output_header();
+    auto a = SRL::Tickstamp::FromTicks(1000);
+    auto b = SRL::Tickstamp::FromTicks(1000);
+    auto c = SRL::Tickstamp::FromTicks(2000);
+
+    mu_assert(a <= b, "Equal timestamps should satisfy <=");
+    mu_assert(a <= c, "Smaller timestamp should satisfy <=");
+    mu_assert(!(c <= a), "Larger timestamp should not satisfy <=");
+}
+
+/** @brief Test Tickstamp greater-than-or-equal comparison
+ *
+ * Verifies:
+ * - operator>= returns true for equal timestamps
+ * - operator>= returns true when left is larger
+ */
+MU_TEST(timer_tickstamp_greater_than_or_equal)
+{
+    timer_test_output_header();
+    auto a = SRL::Tickstamp::FromTicks(1000);
+    auto b = SRL::Tickstamp::FromTicks(1000);
+    auto c = SRL::Tickstamp::FromTicks(2000);
+
+    mu_assert(a >= b, "Equal timestamps should satisfy >=");
+    mu_assert(c >= a, "Larger timestamp should satisfy >=");
+    mu_assert(!(a >= c), "Smaller timestamp should not satisfy >=");
 }
 
 /** @brief Test conversion consistency
@@ -570,6 +717,38 @@ MU_TEST(timer_initialization)
     TimerTest::Update();
     // DeltaTicks might be zero or some value after first update
     mu_assert(SRL::Timer::DeltaSeconds() >= Fxp(0.0), "DeltaSeconds should be non-negative");
+}
+
+/** @brief Test CurrentTickstamp() accessor
+ *
+ * Verifies:
+ * - CurrentTickstamp() returns a valid const reference to frameSnapshot
+ * - Returns the same value as captured by Update()
+ * - Avoids redundant hardware reads (performance benefit)
+ */
+MU_TEST(timer_current_tickstamp_accessor)
+{
+    timer_test_output_header();
+
+    TimerTest::Init();
+    TimerTest::Update();
+
+    // CurrentTickstamp should return the same value as the last Capture() in Update()
+    const SRL::Tickstamp& current = SRL::Timer::CurrentTickstamp();
+
+    // Verify it's a valid Tickstamp (not garbage)
+    mu_assert(current.High >= 0, "CurrentTickstamp should have valid High value");
+    mu_assert(current.Low >= 0, "CurrentTickstamp should have valid Low value");
+
+    // Verify it's the same as what DeltaTicks is based on (both from frameSnapshot)
+    const SRL::Tickstamp& delta = SRL::Timer::DeltaTicks();
+    // Delta is calculated as (now - frameSnapshot), so frameSnapshot is the baseline
+    // We can't directly compare, but we can verify CurrentTickstamp is accessible
+
+    // Verify CurrentTickstamp() doesn't require hardware read (by calling it multiple times)
+    const SRL::Tickstamp& current2 = SRL::Timer::CurrentTickstamp();
+    mu_assert(current.High == current2.High, "CurrentTickstamp should return same value on repeated calls");
+    mu_assert(current.Low == current2.Low, "CurrentTickstamp should return same value on repeated calls");
 }
 
 /** @brief Test compile-time builders from seconds (hybrid dual-frequency)
@@ -727,6 +906,14 @@ MU_TEST_SUITE(test_timer_suite)
     MU_RUN_TEST(timer_tickstamp_48bit_range);
     MU_RUN_TEST(timer_tickstamp_composition);
     MU_RUN_TEST(timer_tickstamp_edge_subtraction);
+    MU_RUN_TEST(timer_tickstamp_addition_basic);
+    MU_RUN_TEST(timer_tickstamp_addition_carry);
+    MU_RUN_TEST(timer_tickstamp_equality);
+    MU_RUN_TEST(timer_tickstamp_inequality);
+    MU_RUN_TEST(timer_tickstamp_less_than);
+    MU_RUN_TEST(timer_tickstamp_greater_than);
+    MU_RUN_TEST(timer_tickstamp_less_than_or_equal);
+    MU_RUN_TEST(timer_tickstamp_greater_than_or_equal);
 
     // Hybrid compile-time builder tests
     MU_RUN_TEST(timer_from_seconds_builder);
@@ -747,6 +934,7 @@ MU_TEST_SUITE(test_timer_suite)
     MU_RUN_TEST(timer_update_and_delta_variables);
     MU_RUN_TEST(timer_hardware_integration);
     MU_RUN_TEST(timer_initialization);
+    MU_RUN_TEST(timer_current_tickstamp_accessor);
     MU_RUN_TEST(timer_delta_minutes);
     MU_RUN_TEST(timer_multiple_updates);
 

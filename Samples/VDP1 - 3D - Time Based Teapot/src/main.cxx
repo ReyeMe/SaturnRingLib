@@ -37,18 +37,44 @@ int main()
     uint32_t frameCount = 0;
     auto startTime = SRL::Timer::Capture();
 
+    // Rotation direction switching every 1 minute
+    const SRL::Tickstamp switchInterval = SRL::Tickstamp::FromMinutes<1.0f>();
+    auto switchDeadline = startTime + switchInterval;
+    bool rotateForward = true;
+
     // Main program loop
     while (1)
     {
         frameCount++;
 
+        // Check if we've reached the rotation switch deadline
+        // Use Capture() here because we need a fresh timestamp for deadline checking
+        auto now = SRL::Timer::Capture();
+        if (now >= switchDeadline)
+        {
+            // Switch rotation direction
+            rotateForward = !rotateForward;
+            // Set new deadline
+            switchDeadline = now + switchInterval;
+        }
+
         // Update rotation based on elapsed time (time-based animation)
         // This works at any frame rate - 30fps, 60fps, variable, etc.
-        rotation += SRL::Timer::DeltaSeconds() * rotationSpeed.ToTurns();
+        if (rotateForward)
+            rotation += SRL::Timer::DeltaSeconds() * rotationSpeed.ToTurns();
+        else
+            rotation -= SRL::Timer::DeltaSeconds() * rotationSpeed.ToTurns();
 
         // Calculate elapsed time and clock display
-        auto elapsed = SRL::Timer::Capture() - startTime;
+        // Use CurrentTickstamp() here for display - no hardware read overhead
+        // CurrentTickstamp() returns the timestamp captured by Update() at frame start
+        auto elapsed = SRL::Timer::CurrentTickstamp() - startTime;
         auto clock = elapsed.ToClock();
+
+        // Calculate ETA for next rotation switch (reuse 'now' from deadline check)
+        auto timeUntilSwitch = switchDeadline - now;
+        auto countdown = timeUntilSwitch.ToClock();
+
         Fxp fps = Fxp(0);
         if (SRL::Timer::DeltaSeconds() > Fxp(0))
             fps = Fxp(1) / SRL::Timer::DeltaSeconds();
@@ -70,6 +96,14 @@ int main()
         SRL::Debug::Print(1, 9, "Total Minutes: %f", elapsed.ToMinutes());
         SRL::Debug::PrintClearLine(10);
         SRL::Debug::Print(1, 10, "Clock: %02u:%02u:%02u.%03u", clock.Hours(), clock.Minutes(), clock.Seconds(), clock.Milliseconds());
+        SRL::Debug::PrintClearLine(22);
+        SRL::Debug::Print(1, 22, "Rotation: %s", rotateForward ? "Forward" : "Reverse");
+        SRL::Debug::PrintClearLine(23);
+        SRL::Debug::Print(1, 23, "Next Switch ETA: %02u:%02u.%03u", countdown.Minutes(), countdown.Seconds(), countdown.Milliseconds());
+
+        // Measure rendering time using Capture()
+        // Use Capture() for benchmarking/profiling - reads hardware registers
+        auto renderStart = SRL::Timer::Capture();
 
         // Load identity matrix
         SRL::Scene3D::LoadIdentity();
@@ -82,6 +116,12 @@ int main()
 
         // Draw teapot
         teapot.Draw();
+
+        // Capture end time for rendering measurement
+        auto renderEnd = SRL::Timer::Capture();
+        auto renderTime = renderEnd - renderStart;
+        SRL::Debug::PrintClearLine(24);
+        SRL::Debug::Print(1, 24, "Render Time: %f ms", renderTime.ToMilliseconds());
 
         // Refresh screen
         SRL::Core::Synchronize();

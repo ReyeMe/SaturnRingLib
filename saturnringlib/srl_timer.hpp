@@ -384,6 +384,87 @@ namespace SRL
             return FromRaw(temp_high, temp_low);
         }
 
+        /** @brief 64-bit addition with carry (hardware-accelerated).
+         *  @param other Tickstamp to add to this one
+         *  @return New Tickstamp containing the sum
+         *  @details Performs atomic 64-bit addition using inline SH-2 assembly (addc).
+         *
+         *  @par Example:
+         *  @code
+         *  Tickstamp now = Timer::Capture();
+         *  Tickstamp delay = Tickstamp::FromSeconds<2.0f>();
+         *  Tickstamp deadline = now + delay;  // 2 seconds from now
+         *  @endcode
+         */
+        Tickstamp operator+(const Tickstamp& other) const noexcept
+        {
+            uint32_t temp_high = this->High;
+            uint32_t temp_low = this->Low;
+            __asm__ volatile (
+                "clrt\n\t"
+                "addc %[other_low], %[temp_low]\n\t"
+                "addc %[other_high], %[temp_high]"
+                : [temp_high] "+&r"(temp_high), [temp_low] "+&r"(temp_low)
+                : [other_high] "r"(other.High), [other_low] "r"(other.Low)
+                : "t"
+                );
+            return FromRaw(temp_high, temp_low);
+        }
+
+        /** @brief Equality comparison.
+         *  @param other Tickstamp to compare against
+         *  @return True if both timestamps represent the same point in time
+         */
+        bool operator==(const Tickstamp& other) const noexcept
+        {
+            return this->High == other.High && this->Low == other.Low;
+        }
+
+        /** @brief Inequality comparison.
+         *  @param other Tickstamp to compare against
+         *  @return True if timestamps differ
+         */
+        bool operator!=(const Tickstamp& other) const noexcept
+        {
+            return !(*this == other);
+        }
+
+        /** @brief Less-than comparison.
+         *  @param other Tickstamp to compare against
+         *  @return True if this timestamp is earlier than other
+         */
+        bool operator<(const Tickstamp& other) const noexcept
+        {
+            return this->High < other.High || (this->High == other.High && this->Low < other.Low);
+        }
+
+        /** @brief Greater-than comparison.
+         *  @param other Tickstamp to compare against
+         *  @return True if this timestamp is later than other
+         */
+        bool operator>(const Tickstamp& other) const noexcept
+        {
+            return other < *this;
+        }
+
+        /** @brief Less-than-or-equal comparison.
+         *  @param other Tickstamp to compare against
+         *  @return True if this timestamp is earlier than or equal to other
+         */
+        bool operator<=(const Tickstamp& other) const noexcept
+        {
+            return !(other < *this);
+        }
+
+        /** @brief Greater-than-or-equal comparison.
+         *  @param other Tickstamp to compare against
+         *  @return True if this timestamp is later than or equal to other
+         */
+        bool operator>=(const Tickstamp& other) const noexcept
+        {
+            return !(*this < other);
+        }
+
         /** @brief Converts ticks to milliseconds using DVU hardware acceleration.
          *  @return Time in milliseconds as fixed-point number (Fxp 16.16 format).
          *  @details Uses SH-2 DVU for 64-bit division: (ticks << 16) / (frequency / 1000).
@@ -805,6 +886,32 @@ namespace SRL
          */
         static const Tickstamp& DeltaTicks() noexcept { return deltaTicks; }
 
+        /** @brief Current frame timestamp (const reference).
+         *  @details Returns a const reference to the current frame's timestamp captured by Update().
+         *  This avoids redundant hardware register reads when you need the current time multiple times
+         *  within a frame. Use this instead of Capture() when you don't need a fresh timestamp.
+         *
+         *  @par When to Use:
+         *  - Displaying current time in UI/debug output
+         *  - Calculating time remaining in a frame
+         *  - Any in-frame timing that doesn't require a fresh hardware read
+         *
+         *  @par When to Use Capture() Instead:
+         *  - Measuring precise elapsed time between two operations
+         *  - Starting a new timing operation
+         *  - When you need the absolute latest hardware timestamp
+         *
+         *  @par Example:
+         *  @code
+         *  // Display current time without hardware read overhead
+         *  const Tickstamp& now = Timer::CurrentTickstamp();
+         *  auto elapsed = now - startTime;
+         *  @endcode
+         *
+         *  @see Capture() for fresh hardware timestamp
+         */
+        static const Tickstamp& CurrentTickstamp() noexcept { return frameSnapshot; }
+
         /** @brief Frame delta time in seconds (fixed-point 16.16).
          *  @details Pre-calculated each frame by Core::Synchronize(). Represents the time elapsed
          *  between the current frame and the previous frame, in seconds.
@@ -897,17 +1004,22 @@ namespace SRL
          //@{
         /** @brief Captures current hardware state into a Tickstamp.
          *  @return Tickstamp containing the current 48-bit timer value.
-         *  @details Atomically reads the FRT register and combines it with the overflow
-         *  counter to produce a consistent snapshot. The result format is:
-         *  - high = Timer32 (32-bit overflow counter)
-         *  - low = FRT << 16 (16-bit FRT shifted to upper 16 bits)
          *
-         *  @par Format:
-         *  The returned Tickstamp stores the 48-bit tick count in a 64-bit layout
-         *  optimized for DVU division. The actual tick count is:
-         *  @code
-         *  ticks = (ts.high << 16) | (ts.low >> 16)
-         *  @endcode
+         *  @par When to Use:
+         *  - Benchmarking and performance profiling
+         *  - Measuring precise elapsed time between two operations
+         *  - Starting a new timing operation that requires a fresh timestamp
+         *  - Deadline checking where absolute latest time is critical
+         *
+         *  @par When to Use CurrentTickstamp() Instead:
+         *  - Displaying current time in UI/debug output (no hardware read overhead)
+         *  - Calculating time remaining in a frame
+         *  - Any in-frame timing that doesn't require a fresh hardware read
+         *
+         *  @par Performance Consideration:
+         *  Capture() reads hardware registers on each call. For in-frame operations
+         *  where you need the current time multiple times, prefer CurrentTickstamp()
+         *  which returns a const reference to the timestamp already captured by Update().
          *
          *  @par Usage:
          *  Call at the start and end of an operation to measure elapsed time:
@@ -921,6 +1033,8 @@ namespace SRL
          *
          *  @note This function uses a memory barrier to ensure consistent ordering
          *  of FRT and timer32 reads. The overhead is minimal (~1-2 cycles).
+         *
+         *  @see CurrentTickstamp() for in-frame timing without hardware read overhead
          */
         static Tickstamp Capture() noexcept
         {
