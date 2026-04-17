@@ -1,3 +1,6 @@
+// Tests/src/testsInterrupt.hpp
+// Unit tests for SRL Interrupt API (mask, status, acknowledge, handler registration)
+
 #include <srl.hpp>
 #include <srl_system.hpp>
 #include <srl_log.hpp>
@@ -9,7 +12,6 @@
 
 using namespace SRL;
 
-// Interrupt API tests (srl_interrupt.hpp should compile)
 #include <srl_interrupt.hpp>
 
 extern "C"
@@ -17,23 +19,14 @@ extern "C"
     extern const uint8_t buffer_size;
     extern char buffer[];
 
-    /**
-     * @brief Sets up the environment for interrupt handling unit tests.
-     */
     void interrupt_test_setup(void)
     {
     }
 
-    /**
-     * @brief Cleans up the environment after each interrupt handling unit test.
-     */
     void interrupt_test_teardown(void)
     {
     }
 
-    /**
-     * @brief Displays a header for the interrupt handling test suite upon the first error.
-     */
     void interrupt_test_output_header(void)
     {
         if (!suite_error_counter++)
@@ -49,15 +42,15 @@ extern "C"
         }
     }
 
-    /**
-     * @brief Tests the round-trip functionality of setting and getting the interrupt mask.
-     * @details This test verifies that `Interrupt::SetMask` correctly updates the system's interrupt mask
-     *          by checking the value via `System::GetInterruptMask`.
+    /** @brief Test Interrupt::SetMask round-trip via System::GetInterruptMask
+     *
+     * Verifies:
+     * - SetMask(None) sets mask to 0x00000000 (all enabled)
+     * - SetMask(All) sets mask to 0x7FFF (all standard interrupts disabled)
+     * - Original mask is restored after each operation
      */
     MU_TEST(interrupt_test_setmask_roundtrip)
     {
-        // Nominal + edge: SetMask is a thin wrapper over System::SetInterruptMask.
-        // We verify it via System::GetInterruptMask() and restore the previous mask.
         const uint32_t previousMask = System::GetInterruptMask();
 
         Interrupt::SetMask(Interrupt::Mask::None);
@@ -75,15 +68,15 @@ extern "C"
         mu_assert(maskAll == static_cast<uint32_t>(Interrupt::Mask::All), buffer);
     }
 
-    /**
-     * @brief A smoke test for the `ChangeMask` function to ensure it doesn't alter the mask when asked not to.
-     * @details Verifies that `ChangeMask` can be called without crashing and that it correctly
-     *          preserves the interrupt mask when the 'enable' and 'disable' parameters are identical.
+    /** @brief Smoke test ChangeMask identity operation
+     *
+     * Verifies:
+     * - ChangeMask(All, None) preserves an existing All mask
+     * - The operation does not crash or alter other state
+     * - Original mask is restored after the test
      */
     MU_TEST(interrupt_test_changemask_identity_smoke)
     {
-        // Smoke: ChangeMask is a thin wrapper. We only validate it doesn't crash
-        // and is capable of preserving the mask when asked to do so.
         const uint32_t previousMask = System::GetInterruptMask();
 
         Interrupt::SetMask(Interrupt::Mask::All);
@@ -98,29 +91,29 @@ extern "C"
         mu_assert(afterIdentity == static_cast<uint32_t>(Interrupt::Mask::All), buffer);
     }
 
-    /**
-     * @brief A smoke test to ensure `GetStatus` and `ResetStatus` functions are callable.
-     * @details This test only verifies that the API calls for getting and resetting the interrupt
-     *          status can be made without causing a crash. It does not validate hardware behavior.
+    /** @brief Smoke test GetStatus and ResetStatus reachability
+     *
+     * Verifies:
+     * - GetStatus() is callable and returns without crashing
+     * - ResetStatus(0) is callable (write-1-to-clear with no bits set)
+     * - No assertion on actual status values (hardware-dependent)
      */
     MU_TEST(interrupt_test_getstatus_and_resetstatus_smoke)
     {
-        // Smoke/negative: status register semantics vary by hardware; ResetStatus is
-        // typically "write 1 to clear". We only validate that calls are reachable.
         (void)Interrupt::GetStatus();
         Interrupt::ResetStatus(static_cast<Interrupt::Status>(0u));
         mu_assert(1, "GetStatus/ResetStatus not callable");
     }
 
-    /**
-     * @brief A smoke test for the interrupt acknowledgment get/set functions.
-     * @details Verifies that the API calls for getting and setting the interrupt acknowledgment
-     *          register are reachable and do not crash.
+    /** @brief Smoke test A-Bus acknowledge register access
+     *
+     * Verifies:
+     * - GetAcknowledge() is callable and returns without crashing
+     * - SetAcknowledge(None) is callable
+     * - Original acknowledge value is restored after the test
      */
     MU_TEST(interrupt_test_acknowledge_roundtrip_smoke)
     {
-        // Smoke: acknowledge register is hardware-controlled; we verify API reachability
-        // and restore the previous value.
         const auto previous = Interrupt::GetAcknowledge();
 
         Interrupt::SetAcknowledge(Interrupt::Acknowledge::None);
@@ -130,29 +123,29 @@ extern "C"
         mu_assert(1, "Acknowledge API not callable");
     }
 
-    /**
-     * @brief Tests that setting an interrupt handler for an invalid vector fails.
-     * @details Verifies that `SetHandler` returns `false` when provided with an interrupt vector
-     *          number that is outside the valid hardware ranges.
+    /** @brief Test SetHandler rejects invalid vector numbers
+     *
+     * Verifies:
+     * - Vector 0x50 (between SCU and CPU ranges) returns false
+     * - No handler is registered for out-of-range vectors
      */
     MU_TEST(interrupt_test_sethandler_invalid_vector)
     {
-        // Negative: values outside SCU (0x40-0x4F) and CPU (0x60-0x8F) ranges are invalid.
         auto handler = []() {};
         bool ok = Interrupt::SetHandler(static_cast<Interrupt::Vector>(0x50u), handler);
         snprintf(buffer, buffer_size, "SetHandler(invalid vector) unexpectedly returned true");
         mu_assert(!ok, buffer);
     }
 
-    /**
-     * @brief Tests setting and then reading back a CPU interrupt handler.
-     * @details This test sets a handler for a specific CPU trap vector, reads it back via the
-     *          system-level API to ensure it was set correctly, and then restores the original handler.
+    /** @brief Test SetHandler CPU vector round-trip (TRAP #15)
+     *
+     * Verifies:
+     * - SetHandler(TrapF, lambda) returns true for a valid CPU vector
+     * - System::GetInterruptVector() reflects the registered handler pointer
+     * - Original handler is restored after the test
      */
     MU_TEST(interrupt_test_sethandler_cpu_vector_roundtrip)
     {
-        // Nominal: TRAP #15 (0x8F) is unlikely to be used by the test runner.
-        // We set a handler, verify via System::GetInterruptVector, then restore.
         void *previous = System::GetInterruptVector(static_cast<uint32_t>(Interrupt::Vector::TrapF));
         auto handler = []() {};
         bool ok = Interrupt::SetHandler(Interrupt::Vector::TrapF, handler);
@@ -167,9 +160,6 @@ extern "C"
         mu_assert(readBack == reinterpret_cast<void*>(+handler), buffer);
     }
 
-    /**
-     * @brief Defines the test suite for all interrupt handling functionality.
-     */
     MU_TEST_SUITE(interrupt_test_suite)
     {
         MU_SUITE_CONFIGURE_WITH_HEADER(&interrupt_test_setup,

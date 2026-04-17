@@ -5,60 +5,46 @@
 #include <type_traits>
 #include <utility>
 
-// Forward declaration for our handler checker
-template<typename T>
-struct IsInterruptHandler {
-    static constexpr bool value = false;
-};
-
-// Wrapper to check interrupt handler attribute
-struct InterruptHandlerWrapper {
-    template<typename Func>
-    constexpr InterruptHandlerWrapper(Func&&) {
-        static_assert(IsInterruptHandler<Func>::value, 
-            "Interrupt handler functions must be marked with SRL_INTERRUPT_HANDLER");
-    }
-};
-
-/// @def SRL_INTERRUPT_HANDLER
-/// @brief Marks a function as an interrupt service routine
-///
-/// This macro must be used on functions that will be used as direct
-/// interrupt handlers for SCU vectors (0x40-0x4F). It ensures proper
-/// interrupt handling code generation and enforces compile-time checks.
-///
-/// @note Attempting to use an unmarked function as an SCU interrupt handler
-///       will result in a compilation error.
-///
-/// Example:
-/// ```cpp
-/// // Valid interrupt handler
-/// void SRL_INTERRUPT_HANDLER myVBlankHandler() {
-///     // Handle V-Blank interrupt
-/// }
-/// 
-/// // This will cause a compile error if used as an SCU interrupt handler
-/// void badHandler() {}
-/// ```
-#define SRL_INTERRUPT_HANDLER \
-    __attribute__((interrupt_handler)) \
-    /* This creates a specialization that marks this function as valid */ \
-    template<> struct IsInterruptHandler<decltype(&__PRETTY_FUNCTION__)> { \
-        static constexpr bool value = true; \
-    }
-
 namespace SRL
 {
-    /** @brief Interrupt management for the Sega Saturn
-     * @details Provides a type-safe C++ interface for handling hardware interrupts
-     *          on the Sega Saturn, supporting both SCU and CPU interrupts.
+    /** @brief Type-safe interrupt management for the Sega Saturn.
+     *  @details Provides a modern C++ interface over the BIOS interrupt services
+     *           and direct SCU register access. Supports both SCU interrupts
+     *           (0x40-0x4F) and CPU/TRAP vectors (0x60-0x8F) with compile-time
+     *           validation.
      *
-     * @note All methods are static as this is a utility class that manages
-     *       system-wide interrupt settings.
+     *  @par Architecture:
+     *  | Vector Range | Type | Return |
+     *  |--------------|------|--------|
+     *  | 0x40-0x4F | SCU Interrupts | `rte` (mandatory) |
+     *  | 0x60-0x8F | CPU / TRAP | `rts` (default) |
+     *
+     *  @par Basic Usage:
+     *  @code
+     *  // Set interrupt mask (enable V-Blank only)
+     *  Interrupt::SetMask(Interrupt::Mask::VBlankIn);
+     *
+     *  // Register an SCU interrupt handler
+     *  void __attribute__((interrupt_handler)) myVBlank() { }
+     *  Interrupt::SetHandler(Interrupt::Vector::VBlankIn, &myVBlank);
+     *
+     *  // Check and clear interrupt status
+     *  if (static_cast<uint32_t>(Interrupt::GetStatus() & Interrupt::Status::VBlankIn)) {
+     *      Interrupt::ResetStatus(Interrupt::Status::VBlankIn);
+     *  }
+     *  @endcode
+     *
+     *  @warning SCU interrupt handlers (0x40-0x4F) **must** use
+     *           `__attribute__((interrupt_handler))` to emit `rte` instead of `rts`.
+     *           Omitting this attribute will crash on return from interrupt.
+     *
+     *  @see System for the lower-level BIOS wrappers
+     *  @see Timer for FRT overflow interrupt usage
      */
     class Interrupt final
     {
     private:
+        friend class Timer;
         /** @brief Get a reference to the interrupt status register
          * @return Reference to the memory-mapped status register
          * @note This provides direct access to the hardware register at 0x25fe00a4
@@ -413,17 +399,45 @@ namespace SRL
             TrapF = 0x8F
         };
 
-        /** @brief Set the interrupt mask
-         *  @param mask New interrupt mask
+        /** @name Mask Control
+         *  Enable or disable SCU interrupt sources.
+         */
+        //@{
+
+        /** @brief Replace the entire SCU interrupt mask.
+         *  @param mask New interrupt mask (combined Mask flags)
+         *  @details Thin wrapper over System::SetInterruptMask(). Set bits **disable**
+         *           the corresponding interrupt source.
+         *
+         *  @par Example:
+         *  @code
+         *  // Enable only V-Blank In
+         *  Interrupt::SetMask(Interrupt::Mask::VBlankIn);
+         *
+         *  // Disable all interrupts
+         *  Interrupt::SetMask(Interrupt::Mask::All);
+         *  @endcode
+         *
+         *  @see ChangeMask() for selective enable/disable without replacing the full mask
          */
         static void SetMask(Mask mask)
         {
             System::SetInterruptMask(static_cast<uint32_t>(mask));
         }
 
-        /** @brief Change the interrupt mask
-         *  @param enable Interrupts to enable
-         *  @param disable Interrupts to disable
+        /** @brief Selectively modify the SCU interrupt mask.
+         *  @param enable  Mask bits to AND with the current mask (preserves selected interrupts)
+         *  @param disable Mask bits to OR with the current mask (disables selected interrupts)
+         *  @details Thin wrapper over System::ChangeInterruptMask().
+         *           Result = (currentMask & enable) | disable.
+         *
+         *  @par Example:
+         *  @code
+         *  // Enable V-Blank without changing other mask bits
+         *  Interrupt::ChangeMask(~Interrupt::Mask::VBlankIn, Interrupt::Mask::None);
+         *  @endcode
+         *
+         *  @see SetMask() to replace the entire mask at once
          */
         static void ChangeMask(Mask enable, Mask disable)
         {
@@ -433,76 +447,103 @@ namespace SRL
             );
         }
 
-        /** @brief Get the current interrupt status
-         *  @return Current interrupt status
+        //@}
+
+        /** @name Status and Acknowledge
+         *  Query and clear interrupt status / acknowledge registers.
+         */
+        //@{
+
+        /** @brief Read the SCU interrupt status register.
+         *  @return Bitmask of interrupts that have occurred (SCU IST register at 0x25FE00A4)
+         *  @details Each set bit indicates the corresponding interrupt has fired since
+         *           the last ResetStatus() call. Use bitwise AND with Status flags to test.
+         *
+         *  @see ResetStatus() to clear specific status bits
          */
         static Status GetStatus()
         {
             return static_cast<Status>(StatusRegister());
         }
 
-        /** @brief Reset interrupt status bits
+        /** @brief Clear interrupt status bits (write-1-to-clear).
          *  @param status Status bits to clear
+         *  @details Writes to the SCU IST register at 0x25FE00A4. Set bits in the
+         *           parameter clear the corresponding interrupt status flags.
+         *
+         *  @warning Writing incorrect values may clear status bits you intended to preserve.
+         *           Always use specific Status flags rather than raw values.
          */
         static void ResetStatus(Status status)
         {
             StatusRegister() = static_cast<uint32_t>(status);
         }
 
-        /** @brief Set A-Bus interrupt acknowledge
-         *  @param ack Acknowledge control value
+        /** @brief Set the A-Bus interrupt acknowledge register.
+         *  @param ack Acknowledge control value to write (SCU AIACK register at 0x25FE00BC)
+         *  @details Acknowledging an interrupt clears its pending status in the A-Bus
+         *           interrupt controller.
+         *
+         *  @see GetAcknowledge()
          */
         static void SetAcknowledge(Acknowledge ack)
         {
             AcknowledgeRegister() = static_cast<uint32_t>(ack);
         }
 
-        /** @brief Get A-Bus interrupt acknowledge status
-         *  @return Current acknowledge status
+        /** @brief Read the A-Bus interrupt acknowledge register.
+         *  @return Current acknowledge value (SCU AIACK register at 0x25FE00BC)
+         *
+         *  @see SetAcknowledge()
          */
         static Acknowledge GetAcknowledge()
         {
             return static_cast<Acknowledge>(AcknowledgeRegister());
         }
 
-        /** @brief Set an interrupt handler
-         *  @tparam Func Function type (must be callable with no arguments)
-         *  @param vector Interrupt vector number
-         *  @param handler Function to call when interrupt occurs
+        //@}
+
+        /** @name Handler Registration
+         *  Register interrupt handler functions with compile-time validation.
+         */
+        //@{
+
+        /** @brief Register an interrupt handler function.
+         *  @tparam Func Callable type (function pointer or stateless lambda)
+         *  @param vector Interrupt vector to set handler for
+         *  @param handler Function to call when the interrupt occurs
+         *  @return true if the handler was set successfully, false if the vector is out of range
+         *  @details Routes to System::SetInterruptHandler() for SCU vectors (0x40-0x4F) or
+         *           System::SetInterruptVector() for CPU/TRAP vectors (0x60-0x8F).
+         *           Compile-time checks ensure the callable has the correct signature
+         *           (`void()`) and has no captures.
          *
-         *  @note The handler function should be as short as possible to minimize
-         *  interrupt latency for other system interrupts.
+         *  @par Handler Requirements:
+         *  | Vector Range | Type | Lambda? | Attribute Required | Return |
+         *  |--------------|------|---------|-------------------|--------|
+         *  | 0x40-0x4F | SCU Interrupts | **No** | **Mandatory** `__attribute__((interrupt_handler))` | `rte` |
+         *  | 0x60-0x8F | CPU / TRAP | Yes (stateless) | Not required | `rts` |
          *
-         *  Example:
+         *  @warning **SCU interrupts (0x40-0x4F):** handlers must be **functions** (not lambdas)
+         *           with `__attribute__((interrupt_handler))`. Lambdas are **not allowed** for SCU
+         *           because they cannot have the interrupt attribute and will crash on return.
+         *           CPU/TRAP handlers (0x60-0x8F) can use lambdas or regular functions.
+         *
+         *  @par Example:
          *  @code
-         *  // Using a lambda
-         *  Interrupt::SetHandler(Interrupt::Vector::VBlankIn, []() {
-         *      // Your V-Blank code here
-         *  });
-         *
-         *  // Using a regular function
-         *  void myVBlankHandler() {
+         *  // SCU interrupt handler - MANDATORY attribute, NO lambdas
+         *  void __attribute__((interrupt_handler)) myVBlankHandler() {
          *      // Handle V-Blank
          *  }
          *  Interrupt::SetHandler(Interrupt::Vector::VBlankIn, &myVBlankHandler);
+         *
+         *  // CPU/TRAP handler - lambdas OK, no attribute needed
+         *  Interrupt::SetHandler(Interrupt::Vector::Trap0, []() {
+         *      // Handle TRAP
+         *  });
          *  @endcode
-         */
-        /** @brief Set an interrupt handler function
-         *  @tparam Func Callable type (function pointer, lambda, etc.)
-         *  @param vector Interrupt vector to set handler for
-         *  @param handler Function to call when interrupt occurs
-         *  @return true if handler was set successfully, false if vector number is invalid
-         *  @note The handler function should be marked with SRL_INTERRUPT_HANDLER
-         *        if it's a direct interrupt service routine.
-         */
-        /** @brief Set an interrupt handler function
-         *  @tparam Func Callable type (function pointer, lambda, etc.)
-         *  @param vector Interrupt vector to set handler for
-         *  @param handler Function to call when interrupt occurs
-         *  @return true if handler was set successfully, false if vector number is invalid
-         *  @note The handler function must be marked with SRL_INTERRUPT_HANDLER
-         *        if it's a direct interrupt service routine (SCU vectors 0x40-0x4F).
-         *        This is enforced at compile time.
+         *
+         *  @see System::SetInterruptHandler(), System::SetInterruptVector()
          */
         template<typename Func>
         static bool SetHandler(Vector vector, Func&& handler) noexcept
@@ -510,13 +551,23 @@ namespace SRL
             return SetHandlerImpl(vector, std::forward<Func>(handler));
         }
 
+        //@}
+
     private:
-        // Implementation helper that does the actual work
+        /** @brief Implementation of SetHandler() with compile-time validation.
+         *  @tparam Func Callable type
+         *  @param vector Target interrupt vector
+         *  @param handler Callable to register
+         *  @return true on success, false if vector is out of range
+         *  @internal
+         */
         template<typename Func>
         static bool SetHandlerImpl(Vector vector, Func&& handler) noexcept
         {
-            static_assert(std::is_invocable_r_v<void, Func>, "Handler must be callable with no arguments and return void");
-            static_assert(std::is_convertible_v<decltype(+handler), void (*)()>, "Handler must be convertible to void(*)() (no captures)");
+            static_assert(std::is_invocable_r_v<void, Func>, 
+                "Handler must be callable with no arguments and return void");
+            static_assert(std::is_convertible_v<decltype(+handler), void (*)()>, 
+                "Handler must be convertible to void(*)() (no captures)");
 
             using HandlerPtr = void (*)();
             HandlerPtr handler_ptr = +handler;
@@ -525,6 +576,8 @@ namespace SRL
             // For SCU vectors (0x40-0x4F)
             if (vector_num >= 0x40 && vector_num <= 0x4F)
             {
+                // Note: Lambdas cannot be used for SCU interrupts because they cannot
+                // have __attribute__((interrupt_handler)). Use regular functions only.
                 System::SetInterruptHandler(
                     static_cast<System::InterruptType>(vector_num),
                     reinterpret_cast<void*>(handler_ptr)
@@ -545,24 +598,22 @@ namespace SRL
             return false;
         }
 
-        /** @brief Get the current interrupt handler
-         *  @tparam Func Function pointer type to return
-         *  @param vector Interrupt vector number
-         *  @return Function pointer to the current handler, or nullptr if none set
+        /** @brief Query the currently registered interrupt handler.
+         *  @tparam Func Function pointer type to cast the result to
+         *  @param vector Interrupt vector to query
+         *  @return Function pointer to the current handler, or nullptr if none is set
+         *  @details Routes to System::GetInterruptHandler() for SCU vectors (<= 0x4F)
+         *           or System::GetInterruptVector() for CPU/TRAP vectors (>0x4F).
          *
-         *  Example:
+         *  @par Example:
          *  @code
-         *  // Get the current V-Blank handler
          *  using VBlankHandler = void(*)();
-         *  auto handler = Interrupt::GetHandler<VBlankHandler>(
-         *      Interrupt::Vector::VBlankIn
-         *  );
-         *
+         *  auto handler = Interrupt::GetHandler<VBlankHandler>(Interrupt::Vector::VBlankIn);
          *  if (handler) {
-         *      // Call the handler manually if needed
-         *      handler();
+         *      handler();  // Invoke manually
          *  }
          *  @endcode
+         *  @internal
          */
         template<typename Func>
         static Func GetHandler(Vector vector)

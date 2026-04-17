@@ -159,9 +159,9 @@ extern "C"
         mu_assert(ptr2 != nullptr, "Cross-zone allocation in LowWorkRam failed");
         mu_assert(ptr3 != nullptr, "Cross-zone allocation in CartRam failed");
 
-        delete[] (char *)ptr1;
-        delete[] (char *)ptr2;
-        delete[] (char *)ptr3;
+        delete[] ptr1;
+        delete[] ptr2;
+        delete[] ptr3;
     }
 
     /**
@@ -176,7 +176,7 @@ extern "C"
         void *ptr = new (SRL::Memory::Zone::HWRam) char[freeSpace - 1];
         mu_assert(ptr != nullptr, "Boundary condition allocation failed");
 
-        delete[] (char *)ptr;
+        delete[] ptr;
     }
 
     /**
@@ -210,8 +210,8 @@ extern "C"
         }
 
         // Clean up
-        delete[] (char *)srcPtr;
-        delete[] (char *)destPtr;
+        delete[] srcPtr;
+        delete[] destPtr;
     }
 
     /**
