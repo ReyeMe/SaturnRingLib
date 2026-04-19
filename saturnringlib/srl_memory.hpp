@@ -48,7 +48,6 @@ namespace SRL
         };
 
     private:
-        
         /** @brief Memory zone definition
          */
         struct MemoryZone
@@ -490,15 +489,9 @@ namespace SRL
             /** @brief Free allocated memory
              * @param ptr Pointer to allocated memory
              */
-            inline static void Free(void* ptr)
+            static void Free(void* ptr)
             {
-                if (ptr == nullptr)
-                {
-                    return;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(HighWorkRam::zone.Address, ptr);
                 tlsf_free(Memory::HighWorkRam::zone.Address, ptr);
                 #else
                 Memory::SimpleMalloc::Free(HighWorkRam::zone, ptr);
@@ -511,13 +504,7 @@ namespace SRL
              */
             static void* Malloc(size_t size)
             {
-                if (size == 0)
-                {
-                    return nullptr;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_malloc(HighWorkRam::zone.Address, size);
                 return tlsf_malloc(Memory::HighWorkRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(HighWorkRam::zone, size);
@@ -531,17 +518,6 @@ namespace SRL
              */
             static void* Realloc(void* ptr, size_t size)
             {
-                if (ptr == nullptr)
-                {
-                    return Malloc(size);
-                }
-                
-                if (size == 0)
-                {
-                    Free(ptr);
-                    return nullptr;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_realloc(Memory::HighWorkRam::zone.Address, ptr, size);
                 #else
@@ -595,28 +571,11 @@ namespace SRL
                 #endif
             }
 
-            /** @brief Resets the HighWorkRam memory zone, freeing all allocations */
+            /** @brief Reset memory zone, freeing all allocations
+             */
             static void Reset()
             {
-                #if defined(USE_TLSF_ALLOCATOR)
-                // Re-create the TLSF pool to reset all allocations
-                auto address = reinterpret_cast<void*>(&_heap_start);
-                auto size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
-                HighWorkRam::zone = Memory::MemoryZone
-                {
-                    tlsf_create_with_pool(address, size),
-                    size
-                };
-                #else
-                // Re-initialize the simple malloc zone
-                auto address = reinterpret_cast<void*>(&_heap_start);
-                auto size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
-                HighWorkRam::zone = Memory::MemoryZone
-                {
-                    Memory::SimpleMalloc::InitializeZone(address, size),
-                    size
-                };
-                #endif
+                HighWorkRam::Initialize();
             }
 
         };
@@ -643,7 +602,6 @@ namespace SRL
                 const uint32_t size = 0x100000;
 
                 #if defined(USE_TLSF_ALLOCATOR)
-                LowWorkRam::zone = Memory::MemoryZone
                 LowWorkRam::zone = Memory::MemoryZone
                 {
                     tlsf_create_with_pool((void*)address, size),
@@ -683,13 +641,7 @@ namespace SRL
              */
             inline static void Free(void* ptr)
             {
-                if (ptr == nullptr)
-                {
-                    return;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(LowWorkRam::zone.Address, ptr);
                 tlsf_free(LowWorkRam::zone.Address, ptr);
                 #else
                 Memory::SimpleMalloc::Free(LowWorkRam::zone, ptr);
@@ -702,13 +654,7 @@ namespace SRL
              */
             inline static void* Malloc(size_t size)
             {
-                if (size == 0)
-                {
-                    return nullptr;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_malloc(LowWorkRam::zone.Address, size);
                 return tlsf_malloc(LowWorkRam::zone.Address, size);
                 #else
                 return Memory::SimpleMalloc::Malloc(LowWorkRam::zone, size);
@@ -722,19 +668,7 @@ namespace SRL
             */
             inline static void* Realloc(void* ptr, size_t size)
             {
-                if (ptr == nullptr)
-                {
-                    return Malloc(size);
-                }
-                
-                if (size == 0)
-                {
-                    Free(ptr);
-                    return nullptr;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
                 return tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
                 #else
                 return Memory::SimpleMalloc::Realloc(LowWorkRam::zone, ptr, size);
@@ -747,7 +681,7 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GenerateTlsfReport(LowWorkRam::zone.Address).FreeSize;
+                return Memory::GetTlsfReport(LowWorkRam::zone).FreeSize;
                 #else
                 return Memory::SimpleMalloc::GetReport(LowWorkRam::zone).FreeSize;
                 #endif
@@ -782,31 +716,16 @@ namespace SRL
                 auto report = Memory::GetTlsfReport(LowWorkRam::zone);
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
-                return report.TotalSize - report.FreeSize;
                 #endif
+                return report.TotalSize - report.FreeSize;
             }
 
-            /** @brief Resets the LowWorkRam memory zone, freeing all allocations */
+            /** @brief Reset memory zone, freeing all allocations
+             */
             static void Reset()
             {
-#if defined(USE_TLSF_ALLOCATOR)
-    const volatile void* address = (void*)0x00200000;
-    const uint32_t size = 0x100000;
-    LowWorkRam::zone = Memory::MemoryZone
-    {
-        tlsf_create_with_pool((void*)address, size),
-        size
-    };
-#else
-    const volatile void* address = (void*)0x00200000;
-    const uint32_t size = 0x100000;
-    LowWorkRam::zone = Memory::MemoryZone
-    {
-        Memory::SimpleMalloc::InitializeZone((void*)address, size),
-        size
-    };
-#endif
-}
+                LowWorkRam::Initialize();
+            }
         };
 
         /** @brief Malloc for expansion cart RAM
@@ -832,7 +751,6 @@ namespace SRL
              */
             inline static Memory::MemoryZone zone;
 
-            
             /** @brief Initialize memory zone
              */
             inline static void Initialize()
@@ -884,7 +802,7 @@ namespace SRL
             {
                 return s_cartType != SRL::Cartridge::CartridgeId::None && s_cartridgeBase != nullptr && zone.Size > 0;
             }
-            
+
             /** @brief Check whether pointer is in range of the memory zone
              * @param ptr Pointer to check
              * @return true if pointer belongs to the current memory zone
@@ -901,8 +819,8 @@ namespace SRL
             inline static bool InRange(uint32_t zoneAddress)
             {
                 if (s_cartridgeBase == nullptr || zone.Size == 0)
-                {
-                    return false;
+            {
+                return false;
                 }
                 
                 uint32_t baseAddr = reinterpret_cast<uint32_t>(s_cartridgeBase);
@@ -932,11 +850,6 @@ namespace SRL
              */
             inline static void* Malloc(size_t size)
             {
-                if (size == 0)
-                {
-                    return nullptr;
-                }
-                
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_malloc(CartRam::zone.Address, size);
                 #else
@@ -951,16 +864,6 @@ namespace SRL
              */
             inline static void* Realloc(void* ptr, size_t size)
             {
-                if (ptr == nullptr)
-                {
-                    return Malloc(size);
-                }
-                
-                if (size == 0)
-                {
-                    Free(ptr);
-                    return nullptr;
-                }
                 
                 #if defined(USE_TLSF_ALLOCATOR)
                 return tlsf_realloc(CartRam::zone.Address, ptr, size);
@@ -975,7 +878,7 @@ namespace SRL
             inline static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GenerateTlsfReport(CartRam::zone.Address).FreeSize;
+                return Memory::GetTlsfReport(CartRam::zone).FreeSize;
                 #else
                 return Memory::SimpleMalloc::GetReport(CartRam::zone).FreeSize;
                 #endif
@@ -987,7 +890,7 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GenerateTlsfReport(CartRam::zone.Address);
+                return Memory::GetTlsfReport(CartRam::zone);
                 #else
                 return Memory::SimpleMalloc::GetReport(CartRam::zone);
                 #endif
@@ -1007,7 +910,7 @@ namespace SRL
             inline static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                auto report = Memory::GenerateTlsfReport(CartRam::zone.Address);
+                auto report = Memory::GetTlsfReport(CartRam::zone);
                 return report.TotalSize - report.FreeSize;
                 #else
                 auto report = Memory::SimpleMalloc::GetReport(CartRam::zone);
@@ -1015,59 +918,13 @@ namespace SRL
                 #endif
             }
 
-            /** @brief Resets the CartRam memory zone, freeing all allocations */
+            /** @brief Reset memory zone, freeing all allocations
+             */
             static void Reset()
             {
-                // Only reset if a cartridge is available
-                if (s_cartridgeBase != nullptr && zone.Size > 0)
-                {
-#if defined(USE_TLSF_ALLOCATOR)
-        CartRam::zone = Memory::MemoryZone
-        {
-            tlsf_create_with_pool(s_cartridgeBase, zone.Size),
-            zone.Size
+                CartRam::Initialize();
+            }
         };
-#else
-        CartRam::zone = Memory::MemoryZone
-        {
-            Memory::SimpleMalloc::InitializeZone(s_cartridgeBase, zone.Size),
-            zone.Size
-        };
-#endif
-    }
-}
-        };
-
-        #if defined(USE_TLSF_ALLOCATOR)
-        /** @brief Generate a memory report by walking the TLSF pool
-         * @param pool The TLSF memory pool to walk
-         * @return Report containing memory statistics
-         */
-        static Report GenerateTlsfReport(void* pool)
-        {
-            Report report = {0};
-            
-            // Define a lambda function to walk through all blocks
-            auto walker = [](void* ptr, size_t size, int used, void* user) {
-                Report* r = static_cast<Report*>(user);
-                r->TotalSize += size;
-                
-                if (used) {
-                    r->UsedBlocks++;
-                    // Add the block header size for used blocks
-                    r->AllocationHeaders += tlsf_alloc_overhead();
-                } else {
-                    r->FreeBlocks++;
-                    r->FreeSize += size;
-                }
-            };
-            
-            // Walk through all blocks in the pool
-            tlsf_walk_pool(pool, walker, &report);
-            
-            return report;
-        }
-        #endif
 
         /** @brief Set memory to some value
          * @param destination Destination to set
@@ -1089,7 +946,7 @@ namespace SRL
         {
             // Memset SGL workarea until the DMA transfer list location, if we go over it, it will corrupt the DMA transfer list
             Memory::MemSet(&_heap_end, 0, reinterpret_cast<uint32_t>(TransList) - reinterpret_cast<uint32_t>(&_heap_end));
-            
+
             // Initialize memory zones
             Memory::HighWorkRam::Initialize();
             Memory::LowWorkRam::Initialize();

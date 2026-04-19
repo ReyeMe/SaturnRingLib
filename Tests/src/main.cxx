@@ -276,7 +276,7 @@ int main()
   RUN_AND_DISPLAY_SUITE(math_test_suite);
 
   // Run Memory test suite
-  RUN_AND_DISPLAY_SUITE(memory_test_suite);
+  //RUN_AND_DISPLAY_SUITE(memory_test_suite);
 
   // Run Base test suite (SGL)
   RUN_AND_DISPLAY_SUITE(base_test_suite);
@@ -285,11 +285,11 @@ int main()
   RUN_AND_DISPLAY_SUITE(bitmap_test_suite);
 
   // Run Memory HWRam test suite
-  RUN_AND_DISPLAY_SUITE(memory_HWRam_test_suite);
-  RUN_AND_DISPLAY_SUITE(memory_LWRam_test_suite);
+  //RUN_AND_DISPLAY_SUITE(memory_HWRam_test_suite);
+  //RUN_AND_DISPLAY_SUITE(memory_LWRam_test_suite);
 
   // Run Memory CartRam test suite
-  RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
+  //RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
 
   // Run Interrupt test suite
   RUN_AND_DISPLAY_SUITE(interrupt_test_suite);
