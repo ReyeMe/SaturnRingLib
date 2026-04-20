@@ -680,72 +680,90 @@ namespace SRL
         friend class Core;
         friend class TimerTest;
         /// @endcond
+
         /** @name Hardware Configuration
          * FRT hardware register addresses and configuration constants.
          */
          //@{
-        /** @brief FRT hardware register base address. */
-        static constexpr uintptr_t frtBase = 0xfffffe10;
 
-        /** @brief Timer Interrupt Enable Register offset. */
-        static constexpr uint8_t tierOffset = 0x00;
+        /** @brief FRT hardware register base address.
+         */
+        static constexpr uintptr_t FrtBase = 0xfffffe10;
 
-        /** @brief Timer Control/Status Register offset. */
-        static constexpr uint8_t statusOffset = 0x01;
+        /** @brief Disable free running timer interrupt
+         */
+        static constexpr uint8_t FrtDisable = 0x0;
 
-        /** @brief Timer Control Register offset. */
-        static constexpr uint8_t controlOffset = 0x06;
+        /** @brief Enable free running timer interrupt
+         */
+        static constexpr uint8_t FrtEnable = 0x2;
 
-        /** @brief TIER overflow interrupt enable bit. */
-        static constexpr uint8_t tierOverflowIrq = 0x02;
+        /** @brief FRT overflow interrupt vector number.
+         */
+        static constexpr uint8_t FrtFoviVector = 0x66;
 
-        /** @brief TCR clock selection mask. */
-        static constexpr uint8_t tcrClockMask = 0x03;
+        /** @brief Maximum priority level for FRT interrupt.
+         */
+        static constexpr uint8_t FrtPriorityLevel = 0x0F;
 
-        /** @brief VCRD: FRT overflow vector number register address. */
-        static constexpr uintptr_t vcrdAddr = 0xFFFFFE68;
+        /** @brief IPRB: Interrupt priority register B address (SCI + FRT).
+         */
+        static constexpr uintptr_t IprbAddr = 0xFFFFFE60;
 
-        /** @brief IPRB: Interrupt priority register B address (SCI + FRT). */
-        static constexpr uintptr_t iprbAddr = 0xFFFFFE60;
+        /** @brief Interrupt disable mask
+         * @details Keeps v-blank, h-blank and timer 0 runnig
+         */
+        static constexpr uint8_t IrMask = 0xf;
 
-        /** @brief FRT overflow interrupt vector number. */
-        static constexpr uint8_t frtFoviVector = 0x66;
+        /** @brief VCRD: FRT overflow vector number register address. 
+         */
+        static constexpr uintptr_t VcrdAddr = 0xFFFFFE68;
 
-        /** @brief Maximum priority level for FRT interrupt. */
-        static constexpr uint8_t frtPriorityLevel = 0x0F;
         //@}
 
         /** @name Hardware Register References
          * Volatile references to FRT hardware registers.
          */
          //@{
+
         /** @brief Timer Interrupt Enable Register reference.
-         *  @details Volatile reference to the FRT TIER register at frtBase + tierOffset.
-         *  Controls which FRT interrupts are enabled (overflow, compare A/B).
+         *  @details Controls which FRT interrupts are enabled (overflow, compare A/B).
          */
-        static inline volatile uint8_t& tierReg = *reinterpret_cast<volatile uint8_t*>(frtBase + tierOffset);
+        static inline volatile uint8_t& TierReg = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x0);
 
         /** @brief Timer Control/Status Register reference.
-         *  @details Volatile reference to the FRT TCSR register at frtBase + statusOffset.
-         *  Contains status flags and control bits for the FRT.
+         *  @warning We must read FTCSR first due to a FTCSRM shadow register to be able to set it.
          */
-        static inline volatile uint8_t& statusReg = *reinterpret_cast<volatile uint8_t*>(frtBase + statusOffset);
+        static inline volatile uint8_t& Ftcsr = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x1);
 
         /** @brief Timer Control Register reference.
-         *  @details Volatile reference to the FRT TCR register at frtBase + controlOffset.
-         *  Controls the FRT clock source and counter operation.
+         *  @details Controls the FRT clock source and counter operation.
          */
-        static inline volatile uint8_t& controlReg = *reinterpret_cast<volatile uint8_t*>(frtBase + controlOffset);
+        static inline volatile uint8_t& ControlReg = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x6);
+
+        /** @brief High portion of the free runing counter value
+         * @warning Due to a quirk in the SH2 FRT, High portion must be read first before low portion
+         * @warning Counter can only be accessed as an uint8_t
+         */
+        static inline volatile uint8_t& FrchReg = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x02);
+
+        /** @brief Low portion of the free runing counter value
+         * @warning Due to a quirk in the SH2 FRT, High portion must be read first before low portion
+         * @warning Counter can only be accessed as an uint8_t
+         */
+        static inline volatile uint8_t& FrclReg = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x02);
+
         //@}
 
         /** @name Internal State
          * Private state variables for timer operation.
          */
          //@{
+
         /** @brief 32-bit overflow counter (incremented by frtHandler on each FRT overflow).
          *  @details Public for diagnostic purposes in tests.
          */
-        static inline volatile uint32_t timer32 = 0;
+        static inline volatile uint32_t overflowCounter = 0;
 
         /** @brief Frame-level timestamp for delta time calculations.
          *  @details Updated by Update(). Used internally for frame delta calculation.
@@ -787,35 +805,50 @@ namespace SRL
         {
             Tickstamp::InitDivider();
 
-            // Step 1: Disable all FRT interrupts during configuration
-            tierReg = 0x00;
+            // Interrupt disable mask by seting IR mask
+            const auto mask = System::GetInterruptMask();
+            System::SetInterruptMask(Timer::IrMask);
 
-            // Step 2: Clear FRT counter and status (leave TCR at SGL default PHI_128)
-            *reinterpret_cast<volatile uint16_t*>(frtBase + 0x02) = 0;  // FRC = 0
-            statusReg = 0;  // Clear TCSR flags
+            // Disable all FRT interrupts during configuration
+            Timer::TierReg = Timer::FrtDisable;
 
-            // Step 3: Configure VCRD - map FRT overflow interrupt to vector 0x66
-            volatile uint16_t& vcrd = *reinterpret_cast<volatile uint16_t*>(vcrdAddr);
-            vcrd = static_cast<uint16_t>(frtFoviVector) << 8;
+            // Clear FRT counter and status
+            Timer::FrchReg = 0x0;
+            Timer::FrclReg = 0x0;
+            
+            // Clear timer status register
+            Timer::Ftcsr = 0x0;
 
-            // Step 4: Configure IPRB - set FRT interrupt priority (bits 11-8)
-            volatile uint16_t& iprb = *reinterpret_cast<volatile uint16_t*>(iprbAddr);
+            // Set internal clock count to Φ/128, by setting CKS1 to 1 and CKS0 to 0, leave IEDGA be
+            Timer::ControlReg = (Timer::ControlReg & 0xfc) | 0x2; 
+
+            // Configure VCRD - map FRT overflow interrupt to vector 0x66
+            volatile uint16_t& vcrd = *reinterpret_cast<volatile uint16_t*>(Timer::VcrdAddr);
+            vcrd = static_cast<uint16_t>(Timer::FrtFoviVector) << 8;
+
+            // Configure IPRB - set FRT interrupt priority (bits 11-8)
+            volatile uint16_t& iprb = *reinterpret_cast<volatile uint16_t*>(Timer::IprbAddr);
             uint16_t iprbVal = iprb;
-            iprbVal &= 0xF0FF;  // Clear FRT priority bits (11-8)
-            iprbVal |= static_cast<uint16_t>(frtPriorityLevel) << 8;
+            
+            // Clear FRT priority bits (11-8)
+            iprbVal &= 0xF0FF;
+            iprbVal |= static_cast<uint16_t>(Timer::FrtPriorityLevel) << 8;
             iprb = iprbVal;
 
-            // Step 5: Install FRT overflow handler at vector 0x66 (FRT_FOVI)
-            Interrupt::SetHandler(Interrupt::Vector::TrapV, Timer::frtHandler);
+            // Install FRT overflow handler at vector 0x66 (FRT_FOVI)
+            Interrupt::SetHandler(Interrupt::Vector::TrapV, Timer::FrtHandler);
 
-            // Step 6: Initialize software state
-            timer32 = 0;
+            // Initialize software state
+            Timer::overflowCounter = 0;
 
-            // Step 7: Enable FRT overflow interrupt (FRT_OVIE = 0x02 in TIER)
-            tierReg = tierOverflowIrq;
+            // Enable FRT overflow interrupt (FRT_OVIE = 0x02 in TIER)
+            Timer::TierReg = Timer::FrtEnable;
+
+            // Enable interrupt
+            System::SetInterruptMask(mask);
 
             // Initialize frame snapshot to current time to prevent large delta on first Update()
-            frameSnapshot = Capture();
+            Timer::frameSnapshot = Timer::Capture();
         }
 
         /** @brief Updates frame-level timing state.
@@ -839,27 +872,37 @@ namespace SRL
          */
         static void Update()
         {
-            Tickstamp now = Capture();
-            deltaTicks = now - frameSnapshot;
-            deltaSeconds = deltaTicks.ToSeconds();
-            deltaMilliseconds = deltaTicks.ToMilliseconds();
-            deltaMinutes = deltaTicks.ToMinutes();
-            frameSnapshot = now;
+            Tickstamp now = Timer::Capture();
+            Timer::deltaTicks = now - Timer::frameSnapshot;
+            Timer::deltaSeconds = Timer::deltaTicks.ToSeconds();
+            Timer::deltaMilliseconds = Timer::deltaTicks.ToMilliseconds();
+            Timer::deltaMinutes = Timer::deltaTicks.ToMinutes();
+            Timer::frameSnapshot = now;
         }
 
-        static void __attribute__((interrupt_handler)) frtHandler()
+        /** @brief FRT overflow interrupt handler
+         */
+        static void __attribute__((interrupt_handler)) FrtHandler()
         {
-            // Increment overflow counter
-            timer32 += 1;
+            // Disable timer interrupt first, this prevents multiple triggering of the handler while we are handling the overflow
+            Timer::TierReg = Timer::FrtDisable;
 
-            // Clear overflow interrupt flag
-            volatile uint8_t status = statusReg;
+            // Increment overflow counter
+            Timer::overflowCounter += 1;
+            
+            // Clear overflow interrupt flag, we must read FTCSR first due to a FTCSRM shadow register
+            volatile uint8_t status = Timer::Ftcsr;
             (void)status;
-            statusReg &= ~tierOverflowIrq;
+            Timer::Ftcsr = 0;
+
+            // Re-enable timer interrupt
+            Timer::TierReg = Timer::FrtEnable;
         }
+        
         //@}
 
     public:
+
         /** @name Timing State
          * Pre-calculated timing values for frame-rate independent operations.
          */
@@ -884,7 +927,7 @@ namespace SRL
          *
          *  @see DeltaSeconds(), DeltaMilliseconds()
          */
-        static const Tickstamp& DeltaTicks() noexcept { return deltaTicks; }
+        static const Tickstamp& DeltaTicks() noexcept { return Timer::deltaTicks; }
 
         /** @brief Current frame timestamp (const reference).
          *  @details Returns a const reference to the current frame's timestamp captured by Update().
@@ -937,7 +980,7 @@ namespace SRL
          *
          *  @see DeltaMilliseconds() for millisecond precision
          */
-        static const Math::Types::Fxp& DeltaSeconds() noexcept { return deltaSeconds; }
+        static const Math::Types::Fxp& DeltaSeconds() noexcept { return Timer::deltaSeconds; }
 
         /** @brief Frame delta time in milliseconds (fixed-point 16.16).
          *  @details Pre-calculated each frame by Core::Synchronize(). Represents the time elapsed
@@ -965,7 +1008,7 @@ namespace SRL
          *
          *  @see DeltaSeconds() for longer range (up to 9.1 hours in Fxp)
          */
-        static const Math::Types::Fxp& DeltaMilliseconds() noexcept { return deltaMilliseconds; }
+        static const Math::Types::Fxp& DeltaMilliseconds() noexcept { return Timer::deltaMilliseconds; }
 
         /** @brief Frame delta time in minutes (fixed-point 16.16).
          *  @details Pre-calculated each frame by Core::Synchronize(). Represents the time elapsed
@@ -995,7 +1038,7 @@ namespace SRL
          *
          *  @see DeltaSeconds() for frame-level precision, DeltaMilliseconds() for short-term timing
          */
-        static const Math::Types::Fxp& DeltaMinutes() noexcept { return deltaMinutes; }
+        static const Math::Types::Fxp& DeltaMinutes() noexcept { return Timer::deltaMinutes; }
         //@}
 
         /** @name Core Operations
@@ -1038,13 +1081,9 @@ namespace SRL
          */
         static Tickstamp Capture() noexcept
         {
-            // Read FRC as two bytes: SH-2 FRC requires byte-level access (FRCH then FRCL)
-            // A 16-bit read returns only the high byte on some implementations
-            uint8_t frch = *reinterpret_cast<volatile uint8_t*>(frtBase + 0x02);
-            uint8_t frcl = *reinterpret_cast<volatile uint8_t*>(frtBase + 0x03);
-            uint16_t frtValue = (static_cast<uint16_t>(frch) << 8) | frcl;
+            uint16_t frtValue = (static_cast<uint16_t>(Timer::FrchReg) << 8) | Timer::FrclReg;
             __asm__ volatile("" : : : "memory");
-            return Tickstamp(timer32, frtValue);  // high=overflow, frt=FRT direct
+            return Tickstamp(Timer::overflowCounter, frtValue);  // high=overflow, frt=FRT direct
         }
         //@}
     };

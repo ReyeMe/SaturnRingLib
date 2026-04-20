@@ -41,7 +41,7 @@ namespace SRL
     public:
         static void Init() { Timer::Init(); }
         static void Update() { Timer::Update(); }
-        static volatile uint32_t& GetTimer32() { return Timer::timer32; }
+        static volatile uint32_t& GetTimer32() { return Timer::overflowCounter; }
         static void InitDivider() { Tickstamp::InitDivider(); }
         static void OverrideDivider(bool use26Mhz) { Tickstamp::OverrideDivider(use26Mhz); }
     };
