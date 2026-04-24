@@ -751,7 +751,7 @@ namespace SRL
          * @warning Due to a quirk in the SH2 FRT, High portion must be read first before low portion
          * @warning Counter can only be accessed as an uint8_t
          */
-        static inline volatile uint8_t& FrclReg = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x02);
+        static inline volatile uint8_t& FrclReg = *reinterpret_cast<volatile uint8_t*>(Timer::FrtBase + 0x03);
 
         //@}
 
