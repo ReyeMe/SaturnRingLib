@@ -159,6 +159,15 @@ namespace SRL::Input
             return &Management::Peripherals[port];
         }
 
+        /** @brief Get the Raw port data from previous frame
+         * @param port Port index
+         * @return Port data
+         */
+        inline static PerDigital* GetPreviousRawData(const uint8_t& port)
+        {
+            return &Management::PeripheralsPreviousState[port];
+        }
+
         /** @brief Gets connected peripheral type to specified port
          * @param port Peripheral port
          * @return Peripheral type

@@ -7,6 +7,10 @@
 /[Dd]ocumentation/*
 !/[Dd]ocumentation/resources
 
+/[Mm]odules_extra/**
+!/[Mm]odules_extra/Put_extra_modules_here.txt
+!/[Mm]odules_extra/samplemodule/**
+
 /[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/*
 !/[Mm]odules/[Ss][Gg][Ll]/[Dd]ocumentation/resources
 /[Mm]odules/[Ss][Gg][Ll]/[Ii][Pp]/[Bb]uild[Dd]rop/**

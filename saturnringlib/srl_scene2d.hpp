@@ -199,6 +199,21 @@ namespace SRL
              * @note Applies only to textured polygons
              */
             DisablePreClip = 8,
+
+            /** @brief Disables half brightness mode of textured sprite
+             * @details Causes RGB sprite be rendered at half brightness
+             * @code {.cpp}
+             * // Disable effect
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::HalfBrightness, false);
+             * // or
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::HalfBrightness);
+             *
+             * // Enable effect
+             * SRL::Scene2D::SetEffect(SRL::Scene2D::SpriteEffect::HalfBrightness, true);
+             * @endcode
+             * @note Can be used only with RGB sprites
+             */
+            HalfBrightness = 9,
         };
 
         /** @brief Scaled sprite zoom point
@@ -333,14 +348,18 @@ namespace SRL
              */
             uint16_t DisablePreClipping:1;
 
+            /** @brief Enable half brightness
+             */
+            uint16_t HalfBrightness:1;
+
             /** @brief Reserved for future use
              */
-            uint16_t Reserved:4;
+            uint16_t Reserved:3;
         };
 
         /** @brief Stored effect state
          */
-        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        static inline Scene2D::EffectStore Effects = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         /** @brief Is gouraud shading enabled?
          * @return true if gouraud shading is enabled
@@ -381,7 +400,8 @@ namespace SRL
                     (gouraudEnabled << 2) |
                     (Scene2D::Effects.ScreenDoors << 8) |
                     (Scene2D::Effects.Clipping << 9) |
-                    (Scene2D::Effects.HalfTransparency ? 0x3 : 0 )),
+                    (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ) |
+                    (Scene2D::Effects.HalfBrightness ? CL_Half : 0)),
 
                 // Sprite Color
                 color,
@@ -473,7 +493,8 @@ namespace SRL
                 (Scene2D::Effects.HighSpeedShrink ? HSSon : HSSoff) |
                 (Scene2D::Effects.DisablePreClipping ? Pclpoff : Pclpon) |
                 (Scene2D::IsGouraudEnabled() ? CL_Gouraud : 0) |
-                (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ),
+                (Scene2D::Effects.HalfTransparency ? 0x3 : 0 ) |
+                (Scene2D::Effects.HalfBrightness ? CL_Half : 0),
 
                 (Scene2D::Effects.Flip << 4) |
                 FUNC_Texture |
@@ -824,6 +845,10 @@ namespace SRL
                 Scene2D::Effects.DisablePreClipping = data == 1;
                 break;
 
+            case SpriteEffect::HalfBrightness:
+                Scene2D::Effects.HalfBrightness = data == 1;
+                break;
+
             default:
                 break;
             }
@@ -863,6 +888,9 @@ namespace SRL
 
             case SpriteEffect::DisablePreClip:
                 return Scene2D::Effects.DisablePreClipping;
+
+            case SpriteEffect::HalfBrightness:
+                return Scene2D::Effects.HalfBrightness;
 
             default:
                 return -1;
