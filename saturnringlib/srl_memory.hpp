@@ -1,6 +1,7 @@
 #pragma once
 
 #include "srl_base.hpp"
+#include <optional>
 
 extern "C" {
     extern char _heap_start;
@@ -437,7 +438,7 @@ namespace SRL
             /** @brief Main system memory zone
              * @note This is assigned on system initialization
              */
-            inline static MemoryZone zone;
+            inline static std::optional<MemoryZone> zone;
 
             /** @brief Full main system memory zone
              */
@@ -451,17 +452,17 @@ namespace SRL
                 auto size = reinterpret_cast<size_t>(&_heap_end) - reinterpret_cast<size_t>(&_heap_start);
 
                 #if defined(USE_TLSF_ALLOCATOR)
-                HighWorkRam::zone = Memory::MemoryZone
+                HighWorkRam::zone.emplace(Memory::MemoryZone
                 {
                     tlsf_create_with_pool(address, size),
                     size
-                };
+                });
                 #else
-                HighWorkRam::zone = Memory::MemoryZone
+                HighWorkRam::zone.emplace(Memory::MemoryZone
                 {
                     Memory::SimpleMalloc::InitializeZone(address, size),
                     size
-                };
+                });
                 #endif
             }
 
@@ -491,9 +492,9 @@ namespace SRL
             static void Free(void* ptr)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(Memory::HighWorkRam::zone.Address, ptr);
+                tlsf_free(Memory::HighWorkRam::zone->Address, ptr);
                 #else
-                Memory::SimpleMalloc::Free(HighWorkRam::zone, ptr);
+                Memory::SimpleMalloc::Free(HighWorkRam::zone.value(), ptr);
                 #endif
             }
 
@@ -504,9 +505,9 @@ namespace SRL
             static void* Malloc(size_t size)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_malloc(Memory::HighWorkRam::zone.Address, size);
+                return tlsf_malloc(Memory::HighWorkRam::zone->Address, size);
                 #else
-                return Memory::SimpleMalloc::Malloc(HighWorkRam::zone, size);
+                return Memory::SimpleMalloc::Malloc(HighWorkRam::zone.value(), size);
                 #endif
             }
 
@@ -518,9 +519,9 @@ namespace SRL
             static void* Realloc(void* ptr, size_t size)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_realloc(Memory::HighWorkRam::zone.Address, ptr, size);
+                return tlsf_realloc(Memory::HighWorkRam::zone->Address, ptr, size);
                 #else
-                return Memory::SimpleMalloc::Realloc(HighWorkRam::zone, ptr, size);
+                return Memory::SimpleMalloc::Realloc(HighWorkRam::zone.value(), ptr, size);
                 #endif
             }
 
@@ -530,9 +531,9 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GetTlsfReport(HighWorkRam::zone).FreeSize;
+                return Memory::GetTlsfReport(HighWorkRam::zone.value()).FreeSize;
                 #else
-                return Memory::SimpleMalloc::GetReport(HighWorkRam::zone).FreeSize;
+                return Memory::SimpleMalloc::GetReport(HighWorkRam::zone.value()).FreeSize;
                 #endif
             }
 
@@ -542,9 +543,9 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GetTlsfReport(HighWorkRam::zone);
+                return Memory::GetTlsfReport(HighWorkRam::zone.value());
                 #else
-                return Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
+                return Memory::SimpleMalloc::GetReport(HighWorkRam::zone.value());
                 #endif
             }
 
@@ -553,7 +554,7 @@ namespace SRL
              */
             static size_t GetSize()
             {
-                return HighWorkRam::zone.Size;
+                return HighWorkRam::zone->Size;
             }
             
             /** @brief Gets total size of the used space in the memory zone
@@ -562,10 +563,10 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                auto report = Memory::GetTlsfReport(HighWorkRam::zone);
+                auto report = Memory::GetTlsfReport(HighWorkRam::zone.value());
                 return report.TotalSize - report.FreeSize;
                 #else
-                auto report = Memory::SimpleMalloc::GetReport(HighWorkRam::zone);
+                auto report = Memory::SimpleMalloc::GetReport(HighWorkRam::zone.value());
                 return report.TotalSize - report.FreeSize;
                 #endif
             }
@@ -584,7 +585,7 @@ namespace SRL
 
             /** @brief Memory zone
              */
-            inline static Memory::MemoryZone zone;
+            inline static std::optional<Memory::MemoryZone> zone;
 
             /** @brief Initialize memory zone
              */
@@ -594,17 +595,17 @@ namespace SRL
                 const uint32_t size = 0x100000;
 
                 #if defined(USE_TLSF_ALLOCATOR)
-                LowWorkRam::zone = Memory::MemoryZone
+                LowWorkRam::zone.emplace(Memory::MemoryZone
                 {
                     tlsf_create_with_pool((void*)address, size),
                     size
-                };
+                });
                 #else
-                LowWorkRam::zone = Memory::MemoryZone
+                LowWorkRam::zone.emplace(Memory::MemoryZone
                 {
                     Memory::SimpleMalloc::InitializeZone((void*)address, size),
                     size
-                };
+                });
                 #endif
             }
             
@@ -616,7 +617,7 @@ namespace SRL
              */
             inline static bool InRange(void* ptr)
             {
-                return Memory::InZone(LowWorkRam::zone, ptr);
+                return Memory::InZone(LowWorkRam::zone.value(), ptr);
             }
 
             /** @brief Check whether pointer is in range of the memory zone
@@ -625,7 +626,7 @@ namespace SRL
              */
             inline static bool InRange(uint32_t zoneAddress)
             {
-                return Memory::InZone(LowWorkRam::zone, (void*)zoneAddress);
+                return Memory::InZone(LowWorkRam::zone.value(), (void*)zoneAddress);
             }
 
             /** @brief Free allocated memory
@@ -634,9 +635,9 @@ namespace SRL
             inline static void Free(void* ptr)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(LowWorkRam::zone.Address, ptr);
+                tlsf_free(LowWorkRam::zone->Address, ptr);
                 #else
-                Memory::SimpleMalloc::Free(LowWorkRam::zone, ptr);
+                Memory::SimpleMalloc::Free(LowWorkRam::zone.value(), ptr);
                 #endif
             }
 
@@ -647,9 +648,9 @@ namespace SRL
             inline static void* Malloc(size_t size)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_malloc(LowWorkRam::zone.Address, size);
+                return tlsf_malloc(LowWorkRam::zone->Address, size);
                 #else
-                return Memory::SimpleMalloc::Malloc(LowWorkRam::zone, size);
+                return Memory::SimpleMalloc::Malloc(LowWorkRam::zone.value(), size);
                 #endif
             }
 
@@ -661,9 +662,9 @@ namespace SRL
             inline static void* Realloc(void* ptr, size_t size)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return tlsf_realloc(LowWorkRam::zone.Address, ptr, size);
+                return tlsf_realloc(LowWorkRam::zone->Address, ptr, size);
                 #else
-                return Memory::SimpleMalloc::Realloc(LowWorkRam::zone, ptr, size);
+                return Memory::SimpleMalloc::Realloc(LowWorkRam::zone.value(), ptr, size);
                 #endif
             }
 
@@ -673,9 +674,9 @@ namespace SRL
             static size_t GetFreeSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GetTlsfReport(LowWorkRam::zone).FreeSize;
+                return Memory::GetTlsfReport(LowWorkRam::zone.value()).FreeSize;
                 #else
-                return Memory::SimpleMalloc::GetReport(LowWorkRam::zone).FreeSize;
+                return Memory::SimpleMalloc::GetReport(LowWorkRam::zone.value()).FreeSize;
                 #endif
             }
 
@@ -685,9 +686,9 @@ namespace SRL
             static const Report GetReport()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                return Memory::GetTlsfReport(LowWorkRam::zone);
+                return Memory::GetTlsfReport(LowWorkRam::zone.value());
                 #else
-                return Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
+                return Memory::SimpleMalloc::GetReport(LowWorkRam::zone.value());
                 #endif
             }
 
@@ -696,7 +697,7 @@ namespace SRL
              */
             inline static size_t GetSize()
             {
-                return LowWorkRam::zone.Size;
+                return LowWorkRam::zone->Size;
             }
             
             /** @brief Gets total size of the used space in the memory zone
@@ -705,9 +706,9 @@ namespace SRL
             static size_t GetUsedSpace()
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                auto report = Memory::GetTlsfReport(LowWorkRam::zone);
+                auto report = Memory::GetTlsfReport(LowWorkRam::zone.value());
                 #else
-                auto report = Memory::SimpleMalloc::GetReport(LowWorkRam::zone);
+                auto report = Memory::SimpleMalloc::GetReport(LowWorkRam::zone.value());
                 #endif
                 return report.TotalSize - report.FreeSize;
             }
@@ -725,7 +726,7 @@ namespace SRL
 
             /** @brief Memory zone
              */
-            inline static Memory::MemoryZone zone;
+            inline static std::optional<Memory::MemoryZone> zone;
 
             /** @brief Initialize memory zone
              */
