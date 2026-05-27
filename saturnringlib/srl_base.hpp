@@ -47,6 +47,39 @@ namespace std
     {
         while (1);
     }
+
+    /** @brief Minimal std::__throw_bad_alloc handler
+     * 
+     * This function is a minimal implementation to prevent compilation errors
+     * when the standard library expects a length error handler. It enters an
+     * infinite loop to prevent undefined behavior.
+     */
+    inline void __throw_bad_alloc()
+    {
+        while(1);
+    }
+    
+    /** @brief Minimal std::__throw_bad_array_new_length handler
+     * 
+     * This function is a minimal implementation to prevent compilation errors
+     * when the standard library expects a length error handler. It enters an
+     * infinite loop to prevent undefined behavior.
+     */
+    inline void __throw_bad_array_new_length()
+    {
+        while(1);
+    }
+    
+    /** @brief Minimal std::__throw_bad_function_call handler
+     * 
+     * This function is a minimal implementation to prevent compilation errors
+     * when the standard library expects a length error handler. It enters an
+     * infinite loop to prevent undefined behavior.
+     */
+    inline void __throw_bad_function_call()
+    {
+        while(1);
+    }
 }
 /**
  * @brief Minimal pure virtual function handler
