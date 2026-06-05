@@ -40,6 +40,7 @@ copy_data_files:
 		fi; \
 	done
 all: copy_data_files
+build-all: copy_data_files
 endif
 
 COBJECTS = $(SOURCES:.c=.o)
@@ -523,6 +524,15 @@ endif
 endif
 	rm -rf $(BUILD_DROP)/
 
-build : pre_build build_bin_cue post_build
+build: post_build
 
-all: clean-preserve-audio build
+post_build: build_bin_cue
+
+build_bin_cue: pre_build
+
+
+all: clean-preserve-audio build-all
+
+build-all: build
+
+build-all: clean-preserve-audio
