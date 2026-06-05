@@ -171,6 +171,13 @@ else
 	SYSFLAGS += -DSGL_MAX_WORKS=256
 endif
 
+# Set slave command buffer size, use 70k by default, should be aligned to 0x10
+ifneq ($(strip ${SGL_SLAVE_BUF_SIZE}),)
+	SYSFLAGS += -DSGL_SLAVE_BUF_SIZE=$(strip ${SGL_SLAVE_BUF_SIZE})
+else
+	SYSFLAGS += -DSGL_SLAVE_BUF_SIZE=71680
+endif
+
 # Add custom FLAGS
 ifneq ($(strip ${SRL_CUSTOM_CCFLAGS}),)
 	CCFLAGS += $(strip ${SRL_CUSTOM_CCFLAGS})
@@ -253,10 +260,10 @@ compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	@test -f $(ASSETS_DIR)/ABS.TXT || echo "NOT Abstracted by SEGA" >> $(ASSETS_DIR)/ABS.TXT
 	@test -f $(ASSETS_DIR)/BIB.TXT || echo "NOT Bibliographiced by SEGA" >> $(ASSETS_DIR)/BIB.TXT
 	@test -f $(ASSETS_DIR)/CPY.TXT || touch $(ASSETS_DIR)/CPY.TXT
-	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) $(LIBS) -o "$(BUILD_ELF)"
+	$(CC) $(LDFLAGS) $(SYSOBJECTS) $(OBJECTS) -Wl,-bcoff-sh $(LIBS) -Wl,-belf32-sh -o "$(BUILD_ELF)"
 
 convert_binary : compile_objects
-	$(OBJCOPY) -O binary "$(BUILD_ELF)" ./cd/data/0.bin
+	$(OBJCOPY) -O binary -R WORK_AREA* -R COMMAND_BUF* -R SYSTEM_START* -R SYSTEM_END* "$(BUILD_ELF)" ./cd/data/0.bin
 
 create_iso : convert_binary
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}),1)

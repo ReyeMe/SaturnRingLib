@@ -5,21 +5,27 @@
 #define _LongWord_ sizeof(uint32_t)
 #define _Sprite_ (sizeof(uint16_t) * 18)
 
-// #define SGL_MAX_VERTICES 2500 /* number of vertices that can be used */
-// #define SGL_MAX_POLYGONS 1700 /* number of polygons that can be used */
-
 struct WorkArea_
 {
-    char SortList[(_LongWord_ * 3) * (SGL_MAX_POLYGONS + 6)];
-    char Zbuffer[_LongWord_ * SGL_MAX_POLYGONS];
-    char SpriteBuf[_Sprite_ * ((SGL_MAX_POLYGONS + 6) * 2)];
-    char Pbuffer[(_LongWord_ * 4) * SGL_MAX_VERTICES];
-    char CLOfstBuf[(_Byte_ * 32 * 3) * 32];
-    char CommandBuf[(_LongWord_ * 8) * SGL_MAX_POLYGONS];
+    char __attribute__((aligned(0x10))) SortList[(_LongWord_ * 3) * (SGL_MAX_POLYGONS + 6)];
+    char __attribute__((aligned(0x10))) Zbuffer[_LongWord_ * 512];
+    char __attribute__((aligned(0x10))) SpriteBuf[_Sprite_ * ((SGL_MAX_POLYGONS + 6) * 2)];
+    char __attribute__((aligned(0x10))) Pbuffer[(_LongWord_ * 4) * SGL_MAX_VERTICES];
+    char __attribute__((aligned(0x10))) CLOfstBuf[(_Byte_ * 32 * 3) * 32];
 };
 
+struct CommandBufArea_
+{
+    char CommandBuf[SGL_SLAVE_BUF_SIZE];
+};
+
+// Start must be aligned to 0x1000
 struct WorkArea_ __attribute__((section("WORK_AREA_DUMMY"))) WORK_AREA_DUMMY;
 struct WorkArea_ __attribute__((aligned(0x1000), used, section("WORK_AREA"))) WorkArea;
+
+// Contains commands for slave CPU
+struct CommandBufArea_ __attribute__((section("COMMAND_BUF_DUMMY"))) COMMAND_BUF_DUMMY;
+struct CommandBufArea_ __attribute__((aligned(0x20), used, section("COMMAND_BUF"))) CommandBufArea;
 
 const void* PCM_Work = (void*)SoundRAM + 0x78000; /* PCM Stream Address      */
 const uint32_t PCM_WkSize = 0x8000;                 /* PCM Stream Size         */
@@ -36,7 +42,7 @@ const void* SpriteBuf = WorkArea.SpriteBuf;
 const uint32_t SpriteBufSize = sizeof(WorkArea.SpriteBuf);
 const void* Pbuffer = WorkArea.Pbuffer;
 const void* CLOfstBuf = WorkArea.CLOfstBuf;
-const void* CommandBuf = WorkArea.CommandBuf;
+const void* CommandBuf = CommandBufArea.CommandBuf;
 
 // #define SGL_MAX_EVENTS 64 /* number of events that can be used   */
 const uint16_t EventSize = sizeof(EVENT);

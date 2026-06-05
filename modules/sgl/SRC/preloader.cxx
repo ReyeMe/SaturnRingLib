@@ -12,6 +12,14 @@ extern "C" {
      */
     extern uint32_t _bend;
 
+    /** @brief Start of a workarea area section
+     */
+    extern uint32_t _work_area_start;
+
+    /** @brief End of a command buffer section
+     */
+    extern uint32_t _command_buffer_end;
+
     /** @brief Start address of constructor array
      */
     extern void(*__ctors)();
@@ -37,6 +45,12 @@ extern "C" {
         for (uint32_t* bssBlock = &_bstart; bssBlock < &_bend; bssBlock++)
         {
             *bssBlock = 0;
+        }
+
+        // Zero stuff inside workarea and command buffer section
+        for (uint32_t* workareaBlock = &_work_area_start; workareaBlock < &_command_buffer_end; workareaBlock++)
+        {
+            *workareaBlock = 0;
         }
 
         // Initialize memory management (malloc stuff)

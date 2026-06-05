@@ -1,4 +1,4 @@
-OUTPUT_FORMAT(coff-sh)
+OUTPUT_FORMAT(elf32-sh)
 SECTIONS {
 
 	PRELOADER 0x06004000 : {
@@ -13,18 +13,13 @@ SECTIONS {
 
 	.text ALIGN(0x20) :
 	{
-		* (.text*)
+		*(.text)
+		*(.text*)
 		*(.strings*)
 		*("SEGA_P")
 
-		*(.eh_frame_hdr*)
-		*(.eh_frame*)
         __etext = .;
 	}
-
-    COMMON ALIGN(0x10): {
-        *(COMMON)
-    }
 
 	SLPROG ALIGN(0x20): {
 		__slprog_start = .;
@@ -44,40 +39,76 @@ SECTIONS {
 
 	.data ALIGN(0x10):
 	{
-		* (.data*)
+		*(.data)
+		*(.data*)
+        . = ALIGN(0x10);
 		__edata = . ;
 	}
 
 	.rodata ALIGN(0x20) :
 	{
+		*(.rodata)
 		*(.rodata*)
 	}
 
-	.bss ALIGN(0x10) (NOLOAD):
+	.bss ALIGN(0x10):
 	{
 		__bstart = . ;
+		*(.bss)
 		*(.bss*)
+        *(COMMON)
         . = ALIGN(0x10);
 		__bend = . ;
-		_end = .;
 	}
 
-	HEAP ALIGN(0x10)(NOLOAD):
+	HEAP ALIGN(0x20):
 	{
 		__heap_start = .;
 	}
 
-	WORK_AREA_DUMMY 0x0000000(NOLOAD):
+	COMMAND_BUF_DUMMY 0x0000000 (NOLOAD): ALIGN(0x20)
 	{
-		*(WORK_AREA_DUMMY)
+		*(COMMAND_BUF_DUMMY)
+        . = ALIGN(0x20);
 	}
 
-	work_area_start = ALIGN(0x060FC000 - SIZEOF(WORK_AREA_DUMMY), 0x1000);
-
-	WORK_AREA work_area_start (NOLOAD):
+	WORK_AREA_DUMMY 0x0000000 (NOLOAD): ALIGN(0x20)
 	{
+		*(WORK_AREA_DUMMY)
+        . = ALIGN(0x1000);
+	}
+
+	command_buf_start = ALIGN(0x060FB800 - SIZEOF(COMMAND_BUF_DUMMY), 0x20);
+	work_area_start = ALIGN(command_buf_start - SIZEOF(WORK_AREA_DUMMY), 0x1000);
+
+	WORK_AREA work_area_start : {
 		__heap_end = .;
+		__work_area_start = .;
 		*(WORK_AREA)
 		__work_area_end = .;
 	}
+
+    COMMAND_BUF command_buf_start : {
+		__command_buffer_start = .;
+        *(COMMAND_BUF)
+		__command_buffer_end = .;
+    }
+
+    SYSTEM_START 0x060FB800 : {
+        __systemStart = .;
+    }
+
+    SYSTEM_END 0x060FFC00 : {
+        __systemEnd = .;
+		_end = .;
+    }
+
+    /DISCARD/ :
+    {
+        *(.rela*)
+        *(.rel.text .rel.data .rel.rodata)
+        *(.rela.text .rela.data .rela.rodata)
+        *(.rela.text.* .rela.data.*)
+        *(.eh_frame)
+    }
 }

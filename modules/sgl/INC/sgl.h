@@ -24,7 +24,7 @@ typedef	uint16_t	TEXDAT;
 /********************************/
 /*	Old Texture Table	*/
 /********************************/
-#define	cgaddress	0x10000
+#define	cgaddress	((SGL_MAX_POLYGONS + 6) * sizeof(SPRITE) * 2)
 #define pal COL_32K
 #define TEXDEF(h,v,presize)		{h,v,(cgaddress+(((presize)*4)>>(pal)))/8,(((h)&0x1f8)<<5 | (v))}
 #define	PICDEF(texno,cmode,pcsrc)	{(uint16_t)(texno),(uint16_t)(cmode),(void *)(pcsrc)}
@@ -32,7 +32,7 @@ typedef	uint16_t	TEXDAT;
 /********************************/
 /*	New Texture Table	*/
 /********************************/
-#define	CGADDRESS	0x10000
+#define	CGADDRESS	((SGL_MAX_POLYGONS + 6) * sizeof(SPRITE) * 2)
 #define	AdjCG(cga,hs,vs,col)		((cga) + (((((hs)*(vs)*4)>>(col))+0x1f) &0x7ffe0))
 #define	TEXTBL(hs,vs,cga)		{hs , vs , (cga)>>3 , ((hs)&0x1f8)<<5|(vs)}
 #define	PICTBL(texno,cmode,pcsrc)	{(uint16_t)(texno),(uint16_t)(cmode),(void *)(pcsrc)}
