@@ -220,17 +220,18 @@ namespace SRL
             /**
              * @brief Checks if the Receive FIFO (RXF) is empty.
              *
-             * Reads the USB_FLAGS register and checks if the RXF bit is clear. A clear RXF bit means the receive FIFO is empty.
+             * Reads the USB_FLAGS register and checks the RXF bit.
+             * The FIFO is considered empty while RXF is set.
              * 
-             * @return true If RXF is cleared (FIFO empty), false otherwise.
+             * @return true If FIFO is empty, false otherwise.
              */
             static inline bool isRXFEmpty()
             {
-                return ((*(volatile uint8_t *)(USB_FLAGS)) & USBFlags::RXF) == 0; // Added volatile
+                return ((*(volatile uint8_t *)(USB_FLAGS)) & USBFlags::RXF) != 0; // Added volatile
             }
 
             /**
-             * @brief Waits until data is available in Receive FIFO (RXF set).
+             * @brief Waits until data is available in Receive FIFO.
              * 
              * This function polls `isRXFEmpty()` until it returns false, indicating data is ready to be read.
              *
