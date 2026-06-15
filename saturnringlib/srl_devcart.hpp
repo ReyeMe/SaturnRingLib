@@ -196,6 +196,28 @@ namespace SRL
             }
 
             /**
+             * @brief Waits until the Transmit FIFO is ready, with timeout.
+             *
+             * Polls `isTXEFull()` until it returns false. If `maxPolls` reaches zero first,
+             * the function returns false to signal timeout.
+             *
+             * @param maxPolls Maximum number of polling iterations while FIFO is full.
+             * @return true if FIFO became ready before timeout, false otherwise.
+             */
+            static inline bool waitTXE(uint32_t maxPolls)
+            {
+                while (isTXEFull())
+                {
+                    if (maxPolls == 0)
+                    {
+                        return false;
+                    }
+                    --maxPolls;
+                }
+                return true;
+            }
+
+            /**
              * @brief Checks if the Receive FIFO (RXF) is empty.
              *
              * Reads the USB_FLAGS register and checks if the RXF bit is clear. A clear RXF bit means the receive FIFO is empty.
@@ -219,6 +241,28 @@ namespace SRL
                 // Bad design, no timeout !
                 while (isRXFEmpty())
                     ; // Busy-wait
+            }
+
+            /**
+             * @brief Waits until data is available in Receive FIFO, with timeout.
+             *
+             * Polls `isRXFEmpty()` until it returns false. If `maxPolls` reaches zero first,
+             * the function returns false to signal timeout.
+             *
+             * @param maxPolls Maximum number of polling iterations while FIFO is empty.
+             * @return true if data became available before timeout, false otherwise.
+             */
+            static inline bool waitRXF(uint32_t maxPolls)
+            {
+                while (isRXFEmpty())
+                {
+                    if (maxPolls == 0)
+                    {
+                        return false;
+                    }
+                    --maxPolls;
+                }
+                return true;
             }
 
             /**
