@@ -326,7 +326,9 @@ namespace SRL
              */
             static inline bool isConnected()
             {
-                return ((*(volatile uint8_t *)(USB_FLAGS)) & USBFlags::NOT_ALL_FLAGS) == 0; // Volatile
+                uint8_t flags = *(volatile uint8_t *)(USB_FLAGS);
+                // Check if reserved bits are 0 AND PWREN# is 0 (active low, meaning connected/enumerated)
+                return (flags & USBFlags::NOT_ALL_FLAGS) == 0 && (flags & USBFlags::PWREN) == 0;
             }
 
         } // namespace CS0
