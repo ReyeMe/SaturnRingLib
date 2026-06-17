@@ -551,6 +551,49 @@ namespace SRL
             return SetHandlerImpl(vector, std::forward<Func>(handler));
         }
 
+        /** @brief Trigger a TRAP software interrupt by vector.
+         *  @param vector TRAP vector to fire (must be Trap0–TrapF, i.e. 0x80–0x8F)
+         *  @return true if the vector is a valid TRAP vector and the instruction was issued,
+         *          false if the vector is out of the TRAP range.
+         *  @details Executes the SH-2 `trapa #N` instruction corresponding to the given
+         *           vector. Because `trapa` requires a compile-time immediate, this
+         *           dispatches via a switch over all 16 TRAP vectors.
+         *           The registered handler (if any) will be invoked synchronously before
+         *           this function returns.
+         *
+         *  @par Example:
+         *  @code
+         *  // Fire TRAP #3 (used by GDB stub)
+         *  Interrupt::Trigger(Interrupt::Vector::Trap3);
+         *  @endcode
+         *
+         *  @note Only TRAP vectors (0x80–0x8F) are supported. SCU and CPU exception
+         *        vectors cannot be triggered from software on SH-2.
+         */
+        static constexpr bool Trigger(Vector vector) noexcept
+        {
+            switch (vector)
+            {
+                case Vector::Trap0:  asm volatile("trapa #0"  ::: "memory"); return true;
+                case Vector::Trap1:  asm volatile("trapa #1"  ::: "memory"); return true;
+                case Vector::Trap2:  asm volatile("trapa #2"  ::: "memory"); return true;
+                case Vector::Trap3:  asm volatile("trapa #3"  ::: "memory"); return true;
+                case Vector::Trap4:  asm volatile("trapa #4"  ::: "memory"); return true;
+                case Vector::Trap5:  asm volatile("trapa #5"  ::: "memory"); return true;
+                case Vector::Trap6:  asm volatile("trapa #6"  ::: "memory"); return true;
+                case Vector::Trap7:  asm volatile("trapa #7"  ::: "memory"); return true;
+                case Vector::Trap8:  asm volatile("trapa #8"  ::: "memory"); return true;
+                case Vector::Trap9:  asm volatile("trapa #9"  ::: "memory"); return true;
+                case Vector::TrapA:  asm volatile("trapa #10" ::: "memory"); return true;
+                case Vector::TrapB:  asm volatile("trapa #11" ::: "memory"); return true;
+                case Vector::TrapC:  asm volatile("trapa #12" ::: "memory"); return true;
+                case Vector::TrapD:  asm volatile("trapa #13" ::: "memory"); return true;
+                case Vector::TrapE:  asm volatile("trapa #14" ::: "memory"); return true;
+                case Vector::TrapF:  asm volatile("trapa #15" ::: "memory"); return true;
+                default: return false;
+            }
+        }
+
         //@}
 
     private:
