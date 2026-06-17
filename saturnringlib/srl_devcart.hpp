@@ -182,6 +182,14 @@ namespace SRL
             }
 
             /**
+             * @brief Reads the raw USB_FLAGS register value.
+             */
+            static inline uint8_t readFlags()
+            {
+                return *(volatile uint8_t *)(USB_FLAGS);
+            }
+
+            /**
              * @brief Waits until the Transmit FIFO is ready (TXE cleared?).
              * This function polls `isTXEFull()` until it returns false, which indicates that the transmit FIFO is no longer full and can accept data.
              *
@@ -326,9 +334,19 @@ namespace SRL
              */
             static inline bool isConnected()
             {
-                uint8_t flags = *(volatile uint8_t *)(USB_FLAGS);
-                // Check if reserved bits are 0 AND PWREN# is 0 (active low, meaning connected/enumerated)
-                return (flags & USBFlags::NOT_ALL_FLAGS) == 0 && (flags & USBFlags::PWREN) == 0;
+                const uint8_t flags = readFlags();
+                // SatCom-compatible test: bits 7..2 must be low when FTDI is USB powered.
+                return (flags & 0xFCU) == 0;
+            }
+
+            /**
+             * @brief Returns true when USB dev cart flag register pattern looks valid.
+             */
+            static inline bool isPortAvailable()
+            {
+                const uint8_t flags = readFlags();
+                // SatCom-compatible availability test: reserved bits 6..2 should stay low.
+                return (flags & 0x7CU) == 0;
             }
 
         } // namespace CS0
@@ -364,8 +382,59 @@ namespace SRL
                 REG_SD_IO_1 = CPLD_BASE_ADDR + 0x13,    // Register: SD I/O port 1
                 REG_SD_IO_2 = CPLD_BASE_ADDR + 0x15,    // Register: SD I/O port 2
                 REG_SD_IO_3 = CPLD_BASE_ADDR + 0x17,    // Register: SD I/O port 3
-                REG_SD_REINSERT = CPLD_BASE_ADDR + 0x19 // Register: SD reinsert/eject command
+                REG_SD_REINSERT = CPLD_BASE_ADDR + 0x19, // Register: SD reinsert/eject command
+                REG_SD_WRITE_PROTECT = CPLD_BASE_ADDR + 0x1B // USB Gamer's cart SD write-protect / SD present status
             };
+
+            /**
+             * @brief Reads an 8-bit CS1 register value from the DevCart CPLD space.
+             */
+            static inline uint8_t ReadRegister(const Register reg)
+            {
+                return *(volatile uint8_t *)(static_cast<uint32_t>(reg));
+            }
+
+            /**
+             * @brief Returns true when the expected CPLD identification bytes are present.
+             */
+            static inline bool HasWascaSignature()
+            {
+                return ReadRegister(Register::CPLD_55) == 0x55 && ReadRegister(Register::CPLD_AA) == 0xAA;
+            }
+
+            /**
+             * @brief Returns true when cartridge reports USB Gamer's CPLD version.
+             */
+            static inline bool IsUsbGamersCartridge()
+            {
+                return ReadRegister(Register::CART_CPLD_VER) == 0x19;
+            }
+
+            /**
+             * @brief Returns SD write-protect/no-card status on USB Gamer's cartridge.
+             *
+             * 0: write enabled
+             * 1: write protected or no SD card
+             */
+            static inline bool IsSdWriteProtectedOrMissing()
+            {
+                return (ReadRegister(Register::REG_SD_WRITE_PROTECT) & 0x01U) != 0;
+            }
+
+            /**
+             * @brief Returns whether USB data path is expected to be enabled.
+             *
+             * On USB Gamer's cartridge, USB may be disabled when SD is write-protected
+             * or missing. On other variants this returns true.
+             */
+            static inline bool IsUsbDataPathEnabled()
+            {
+                if (!IsUsbGamersCartridge())
+                {
+                    return true;
+                }
+                return !IsSdWriteProtectedOrMissing();
+            }
 
             /** 
              * @note `REG_STDOUT_BIT` and `REG_SD_IO_0` share the same address. 
