@@ -1,0 +1,733 @@
+#pragma once
+
+#include <srl_devcart.hpp>
+#include <srl_interrupt.hpp>
+#include <srl_system.hpp>
+#include <cstdint>
+#include <cstddef>
+
+namespace SRL
+{
+    /**
+     * @brief A basic GDB Remote Serial Protocol stub for the Sega Saturn using the DevCart.
+     * 
+     * Uses Interrupt::Vector::Trap3 (trapa #3) for software breakpoints.
+     */
+    namespace GDBStub
+    {
+        // GDB Remote protocol expects registers for SH in this exact order:
+        // R0-R15, PC, PR, GBR, VBR, MACH, MACL, SR
+        struct SH2Context {
+            uint32_t r[16];
+            uint32_t pc;
+            uint32_t pr;
+            uint32_t gbr;
+            uint32_t vbr;
+            uint32_t mach;
+            uint32_t macl;
+            uint32_t sr;
+        };
+
+        // SRL break vector — TRAP #3 → Interrupt::Vector::Trap3 (0x83)
+        static constexpr Interrupt::Vector BreakVector    = Interrupt::Vector::Trap3;
+        static constexpr uint32_t          BreakTrapNumber = 3;  // trapa #N maps to vector 0x80+N
+
+        // Upstream libyaul-gdbstub compatibility surface.
+        static constexpr uint32_t GDBSTUB_LOAD_ADDRESS = 0x202FE000;
+        // NOTE: libyaul uses TRAP #32 for their standalone binary; SRL uses TRAP #3 (BreakTrapNumber).
+        static constexpr uint32_t GDBSTUB_TRAPA_VECTOR_NUMBER = 32;
+
+        using gdb_device_init_t = void (*)(void);
+        using gdb_device_byte_read_t = uint8_t (*)(void);
+        using gdb_device_byte_write_t = void (*)(uint8_t value);
+
+        struct __attribute__((aligned(16))) gdb_device_t {
+            gdb_device_init_t init;
+            gdb_device_byte_read_t byte_read;
+            gdb_device_byte_write_t byte_write;
+        };
+
+        struct __attribute__((packed)) gdb_version_t {
+            unsigned int :8;
+            unsigned int major:8;
+            unsigned int minor:8;
+            unsigned int patch:8;
+        };
+
+        struct __attribute__((aligned(16))) gdbstub_t {
+            gdb_version_t version;
+            void (*init)(void);
+            gdb_device_t *device;
+        };
+
+        // Globals — inline so they are defined exactly once across all TUs.
+        __attribute__((used)) inline SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
+        inline bool g_is_stepping = false;
+        inline volatile bool g_has_connection = false;    // set on any valid RSP packet received
+        inline volatile bool g_handshake_done = false;    // set only after qSupported exchange
+        inline volatile uint32_t g_command_count = 0;
+        inline volatile uint32_t g_exception_thunk_count = 0;
+        inline char g_last_command[64] = {};
+        inline int g_unget_char = -1;
+        inline bool g_handlers_installed = false;
+        inline volatile uint32_t g_rx_detect_count = 0;  // incremented each time the stub reads a byte from DevCart RX
+        inline volatile uint32_t g_rx_ready_count = 0;   // incremented each time Poll() sees RX data pending
+        inline volatile uint32_t g_poll_fallback_count = 0; // incremented when Poll() handles RX without Trap3
+        inline bool g_devcart_ready = false;
+        inline bool g_devcart_port_available = false;
+        inline bool g_devcart_usb_datapath_enabled = true;
+        inline uint8_t g_last_usb_flags = 0xFF;
+
+        static constexpr uint32_t InterruptSetupMask = 0x0F;
+
+        // --- Utility Functions ---
+
+        static inline int hex(char ch) {
+            if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+            if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+            if (ch >= '0' && ch <= '9') return ch - '0';
+            return -1;
+        }
+
+        static inline char hexchar(int v) {
+            v &= 0xf;
+            return v < 10 ? '0' + v : 'a' + v - 10;
+        }
+
+        static inline const char* hex2mem(const char* buf, uint8_t* mem, int count) {
+            for (int i = 0; i < count; i++) {
+                int h1 = hex(*buf++);
+                int h2 = hex(*buf++);
+                *mem++ = (h1 << 4) | h2;
+            }
+            return buf;
+        }
+
+        static inline char* mem2hex(const uint8_t* mem, char* buf, int count) {
+            for (int i = 0; i < count; i++) {
+                *buf++ = hexchar(*mem >> 4);
+                *buf++ = hexchar(*mem % 16);
+                mem++;
+            }
+            *buf = 0;
+            return buf;
+        }
+
+        static inline void record_command(const char* cmd) {
+            size_t i = 0;
+            while (i < 63 && cmd[i] != '\0') {
+                g_last_command[i] = cmd[i];
+                ++i;
+            }
+            g_last_command[i] = '\0';
+            g_command_count = g_command_count + 1;
+            g_has_connection = true;
+        }
+
+        static inline bool starts_with(const char* s, const char* prefix) {
+            size_t i = 0;
+            while (prefix[i] != '\0') {
+                if (s[i] != prefix[i]) {
+                    return false;
+                }
+                ++i;
+            }
+            return true;
+        }
+
+        static inline bool is_valid_memory_range(uint32_t addr, uint32_t length) {
+            if (length == 0) {
+                return true;
+            }
+
+            // Detect wrap-around in address arithmetic.
+            const uint32_t end = addr + length - 1;
+            if (end < addr) {
+                return false;
+            }
+
+            // Prevent accesses into clearly invalid high address space that can fault and stall RSP.
+            if (addr >= 0xF0000000U || end >= 0xF0000000U) {
+                return false;
+            }
+
+            return true;
+        }
+
+        static inline void snapshot_polling_context() {
+            // Fallback context used when we service GDB packets outside ExceptionThunk.
+            // It keeps PC/SP/special registers valid so GDB does not see a null frame.
+            for (int i = 0; i < 16; ++i) {
+                g_ctx.r[i] = 0;
+            }
+
+            uint32_t sp = 0;
+            uint32_t pr = 0;
+            uint32_t gbr = 0;
+            uint32_t vbr = 0;
+            uint32_t mach = 0;
+            uint32_t macl = 0;
+            uint32_t sr = 0;
+
+            asm volatile("mov r15, %0" : "=r"(sp));
+            asm volatile("sts pr, %0" : "=r"(pr));
+            asm volatile("stc gbr, %0" : "=r"(gbr));
+            asm volatile("stc vbr, %0" : "=r"(vbr));
+            asm volatile("sts mach, %0" : "=r"(mach));
+            asm volatile("sts macl, %0" : "=r"(macl));
+            asm volatile("stc sr, %0" : "=r"(sr));
+
+            g_ctx.r[15] = sp;
+            // PR holds the current return address on SH-2 and is more reliable here
+            // than __builtin_return_address() under this build configuration.
+            g_ctx.pc = pr;
+            g_ctx.pr = pr;
+            g_ctx.gbr = gbr;
+            g_ctx.vbr = vbr;
+            g_ctx.mach = mach;
+            g_ctx.macl = macl;
+            g_ctx.sr = sr;
+        }
+
+        // --- Transport (libyaul-style device hooks) ---
+
+        static inline uint8_t __gdb_getc() {
+            if (g_unget_char != -1) {
+                uint8_t c = static_cast<uint8_t>(g_unget_char);
+                g_unget_char = -1;
+                return c;
+            }
+
+            const uint8_t c = SRL::DevCart::CS0::read();
+            g_rx_detect_count = g_rx_detect_count + 1;
+            return c;
+        }
+
+        static inline void __gdb_putc(uint8_t value) {
+            SRL::DevCart::CS0::write(&value);
+        }
+
+        // --- Packet I/O (minimal, libyaul-style) ---
+
+        static inline uint8_t packet_put_data(const char* buffer, size_t len) {
+            uint8_t sum = 0;
+            for (size_t i = 0; i < len; i++) {
+                uint8_t ch = static_cast<uint8_t>(buffer[i]);
+                sum += ch;
+                __gdb_putc(ch);
+            }
+            return sum;
+        }
+
+        static inline void packet_put(char type, const char* data, size_t len) {
+            do {
+                uint8_t csum = 0;
+                uint8_t ch = '$';
+                __gdb_putc(ch);
+
+                if (type != '\0') {
+                    ch = static_cast<uint8_t>(type);
+                    __gdb_putc(ch);
+                    csum += ch;
+                }
+
+                if (data != nullptr && len > 0) {
+                    csum += packet_put_data(data, len);
+                }
+
+                ch = '#';
+                __gdb_putc(ch);
+                ch = static_cast<uint8_t>(hexchar(csum >> 4));
+                __gdb_putc(ch);
+                ch = static_cast<uint8_t>(hexchar(csum));
+                __gdb_putc(ch);
+
+                while (true) {
+                    ch = static_cast<uint8_t>(__gdb_getc() & 0x7F);
+                    if (ch == '+') {
+                        return;
+                    } else if (ch == '-') {
+                        break; // retransmit
+                    } else if (ch == '$') {
+                        g_unget_char = '$';
+                        return;
+                    }
+                }
+            } while (true);
+        }
+
+        static inline void packet_get(char* buffer, size_t max_len) {
+            while (true) {
+                uint8_t ch;
+
+                while (((ch = static_cast<uint8_t>(__gdb_getc() & 0x7F))) != '$') {
+                    // Ignore until packet start; strip high bit for control chars
+                }
+
+                uint8_t csum = 0;
+                size_t len = 0;
+
+                while (true) {
+                    ch = static_cast<uint8_t>(__gdb_getc() & 0x7F);
+                    if (ch == '#') {
+                        break;
+                    }
+                    csum += ch;
+                    if (len + 1 < max_len) {
+                        buffer[len++] = static_cast<char>(ch);
+                    }
+                }
+                buffer[len] = '\0';
+
+                const int hi = hex(static_cast<char>(__gdb_getc() & 0x7F));
+                const int lo = hex(static_cast<char>(__gdb_getc() & 0x7F));
+                if (hi < 0 || lo < 0) {
+                    uint8_t nack = '-';
+                    __gdb_putc(nack);
+                    continue;
+                }
+                const uint8_t xmit_csum = static_cast<uint8_t>((hi << 4) | lo);
+
+                if (csum != xmit_csum) {
+                    uint8_t nack = '-';
+                    __gdb_putc(nack);
+                    continue;
+                }
+
+                uint8_t ack = '+';
+                __gdb_putc(ack);
+
+                // Packet format with sequence id: XX:payload
+                if (len >= 3 && buffer[2] == ':') {
+                    size_t i = 0;
+                    while (buffer[3 + i] != '\0') {
+                        buffer[i] = buffer[3 + i];
+                        ++i;
+                    }
+                    buffer[i] = '\0';
+                }
+
+                record_command(buffer);
+                return;
+            }
+        }
+
+        // --- Core Handler ---
+
+        __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
+        __attribute__((used)) inline void process_commands() {
+            char in_buf[1024];
+            char out_buf[1024];
+
+            if (g_has_connection) {
+                packet_put('S', "05", 2); // SIGTRAP
+            }
+
+            while (true) {
+                out_buf[0] = 0;
+                packet_get(in_buf, sizeof(in_buf));
+
+                switch (in_buf[0]) {
+                    case '?':
+                        packet_put('S', "05", 2);
+                        break;
+                    case 'q':
+                        if (in_buf[1]=='S' && in_buf[2]=='u' && in_buf[3]=='p' &&
+                            in_buf[4]=='p' && in_buf[5]=='o' && in_buf[6]=='r' &&
+                            in_buf[7]=='t' && in_buf[8]=='e' && in_buf[9]=='d') {
+                            packet_put('\0', "PacketSize=400", 14);
+                            g_handshake_done = true;
+                        } else if (in_buf[1]=='f' && in_buf[2]=='T' && in_buf[3]=='h' &&
+                                   in_buf[4]=='r' && in_buf[5]=='e' && in_buf[6]=='a' &&
+                                   in_buf[7]=='d' && in_buf[8]=='I' && in_buf[9]=='n' &&
+                                   in_buf[10]=='f' && in_buf[11]=='o' && in_buf[12]=='\0') {
+                            // Single-thread target.
+                            packet_put('\0', "m1", 2);
+                        } else if (in_buf[1]=='s' && in_buf[2]=='T' && in_buf[3]=='h' &&
+                                   in_buf[4]=='r' && in_buf[5]=='e' && in_buf[6]=='a' &&
+                                   in_buf[7]=='d' && in_buf[8]=='I' && in_buf[9]=='n' &&
+                                   in_buf[10]=='f' && in_buf[11]=='o' && in_buf[12]=='\0') {
+                            packet_put('\0', "l", 1);
+                        } else if (in_buf[1]=='A' && in_buf[2]=='t' && in_buf[3]=='t' &&
+                                   in_buf[4]=='a' && in_buf[5]=='c' && in_buf[6]=='h' &&
+                                   in_buf[7]=='e' && in_buf[8]=='d') {
+                            packet_put('\0', "1", 1);
+                        } else if (in_buf[1]=='O' && in_buf[2]=='f' && in_buf[3]=='f' &&
+                                   in_buf[4]=='s' && in_buf[5]=='e' && in_buf[6]=='t' &&
+                                   in_buf[7]=='s' && in_buf[8]=='\0') {
+                            packet_put('\0', "Text=0;Data=0;Bss=0", 19);
+                        } else if (in_buf[1]=='C' && in_buf[2]=='\0') {
+                            packet_put('\0', "QC1", 3);
+                        } else {
+                            packet_put('\0', nullptr, 0);
+                        }
+                        break;
+                    case 'H':
+                        packet_put('\0', "OK", 2);
+                        break;
+                    case 'v':
+                        // Minimal v packet support for MI/VS Code remote sessions.
+                        if (starts_with(in_buf, "vCont?")) {
+                            packet_put('\0', "vCont;c;s", 9);
+                        } else if (starts_with(in_buf, "vCont;")) {
+                            // Resume target. For now, c/s actions both map to standard resume.
+                            return;
+                        } else if (starts_with(in_buf, "vRun")) {
+                            // Extended-remote run compatibility: treat like continue.
+                            return;
+                        } else {
+                            packet_put('\0', nullptr, 0);
+                        }
+                        break;
+                    case 'g':
+                        {
+                            if (g_ctx.pc == 0) {
+                                snapshot_polling_context();
+                            }
+                            const int tx_len = static_cast<int>(mem2hex((uint8_t*)&g_ctx, out_buf, sizeof(SH2Context)) - out_buf);
+                            packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                        }
+                        break;
+                    case 'G':
+                        hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context));
+                        packet_put('\0', "OK", 2);
+                        break;
+                    case 'm':
+                        {
+                            uint32_t addr = 0, length = 0;
+                            const char* p = &in_buf[1];
+                            while (*p && *p != ',') addr = (addr << 4) | hex(*p++);
+                            if (*p == ',') p++;
+                            while (*p) length = (length << 4) | hex(*p++);
+
+                            // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
+                            if (length > 511U || !is_valid_memory_range(addr, length)) {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
+
+                            const int tx_len = static_cast<int>(mem2hex((uint8_t*)addr, out_buf, static_cast<int>(length)) - out_buf);
+                            packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                        }
+                        break;
+                    case 'M':
+                        {
+                            uint32_t addr = 0, length = 0;
+                            const char* p = &in_buf[1];
+                            while (*p && *p != ',') addr = (addr << 4) | hex(*p++);
+                            if (*p == ',') p++;
+                            while (*p && *p != ':') length = (length << 4) | hex(*p++);
+                            if (*p == ':') p++;
+
+                            if (length > 511U || !is_valid_memory_range(addr, length)) {
+                                packet_put('\0', "E02", 3);
+                                break;
+                            }
+
+                            hex2mem(p, (uint8_t*)addr, length);
+                            packet_put('\0', "OK", 2);
+                        }
+                        break;
+                    case 'D': // Detach
+                        packet_put('\0', "OK", 2);
+                        g_handshake_done = false;
+                        g_has_connection = false;
+                        return;
+                    case 'T': // Is thread alive?
+                        // Report thread as alive for single-thread target.
+                        packet_put('\0', "OK", 2);
+                        break;
+                    case 'c':
+                    case 's':
+                        return;
+                    default:
+                        packet_put('\0', nullptr, 0);
+                        break;
+                }
+            }
+        }
+
+        // --- Exception Handler ---
+
+        inline void ExceptionThunk() {
+            g_exception_thunk_count = g_exception_thunk_count + 1;
+
+            asm volatile(
+                // --- Save context ---
+                // Push R0 and GBR onto stack before using R0 as base pointer.
+                "mov.l r0, @-r15\n\t"
+                "stc.l gbr, @-r15\n\t"
+                "mov.l 1f, r0\n\t"
+
+                // Save R1-R14.
+                "mov.l r14, @(14*4, r0)\n\t"
+                "mov.l r13, @(13*4, r0)\n\t"
+                "mov.l r12, @(12*4, r0)\n\t"
+                "mov.l r11, @(11*4, r0)\n\t"
+                "mov.l r10, @(10*4, r0)\n\t"
+                "mov.l r9,  @(9*4,  r0)\n\t"
+                "mov.l r8,  @(8*4,  r0)\n\t"
+                "mov.l r7,  @(7*4,  r0)\n\t"
+                "mov.l r6,  @(6*4,  r0)\n\t"
+                "mov.l r5,  @(5*4,  r0)\n\t"
+                "mov.l r4,  @(4*4,  r0)\n\t"
+                "mov.l r3,  @(3*4,  r0)\n\t"
+                "mov.l r2,  @(2*4,  r0)\n\t"
+                "mov.l r1,  @(1*4,  r0)\n\t"
+
+                // Save R15 as pre-exception value.
+                "mov r15, r1\n\t"
+                "add #16, r1\n\t"
+                "mov.l r1, @(15*4, r0)\n\t"
+
+                // Pop our two saved values back into temporaries.
+                "mov.l @r15+, r1\n\t"
+                "mov.l @r15+, r2\n\t"
+
+                // Save R0.
+                "mov.l r2, @r0\n\t"
+
+                // Use r2 as secondary base for fields at offset >= 64.
+                "mov r0, r2\n\t"
+                "add #64, r2\n\t"
+
+                // Save GBR.
+                "mov.l r1, @(8, r2)\n\t"
+
+                // Save PC and SR.
+                "mov.l @r15, r1\n\t"
+                "mov.l r1, @r2\n\t"
+                "mov.l @(4, r15), r1\n\t"
+                "mov.l r1, @(24, r2)\n\t"
+
+                // Save PR, VBR, MACH, MACL.
+                "sts pr, r1\n\t"
+                "mov.l r1, @(4, r2)\n\t"
+                "stc vbr, r1\n\t"
+                "mov.l r1, @(12, r2)\n\t"
+                "sts mach, r1\n\t"
+                "mov.l r1, @(16, r2)\n\t"
+                "sts macl, r1\n\t"
+                "mov.l r1, @(20, r2)\n\t"
+
+                // Call process_commands.
+                "mov.l 2f, r1\n\t"
+                "jsr @r1\n\t"
+                "nop\n\t"
+
+                // --- Restore context ---
+                "mov.l 1f, r0\n\t"
+                "mov r0, r2\n\t"
+                "add #64, r2\n\t"
+
+                // Restore special registers.
+                "mov.l @(4,  r2), r1\n\t"
+                "lds r1, pr\n\t"
+                "mov.l @(12, r2), r1\n\t"
+                "ldc r1, vbr\n\t"
+                "mov.l @(16, r2), r1\n\t"
+                "lds r1, mach\n\t"
+                "mov.l @(20, r2), r1\n\t"
+                "lds r1, macl\n\t"
+                "mov.l @(8,  r2), r1\n\t"
+                "ldc r1, gbr\n\t"
+
+                // Update exception frame with (possibly modified) PC and SR.
+                "mov.l @r2, r1\n\t"
+                "mov.l r1, @r15\n\t"
+                "mov.l @(24, r2), r1\n\t"
+                "mov.l r1, @(4, r15)\n\t"
+
+                // Restore R1-R14.
+                "mov.l @(14*4, r0), r14\n\t"
+                "mov.l @(13*4, r0), r13\n\t"
+                "mov.l @(12*4, r0), r12\n\t"
+                "mov.l @(11*4, r0), r11\n\t"
+                "mov.l @(10*4, r0), r10\n\t"
+                "mov.l @(9*4,  r0), r9\n\t"
+                "mov.l @(8*4,  r0), r8\n\t"
+                "mov.l @(7*4,  r0), r7\n\t"
+                "mov.l @(6*4,  r0), r6\n\t"
+                "mov.l @(5*4,  r0), r5\n\t"
+                "mov.l @(4*4,  r0), r4\n\t"
+                "mov.l @(3*4,  r0), r3\n\t"
+                "mov.l @(2*4,  r0), r2\n\t"
+                "mov.l @(1*4,  r0), r1\n\t"
+                "mov.l @r0, r0\n\t"
+
+                "rte\n\t"
+                "nop\n\t"
+
+                ".align 4\n"
+                "1: .long srl_gdbstub_ctx\n"
+                "2: .long srl_gdbstub_process_commands\n"
+            );
+        }
+
+        static inline void InstallExceptionHandlers() {
+            // Match Timer::Init() pattern: use a temporary SCU mask while touching vectors.
+            const uint32_t previousMask = SRL::System::GetInterruptMask();
+            SRL::System::SetInterruptMask(0xf);
+
+            Interrupt::SetHandler(Interrupt::Vector::Illegal, &ExceptionThunk);
+            Interrupt::SetHandler(Interrupt::Vector::Address, &ExceptionThunk);
+            Interrupt::SetHandler(BreakVector, &ExceptionThunk);
+
+            SRL::System::SetInterruptMask(previousMask);
+            g_handlers_installed = true;
+        }
+
+        // --- Public API ---
+
+        /**
+         * @brief Initialize the GDB stub and hook exception vectors.
+         */
+        inline void Init() {
+            g_has_connection = false;
+            g_handshake_done = false;
+            g_command_count = 0;
+            g_exception_thunk_count = 0;
+            g_rx_detect_count = 0;
+            g_rx_ready_count = 0;
+            g_poll_fallback_count = 0;
+            g_last_command[0] = '\0';
+            g_unget_char = -1;
+            g_devcart_ready = SRL::DevCart::CS1::HasWascaSignature();
+            g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
+            g_devcart_usb_datapath_enabled = SRL::DevCart::CS1::IsUsbDataPathEnabled();
+            g_last_usb_flags = SRL::DevCart::CS0::readFlags();
+
+            if (!g_handlers_installed) {
+                InstallExceptionHandlers();
+            }
+        }
+
+        /**
+         * @brief Returns true only after the GDB handshake (qSupported exchange) has completed.
+         */
+        inline bool IsConnected() {
+            return g_handshake_done;
+        }
+
+        /**
+         * @brief Returns true once the GDB exception handlers have been installed.
+         */
+        inline bool IsHandlersInstalled() {
+            return g_handlers_installed;
+        }
+
+        /**
+         * @brief Returns how many times ExceptionThunk has executed.
+         */
+        inline uint32_t GetExceptionThunkCount() {
+            return g_exception_thunk_count;
+        }
+
+        /**
+         * @brief Returns how many RX bytes were consumed by the stub from DevCart.
+         */
+        inline uint32_t GetRxDetectCount() {
+            return g_rx_detect_count;
+        }
+
+        /**
+         * @brief Returns how many times Poll() observed RX data pending in DevCart FIFO.
+         */
+        inline uint32_t GetRxReadyCount() {
+            return g_rx_ready_count;
+        }
+
+        /**
+         * @brief Returns how many times Poll() had to process RX without Trap3 entry.
+         */
+        inline uint32_t GetPollFallbackCount() {
+            return g_poll_fallback_count;
+        }
+
+        /**
+         * @brief Returns true when DevCart CS1 signature registers are readable and valid.
+         */
+        inline bool IsDevCartReady() {
+            return g_devcart_ready;
+        }
+
+        /**
+         * @brief Returns true when USB_FLAGS reserved bits match expected USB dev cart pattern.
+         */
+        inline bool IsDevCartPortAvailable() {
+            return g_devcart_port_available;
+        }
+
+        /**
+         * @brief Returns true when cartridge-level USB data path should be enabled.
+         */
+        inline bool IsUsbDataPathEnabled() {
+            return g_devcart_usb_datapath_enabled;
+        }
+
+        /**
+         * @brief Returns latest raw USB_FLAGS value sampled by the stub.
+         */
+        inline uint8_t GetLastUsbFlags() {
+            return g_last_usb_flags;
+        }
+
+        /**
+         * @brief Enter the GDB stub via software trap (Interrupt::Vector::Trap3).
+         */
+        inline void Break() {
+            Interrupt::Trigger(BreakVector);
+        }
+
+        /**
+         * @brief Compatibility alias matching the upstream libyaul GDB stub API.
+         */
+        inline void gdb_break() {
+            Break();
+        }
+
+        /**
+         * @brief Compatibility initializer matching the upstream gdbstub_t-based startup path.
+         */
+        inline void Init(gdbstub_t& gdbstub) {
+            if (gdbstub.device != nullptr && gdbstub.device->init != nullptr) {
+                gdbstub.device->init();
+            }
+
+            Init();
+        }
+
+        /**
+         * @brief Check for incoming GDB interrupt request (Ctrl-C)
+         */
+        inline void Poll() {
+            const uint8_t usbFlags = SRL::DevCart::CS0::readFlags();
+            g_last_usb_flags = usbFlags;
+            g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
+            g_devcart_usb_datapath_enabled = SRL::DevCart::CS1::IsUsbDataPathEnabled();
+
+            const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::RXF) == 0;
+            if (rxPending) {
+                g_rx_ready_count = g_rx_ready_count + 1;
+
+                const uint32_t thunkBefore = g_exception_thunk_count;
+                const bool trapTriggered = Interrupt::Trigger(BreakVector);
+
+                // Fallback: some environments show RX pending but do not execute Trap3 handler.
+                // In that case, process commands directly to keep USB GDB communication alive.
+                if (!trapTriggered || g_exception_thunk_count == thunkBefore) {
+                    snapshot_polling_context();
+                    g_poll_fallback_count = g_poll_fallback_count + 1;
+                    process_commands();
+                }
+            }
+
+            // Hardware-level disconnect: clear session state.
+            if (!SRL::DevCart::CS0::isConnected()) {
+                g_has_connection = false;
+                g_handshake_done = false;
+            }
+        }
+    }
+}
+
