@@ -100,7 +100,10 @@ ifeq ($(strip ${SRL_MAX_TEXTURES}),)
 endif
 
 ifeq ($(strip ${DEBUG}), 1)
-	CCFLAGS += -DDEBUG
+	CCFLAGS += -DDEBUG -g
+	OPT_FLAGS ?= -O0
+else
+	OPT_FLAGS ?= -O2
 endif
 
 ifneq ($(strip ${SRL_LOG_LEVEL}),)
@@ -206,7 +209,7 @@ endif
 SYSOBJECTS = $(SYSSOURCES:.c=.o)
 
 # General compilation flags
-CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing \
+CCFLAGS += $(SYSFLAGS) -W -m2 -c $(OPT_FLAGS) -Wno-strict-aliasing \
 					-I$(DUMMYIDIR) -I$(SATURNMATHPPDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
 					-Xlinker "$(BUILD_MAP)" -Xlinker -e -Xlinker ___Start -nostartfiles
