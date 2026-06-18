@@ -211,8 +211,8 @@ CCFLAGS += $(SYSFLAGS) -W -m2 -c -O2 -Wno-strict-aliasing \
 LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
 					-Xlinker "$(BUILD_MAP)" -Xlinker -e -Xlinker ___Start -nostartfiles
 
-ifeq "$(GCCMAJORVERSION)" "14"
-    LDFLAGS += -specs=nosys.specs
+ifneq ($(shell [ "$(GCCMAJORVERSION)" -ge 14 ] 2>/dev/null && echo yes),)
+	LDFLAGS += -specs=nosys.specs
 endif
 
 # Add custom FLAGS
