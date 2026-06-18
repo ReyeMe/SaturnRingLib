@@ -66,7 +66,7 @@ namespace SRL
         inline volatile bool g_has_connection = false;    // set on any valid RSP packet received
         inline volatile bool g_handshake_done = false;    // set only after qSupported exchange
         inline volatile uint32_t g_command_count = 0;
-        inline volatile uint32_t g_exception_thunk_count = 0;
+        __attribute__((used)) inline volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
         inline char g_last_command[64] = {};
         inline int g_unget_char = -1;
         inline bool g_handlers_installed = false;
@@ -77,6 +77,19 @@ namespace SRL
         inline bool g_devcart_port_available = false;
         inline bool g_devcart_usb_datapath_enabled = true;
         inline uint8_t g_last_usb_flags = 0xFF;
+        inline volatile bool g_stop_requested_by_ctrl_c = false;
+        inline volatile uint8_t g_last_stop_signal = 5; // 5=SIGTRAP, 2=SIGINT
+
+        static constexpr uint16_t SoftwareBreakInstruction = static_cast<uint16_t>(0xC300U | (BreakTrapNumber & 0xFFU));
+        static constexpr size_t MaxSoftwareBreakpoints = 32;
+
+        struct SoftwareBreakpoint {
+            uint32_t address;
+            uint16_t original_instruction;
+            bool active;
+        };
+
+        inline SoftwareBreakpoint g_software_breakpoints[MaxSoftwareBreakpoints] = {};
 
         static constexpr uint32_t InterruptSetupMask = 0x0F;
 
@@ -152,6 +165,115 @@ namespace SRL
             }
 
             return true;
+        }
+
+        static inline bool parse_hex_u32_until(const char* p, char delimiter, uint32_t& out_value, const char*& out_end) {
+            uint32_t value = 0;
+            bool saw_digit = false;
+
+            while (*p != '\0' && *p != delimiter) {
+                const int d = hex(*p);
+                if (d < 0) {
+                    return false;
+                }
+                value = (value << 4) | static_cast<uint32_t>(d);
+                saw_digit = true;
+                ++p;
+            }
+
+            if (!saw_digit) {
+                return false;
+            }
+
+            out_value = value;
+            out_end = p;
+            return true;
+        }
+
+        static inline int find_breakpoint_slot(uint32_t address) {
+            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
+                if (g_software_breakpoints[i].active && g_software_breakpoints[i].address == address) {
+                    return static_cast<int>(i);
+                }
+            }
+            return -1;
+        }
+
+        static inline int find_free_breakpoint_slot() {
+            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
+                if (!g_software_breakpoints[i].active) {
+                    return static_cast<int>(i);
+                }
+            }
+            return -1;
+        }
+
+        static inline void clear_breakpoints(bool restore_memory) {
+            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
+                if (!g_software_breakpoints[i].active) {
+                    continue;
+                }
+
+                if (restore_memory) {
+                    volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_software_breakpoints[i].address);
+                    *code = g_software_breakpoints[i].original_instruction;
+                }
+
+                g_software_breakpoints[i].active = false;
+                g_software_breakpoints[i].address = 0;
+                g_software_breakpoints[i].original_instruction = 0;
+            }
+        }
+
+        static inline bool install_software_breakpoint(uint32_t address) {
+            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
+                return false;
+            }
+
+            if (find_breakpoint_slot(address) >= 0) {
+                return true;
+            }
+
+            const int slot = find_free_breakpoint_slot();
+            if (slot < 0) {
+                return false;
+            }
+
+            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address);
+            g_software_breakpoints[slot].address = address;
+            g_software_breakpoints[slot].original_instruction = *code;
+            *code = SoftwareBreakInstruction;
+            g_software_breakpoints[slot].active = true;
+            return true;
+        }
+
+        static inline bool remove_software_breakpoint(uint32_t address) {
+            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
+                return false;
+            }
+
+            const int slot = find_breakpoint_slot(address);
+            if (slot < 0) {
+                return true;
+            }
+
+            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address);
+            *code = g_software_breakpoints[slot].original_instruction;
+            g_software_breakpoints[slot].active = false;
+            g_software_breakpoints[slot].address = 0;
+            g_software_breakpoints[slot].original_instruction = 0;
+            return true;
+        }
+
+        static inline void adjust_pc_for_software_breakpoint() {
+            if (g_ctx.pc < 2U) {
+                return;
+            }
+
+            const uint32_t trap_address = g_ctx.pc - 2U;
+            if (find_breakpoint_slot(trap_address) >= 0) {
+                g_ctx.pc = trap_address;
+            }
         }
 
         static inline void snapshot_polling_context() {
@@ -312,6 +434,14 @@ namespace SRL
             }
         }
 
+        static inline void send_stop_signal(uint8_t signal) {
+            char stop[2];
+            stop[0] = hexchar(signal >> 4);
+            stop[1] = hexchar(signal);
+            g_last_stop_signal = signal;
+            packet_put('S', stop, 2);
+        }
+
         // --- Core Handler ---
 
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
@@ -319,8 +449,12 @@ namespace SRL
             char in_buf[1024];
             char out_buf[1024];
 
+            adjust_pc_for_software_breakpoint();
+
             if (g_has_connection) {
-                packet_put('S', "05", 2); // SIGTRAP
+                const uint8_t stopSignal = g_stop_requested_by_ctrl_c ? 2U : 5U;
+                g_stop_requested_by_ctrl_c = false;
+                send_stop_signal(stopSignal);
             }
 
             while (true) {
@@ -329,7 +463,7 @@ namespace SRL
 
                 switch (in_buf[0]) {
                     case '?':
-                        packet_put('S', "05", 2);
+                        send_stop_signal(g_last_stop_signal);
                         break;
                     case 'q':
                         if (in_buf[1]=='S' && in_buf[2]=='u' && in_buf[3]=='p' &&
@@ -428,8 +562,46 @@ namespace SRL
                             packet_put('\0', "OK", 2);
                         }
                         break;
+                    case 'Z':
+                    case 'z':
+                        {
+                            // RSP software breakpoints: Z0,addr,kind / z0,addr,kind
+                            if (in_buf[1] != '0' || in_buf[2] != ',') {
+                                packet_put('\0', nullptr, 0);
+                                break;
+                            }
+
+                            uint32_t addr = 0;
+                            const char* p = &in_buf[3];
+                            if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',') {
+                                packet_put('\0', "E03", 3);
+                                break;
+                            }
+
+                            ++p; // skip ','
+                            uint32_t kind = 0;
+                            const char* end = p;
+                            if (!parse_hex_u32_until(p, '\0', kind, end)) {
+                                packet_put('\0', "E03", 3);
+                                break;
+                            }
+
+                            // SH-2 instructions are 16-bit (kind normally 2).
+                            if (kind != 0U && kind != 2U) {
+                                packet_put('\0', "E03", 3);
+                                break;
+                            }
+
+                            const bool ok = (in_buf[0] == 'Z')
+                                ? install_software_breakpoint(addr)
+                                : remove_software_breakpoint(addr);
+
+                            packet_put('\0', ok ? "OK" : "E03", ok ? 2 : 3);
+                        }
+                        break;
                     case 'D': // Detach
                         packet_put('\0', "OK", 2);
+                        clear_breakpoints(true);
                         g_handshake_done = false;
                         g_has_connection = false;
                         return;
@@ -449,9 +621,7 @@ namespace SRL
 
         // --- Exception Handler ---
 
-        inline void ExceptionThunk() {
-            g_exception_thunk_count = g_exception_thunk_count + 1;
-
+        __attribute__((naked)) inline void ExceptionThunk() {
             asm volatile(
                 // --- Save context ---
                 // Push R0 and GBR onto stack before using R0 as base pointer.
@@ -510,6 +680,12 @@ namespace SRL
                 "sts macl, r1\n\t"
                 "mov.l r1, @(20, r2)\n\t"
 
+                // Increment g_exception_thunk_count
+                "mov.l 3f, r1\n\t"
+                "mov.l @r1, r2\n\t"
+                "add #1, r2\n\t"
+                "mov.l r2, @r1\n\t"
+
                 // Call process_commands.
                 "mov.l 2f, r1\n\t"
                 "jsr @r1\n\t"
@@ -561,6 +737,7 @@ namespace SRL
                 ".align 4\n"
                 "1: .long srl_gdbstub_ctx\n"
                 "2: .long srl_gdbstub_process_commands\n"
+                "3: .long srl_gdbstub_thunk_count\n"
             );
         }
 
@@ -596,6 +773,9 @@ namespace SRL
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
             g_devcart_usb_datapath_enabled = SRL::DevCart::CS1::IsUsbDataPathEnabled();
             g_last_usb_flags = SRL::DevCart::CS0::readFlags();
+            g_stop_requested_by_ctrl_c = false;
+            g_last_stop_signal = 5;
+            clear_breakpoints(false);
 
             if (!g_handlers_installed) {
                 InstallExceptionHandlers();
@@ -710,15 +890,30 @@ namespace SRL
             if (rxPending) {
                 g_rx_ready_count = g_rx_ready_count + 1;
 
-                const uint32_t thunkBefore = g_exception_thunk_count;
-                const bool trapTriggered = Interrupt::Trigger(BreakVector);
-
-                // Fallback: some environments show RX pending but do not execute Trap3 handler.
-                // In that case, process commands directly to keep USB GDB communication alive.
-                if (!trapTriggered || g_exception_thunk_count == thunkBefore) {
+                if (!g_has_connection || !g_handshake_done) {
+                    // During initial attach/handshake, do not consume RX bytes here.
+                    // Let process_commands() read the full '$...#xx' packet intact.
                     snapshot_polling_context();
                     g_poll_fallback_count = g_poll_fallback_count + 1;
                     process_commands();
+                } else {
+                    // Active session while target runs: only Ctrl-C should interrupt.
+                    const uint8_t ch = SRL::DevCart::CS0::read();
+                    g_rx_detect_count = g_rx_detect_count + 1;
+
+                    if (ch == 0x03U) {
+                        record_command("<Ctrl-C>");
+                        g_stop_requested_by_ctrl_c = true;
+                        snapshot_polling_context();
+                        g_poll_fallback_count = g_poll_fallback_count + 1;
+                        process_commands();
+                    } else if (ch == '$') {
+                        // Preserve packet start byte and process packet without forcing a trap.
+                        g_unget_char = '$';
+                        snapshot_polling_context();
+                        g_poll_fallback_count = g_poll_fallback_count + 1;
+                        process_commands();
+                    }
                 }
             }
 
