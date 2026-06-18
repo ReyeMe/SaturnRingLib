@@ -9,6 +9,7 @@ SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
 SRL_MALLOC_METHOD = SIMPLE
 
 # Enable debug symbol
+DEBUG = 1
 USER_FLAGS = -g
 SRL_CUSTOM_CCFLAGS = $(USER_FLAGS)
 
