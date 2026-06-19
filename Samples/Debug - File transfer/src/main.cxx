@@ -1,0 +1,506 @@
+#include <srl.hpp>
+#include "srl_devcart.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <stdio.h>
+#include <string.h>
+
+extern "C"
+{
+extern unsigned char _sgclib_stub_dat;
+extern unsigned char _sgclib_stub_end;
+}
+
+asm(
+    ".global __sgclib_stub_dat\n"
+    ".global __sgclib_stub_end\n"
+    ".align 1\n"
+    "__sgclib_stub_dat:\n"
+    ".incbin \"/saturn/20260509_sgclib_beta/lib/sgclib.bin\"\n"
+    "__sgclib_stub_end:\n");
+
+
+using namespace SRL::Types;
+
+namespace
+{
+  constexpr size_t kMaxRequestBytes = 255;
+  constexpr size_t kMaxResponseBytes = 1023;
+  constexpr size_t kMaxDirEntries = 96;
+
+  bool g_sgcReady = false;
+
+  constexpr uintptr_t kSgclibBaseAddress = 0x060BA000UL;
+  constexpr uintptr_t kSgclibDirOffset = 0x4F00UL;
+  constexpr uintptr_t kSgclibFReaddirOffset = 0x3B80UL;
+  constexpr size_t kMaxPathBytes = 255;
+
+#define APPEND_FMT(_BUF_, _CAP_, _USED_, _FMT_, ...)                        \
+  do                                                                         \
+  {                                                                          \
+    if ((_USED_) < (_CAP_))                                                  \
+    {                                                                        \
+      const int _written = snprintf((_BUF_) + (_USED_),                     \
+                                    (_CAP_) - (_USED_),                      \
+                                    (_FMT_), ##__VA_ARGS__);                 \
+      if (_written > 0)                                                      \
+      {                                                                      \
+        const size_t _advance = static_cast<size_t>(_written);               \
+        (_USED_) = ((_USED_) + _advance >= (_CAP_)) ?                        \
+                      (_CAP_) :                                               \
+                      ((_USED_) + _advance);                                 \
+      }                                                                      \
+    }                                                                        \
+  } while (0)
+
+  uint8_t Crc8Update(uint8_t crc, const uint8_t *data, size_t dataLen)
+  {
+    static const uint8_t crcTable[256] = {
+        0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15, 0x38, 0x3F, 0x36, 0x31,
+        0x24, 0x23, 0x2A, 0x2D, 0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65,
+        0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D, 0xE0, 0xE7, 0xEE, 0xE9,
+        0xFC, 0xFB, 0xF2, 0xF5, 0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
+        0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85, 0xA8, 0xAF, 0xA6, 0xA1,
+        0xB4, 0xB3, 0xBA, 0xBD, 0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2,
+        0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA, 0xB7, 0xB0, 0xB9, 0xBE,
+        0xAB, 0xAC, 0xA5, 0xA2, 0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
+        0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32, 0x1F, 0x18, 0x11, 0x16,
+        0x03, 0x04, 0x0D, 0x0A, 0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42,
+        0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A, 0x89, 0x8E, 0x87, 0x80,
+        0x95, 0x92, 0x9B, 0x9C, 0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
+        0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC, 0xC1, 0xC6, 0xCF, 0xC8,
+        0xDD, 0xDA, 0xD3, 0xD4, 0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C,
+        0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44, 0x19, 0x1E, 0x17, 0x10,
+        0x05, 0x02, 0x0B, 0x0C, 0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
+        0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B, 0x76, 0x71, 0x78, 0x7F,
+        0x6A, 0x6D, 0x64, 0x63, 0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B,
+        0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13, 0xAE, 0xA9, 0xA0, 0xA7,
+        0xB2, 0xB5, 0xBC, 0xBB, 0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
+        0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF,
+        0xFA, 0xFD, 0xF4, 0xF3};
+
+    while (dataLen-- != 0)
+    {
+      const uint32_t index = static_cast<uint32_t>(crc ^ *data++) & 0xFFU;
+      crc = crcTable[index];
+    }
+    return crc;
+  }
+
+  bool EnsureSgclibReady()
+  {
+    if (g_sgcReady)
+    {
+      return true;
+    }
+
+    unsigned char *stubPtr = &_sgclib_stub_dat;
+    const unsigned long stubSize =
+        static_cast<unsigned long>(&_sgclib_stub_end - &_sgclib_stub_dat);
+    SRL::DevCart::SD::fs_load_stub(stubPtr, stubSize);
+    const int initRes = SRL::DevCart::SD::fs_init();
+    g_sgcReady = (initRes == SRL::DevCart::SD::SGC_FR_OK);
+    return g_sgcReady;
+  }
+
+  using HiddenFReaddir = int (*)(SRL::DevCart::SD::DIR *dp, SRL::DevCart::SD::FILINFO *fno);
+
+  HiddenFReaddir GetHiddenFReaddir()
+  {
+    return reinterpret_cast<HiddenFReaddir>(kSgclibBaseAddress +
+                                            kSgclibFReaddirOffset);
+  }
+
+  SRL::DevCart::SD::DIR *GetHiddenDirObject()
+  {
+    return reinterpret_cast<SRL::DevCart::SD::DIR *>(kSgclibBaseAddress + kSgclibDirOffset);
+  }
+
+  bool IsSdFsPath(const char *path)
+  {
+    return path != NULL && path[0] == '/';
+  }
+
+  const char *NormalizeSdFsPath(const char *path)
+  {
+    return (path != NULL && path[0] == '/' && path[1] == '\0') ? "" : path;
+  }
+
+  void SaveCurrentDir(char *buffer, size_t size)
+  {
+    if (buffer == NULL || size == 0)
+    {
+      return;
+    }
+
+    buffer[0] = '\0';
+    SRL::DevCart::SD::fs_getcwd(buffer, static_cast<int>(size - 1));
+    buffer[size - 1] = '\0';
+  }
+
+  void RestoreCurrentDir(const char *buffer)
+  {
+    if (buffer != NULL && buffer[0] != '\0')
+    {
+      SRL::DevCart::SD::fs_chdir(buffer);
+    }
+  }
+
+  char *SplitPathAndName(char *fullPath)
+  {
+    int slash = -1;
+    for (int i = 0; fullPath[i] != '\0'; ++i)
+    {
+      if (fullPath[i] == '/')
+      {
+        slash = i;
+      }
+    }
+
+    if (slash < 0)
+    {
+      return fullPath;
+    }
+
+    fullPath[slash] = '\0';
+    return fullPath + slash + 1;
+  }
+
+  bool OpenSdFileRead(const char *path, int &fd)
+  {
+    fd = -1;
+    char cwd[kMaxPathBytes + 1] = {'\0'};
+    char pathCopy[kMaxPathBytes + 1] = {'\0'};
+    strncpy(pathCopy, path, kMaxPathBytes);
+    pathCopy[kMaxPathBytes] = '\0';
+
+    SaveCurrentDir(cwd, sizeof(cwd));
+    char *name = SplitPathAndName(pathCopy);
+
+    if (pathCopy[0] != '\0')
+    {
+      SRL::DevCart::SD::fs_chdir(pathCopy);
+    }
+
+    fd = SRL::DevCart::SD::fs_open(name, SRL::DevCart::SD::FA_READ);
+    RestoreCurrentDir(cwd);
+    return fd >= 0;
+  }
+
+  SRL::DevCart::HostIo::Status HandleList(const char *path, char *response,
+                                          size_t &responseLen)
+  {
+    if (SRL::DevCart::SD::Backend::IsRawPath(path))
+    {
+      if (SRL::DevCart::SD::Backend::IsRawRootPath(path))
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoList] sdraw:/ has no directory root.\n"
+                   "Use sdraw:<start_sector>:<sector_count> for raw sector access.\n");
+        return SRL::DevCart::HostIo::Status::Ok;
+      }
+
+      uint32_t startSector = 0;
+      uint32_t sectorCount = 0;
+      if (!SRL::DevCart::SD::Backend::TryParseRawRange(path, startSector, sectorCount))
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoList] Invalid SD raw path: %s\n", path);
+        return SRL::DevCart::HostIo::Status::BadRequest;
+      }
+
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoList] %s [W RAW RANGE]\n", path);
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    if (IsSdFsPath(path))
+    {
+      if (!EnsureSgclibReady())
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoList] SGCLIB init failed\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      const char *sgclibPath = NormalizeSdFsPath(path);
+      SRL::DevCart::SD::sgc_stat_t stat{};
+      const int statRes = SRL::DevCart::SD::fs_stat(sgclibPath, &stat);
+      if (statRes == SRL::DevCart::SD::SGC_FR_OK && (stat.attrib & SRL::DevCart::SD::AM_DIR) == 0)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoList] %s [F]\n", path);
+        return SRL::DevCart::HostIo::Status::Ok;
+      }
+
+      const int openDirRes = SRL::DevCart::SD::fs_opendir(sgclibPath);
+      if (openDirRes != SRL::DevCart::SD::SGC_FR_OK)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoList] Can't open SD path (%d): %s\n", openDirRes, path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoList] Listing: %s\n", path);
+
+      HiddenFReaddir hiddenReaddir = GetHiddenFReaddir();
+      SRL::DevCart::SD::DIR *hiddenDir = GetHiddenDirObject();
+      if (hiddenReaddir == NULL || hiddenDir == NULL)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoList] Directory iterator unavailable in SGCLIB\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      bool any = false;
+      for (size_t i = 0; i < kMaxDirEntries; ++i)
+      {
+        SRL::DevCart::SD::FILINFO entry{};
+        const int rc = hiddenReaddir(hiddenDir, &entry);
+        if (rc != SRL::DevCart::SD::SGC_FR_OK || entry.fname[0] == '\0')
+        {
+          break;
+        }
+
+        any = true;
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "  %s %s\n", (entry.fattrib & SRL::DevCart::SD::AM_DIR) ? "[D]" : "[F]",
+                   entry.fname);
+      }
+
+      if (!any)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "  (empty directory)\n");
+      }
+
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+               "[DoList] Unsupported path scheme: %s\n"
+               "Use /... for SD FAT or sdraw:... for raw sectors\n",
+               path);
+    return SRL::DevCart::HostIo::Status::BadRequest;
+  }
+
+  SRL::DevCart::HostIo::Status HandleRemove(const char *path, char *response,
+                                            size_t &responseLen)
+  {
+    if (SRL::DevCart::SD::Backend::IsRawPath(path))
+    {
+      uint32_t startSector = 0;
+      uint32_t sectorCount = 0;
+      if (!SRL::DevCart::SD::Backend::TryParseRawRange(path, startSector, sectorCount))
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoRemove] Invalid SD raw path: %s\n", path);
+        return SRL::DevCart::HostIo::Status::BadRequest;
+      }
+
+      if (!SRL::DevCart::SD::Backend::EraseRawRange(startSector, sectorCount))
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoRemove] SD erase failed: %s\n", path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoRemove] Erased SD raw range: %s\n", path);
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    if (IsSdFsPath(path))
+    {
+      if (!EnsureSgclibReady())
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoRemove] SGCLIB init failed\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      const int rc = SRL::DevCart::SD::fs_unlink(path);
+      if (rc != SRL::DevCart::SD::SGC_FR_OK)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoRemove] Unlink failed (%d): %s\n", rc, path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoRemove] Removed: %s\n", path);
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+               "[DoRemove] Read-only or unsupported path: %s\n", path);
+    return SRL::DevCart::HostIo::Status::Unsupported;
+  }
+
+  SRL::DevCart::HostIo::Status HandleCrc(const char *path, char *response,
+                                         size_t &responseLen)
+  {
+    if (IsSdFsPath(path))
+    {
+      if (!EnsureSgclibReady())
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoCrc] SGCLIB init failed\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      int fd = -1;
+      if (!OpenSdFileRead(path, fd))
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoCrc] Can't open file '%s'\n", path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      uint8_t buffer[1024];
+      uint8_t checksum = 0;
+      while (true)
+      {
+        const int read = SRL::DevCart::SD::fs_read(fd, buffer, sizeof(buffer));
+        if (read < 0)
+        {
+          SRL::DevCart::SD::fs_close(fd);
+          APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                     "[DoCrc] File read error.\n");
+          return SRL::DevCart::HostIo::Status::Error;
+        }
+        if (read == 0)
+        {
+          break;
+        }
+        checksum = Crc8Update(checksum, buffer, static_cast<size_t>(read));
+      }
+
+      SRL::DevCart::SD::fs_close(fd);
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoCrc] %s CRC-8 = 0x%02X\n", path,
+                 static_cast<unsigned int>(checksum));
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    SRL::Cd::File file(path);
+    if (!file.Exists() || !file.Open())
+    {
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoCrc] Can't open file '%s'\n", path);
+      return SRL::DevCart::HostIo::Status::Error;
+    }
+
+    uint8_t buffer[1024];
+    uint8_t checksum = 0;
+    while (true)
+    {
+      const int32_t read = file.Read(static_cast<int32_t>(sizeof(buffer)), buffer);
+      if (read < 0)
+      {
+        file.Close();
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoCrc] File read error.\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+      if (read == 0)
+      {
+        break;
+      }
+      checksum = Crc8Update(checksum, buffer, static_cast<size_t>(read));
+    }
+
+    file.Close();
+    APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+               "[DoCrc] %s CRC-8 = 0x%02X\n", path,
+               static_cast<unsigned int>(checksum));
+    return SRL::DevCart::HostIo::Status::Ok;
+  }
+
+  void HandleHostIoRequest()
+  {
+    uint8_t requestPayload[kMaxRequestBytes + 1];
+    size_t requestLen = 0;
+    SRL::DevCart::HostIo::Command command = SRL::DevCart::HostIo::Command::List;
+
+    if (!SRL::DevCart::HostIo::TryReadRequest(command, requestPayload,
+                                              kMaxRequestBytes, requestLen))
+    {
+      const char msg[] = "[HostIo] Bad request frame\n";
+      SRL::DevCart::HostIo::SendResponse(
+          SRL::DevCart::HostIo::Status::BadRequest,
+          reinterpret_cast<const uint8_t *>(msg), sizeof(msg) - 1);
+      return;
+    }
+
+    requestPayload[requestLen] = '\0';
+    const char *path = reinterpret_cast<const char *>(requestPayload);
+
+    const char *commandName = "UNKNOWN";
+    switch (command)
+    {
+    case SRL::DevCart::HostIo::Command::List:
+      commandName = "LS";
+      break;
+    case SRL::DevCart::HostIo::Command::Remove:
+      commandName = "RM";
+      break;
+    case SRL::DevCart::HostIo::Command::Crc:
+      commandName = "CRC";
+      break;
+    default:
+      break;
+    }
+
+    // Keep latest incoming host command visible during request handling.
+    SRL::Debug::Print(1, 1, "CMD: %s %s", commandName, path);
+
+    char response[kMaxResponseBytes + 1] = {0};
+    size_t responseLen = 0;
+    SRL::DevCart::HostIo::Status status = SRL::DevCart::HostIo::Status::Error;
+
+    switch (command)
+    {
+    case SRL::DevCart::HostIo::Command::List:
+      status = HandleList(path, response, responseLen);
+      break;
+    case SRL::DevCart::HostIo::Command::Remove:
+      status = HandleRemove(path, response, responseLen);
+      break;
+    case SRL::DevCart::HostIo::Command::Crc:
+      status = HandleCrc(path, response, responseLen);
+      break;
+    default:
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[HostIo] Unsupported command: %u\n",
+                 static_cast<unsigned int>(command));
+      status = SRL::DevCart::HostIo::Status::Unsupported;
+      break;
+    }
+
+    SRL::DevCart::HostIo::SendResponse(
+        status, reinterpret_cast<const uint8_t *>(response), responseLen);
+  }
+}
+
+#undef APPEND_FMT
+
+int main()
+{
+  SRL::Core::Initialize(HighColor::Colors::Black);
+  SRL::Cd::Initialize();
+
+  while (true)
+  {
+    if (!SRL::DevCart::CS0::isRXFEmpty())
+    {
+      HandleHostIoRequest();
+    }
+
+    SRL::Core::Synchronize();
+  }
+
+  return 0;
+}
