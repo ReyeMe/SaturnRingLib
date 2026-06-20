@@ -232,97 +232,12 @@ typedef struct _sdcard_t
 #define SDC_CRC_ON_OFF               59
 
 
-/**
- * Verify if SD card was reinserted or not.
- *
- * Return values :
- *  0 : SD card wasn't reinserted.
- *  1 : SD card was reinserted, hence SPI & FAT library reinit is needed.
-**/
-#if defined(SDCARD_IMPLEMENTATION)
-int sdc_is_reinsert(void);
-
-
-/**
- * Detect SD card, and read its internal parameters.
- * Must be called when the user inserted a SD card in the slot.
- *
- * Return SDC_OK when init successed.
-**/
-sdc_ret_t sdc_init(void);
-
-
-
-/**
- * Send packet to SD card and read the response from SD card.
- * Return the first 4 bytes read from SD card.
- * (Full returned data is stored in `sdcard_t* _sdcard' stuff)
-**/
-unsigned char sdc_sendpacket(unsigned char cmd, unsigned long arg, unsigned char* buffer, unsigned long blocks_count);
-
-
-
-/**
- * Read/write multiple blocks from/to SD card.
- *
- * Return 0 if no error, otherwise the response byte is returned.
-**/
-unsigned char sdc_read_multiple_blocks(unsigned long start_block, unsigned char* buffer, unsigned long blocks_count);
-unsigned char sdc_write_multiple_blocks(unsigned long start_block, unsigned char* buffer, unsigned long blocks_count);
-
-
-/**
- * Extra function : turn OFF/ON LED on SD card reader board.
- *
- * Return SDC_OK when successed.
-**/
-sdc_ret_t sdc_ledset(unsigned long led_color, unsigned long led_state);
-
-
-/**
- *------------------------------------------------------------------
- * Internal-use functions. (Low level I/O related)
- *------------------------------------------------------------------
-**/
-
-/**
- * Get/Set signals from SD card.
-**/
-void sdc_output(void);
-
-
-/**
- * Assert/Deassert SD's "Chip Select" line.
-**/
-void sdc_cs_assert(void);
-void sdc_cs_deassert(void);
-
-/**
- * Send byte array to SD card.
- * Send byte (8 bits) to SD card.
- * Send long (32 bits) to SD card.
-**/
-void sdc_sendbyte_array(unsigned char* ptr, unsigned short len);
-void sdc_sendbyte(unsigned char dat);
-void sdc_sendlong(unsigned long dat);
-/**
- * Receive byte array from SD card.
- * Receive byte (8 bits) from SD card.
-**/
-void sdc_receivebyte_array(unsigned char* ptr, unsigned short len);
-unsigned char sdc_receivebyte(void);
-
-#endif /* defined(SDCARD_IMPLEMENTATION) */
-
-
 /* -------------------------------------------------------------------------- */
 /* SGCLIB binary dispatch wrappers                                             */
 /*
  * sdc_* functions are implemented in sgclib.bin and loaded at 0x060BA000.
  * Use these inline wrappers from regular C/C++ code paths.
  */
-#if !defined(SDCARD_IMPLEMENTATION)
-
 #ifndef SGCLIB_BIN_BASE_ADDR
 #define SGCLIB_BIN_BASE_ADDR 0x060BA000UL
 #endif
@@ -401,10 +316,6 @@ static inline unsigned char sdc_receivebyte(void)
 }
 
 #undef SDC_BIN_FN
-
-#endif /* !SDCARD_IMPLEMENTATION */
-
-
 
 #endif /* _SDCARD_INCLUDE_H_ */
 
