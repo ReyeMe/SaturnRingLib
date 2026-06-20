@@ -92,7 +92,7 @@ typedef int (*Fct_sgc_write   )(int fd, const void *buf, int len);
 typedef int (*Fct_sgc_sync    )(int fd);
 typedef int (*Fct_sgc_truncate)(int fd);
 typedef int (*Fct_sgc_stat    )(const char *filename, sgc_stat_t *stat, int statsize);
-typedef int (*Fct_sgc_rename  )(const char *old, const char *new);
+typedef int (*Fct_sgc_rename  )(const char *oldname, const char *newname);
 typedef int (*Fct_sgc_mkdir   )(const char *filename);
 typedef int (*Fct_sgc_unlink  )(const char *filename);
 typedef int (*Fct_sgc_opendir )(const char *path);

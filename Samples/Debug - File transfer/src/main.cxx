@@ -1,25 +1,11 @@
 #include <srl.hpp>
-#include "srl_devcart.hpp"
+#include <srl_devcart.hpp>
+#include "srl_devcart_sdcart.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <stdio.h>
 #include <string.h>
-
-extern "C"
-{
-extern unsigned char _sgclib_stub_dat;
-extern unsigned char _sgclib_stub_end;
-}
-
-asm(
-    ".global __sgclib_stub_dat\n"
-    ".global __sgclib_stub_end\n"
-    ".align 1\n"
-    "__sgclib_stub_dat:\n"
-    ".incbin \"/saturn/20260509_sgclib_beta/lib/sgclib.bin\"\n"
-    "__sgclib_stub_end:\n");
-
 
 using namespace SRL::Types;
 
@@ -31,9 +17,6 @@ namespace
 
   bool g_sgcReady = false;
 
-  constexpr uintptr_t kSgclibBaseAddress = 0x060BA000UL;
-  constexpr uintptr_t kSgclibDirOffset = 0x4F00UL;
-  constexpr uintptr_t kSgclibFReaddirOffset = 0x3B80UL;
   constexpr size_t kMaxPathBytes = 255;
 
 #define APPEND_FMT(_BUF_, _CAP_, _USED_, _FMT_, ...)                        \
@@ -95,26 +78,10 @@ namespace
       return true;
     }
 
-    unsigned char *stubPtr = &_sgclib_stub_dat;
-    const unsigned long stubSize =
-        static_cast<unsigned long>(&_sgclib_stub_end - &_sgclib_stub_dat);
-    SRL::DevCart::SD::fs_load_stub(stubPtr, stubSize);
+    // Initialize FatFs directly (no binary stub loading needed anymore)
     const int initRes = SRL::DevCart::SD::fs_init();
-    g_sgcReady = (initRes == SRL::DevCart::SD::SGC_FR_OK);
+    g_sgcReady = (initRes == SGC_FR_OK);
     return g_sgcReady;
-  }
-
-  using HiddenFReaddir = int (*)(SRL::DevCart::SD::DIR *dp, SRL::DevCart::SD::FILINFO *fno);
-
-  HiddenFReaddir GetHiddenFReaddir()
-  {
-    return reinterpret_cast<HiddenFReaddir>(kSgclibBaseAddress +
-                                            kSgclibFReaddirOffset);
-  }
-
-  SRL::DevCart::SD::DIR *GetHiddenDirObject()
-  {
-    return reinterpret_cast<SRL::DevCart::SD::DIR *>(kSgclibBaseAddress + kSgclibDirOffset);
   }
 
   bool IsSdFsPath(const char *path)
@@ -183,7 +150,7 @@ namespace
       SRL::DevCart::SD::fs_chdir(pathCopy);
     }
 
-    fd = SRL::DevCart::SD::fs_open(name, SRL::DevCart::SD::FA_READ);
+    fd = SRL::DevCart::SD::fs_open(name, FA_READ);
     RestoreCurrentDir(cwd);
     return fd >= 0;
   }
@@ -225,9 +192,9 @@ namespace
       }
 
       const char *sgclibPath = NormalizeSdFsPath(path);
-      SRL::DevCart::SD::sgc_stat_t stat{};
+      sgc_stat_t stat{};
       const int statRes = SRL::DevCart::SD::fs_stat(sgclibPath, &stat);
-      if (statRes == SRL::DevCart::SD::SGC_FR_OK && (stat.attrib & SRL::DevCart::SD::AM_DIR) == 0)
+      if (statRes == SGC_FR_OK && (stat.attrib & AM_DIR) == 0)
       {
         APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
                    "[DoList] %s [F]\n", path);
@@ -235,7 +202,7 @@ namespace
       }
 
       const int openDirRes = SRL::DevCart::SD::fs_opendir(sgclibPath);
-      if (openDirRes != SRL::DevCart::SD::SGC_FR_OK)
+      if (openDirRes != SGC_FR_OK)
       {
         APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
                    "[DoList] Can't open SD path (%d): %s\n", openDirRes, path);
@@ -245,28 +212,19 @@ namespace
       APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
                  "[DoList] Listing: %s\n", path);
 
-      HiddenFReaddir hiddenReaddir = GetHiddenFReaddir();
-      SRL::DevCart::SD::DIR *hiddenDir = GetHiddenDirObject();
-      if (hiddenReaddir == NULL || hiddenDir == NULL)
-      {
-        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
-                   "[DoList] Directory iterator unavailable in SGCLIB\n");
-        return SRL::DevCart::HostIo::Status::Error;
-      }
-
       bool any = false;
       for (size_t i = 0; i < kMaxDirEntries; ++i)
       {
-        SRL::DevCart::SD::FILINFO entry{};
-        const int rc = hiddenReaddir(hiddenDir, &entry);
-        if (rc != SRL::DevCart::SD::SGC_FR_OK || entry.fname[0] == '\0')
+        FILINFO entry{};
+        const int rc = SRL::DevCart::SD::fs_readdir(&entry);
+        if (rc != SGC_FR_OK || entry.fname[0] == '\0')
         {
           break;
         }
 
         any = true;
         APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
-                   "  %s %s\n", (entry.fattrib & SRL::DevCart::SD::AM_DIR) ? "[D]" : "[F]",
+                   "  %s %s\n", (entry.fattrib & AM_DIR) ? "[D]" : "[F]",
                    entry.fname);
       }
 
@@ -322,7 +280,7 @@ namespace
       }
 
       const int rc = SRL::DevCart::SD::fs_unlink(path);
-      if (rc != SRL::DevCart::SD::SGC_FR_OK)
+      if (rc != SGC_FR_OK)
       {
         APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
                    "[DoRemove] Unlink failed (%d): %s\n", rc, path);
