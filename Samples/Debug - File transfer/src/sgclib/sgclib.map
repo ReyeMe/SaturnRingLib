@@ -1,0 +1,263 @@
+Archive member included because of file (symbol)
+
+d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftrt_n.o)
+                              obj/api_functions.o (___ashrsi3)
+d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftlt.o)
+                              obj/api_functions.o (___ashlsi3_r0)
+d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_udivsi3.o)
+                              obj/sdcard_packet.o (___udivsi3)
+d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memcpy.o)
+                              obj/api_functions.o (_memcpy)
+d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memset.o)
+                              obj/sdcard_packet.o (_memset)
+
+Allocating common symbols
+Common symbol       size              file
+
+_dir                0x30              obj/api_functions.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+LOAD obj/CRT0.o
+LOAD obj/api_functions.o
+LOAD obj/sdcard_packet.o
+LOAD obj/diskio.o
+LOAD obj/ff.o
+LOAD obj/ffsystem.o
+LOAD obj/ffunicode.o
+LOAD obj/log.o
+LOAD d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a
+LOAD d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc-Os-4-200.a
+LOAD d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a
+LOAD d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a
+LOAD d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc-Os-4-200.a
+                0x00000000060ba000                . = 0x60ba000
+                0x00000000060ba000                _main = .
+
+.text           0x00000000060ba000     0x4bdc
+ *(.text)
+ .text          0x00000000060ba000       0x3c obj/CRT0.o
+                0x00000000060ba000                start
+ .text          0x00000000060ba03c      0x508 obj/api_functions.o
+                0x00000000060ba060                _sgc_init
+                0x00000000060ba078                _get_fil_from_fd
+                0x00000000060ba0b8                _alloc_fd
+                0x00000000060ba0e8                _free_fd
+                0x00000000060ba0fc                _sgc_open
+                0x00000000060ba17c                _sgc_close
+                0x00000000060ba1d8                _sgc_seek
+                0x00000000060ba27c                _sgc_read
+                0x00000000060ba2f4                _sgc_write
+                0x00000000060ba36c                _sgc_sync
+                0x00000000060ba378                _sgc_truncate
+                0x00000000060ba3cc                _sgc_stat
+                0x00000000060ba460                _sgc_rename
+                0x00000000060ba46c                _sgc_mkdir
+                0x00000000060ba478                _sgc_unlink
+                0x00000000060ba484                _sgc_opendir
+                0x00000000060ba4d0                _sgc_chdir
+                0x00000000060ba4e4                _sgc_getcwd
+ .text          0x00000000060ba544     0x10a8 obj/sdcard_packet.o
+                0x00000000060ba544                _sc_tmr_start
+                0x00000000060ba560                _sc_tmr_tick2usec
+                0x00000000060ba5e0                _sc_tick_sleep
+                0x00000000060ba614                _sc_usleep
+                0x00000000060ba74c                _sc_get_sdcard_buff
+                0x00000000060ba758                _sdc_a_bus_init
+                0x00000000060ba76c                _sdc_a_bus_deinit
+                0x00000000060ba770                _sdc_output
+                0x00000000060ba794                _sdc_ledset
+                0x00000000060ba7bc                _sdc_cs_assert
+                0x00000000060ba7d8                _sdc_cs_deassert
+                0x00000000060ba7f4                _sdc_sendbyte_array
+                0x00000000060ba878                _sdc_sendbyte
+                0x00000000060ba894                _sdc_sendlong
+                0x00000000060ba8c4                _sdc_receivebyte_array
+                0x00000000060ba978                _sdc_receivebyte
+                0x00000000060ba998                _sdc_slice
+                0x00000000060baa24                _sdc_is_reinsert
+                0x00000000060baa30                _sdc_sendpacket
+                0x00000000060baf6c                _sdc_init
+                0x00000000060bb4ec                _sdc_read_multiple_blocks
+                0x00000000060bb56c                _sdc_write_multiple_blocks
+ .text          0x00000000060bb5ec       0x64 obj/diskio.o
+                0x00000000060bb5ec                _disk_initialize
+                0x00000000060bb600                _disk_status
+                0x00000000060bb604                _disk_read
+                0x00000000060bb61c                _disk_write
+                0x00000000060bb634                _disk_ioctl
+ .text          0x00000000060bb650     0x3310 obj/ff.o
+                0x00000000060bccd0                _f_mount
+                0x00000000060bcd38                _f_open
+                0x00000000060bcfbc                _f_read
+                0x00000000060bd190                _f_write
+                0x00000000060bd3f0                _f_sync
+                0x00000000060bd4bc                _f_close
+                0x00000000060bd4f4                _f_chdrive
+                0x00000000060bd520                _f_chdir
+                0x00000000060bd5bc                _f_getcwd
+                0x00000000060bd7ec                _f_lseek
+                0x00000000060bdaac                _f_opendir
+                0x00000000060bdb60                _f_closedir
+                0x00000000060bdb80                _f_readdir
+                0x00000000060bdc10                _f_findnext
+                0x00000000060bdc70                _f_findfirst
+                0x00000000060bdca4                _f_stat
+                0x00000000060bdd20                _f_getfree
+                0x00000000060bde6c                _f_truncate
+                0x00000000060bdf30                _f_unlink
+                0x00000000060be050                _f_mkdir
+                0x00000000060be1fc                _f_rename
+                0x00000000060be3d0                _f_chmod
+                0x00000000060be44c                _f_utime
+                0x00000000060be4c8                _f_getlabel
+                0x00000000060be5cc                _f_setlabel
+                0x00000000060be7fc                _f_expand
+ .text          0x00000000060be960        0x0 obj/ffsystem.o
+ .text          0x00000000060be960        0x0 obj/ffunicode.o
+ .text          0x00000000060be960        0x0 obj/log.o
+ .text          0x00000000060be960       0x80 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftrt_n.o)
+                0x00000000060be960                ___ashrsi3
+ .text          0x00000000060be9e0       0xbc d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftlt.o)
+                0x00000000060be9e0                ___ashlsi3
+                0x00000000060be9e4                ___ashlsi3_r0
+ .text          0x00000000060bea9c       0x6c d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_udivsi3.o)
+                0x00000000060beabe                ___udivsi3
+ .text          0x00000000060beb08       0x94 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memcpy.o)
+                0x00000000060beb08                _memcpy
+ .text          0x00000000060beb9c       0x40 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memset.o)
+                0x00000000060beb9c                _memset
+
+.rodata         0x00000000060bebdc       0x14
+ *(.rodata)
+ .rodata        0x00000000060bebdc       0x14 obj/ff.o
+
+.rodata.str1.4  0x00000000060bebf0       0x24
+ .rodata.str1.4
+                0x00000000060bebf0        0x4 obj/api_functions.o
+ .rodata.str1.4
+                0x00000000060bebf4       0x20 obj/ff.o
+
+.data           0x00000000060bec14        0x0
+ *(.data)
+ .data          0x00000000060bec14        0x0 obj/CRT0.o
+ .data          0x00000000060bec14        0x0 obj/api_functions.o
+ .data          0x00000000060bec14        0x0 obj/sdcard_packet.o
+ .data          0x00000000060bec14        0x0 obj/diskio.o
+ .data          0x00000000060bec14        0x0 obj/ff.o
+ .data          0x00000000060bec14        0x0 obj/ffsystem.o
+ .data          0x00000000060bec14        0x0 obj/ffunicode.o
+ .data          0x00000000060bec14        0x0 obj/log.o
+ .data          0x00000000060bec14        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftrt_n.o)
+ .data          0x00000000060bec14        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftlt.o)
+ .data          0x00000000060bec14        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_udivsi3.o)
+ .data          0x00000000060bec14        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memcpy.o)
+ .data          0x00000000060bec14        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memset.o)
+                0x00000000060bec14                __bss_start = .
+
+.bss            0x00000000060bec14      0x31c
+ *(.bss)
+ .bss           0x00000000060bec14        0x0 obj/CRT0.o
+ .bss           0x00000000060bec14      0x294 obj/api_functions.o
+                0x00000000060bec14                _diropen
+                0x00000000060bec18                _FatFs
+ .bss           0x00000000060beea8       0x50 obj/sdcard_packet.o
+                0x00000000060beea8                __sd_buff
+ .bss           0x00000000060beef8        0x0 obj/diskio.o
+ .bss           0x00000000060beef8        0x8 obj/ff.o
+ .bss           0x00000000060bef00        0x0 obj/ffsystem.o
+ .bss           0x00000000060bef00        0x0 obj/ffunicode.o
+ .bss           0x00000000060bef00        0x0 obj/log.o
+ .bss           0x00000000060bef00        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftrt_n.o)
+ .bss           0x00000000060bef00        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_ashiftlt.o)
+ .bss           0x00000000060bef00        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0\libgcc.a(_udivsi3.o)
+ .bss           0x00000000060bef00        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memcpy.o)
+ .bss           0x00000000060bef00        0x0 d:/dev/saturnorbit/saturn-sdk/toolchain_elf/bin/../lib/gcc/sh-elf/5.1.0/../../../../sh-elf/lib\libc.a(lib_a-memset.o)
+ COMMON         0x00000000060bef00       0x30 obj/api_functions.o
+                0x00000000060bef00                _dir
+                0x00000000060bef30                __bss_end = .
+                0x00000000060bef30                _end = .
+OUTPUT(../lib/sgclib.bin binary)
+
+.debug_info     0x0000000000000000     0x72ad
+ .debug_info    0x0000000000000000      0xd4d obj/api_functions.o
+ .debug_info    0x0000000000000d4d     0x173b obj/sdcard_packet.o
+ .debug_info    0x0000000000002488      0x2b8 obj/diskio.o
+ .debug_info    0x0000000000002740     0x4a10 obj/ff.o
+ .debug_info    0x0000000000007150       0x72 obj/ffsystem.o
+ .debug_info    0x00000000000071c2       0x72 obj/ffunicode.o
+ .debug_info    0x0000000000007234       0x79 obj/log.o
+
+.debug_abbrev   0x0000000000000000      0xb31
+ .debug_abbrev  0x0000000000000000      0x29a obj/api_functions.o
+ .debug_abbrev  0x000000000000029a      0x3b9 obj/sdcard_packet.o
+ .debug_abbrev  0x0000000000000653       0xe7 obj/diskio.o
+ .debug_abbrev  0x000000000000073a      0x385 obj/ff.o
+ .debug_abbrev  0x0000000000000abf       0x26 obj/ffsystem.o
+ .debug_abbrev  0x0000000000000ae5       0x26 obj/ffunicode.o
+ .debug_abbrev  0x0000000000000b0b       0x26 obj/log.o
+
+.debug_loc      0x0000000000000000     0xa4cc
+ .debug_loc     0x0000000000000000      0x95b obj/api_functions.o
+ .debug_loc     0x000000000000095b     0x16aa obj/sdcard_packet.o
+ .debug_loc     0x0000000000002005      0x13f obj/diskio.o
+ .debug_loc     0x0000000000002144     0x8388 obj/ff.o
+
+.debug_aranges  0x0000000000000000       0xc8
+ .debug_aranges
+                0x0000000000000000       0x20 obj/api_functions.o
+ .debug_aranges
+                0x0000000000000020       0x20 obj/sdcard_packet.o
+ .debug_aranges
+                0x0000000000000040       0x20 obj/diskio.o
+ .debug_aranges
+                0x0000000000000060       0x20 obj/ff.o
+ .debug_aranges
+                0x0000000000000080       0x18 obj/ffsystem.o
+ .debug_aranges
+                0x0000000000000098       0x18 obj/ffunicode.o
+ .debug_aranges
+                0x00000000000000b0       0x18 obj/log.o
+
+.debug_ranges   0x0000000000000000      0xd40
+ .debug_ranges  0x0000000000000000      0x138 obj/api_functions.o
+ .debug_ranges  0x0000000000000138      0x3d0 obj/sdcard_packet.o
+ .debug_ranges  0x0000000000000508      0x838 obj/ff.o
+
+.debug_line     0x0000000000000000     0x1e42
+ .debug_line    0x0000000000000000      0x284 obj/api_functions.o
+ .debug_line    0x0000000000000284      0x763 obj/sdcard_packet.o
+ .debug_line    0x00000000000009e7      0x125 obj/diskio.o
+ .debug_line    0x0000000000000b0c     0x12df obj/ff.o
+ .debug_line    0x0000000000001deb       0x1d obj/ffsystem.o
+ .debug_line    0x0000000000001e08       0x1d obj/ffunicode.o
+ .debug_line    0x0000000000001e25       0x1d obj/log.o
+
+.debug_str      0x0000000000000000     0x160f
+ .debug_str     0x0000000000000000      0x632 obj/api_functions.o
+ .debug_str     0x0000000000000632      0x433 obj/sdcard_packet.o
+ .debug_str     0x0000000000000a65      0x1cd obj/diskio.o
+ .debug_str     0x0000000000000c32      0x723 obj/ff.o
+ .debug_str     0x0000000000001355       0xe7 obj/ffsystem.o
+ .debug_str     0x000000000000143c       0xe8 obj/ffunicode.o
+ .debug_str     0x0000000000001524       0xeb obj/log.o
+
+.comment        0x0000000000000000       0x7e
+ .comment       0x0000000000000000       0x12 obj/api_functions.o
+ .comment       0x0000000000000012       0x12 obj/sdcard_packet.o
+ .comment       0x0000000000000024       0x12 obj/diskio.o
+ .comment       0x0000000000000036       0x12 obj/ff.o
+ .comment       0x0000000000000048       0x12 obj/ffsystem.o
+ .comment       0x000000000000005a       0x12 obj/ffunicode.o
+ .comment       0x000000000000006c       0x12 obj/log.o
+
+.debug_frame    0x0000000000000000     0x1cc4
+ .debug_frame   0x0000000000000000      0x3bc obj/api_functions.o
+ .debug_frame   0x00000000000003bc      0x528 obj/sdcard_packet.o
+ .debug_frame   0x00000000000008e4       0x84 obj/diskio.o
+ .debug_frame   0x0000000000000968     0x135c obj/ff.o
