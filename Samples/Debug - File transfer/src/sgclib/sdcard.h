@@ -24,6 +24,8 @@
 #ifndef _SDCARD_INCLUDE_H_
 #define _SDCARD_INCLUDE_H_
 
+#include <stdint.h>
+
 /* Structure alignment macros. */
 #define SC_ALIGN_4_BYTES(_STRUCT_NAME_) _STRUCT_NAME_ __attribute__((aligned(4)))
 #define SC_ALIGN_2_BYTES(_STRUCT_NAME_) _STRUCT_NAME_ __attribute__((aligned(2)))
@@ -237,6 +239,7 @@ typedef struct _sdcard_t
  *  0 : SD card wasn't reinserted.
  *  1 : SD card was reinserted, hence SPI & FAT library reinit is needed.
 **/
+#if defined(SDCARD_IMPLEMENTATION)
 int sdc_is_reinsert(void);
 
 
@@ -309,50 +312,98 @@ void sdc_sendlong(unsigned long dat);
 void sdc_receivebyte_array(unsigned char* ptr, unsigned short len);
 unsigned char sdc_receivebyte(void);
 
+#endif /* defined(SDCARD_IMPLEMENTATION) */
 
+
+/* -------------------------------------------------------------------------- */
+/* SGCLIB binary dispatch wrappers                                             */
 /*
- * API functions prototypes.
+ * sdc_* functions are implemented in sgclib.bin and loaded at 0x060BA000.
+ * Use these inline wrappers from regular C/C++ code paths.
  */
-typedef int (*Fct_sgc_init    )(void);
-typedef int (*Fct_sgc_open    )(const char *filename, int flags);
-typedef int (*Fct_sgc_close   )(int fd);
-typedef int (*Fct_sgc_seek    )(int fd, int offset, int whence);
-typedef int (*Fct_sgc_read    )(int fd, void *buf, int len);
-typedef int (*Fct_sgc_write   )(int fd, const void *buf, int len);
-typedef int (*Fct_sgc_sync    )(int fd);
-typedef int (*Fct_sgc_truncate)(int fd);
-typedef int (*Fct_sgc_stat    )(const char *filename, sgc_stat_t *stat, int statsize);
-typedef int (*Fct_sgc_rename  )(const char *oldname, const char *newname);
-typedef int (*Fct_sgc_mkdir   )(const char *filename);
-typedef int (*Fct_sgc_unlink  )(const char *filename);
-typedef int (*Fct_sgc_opendir )(const char *path);
-typedef int (*Fct_sgc_chdir   )(const char *path);
-typedef int (*Fct_sgc_getcwd  )(char *buff, int buflen);
+#if !defined(SDCARD_IMPLEMENTATION)
 
+#ifndef SGCLIB_BIN_BASE_ADDR
+#define SGCLIB_BIN_BASE_ADDR 0x060BA000UL
+#endif
 
-/*
- * The API itself.
- */
-typedef struct _sgclib_api_t
+#define SDC_BIN_FN(_ret_, _ofs_, ...) \
+  ((_ret_ (*)(__VA_ARGS__))((uintptr_t)SGCLIB_BIN_BASE_ADDR + (uintptr_t)(_ofs_)))
+
+static inline int sdc_is_reinsert(void)
 {
-    Fct_sgc_init     init    ;
-    Fct_sgc_open     open    ;
-    Fct_sgc_close    close   ;
-    Fct_sgc_seek     seek    ;
-    Fct_sgc_read     read    ;
-    Fct_sgc_write    write   ;
-    Fct_sgc_sync     sync    ;
-    Fct_sgc_truncate truncate;
-    Fct_sgc_stat     stat    ;
-    Fct_sgc_rename   rename  ;
-    Fct_sgc_mkdir    mkdir   ;
-    Fct_sgc_unlink   unlink  ;
-    Fct_sgc_opendir  opendir ;
-    Fct_sgc_chdir    chdir   ;
-    Fct_sgc_getcwd   getcwd  ;
-} __attribute__((packed)) sdclib_api_t;
+    return SDC_BIN_FN(int, 0x0A24UL, void)();
+}
 
-#define SDCLIB_API ((sdclib_api_t*)0x060BA000)
+static inline sdc_ret_t sdc_init(void)
+{
+    return SDC_BIN_FN(sdc_ret_t, 0x0F6CUL, void)();
+}
+
+static inline unsigned char sdc_sendpacket(unsigned char cmd, unsigned long arg, unsigned char* buffer, unsigned long blocks_count)
+{
+    return SDC_BIN_FN(unsigned char, 0x0A30UL, unsigned char, unsigned long, unsigned char*, unsigned long)(cmd, arg, buffer, blocks_count);
+}
+
+static inline unsigned char sdc_read_multiple_blocks(unsigned long start_block, unsigned char* buffer, unsigned long blocks_count)
+{
+    return SDC_BIN_FN(unsigned char, 0x14ECUL, unsigned long, unsigned char*, unsigned long)(start_block, buffer, blocks_count);
+}
+
+static inline unsigned char sdc_write_multiple_blocks(unsigned long start_block, unsigned char* buffer, unsigned long blocks_count)
+{
+    return SDC_BIN_FN(unsigned char, 0x156CUL, unsigned long, unsigned char*, unsigned long)(start_block, buffer, blocks_count);
+}
+
+static inline sdc_ret_t sdc_ledset(unsigned long led_color, unsigned long led_state)
+{
+    return SDC_BIN_FN(sdc_ret_t, 0x0794UL, unsigned long, unsigned long)(led_color, led_state);
+}
+
+static inline void sdc_output(void)
+{
+    SDC_BIN_FN(void, 0x0770UL, void)();
+}
+
+static inline void sdc_cs_assert(void)
+{
+    SDC_BIN_FN(void, 0x07BCUL, void)();
+}
+
+static inline void sdc_cs_deassert(void)
+{
+    SDC_BIN_FN(void, 0x07D8UL, void)();
+}
+
+static inline void sdc_sendbyte_array(unsigned char* ptr, unsigned short len)
+{
+    SDC_BIN_FN(void, 0x07F4UL, unsigned char*, unsigned short)(ptr, len);
+}
+
+static inline void sdc_sendbyte(unsigned char dat)
+{
+    SDC_BIN_FN(void, 0x0878UL, unsigned char)(dat);
+}
+
+static inline void sdc_sendlong(unsigned long dat)
+{
+    SDC_BIN_FN(void, 0x0894UL, unsigned long)(dat);
+}
+
+static inline void sdc_receivebyte_array(unsigned char* ptr, unsigned short len)
+{
+    SDC_BIN_FN(void, 0x08C4UL, unsigned char*, unsigned short)(ptr, len);
+}
+
+static inline unsigned char sdc_receivebyte(void)
+{
+    return SDC_BIN_FN(unsigned char, 0x0978UL, void)();
+}
+
+#undef SDC_BIN_FN
+
+#endif /* !SDCARD_IMPLEMENTATION */
+
 
 
 #endif /* _SDCARD_INCLUDE_H_ */
