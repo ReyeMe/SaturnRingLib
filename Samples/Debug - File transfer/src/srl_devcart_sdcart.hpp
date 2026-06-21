@@ -5,7 +5,7 @@
 #include "fatfs/ff.h"
 
 #include <cstdint> // For uintptr_t, size_t, uint8_t, uint32_t
-// #include <cstring>  // For memcpy
+#include <string.h>
 #include <initializer_list>
 #include <srl_register.hpp>
 
@@ -57,7 +57,7 @@ namespace SRL
             /** @brief Returns the SGCLIB API pointer. */
             static inline sgclib_api_t *sgclib_api()
             {
-                return SGCLIB_API;
+                return reinterpret_cast<sgclib_api_t*>(kSgclibBaseAddress);
             }
 
             using HiddenFReaddir = int (*)(DIR *dp, FILINFO *fno);
@@ -73,10 +73,10 @@ namespace SRL
                 return reinterpret_cast<DIR *>(kSgclibBaseAddress + kSgclibDirOffset);
             }
 
-            /** @brief Loads the SGCLIB firmware stub into its fixed memory location. */
+            /** @brief Loads the SGCLIB binary stub into High Work RAM. */
             static inline void fs_load_stub(const void *stubPtr, size_t stubSize)
             {
-                memcpy(SGCLIB_API, stubPtr, stubSize);
+                memcpy(sgclib_api(), stubPtr, stubSize);
             }
 
             /** @brief Initializes the SGCLIB FAT driver. Returns SGC_FR_OK on success. */
@@ -86,51 +86,57 @@ namespace SRL
             }
 
             /** @brief Gets current working directory. */
-            static inline void fs_getcwd(char *buf, int len)
+            static inline int fs_getcwd(char *buff, int buflen)
             {
-                SGCLIB_API->getcwd(buf, len);
+                return sgclib_api()->getcwd(buff, buflen);
             }
 
             /** @brief Changes current working directory. */
-            static inline void fs_chdir(const char *path)
+            static inline int fs_chdir(const char *path)
             {
-                SGCLIB_API->chdir(path);
+                return sgclib_api()->chdir(path);
             }
 
             /** @brief Opens a file. Returns file descriptor or -1 on error. */
-            static inline int fs_open(const char *path, int flags)
+            static inline int fs_open(const char *filename, int flags)
             {
-                return SGCLIB_API->open(path, flags);
+                return sgclib_api()->open(filename, flags);
             }
 
             /** @brief Closes a file descriptor. */
-            static inline void fs_close(int fd)
+            static inline int fs_close(int fd)
             {
-                SGCLIB_API->close(fd);
+                return sgclib_api()->close(fd);
             }
 
             /** @brief Reads from an open file. Returns bytes read, 0 at EOF, <0 on error. */
             static inline int fs_read(int fd, void *buf, int len)
             {
-                return SGCLIB_API->read(fd, buf, len);
+                return sgclib_api()->read(fd, buf, len);
+            }
+
+            /** @brief Writes to an open file. Returns bytes written, <0 on error. */
+            static inline int fs_write(int fd, const void *buf, int len)
+            {
+                return sgclib_api()->write(fd, buf, len);
             }
 
             /** @brief Gets file/directory metadata. Returns SGC_FR_OK on success. */
-            static inline int fs_stat(const char *path, sgc_stat_t *stat)
+            static inline int fs_stat(const char *filename, sgc_stat_t *stat)
             {
-                return SGCLIB_API->stat(path, stat, static_cast<int>(sizeof(sgc_stat_t)));
+                return sgclib_api()->stat(filename, stat, static_cast<int>(sizeof(sgc_stat_t)));
             }
 
             /** @brief Opens a directory for listing. Returns SGC_FR_OK on success. */
             static inline int fs_opendir(const char *path)
             {
-                return SGCLIB_API->opendir(path);
+                return sgclib_api()->opendir(path);
             }
 
             /** @brief Removes a file. Returns SGC_FR_OK on success. */
             static inline int fs_unlink(const char *path)
             {
-                return SGCLIB_API->unlink(path);
+                return sgclib_api()->unlink(path);
             }
 
             /** @brief Reads a directory entry. Returns SGC_FR_OK on success. */

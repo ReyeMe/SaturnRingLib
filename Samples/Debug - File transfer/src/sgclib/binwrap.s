@@ -6,10 +6,10 @@
 !
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-.global __sgclib_stub_dat
-.global __sgclib_stub_end
+.global ___sgclib_stub_dat
+.global ___sgclib_stub_end
     .align 1
-__sgclib_stub_dat:
-    .incbin "sgclib.bin"
-__sgclib_stub_end:
+___sgclib_stub_dat:
+    .incbin "src/sgclib/sgclib.bin"
+___sgclib_stub_end:
 
