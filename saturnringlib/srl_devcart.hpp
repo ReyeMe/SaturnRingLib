@@ -509,7 +509,8 @@ namespace SRL
       {
         List = 1,
         Remove = 2,
-        Crc = 3
+        Crc = 3,
+        Upload = 4
       };
 
       enum class Status : uint8_t
@@ -517,7 +518,8 @@ namespace SRL
         Ok = 0,
         Error = 1,
         Unsupported = 2,
-        BadRequest = 3
+        BadRequest = 3,
+        Handled = 4
       };
 
       constexpr static uint8_t MAGIC_0 = 'S';
