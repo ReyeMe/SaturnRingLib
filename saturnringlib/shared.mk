@@ -44,7 +44,8 @@ build-all: copy_data_files
 endif
 
 COBJECTS = $(SOURCES:.c=.o)
-OBJECTS += $(COBJECTS:.cxx=.o)
+CXXOBJECTS = $(COBJECTS:.cxx=.o)
+OBJECTS += $(CXXOBJECTS:.s=.o)
 
 ifdef OS
    CC = sh2eb-elf-gcc.exe
@@ -245,6 +246,9 @@ endif
 
 %.o : %.cxx
 	$(CXX) $< $(CCFLAGS) -std=c++23 -fpermissive -fno-exceptions -fno-rtti -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-threadsafe-statics -fno-use-cxa-atexit -o $@
+
+%.o : %.s
+	$(CC) $< $(CCFLAGS) -c -o $@
 
 compile_objects : $(OBJECTS) $(SYSOBJECTS)
 	$(info ****** Info ******)
