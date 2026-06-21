@@ -14,14 +14,6 @@
 
 #include <stdint.h>
 
-//typedef signed char        int8_t;
-//typedef short int          int16_t;
-//typedef int                int32_t;
-//typedef unsigned char      uint8_t;
-//typedef unsigned short int uint16_t;
-//typedef unsigned int       uint32_t;
-
-
 #define C_SEEK_SET  0
 #define C_SEEK_CUR  1
 #define C_SEEK_END  2
@@ -79,7 +71,6 @@ typedef struct
 } __attribute__((packed)) sgc_stat_t;
 
 
-
 /*
  * API functions prototypes.
  */
@@ -98,7 +89,6 @@ typedef int (*Fct_sgc_unlink  )(const char *filename);
 typedef int (*Fct_sgc_opendir )(const char *path);
 typedef int (*Fct_sgc_chdir   )(const char *path);
 typedef int (*Fct_sgc_getcwd  )(char *buff, int buflen);
-
 
 
 /*

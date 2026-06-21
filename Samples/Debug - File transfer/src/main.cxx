@@ -16,6 +16,7 @@ namespace
   constexpr size_t kMaxDirEntries = 96;
 
   bool g_sgcReady = false;
+  bool g_sgcStubLoaded = false;
 
   constexpr size_t kMaxPathBytes = 255;
 
@@ -71,6 +72,25 @@ namespace
     return crc;
   }
 
+  extern "C"
+  {
+    extern unsigned char __sgclib_stub_dat;
+    extern unsigned char __sgclib_stub_end;
+  }
+
+  void EnsureSgclibStubLoaded()
+  {
+    if (g_sgcStubLoaded)
+    {
+      return;
+    }
+
+    const unsigned char *stubPtr = &__sgclib_stub_dat;
+    const size_t stubSize = static_cast<size_t>(&__sgclib_stub_end - &__sgclib_stub_dat);
+    SRL::DevCart::SD::fs_load_stub(stubPtr, stubSize);
+    g_sgcStubLoaded = true;
+  }
+
   bool EnsureSgclibReady()
   {
     if (g_sgcReady)
@@ -78,7 +98,7 @@ namespace
       return true;
     }
 
-    // Initialize FatFs directly (no binary stub loading needed anymore)
+    EnsureSgclibStubLoaded();
     const int initRes = SRL::DevCart::SD::fs_init();
     g_sgcReady = (initRes == SGC_FR_OK);
     return g_sgcReady;
