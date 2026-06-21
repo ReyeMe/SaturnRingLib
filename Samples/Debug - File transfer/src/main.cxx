@@ -406,6 +406,86 @@ namespace
     return SRL::DevCart::HostIo::Status::Ok;
   }
 
+  SRL::DevCart::HostIo::Status HandleUpload(const char *path, char *response,
+                                            size_t &responseLen)
+  {
+    if (IsSdFsPath(path))
+    {
+      if (!EnsureSgclibReady())
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoUpload] SGCLIB init failed\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      FIL file;
+      const FRESULT openRes = f_open(&file, path, FA_WRITE | FA_CREATE_ALWAYS);
+      if (openRes != FR_OK)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoUpload] Can't open file '%s' for writing\n", path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      // Tell host we are ready
+      SRL::DevCart::HostIo::SendResponse(SRL::DevCart::HostIo::Status::Ok, nullptr, 0);
+
+      // Now wait for raw data from host
+      // 1. Read 4 bytes file size (Big Endian)
+      uint8_t size_buf[4];
+      if (!SRL::DevCart::HostIo::ReadAll(size_buf, 4))
+      {
+        f_close(&file);
+        return SRL::DevCart::HostIo::Status::Handled; // skip auto-response
+      }
+      uint32_t file_size = (static_cast<uint32_t>(size_buf[0]) << 24) |
+                           (static_cast<uint32_t>(size_buf[1]) << 16) |
+                           (static_cast<uint32_t>(size_buf[2]) << 8) |
+                           static_cast<uint32_t>(size_buf[3]);
+
+      // 2. Read File Data & Calculate CRC
+      uint8_t buffer[4096];
+      uint32_t received = 0;
+      uint8_t checksum = 0;
+      while (received < file_size)
+      {
+        uint32_t chunk = file_size - received;
+        if (chunk > sizeof(buffer))
+        {
+          chunk = sizeof(buffer);
+        }
+        if (!SRL::DevCart::HostIo::ReadAll(buffer, chunk))
+        {
+          break;
+        }
+
+        checksum = Crc8Update(checksum, buffer, chunk);
+        UINT bw = 0;
+        f_write(&file, buffer, chunk, &bw);
+        received += chunk;
+      }
+
+      f_close(&file);
+
+      // 3. Read Checksum
+      uint8_t host_checksum;
+      if (!SRL::DevCart::HostIo::ReadAll(&host_checksum, 1))
+      {
+        return SRL::DevCart::HostIo::Status::Handled;
+      }
+
+      // 4. Send Result
+      uint8_t result = (host_checksum == checksum) ? 0x00 : 0x01;
+      SRL::DevCart::HostIo::WriteAll(&result, 1);
+
+      return SRL::DevCart::HostIo::Status::Handled;
+    }
+
+    APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+               "[DoUpload] Unsupported path: %s\n", path);
+    return SRL::DevCart::HostIo::Status::Unsupported;
+  }
+
   void HandleHostIoRequest()
   {
     uint8_t requestPayload[kMaxRequestBytes + 1];
@@ -437,6 +517,9 @@ namespace
     case SRL::DevCart::HostIo::Command::Crc:
       commandName = "CRC";
       break;
+    case SRL::DevCart::HostIo::Command::Upload:
+      commandName = "UPLOAD";
+      break;
     default:
       break;
     }
@@ -459,6 +542,9 @@ namespace
     case SRL::DevCart::HostIo::Command::Crc:
       status = HandleCrc(path, response, responseLen);
       break;
+    case SRL::DevCart::HostIo::Command::Upload:
+      status = HandleUpload(path, response, responseLen);
+      break;
     default:
       APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
                  "[HostIo] Unsupported command: %u\n",
@@ -467,8 +553,11 @@ namespace
       break;
     }
 
-    SRL::DevCart::HostIo::SendResponse(
-        status, reinterpret_cast<const uint8_t *>(response), responseLen);
+    if (status != SRL::DevCart::HostIo::Status::Handled)
+    {
+      SRL::DevCart::HostIo::SendResponse(
+          status, reinterpret_cast<const uint8_t *>(response), responseLen);
+    }
   }
 }
 
