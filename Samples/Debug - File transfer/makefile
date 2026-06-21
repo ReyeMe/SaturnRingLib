@@ -27,9 +27,10 @@ BUILD_DROP = ./BuildDrop
 # SRL installation directory
 SRL_INSTALL_ROOT ?= ../..
 
-# Find all .c and .cxx files
+# Find all .c, .cxx and .s files
 SOURCES = $(patsubst ./%,%,$(shell find src/ -name '*.c')) 
 SOURCES += $(patsubst ./%,%,$(shell find src/ -name '*.cxx'))
+SOURCES += $(patsubst ./%,%,$(shell find src/ -name '*.s'))
 
 # Include shared makefile
 SDK_ROOT = $(SRL_INSTALL_ROOT)/saturnringlib
