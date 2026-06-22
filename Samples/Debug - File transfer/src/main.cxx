@@ -184,6 +184,12 @@ namespace
   SRL::DevCart::HostIo::Status HandleList(const char *path, char *response,
                                           size_t &responseLen)
   {
+    bool detailed = false;
+    if (strncmp(path, "-l ", 3) == 0)
+    {
+      detailed = true;
+      path += 3;
+    }
     if (SRL::DevCart::SD::Backend::IsRawPath(path))
     {
       if (SRL::DevCart::SD::Backend::IsRawRootPath(path))
@@ -250,9 +256,22 @@ namespace
         }
 
         any = true;
-        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
-                   "  %s %s\n", (entry.fattrib & AM_DIR) ? "[D]" : "[F]",
-                   entry.fname);
+        if (detailed)
+        {
+          APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                     "  %s %10lu %04u-%02u-%02u %02u:%02u %s\n",
+                     (entry.fattrib & AM_DIR) ? "[D]" : "[F]",
+                     (unsigned long)entry.fsize,
+                     (entry.fdate >> 9) + 1980, (entry.fdate >> 5) & 15, entry.fdate & 31,
+                     (entry.ftime >> 11), (entry.ftime >> 5) & 63,
+                     entry.fname);
+        }
+        else
+        {
+          APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                     "  %s %s\n", (entry.fattrib & AM_DIR) ? "[D]" : "[F]",
+                     entry.fname);
+        }
       }
 
       if (!any)
@@ -486,6 +505,40 @@ namespace
     return SRL::DevCart::HostIo::Status::Unsupported;
   }
 
+  const int kShellStartY = 2;
+  const int kShellMaxY = 27;
+  int g_shellY = kShellStartY;
+
+  void PrintShell(const char* text)
+  {
+      if (!text) return;
+      const char* p = text;
+      while (*p)
+      {
+          char lineBuf[45] = {0};
+          int len = 0;
+          while (*p && *p != '\n' && len < 44)
+          {
+              lineBuf[len++] = *p++;
+          }
+          if (*p == '\n') p++;
+
+          SRL::Debug::PrintClearLine(g_shellY);
+          SRL::Debug::Print(1, g_shellY, lineBuf);
+          g_shellY++;
+
+          if (g_shellY > kShellMaxY)
+          {
+              g_shellY = kShellStartY;
+              for (int y = kShellStartY; y <= kShellMaxY; ++y)
+              {
+                  SRL::Debug::PrintClearLine(y);
+              }
+          }
+      }
+      SRL::Debug::PrintClearLine(g_shellY);
+  }
+
   void HandleHostIoRequest()
   {
     uint8_t requestPayload[kMaxRequestBytes + 1];
@@ -525,7 +578,9 @@ namespace
     }
 
     // Keep latest incoming host command visible during request handling.
-    SRL::Debug::Print(1, 1, "CMD: %s %s", commandName, path);
+    char cmdBuf[80];
+    snprintf(cmdBuf, sizeof(cmdBuf), "> %s %s\n", commandName, path);
+    PrintShell(cmdBuf);
 
     char response[kMaxResponseBytes + 1] = {0};
     size_t responseLen = 0;
@@ -557,6 +612,16 @@ namespace
     {
       SRL::DevCart::HostIo::SendResponse(
           status, reinterpret_cast<const uint8_t *>(response), responseLen);
+
+      // Send explicit end-of-listing sentinel for List command
+      if (command == SRL::DevCart::HostIo::Command::List && status == SRL::DevCart::HostIo::Status::Ok)
+      {
+        SRL::DevCart::HostIo::SendResponse(SRL::DevCart::HostIo::Status::Ok, nullptr, 0);
+      }
+    }
+    if (responseLen > 0)
+    {
+      PrintShell(response);
     }
   }
 }
@@ -567,6 +632,8 @@ int main()
 {
   SRL::Core::Initialize(HighColor::Colors::Black);
   SRL::Cd::Initialize();
+
+  SRL::Debug::Print(1, 0, "File Transfer - FTX");
 
   while (true)
   {
