@@ -28,9 +28,8 @@ namespace SRL
             uint32_t sr;
         };
 
-        // SRL break vector — TRAP #3 → Interrupt::Vector::Trap3 (0x83)
-        static constexpr Interrupt::Vector BreakVector    = Interrupt::Vector::Trap3;
-        static constexpr uint32_t          BreakTrapNumber = 3;  // trapa #N maps to vector 0x80+N
+        // SRL break vector — using TRAPA #32 (Standard GDB SH breakpoint)
+        static constexpr uint32_t BreakTrapNumber = 32;
 
         // Upstream libyaul-gdbstub compatibility surface.
         static constexpr uint32_t GDBSTUB_LOAD_ADDRESS = 0x202FE000;
@@ -208,6 +207,13 @@ namespace SRL
             return -1;
         }
 
+        static inline void PurgeCache() {
+            *reinterpret_cast<volatile uint8_t*>(0xFFFFFE92) |= 0x10;
+            // The SH-2 hardware manual requires waiting at least two instructions
+            // before accessing the cache after a purge. We add several NOPs to be safe.
+            asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory");
+        }
+
         static inline void clear_breakpoints(bool restore_memory) {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
                 if (!g_software_breakpoints[i].active) {
@@ -215,13 +221,16 @@ namespace SRL
                 }
 
                 if (restore_memory) {
-                    volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_software_breakpoints[i].address);
+                    volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_software_breakpoints[i].address | 0x20000000U);
                     *code = g_software_breakpoints[i].original_instruction;
                 }
 
                 g_software_breakpoints[i].active = false;
                 g_software_breakpoints[i].address = 0;
                 g_software_breakpoints[i].original_instruction = 0;
+            }
+            if (restore_memory) {
+                PurgeCache();
             }
         }
 
@@ -239,11 +248,12 @@ namespace SRL
                 return false;
             }
 
-            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address);
+            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address | 0x20000000U);
             g_software_breakpoints[slot].address = address;
             g_software_breakpoints[slot].original_instruction = *code;
             *code = SoftwareBreakInstruction;
             g_software_breakpoints[slot].active = true;
+            PurgeCache();
             return true;
         }
 
@@ -257,11 +267,12 @@ namespace SRL
                 return true;
             }
 
-            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address);
+            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address | 0x20000000U);
             *code = g_software_breakpoints[slot].original_instruction;
             g_software_breakpoints[slot].active = false;
             g_software_breakpoints[slot].address = 0;
             g_software_breakpoints[slot].original_instruction = 0;
+            PurgeCache();
             return true;
         }
 
@@ -284,6 +295,7 @@ namespace SRL
             }
 
             uint32_t sp = 0;
+            uint32_t pc = 0;
             uint32_t pr = 0;
             uint32_t gbr = 0;
             uint32_t vbr = 0;
@@ -292,6 +304,10 @@ namespace SRL
             uint32_t sr = 0;
 
             asm volatile("mov r15, %0" : "=r"(sp));
+            asm volatile("mova 1f, r0\n\t"
+                         "mov r0, %0\n\t"
+                         ".align 2\n\t"
+                         "1:\n\t" : "=r"(pc) : : "r0");
             asm volatile("sts pr, %0" : "=r"(pr));
             asm volatile("stc gbr, %0" : "=r"(gbr));
             asm volatile("stc vbr, %0" : "=r"(vbr));
@@ -300,9 +316,7 @@ namespace SRL
             asm volatile("stc sr, %0" : "=r"(sr));
 
             g_ctx.r[15] = sp;
-            // PR holds the current return address on SH-2 and is more reliable here
-            // than __builtin_return_address() under this build configuration.
-            g_ctx.pc = pr;
+            g_ctx.pc = pc;
             g_ctx.pr = pr;
             g_ctx.gbr = gbr;
             g_ctx.vbr = vbr;
@@ -505,9 +519,11 @@ namespace SRL
                             packet_put('\0', "vCont;c;s", 9);
                         } else if (starts_with(in_buf, "vCont;")) {
                             // Resume target. For now, c/s actions both map to standard resume.
+                            PurgeCache();
                             return;
                         } else if (starts_with(in_buf, "vRun")) {
                             // Extended-remote run compatibility: treat like continue.
+                            PurgeCache();
                             return;
                         } else {
                             packet_put('\0', nullptr, 0);
@@ -526,13 +542,70 @@ namespace SRL
                         hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context));
                         packet_put('\0', "OK", 2);
                         break;
+                    case 'p': // Read a single register
+                        {
+                            uint32_t reg_idx = 0;
+                            const char* ptr = &in_buf[1];
+                            if (!parse_hex_u32_until(ptr, '\0', reg_idx, ptr)) {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
+
+                            if (reg_idx > 22) {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
+
+                            uint32_t* reg_ptr = &g_ctx.r[0];
+                            if (reg_idx < 16) reg_ptr = &g_ctx.r[reg_idx];
+                            else if (reg_idx == 16) reg_ptr = &g_ctx.pc;
+                            else if (reg_idx == 17) reg_ptr = &g_ctx.pr;
+                            else if (reg_idx == 18) reg_ptr = &g_ctx.gbr;
+                            else if (reg_idx == 19) reg_ptr = &g_ctx.vbr;
+                            else if (reg_idx == 20) reg_ptr = &g_ctx.mach;
+                            else if (reg_idx == 21) reg_ptr = &g_ctx.macl;
+                            else if (reg_idx == 22) reg_ptr = &g_ctx.sr;
+
+                            const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t*>(reg_ptr), out_buf, 4) - out_buf);
+                            packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                        }
+                        break;
+                    case 'P': // Write a single register
+                        {
+                            uint32_t reg_idx = 0;
+                            const char* ptr = &in_buf[1];
+                            if (!parse_hex_u32_until(ptr, '=', reg_idx, ptr) || *ptr != '=') {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
+                            ptr++; // skip '='
+
+                            if (reg_idx > 22) {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
+
+                            uint32_t* reg_ptr = &g_ctx.r[0];
+                            if (reg_idx < 16) reg_ptr = &g_ctx.r[reg_idx];
+                            else if (reg_idx == 16) reg_ptr = &g_ctx.pc;
+                            else if (reg_idx == 17) reg_ptr = &g_ctx.pr;
+                            else if (reg_idx == 18) reg_ptr = &g_ctx.gbr;
+                            else if (reg_idx == 19) reg_ptr = &g_ctx.vbr;
+                            else if (reg_idx == 20) reg_ptr = &g_ctx.mach;
+                            else if (reg_idx == 21) reg_ptr = &g_ctx.macl;
+                            else if (reg_idx == 22) reg_ptr = &g_ctx.sr;
+
+                            hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4);
+                            packet_put('\0', "OK", 2);
+                        }
+                        break;
                     case 'm':
                         {
                             uint32_t addr = 0, length = 0;
-                            const char* p = &in_buf[1];
-                            while (*p && *p != ',') addr = (addr << 4) | hex(*p++);
-                            if (*p == ',') p++;
-                            while (*p) length = (length << 4) | hex(*p++);
+                            const char* ptr = &in_buf[1];
+                            while (*ptr && *ptr != ',') addr = (addr << 4) | hex(*ptr++);
+                            if (*ptr == ',') ptr++;
+                            while (*ptr) length = (length << 4) | hex(*ptr++);
 
                             // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
                             if (length > 511U || !is_valid_memory_range(addr, length)) {
@@ -610,6 +683,8 @@ namespace SRL
                         packet_put('\0', "OK", 2);
                         break;
                     case 'c':
+                        PurgeCache();
+                        return;
                     case 's':
                         return;
                     default:
@@ -618,140 +693,32 @@ namespace SRL
                 }
             }
         }
-
         // --- Exception Handler ---
 
-        __attribute__((naked)) inline void ExceptionThunk() {
-            asm volatile(
-                // --- Save context ---
-                // Push R0 and GBR onto stack before using R0 as base pointer.
-                "mov.l r0, @-r15\n\t"
-                "stc.l gbr, @-r15\n\t"
-                "mov.l 1f, r0\n\t"
+        extern "C" void srl_gdbstub_exception_thunk();
 
-                // Save R1-R14.
-                "mov.l r14, @(14*4, r0)\n\t"
-                "mov.l r13, @(13*4, r0)\n\t"
-                "mov.l r12, @(12*4, r0)\n\t"
-                "mov.l r11, @(11*4, r0)\n\t"
-                "mov.l r10, @(10*4, r0)\n\t"
-                "mov.l r9,  @(9*4,  r0)\n\t"
-                "mov.l r8,  @(8*4,  r0)\n\t"
-                "mov.l r7,  @(7*4,  r0)\n\t"
-                "mov.l r6,  @(6*4,  r0)\n\t"
-                "mov.l r5,  @(5*4,  r0)\n\t"
-                "mov.l r4,  @(4*4,  r0)\n\t"
-                "mov.l r3,  @(3*4,  r0)\n\t"
-                "mov.l r2,  @(2*4,  r0)\n\t"
-                "mov.l r1,  @(1*4,  r0)\n\t"
-
-                // Save R15 as pre-exception value.
-                "mov r15, r1\n\t"
-                "add #16, r1\n\t"
-                "mov.l r1, @(15*4, r0)\n\t"
-
-                // Pop our two saved values back into temporaries.
-                "mov.l @r15+, r1\n\t"
-                "mov.l @r15+, r2\n\t"
-
-                // Save R0.
-                "mov.l r2, @r0\n\t"
-
-                // Use r2 as secondary base for fields at offset >= 64.
-                "mov r0, r2\n\t"
-                "add #64, r2\n\t"
-
-                // Save GBR.
-                "mov.l r1, @(8, r2)\n\t"
-
-                // Save PC and SR.
-                "mov.l @r15, r1\n\t"
-                "mov.l r1, @r2\n\t"
-                "mov.l @(4, r15), r1\n\t"
-                "mov.l r1, @(24, r2)\n\t"
-
-                // Save PR, VBR, MACH, MACL.
-                "sts pr, r1\n\t"
-                "mov.l r1, @(4, r2)\n\t"
-                "stc vbr, r1\n\t"
-                "mov.l r1, @(12, r2)\n\t"
-                "sts mach, r1\n\t"
-                "mov.l r1, @(16, r2)\n\t"
-                "sts macl, r1\n\t"
-                "mov.l r1, @(20, r2)\n\t"
-
-                // Increment g_exception_thunk_count
-                "mov.l 3f, r1\n\t"
-                "mov.l @r1, r2\n\t"
-                "add #1, r2\n\t"
-                "mov.l r2, @r1\n\t"
-
-                // Call process_commands.
-                "mov.l 2f, r1\n\t"
-                "jsr @r1\n\t"
-                "nop\n\t"
-
-                // --- Restore context ---
-                "mov.l 1f, r0\n\t"
-                "mov r0, r2\n\t"
-                "add #64, r2\n\t"
-
-                // Restore special registers.
-                "mov.l @(4,  r2), r1\n\t"
-                "lds r1, pr\n\t"
-                "mov.l @(12, r2), r1\n\t"
-                "ldc r1, vbr\n\t"
-                "mov.l @(16, r2), r1\n\t"
-                "lds r1, mach\n\t"
-                "mov.l @(20, r2), r1\n\t"
-                "lds r1, macl\n\t"
-                "mov.l @(8,  r2), r1\n\t"
-                "ldc r1, gbr\n\t"
-
-                // Update exception frame with (possibly modified) PC and SR.
-                "mov.l @r2, r1\n\t"
-                "mov.l r1, @r15\n\t"
-                "mov.l @(24, r2), r1\n\t"
-                "mov.l r1, @(4, r15)\n\t"
-
-                // Restore R1-R14.
-                "mov.l @(14*4, r0), r14\n\t"
-                "mov.l @(13*4, r0), r13\n\t"
-                "mov.l @(12*4, r0), r12\n\t"
-                "mov.l @(11*4, r0), r11\n\t"
-                "mov.l @(10*4, r0), r10\n\t"
-                "mov.l @(9*4,  r0), r9\n\t"
-                "mov.l @(8*4,  r0), r8\n\t"
-                "mov.l @(7*4,  r0), r7\n\t"
-                "mov.l @(6*4,  r0), r6\n\t"
-                "mov.l @(5*4,  r0), r5\n\t"
-                "mov.l @(4*4,  r0), r4\n\t"
-                "mov.l @(3*4,  r0), r3\n\t"
-                "mov.l @(2*4,  r0), r2\n\t"
-                "mov.l @(1*4,  r0), r1\n\t"
-                "mov.l @r0, r0\n\t"
-
-                "rte\n\t"
-                "nop\n\t"
-
-                ".align 4\n"
-                "1: .long srl_gdbstub_ctx\n"
-                "2: .long srl_gdbstub_process_commands\n"
-                "3: .long srl_gdbstub_thunk_count\n"
-            );
-        }
+        inline uint32_t g_vbr_table_buffer[512] = {0};
+        inline uint32_t* g_vbr_table_ptr = nullptr;
 
         static inline void InstallExceptionHandlers() {
-            // Match Timer::Init() pattern: use a temporary SCU mask while touching vectors.
-            const uint32_t previousMask = SRL::System::GetInterruptMask();
-            SRL::System::SetInterruptMask(0xf);
+            if (!g_handlers_installed) {
+                // Force VBR to SGL's standard address to bypass the Boot ROM TRAPA wrapper
+                uint32_t current_vbr = 0x06000000;
+                asm volatile("ldc %0, vbr" :: "r"(current_vbr));
+                
+                // Write directly to the Cache-Through mirror of the VBR table
+                volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
 
-            Interrupt::SetHandler(Interrupt::Vector::Illegal, &ExceptionThunk);
-            Interrupt::SetHandler(Interrupt::Vector::Address, &ExceptionThunk);
-            Interrupt::SetHandler(BreakVector, &ExceptionThunk);
+                // Patch our exceptions
+                vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Illegal Instruction
+                vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
+                vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
+                vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
+                vbr_table[BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #32
 
-            SRL::System::SetInterruptMask(previousMask);
-            g_handlers_installed = true;
+                PurgeCache();
+                g_handlers_installed = true;
+            }
         }
 
         // --- Public API ---
@@ -759,6 +726,8 @@ namespace SRL
         /**
          * @brief Initialize the GDB stub and hook exception vectors.
          */
+        static inline bool IsUsbDataPathEnabled();
+
         inline void Init() {
             g_has_connection = false;
             g_handshake_done = false;
@@ -771,7 +740,7 @@ namespace SRL
             g_unget_char = -1;
             g_devcart_ready = SRL::DevCart::CS1::HasWascaSignature();
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
-            g_devcart_usb_datapath_enabled = SRL::DevCart::CS1::IsUsbDataPathEnabled();
+            g_devcart_usb_datapath_enabled = IsUsbDataPathEnabled();
             g_last_usb_flags = SRL::DevCart::CS0::readFlags();
             g_stop_requested_by_ctrl_c = false;
             g_last_stop_signal = 5;
@@ -855,8 +824,8 @@ namespace SRL
         /**
          * @brief Enter the GDB stub via software trap (Interrupt::Vector::Trap3).
          */
-        inline void Break() {
-            Interrupt::Trigger(BreakVector);
+        static inline void Break() {
+            asm volatile("trapa #32" ::: "memory");
         }
 
         /**
@@ -884,7 +853,7 @@ namespace SRL
             const uint8_t usbFlags = SRL::DevCart::CS0::readFlags();
             g_last_usb_flags = usbFlags;
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
-            g_devcart_usb_datapath_enabled = SRL::DevCart::CS1::IsUsbDataPathEnabled();
+            g_devcart_usb_datapath_enabled = IsUsbDataPathEnabled();
 
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::RXF) == 0;
             if (rxPending) {
@@ -926,3 +895,91 @@ namespace SRL
     }
 }
 
+__asm__(
+    ".global _srl_gdbstub_exception_thunk\n"
+    ".align 2\n"
+    "_srl_gdbstub_exception_thunk:\n"
+    "mov.l r0, @-r15\n"
+    "stc.l gbr, @-r15\n"
+    "mov.l 1f, r0\n"
+    "mov.l r14, @(14*4, r0)\n"
+    "mov.l r13, @(13*4, r0)\n"
+    "mov.l r12, @(12*4, r0)\n"
+    "mov.l r11, @(11*4, r0)\n"
+    "mov.l r10, @(10*4, r0)\n"
+    "mov.l r9,  @(9*4,  r0)\n"
+    "mov.l r8,  @(8*4,  r0)\n"
+    "mov.l r7,  @(7*4,  r0)\n"
+    "mov.l r6,  @(6*4,  r0)\n"
+    "mov.l r5,  @(5*4,  r0)\n"
+    "mov.l r4,  @(4*4,  r0)\n"
+    "mov.l r3,  @(3*4,  r0)\n"
+    "mov.l r2,  @(2*4,  r0)\n"
+    "mov.l r1,  @(1*4,  r0)\n"
+    "mov r15, r1\n"
+    "add #16, r1\n"
+    "mov.l r1, @(15*4, r0)\n"
+    "mov.l @r15+, r1\n"
+    "mov.l @r15+, r2\n"
+    "mov.l r2, @r0\n"
+    "mov r0, r2\n"
+    "add #64, r2\n"
+    "mov.l r1, @(2*4, r2)\n"
+    "mov.l @r15, r1\n"
+    "mov.l r1, @r2\n"
+    "mov.l @(4, r15), r1\n"
+    "mov.l r1, @(24, r2)\n"
+    "sts pr, r1\n"
+    "mov.l r1, @(1*4, r2)\n"
+    "stc vbr, r1\n"
+    "mov.l r1, @(3*4, r2)\n"
+    "sts mach, r1\n"
+    "mov.l r1, @(4*4, r2)\n"
+    "sts macl, r1\n"
+    "mov.l r1, @(5*4, r2)\n"
+    "mov.l 3f, r1\n"
+    "mov.l @r1, r2\n"
+    "add #1, r2\n"
+    "mov.l r2, @r1\n"
+    "mov.l 2f, r1\n"
+    "jsr @r1\n"
+    "nop\n"
+    "mov.l 1f, r0\n"
+    "mov r0, r2\n"
+    "add #64, r2\n"
+    "mov.l @(1*4, r2), r1\n"
+    "lds r1, pr\n"
+    "mov.l @(3*4, r2), r1\n"
+    "ldc r1, vbr\n"
+    "mov.l @(4*4, r2), r1\n"
+    "lds r1, mach\n"
+    "mov.l @(5*4, r2), r1\n"
+    "lds r1, macl\n"
+    "mov.l @(2*4, r2), r1\n"
+    "ldc r1, gbr\n"
+    "mov.l @(24, r2), r1\n"
+    "mov.l r1, @(4, r15)\n"
+    "mov.l @r2, r1\n"
+    "mov.l r1, @r15\n"
+    "mov.l @(14*4, r0), r14\n"
+    "mov.l @(13*4, r0), r13\n"
+    "mov.l @(12*4, r0), r12\n"
+    "mov.l @(11*4, r0), r11\n"
+    "mov.l @(10*4, r0), r10\n"
+    "mov.l @(9*4,  r0), r9\n"
+    "mov.l @(8*4,  r0), r8\n"
+    "mov.l @(7*4,  r0), r7\n"
+    "mov.l @(6*4,  r0), r6\n"
+    "mov.l @(5*4,  r0), r5\n"
+    "mov.l @(4*4,  r0), r4\n"
+    "mov.l @(3*4,  r0), r3\n"
+    "mov.l @(2*4,  r0), r2\n"
+    "mov.l @(1*4,  r0), r1\n"
+    "mov.l @r0, r0\n"
+    "rte\n"
+    "nop\n"
+    ".align 4\n"
+    "1: .long srl_gdbstub_ctx\n"
+    "2: .long srl_gdbstub_process_commands\n"
+    "3: .long srl_gdbstub_thunk_count\n"
+);

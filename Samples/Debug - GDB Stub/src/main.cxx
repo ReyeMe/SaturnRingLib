@@ -32,9 +32,8 @@ int main()
         SRL::Debug::Print(1, 20, "Last GDB cmd: %.45s", SRL::GDBStub::g_last_command[0] ? SRL::GDBStub::g_last_command : "<none>");
         SRL::Debug::Print(1, 21, "DevCart probe:   %s", SRL::GDBStub::IsDevCartReady() ? "ok" : "failed");
         SRL::Debug::Print(1, 22, "Port avail:      %s", SRL::GDBStub::IsDevCartPortAvailable() ? "yes" : "no");
-        SRL::Debug::Print(1, 23, "USB path:        %s", SRL::GDBStub::IsUsbDataPathEnabled() ? "enabled" : "disabled");
-        SRL::Debug::Print(1, 24, "USB_FLAGS:       0x%02X", static_cast<unsigned int>(SRL::GDBStub::GetLastUsbFlags()));
-        SRL::Debug::Print(1, 25, "Poll fallback:   %lu", static_cast<unsigned long>(SRL::GDBStub::GetPollFallbackCount()));
+        SRL::Debug::Print(1, 23, "USB_FLAGS:       0x%02X", static_cast<unsigned int>(SRL::GDBStub::GetLastUsbFlags()));
+        SRL::Debug::Print(1, 24, "Poll fallback:   %lu", static_cast<unsigned long>(SRL::GDBStub::GetPollFallbackCount()));
 
         SRL::GDBStub::Poll();
 
