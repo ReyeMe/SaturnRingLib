@@ -566,7 +566,7 @@ namespace SRL
                             in_buf[4]=='p' && in_buf[5]=='o' && in_buf[6]=='r' &&
                             in_buf[7]=='t' && in_buf[8]=='e' && in_buf[9]=='d') {
                             // Advertise swbreak and target description so GDB knows the arch.
-                            packet_put('\0', "PacketSize=400;swbreak+;qXfer:features:read+", 43);
+                            packet_put('\0', "PacketSize=400;swbreak+;qXfer:features:read+", 44);
                             g_handshake_done = true;
                         } else if (in_buf[1]=='X' && in_buf[2]=='f' && in_buf[3]=='e' &&
                                    in_buf[4]=='r' && in_buf[5]==':' && in_buf[6]=='f') {
