@@ -571,18 +571,62 @@ namespace SRL
                         } else if (in_buf[1]=='X' && in_buf[2]=='f' && in_buf[3]=='e' &&
                                    in_buf[4]=='r' && in_buf[5]==':' && in_buf[6]=='f') {
                             // qXfer:features:read:target.xml:offset,length
+                            // Full SH-2 register description so gdb-multiarch auto-detects
+                            // architecture and register layout without needing 'set arch'.
                             static const char target_xml[] =
                                 "<?xml version=\"1.0\"?>\n"
                                 "<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
                                 "<target version=\"1.0\">\n"
                                 "  <architecture>sh2</architecture>\n"
+                                "  <feature name=\"org.gnu.gdb.sh.core\">\n"
+                                "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r2\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r3\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r4\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r5\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r6\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r7\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r8\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r9\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r10\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r11\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\"/>\n"
+                                "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" regnum=\"16\"/>\n"
+                                "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\"/>\n"
+                                "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\"/>\n"
+                                "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "  </feature>\n"
                                 "</target>\n";
-                            // Always send the full document prefixed with 'l' (last chunk).
-                            static const size_t xml_len = sizeof(target_xml) - 1;
-                            out_buf[0] = 'l';
-                            size_t copy = xml_len < 399U ? xml_len : 399U;
-                            for (size_t i = 0; i < copy; ++i) out_buf[1 + i] = target_xml[i];
-                            packet_put('\0', out_buf, 1 + copy);
+                            // Send in chunks respecting the requested length from GDB.
+                            // Parse offset and length from "qXfer:features:read:target.xml:off,len"
+                            static const size_t xml_len = sizeof(target_xml) - 1U;
+                            uint32_t xfer_off = 0, xfer_len = 0xFFFFU;
+                            {
+                                const char* colon = in_buf;
+                                int colons = 0;
+                                while (*colon && colons < 4) { if (*colon++ == ':') ++colons; }
+                                // colon now points past the 4th ':', i.e. at "off,len"
+                                while (*colon && *colon != ',') xfer_off = (xfer_off << 4) | hex(*colon++);
+                                if (*colon == ',') { ++colon; while (*colon) xfer_len = (xfer_len == 0xFFFFU ? 0 : xfer_len) << 4 | hex(*colon++); }
+                            }
+                            if (xfer_off >= xml_len) {
+                                out_buf[0] = 'l'; packet_put('\0', out_buf, 1);
+                            } else {
+                                size_t avail = xml_len - xfer_off;
+                                size_t send  = avail < xfer_len ? avail : xfer_len;
+                                if (send > 399U) send = 399U;
+                                bool last = (xfer_off + send >= xml_len);
+                                out_buf[0] = last ? 'l' : 'm';
+                                for (size_t i = 0; i < send; ++i) out_buf[1 + i] = target_xml[xfer_off + i];
+                                packet_put('\0', out_buf, 1 + send);
+                            }
                         } else if (in_buf[1]=='f' && in_buf[2]=='T' && in_buf[3]=='h' &&
                                    in_buf[4]=='r' && in_buf[5]=='e' && in_buf[6]=='a' &&
                                    in_buf[7]=='d' && in_buf[8]=='I' && in_buf[9]=='n' &&
