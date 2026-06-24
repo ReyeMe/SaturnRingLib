@@ -327,9 +327,10 @@ namespace SRL
 
         // --- Transport (libyaul-style device hooks) ---
 
-        // Idle timeout: ~10 seconds at 28.6 MHz with ~10 cycles/iteration.
-        // Applied only after handshake, so GDB clients that think hard don't time out.
-        static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 28600000U;
+        // Idle timeout applied after handshake when no packet arrives.
+        // MMIO reads (USB_FLAGS) have ~10 wait states on Saturn, so each loop
+        // iteration takes ~1-2 us. 3,000,000 iterations ≈ 3-6 seconds.
+        static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 3000000U;
 
         // Waits for USB RX data.
         // - Before first connection (g_has_connection=false): waits indefinitely
@@ -532,6 +533,16 @@ namespace SRL
             char out_buf[1024];
 
             adjust_pc_for_software_breakpoint();
+
+            // Drain any stale bytes that GDB sent before this trap fired.
+            // Without this, GDB startup packets (including vCont;c) queued in
+            // the FIFO while the Saturn was initialising would immediately resume
+            // the target upon the very first Break().
+            if (!g_has_connection) {
+                while (!SRL::DevCart::CS0::isRXFEmpty()) {
+                    (void)*(volatile uint8_t*)(SRL::DevCart::CS0::USB_FIFO);
+                }
+            }
 
             // The stop reason (SIGTRAP or SIGINT) is preserved until '?' arrives.
             // Do not clear g_stop_requested_by_ctrl_c here — the '?' handler reads it.
