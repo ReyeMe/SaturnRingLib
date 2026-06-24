@@ -327,20 +327,72 @@ namespace SRL
 
         // --- Transport (libyaul-style device hooks) ---
 
-        static inline uint8_t __gdb_getc() {
+        // Idle timeout: ~10 seconds at 28.6 MHz with ~10 cycles/iteration.
+        // Applied only after handshake, so GDB clients that think hard don't time out.
+        static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 28600000U;
+
+        // Waits for USB RX data.
+        // - Before first connection (g_has_connection=false): waits indefinitely
+        //   so Break() before GDB attaches works correctly.
+        // - After connection established: aborts on cable unplug (isConnected=false)
+        //   or on prolonged silence (GDB process killed without sending D).
+        // Returns true if data is available, false if session should be abandoned.
+        static inline bool __gdb_wait_rx() {
+            uint32_t idle = 0;
+            while (SRL::DevCart::CS0::isRXFEmpty()) {
+                if (g_has_connection) {
+                    // Abort immediately on cable unplug.
+                    if (!SRL::DevCart::CS0::isConnected()) {
+                        g_has_connection = false;
+                        g_handshake_done = false;
+                        return false;
+                    }
+                    // After handshake, apply idle timeout for dead GDB processes.
+                    if (g_handshake_done) {
+                        if (++idle > GDB_RX_IDLE_TIMEOUT) {
+                            g_has_connection = false;
+                            g_handshake_done = false;
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        // Waits for USB TX space.
+        // Aborts on cable unplug if we had an active session.
+        static inline bool __gdb_wait_tx() {
+            while (SRL::DevCart::CS0::isTXEFull()) {
+                if (g_has_connection && !SRL::DevCart::CS0::isConnected()) {
+                    g_has_connection = false;
+                    g_handshake_done = false;
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        static inline int __gdb_getc() {
             if (g_unget_char != -1) {
-                uint8_t c = static_cast<uint8_t>(g_unget_char);
+                int c = g_unget_char;
                 g_unget_char = -1;
                 return c;
             }
-
-            const uint8_t c = SRL::DevCart::CS0::read();
+            if (!__gdb_wait_rx()) {
+                return -1; // disconnected
+            }
+            const uint8_t c = *(volatile uint8_t *)(SRL::DevCart::CS0::USB_FIFO);
             g_rx_detect_count = g_rx_detect_count + 1;
-            return c;
+            return static_cast<int>(c);
         }
 
-        static inline void __gdb_putc(uint8_t value) {
-            SRL::DevCart::CS0::write(&value);
+        static inline bool __gdb_putc(uint8_t value) {
+            if (!__gdb_wait_tx()) {
+                return false; // disconnected
+            }
+            *(volatile uint8_t *)(SRL::DevCart::CS0::USB_FIFO) = value;
+            return true;
         }
 
         // --- Packet I/O (minimal, libyaul-style) ---
@@ -350,7 +402,7 @@ namespace SRL
             for (size_t i = 0; i < len; i++) {
                 uint8_t ch = static_cast<uint8_t>(buffer[i]);
                 sum += ch;
-                __gdb_putc(ch);
+                if (!__gdb_putc(ch)) return sum; // disconnect
             }
             return sum;
         }
@@ -359,27 +411,30 @@ namespace SRL
             do {
                 uint8_t csum = 0;
                 uint8_t ch = '$';
-                __gdb_putc(ch);
+                if (!__gdb_putc(ch)) return;
 
                 if (type != '\0') {
                     ch = static_cast<uint8_t>(type);
-                    __gdb_putc(ch);
+                    if (!__gdb_putc(ch)) return;
                     csum += ch;
                 }
 
                 if (data != nullptr && len > 0) {
                     csum += packet_put_data(data, len);
+                    if (!g_has_connection) return; // disconnect mid-send
                 }
 
                 ch = '#';
-                __gdb_putc(ch);
+                if (!__gdb_putc(ch)) return;
                 ch = static_cast<uint8_t>(hexchar(csum >> 4));
-                __gdb_putc(ch);
+                if (!__gdb_putc(ch)) return;
                 ch = static_cast<uint8_t>(hexchar(csum));
-                __gdb_putc(ch);
+                if (!__gdb_putc(ch)) return;
 
                 while (true) {
-                    ch = static_cast<uint8_t>(__gdb_getc() & 0x7F);
+                    int raw = __gdb_getc();
+                    if (raw < 0) return; // disconnect
+                    ch = static_cast<uint8_t>(raw & 0x7F);
                     if (ch == '+') {
                         return;
                     } else if (ch == '-') {
@@ -392,31 +447,36 @@ namespace SRL
             } while (true);
         }
 
-        static inline void packet_get(char* buffer, size_t max_len) {
+        // Returns false if disconnected (buffer will contain empty/partial data).
+        static inline bool packet_get(char* buffer, size_t max_len) {
+            buffer[0] = '\0';
             while (true) {
-                uint8_t ch;
+                int raw;
 
-                while (((ch = static_cast<uint8_t>(__gdb_getc() & 0x7F))) != '$') {
-                    // Ignore until packet start; strip high bit for control chars
-                }
+                // Wait for '$' packet start, abort on disconnect.
+                do {
+                    raw = __gdb_getc();
+                    if (raw < 0) return false; // disconnect
+                } while ((raw & 0x7F) != '$');
 
                 uint8_t csum = 0;
                 size_t len = 0;
 
                 while (true) {
-                    ch = static_cast<uint8_t>(__gdb_getc() & 0x7F);
-                    if (ch == '#') {
-                        break;
-                    }
+                    raw = __gdb_getc();
+                    if (raw < 0) return false;
+                    uint8_t ch = static_cast<uint8_t>(raw & 0x7F);
+                    if (ch == '#') break;
                     csum += ch;
-                    if (len + 1 < max_len) {
-                        buffer[len++] = static_cast<char>(ch);
-                    }
+                    if (len + 1 < max_len) buffer[len++] = static_cast<char>(ch);
                 }
                 buffer[len] = '\0';
 
-                const int hi = hex(static_cast<char>(__gdb_getc() & 0x7F));
-                const int lo = hex(static_cast<char>(__gdb_getc() & 0x7F));
+                const int hi_raw = __gdb_getc();
+                const int lo_raw = __gdb_getc();
+                if (hi_raw < 0 || lo_raw < 0) return false;
+                const int hi = hex(static_cast<char>(hi_raw & 0x7F));
+                const int lo = hex(static_cast<char>(lo_raw & 0x7F));
                 if (hi < 0 || lo < 0) {
                     uint8_t nack = '-';
                     __gdb_putc(nack);
@@ -433,7 +493,7 @@ namespace SRL
                 uint8_t ack = '+';
                 __gdb_putc(ack);
 
-                // Packet format with sequence id: XX:payload
+                // Strip sequence id prefix (XX:payload → payload).
                 if (len >= 3 && buffer[2] == ':') {
                     size_t i = 0;
                     while (buffer[3 + i] != '\0') {
@@ -444,16 +504,24 @@ namespace SRL
                 }
 
                 record_command(buffer);
-                return;
+                return true;
             }
         }
 
         static inline void send_stop_signal(uint8_t signal) {
-            char stop[2];
-            stop[0] = hexchar(signal >> 4);
-            stop[1] = hexchar(signal);
+            // Use T-packet with thread and swbreak so GDB knows it's a real
+            // software-breakpoint stop and does NOT auto-continue.
+            // Format: T<sig>swbreak:;thread:1;
+            char buf[32];
+            buf[0] = hexchar(signal >> 4);
+            buf[1] = hexchar(signal & 0xF);
+            buf[2] = 's'; buf[3] = 'w'; buf[4] = 'b'; buf[5] = 'r';
+            buf[6] = 'e'; buf[7] = 'a'; buf[8] = 'k'; buf[9] = ':';
+            buf[10] = ';'; buf[11] = 't'; buf[12] = 'h'; buf[13] = 'r';
+            buf[14] = 'e'; buf[15] = 'a'; buf[16] = 'd'; buf[17] = ':';
+            buf[18] = '1'; buf[19] = ';';
             g_last_stop_signal = signal;
-            packet_put('S', stop, 2);
+            packet_put('T', buf, 20);
         }
 
         // --- Core Handler ---
@@ -465,26 +533,45 @@ namespace SRL
 
             adjust_pc_for_software_breakpoint();
 
-            if (g_has_connection) {
-                const uint8_t stopSignal = g_stop_requested_by_ctrl_c ? 2U : 5U;
-                g_stop_requested_by_ctrl_c = false;
-                send_stop_signal(stopSignal);
-            }
+            // The stop reason (SIGTRAP or SIGINT) is preserved until '?' arrives.
+            // Do not clear g_stop_requested_by_ctrl_c here — the '?' handler reads it.
 
             while (true) {
                 out_buf[0] = 0;
-                packet_get(in_buf, sizeof(in_buf));
+                if (!packet_get(in_buf, sizeof(in_buf))) {
+                    // USB disconnected while waiting for a packet — stop processing.
+                    return;
+                }
 
                 switch (in_buf[0]) {
                     case '?':
-                        send_stop_signal(g_last_stop_signal);
+                        // First '?' marks the connection as active and sends the stop reason.
+                        g_has_connection = true;
+                        send_stop_signal(g_stop_requested_by_ctrl_c ? 2U : g_last_stop_signal);
+                        g_stop_requested_by_ctrl_c = false;
                         break;
                     case 'q':
                         if (in_buf[1]=='S' && in_buf[2]=='u' && in_buf[3]=='p' &&
                             in_buf[4]=='p' && in_buf[5]=='o' && in_buf[6]=='r' &&
                             in_buf[7]=='t' && in_buf[8]=='e' && in_buf[9]=='d') {
-                            packet_put('\0', "PacketSize=400", 14);
+                            // Advertise swbreak and target description so GDB knows the arch.
+                            packet_put('\0', "PacketSize=400;swbreak+;qXfer:features:read+", 43);
                             g_handshake_done = true;
+                        } else if (in_buf[1]=='X' && in_buf[2]=='f' && in_buf[3]=='e' &&
+                                   in_buf[4]=='r' && in_buf[5]==':' && in_buf[6]=='f') {
+                            // qXfer:features:read:target.xml:offset,length
+                            static const char target_xml[] =
+                                "<?xml version=\"1.0\"?>\n"
+                                "<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
+                                "<target version=\"1.0\">\n"
+                                "  <architecture>sh2</architecture>\n"
+                                "</target>\n";
+                            // Always send the full document prefixed with 'l' (last chunk).
+                            static const size_t xml_len = sizeof(target_xml) - 1;
+                            out_buf[0] = 'l';
+                            size_t copy = xml_len < 399U ? xml_len : 399U;
+                            for (size_t i = 0; i < copy; ++i) out_buf[1 + i] = target_xml[i];
+                            packet_put('\0', out_buf, 1 + copy);
                         } else if (in_buf[1]=='f' && in_buf[2]=='T' && in_buf[3]=='h' &&
                                    in_buf[4]=='r' && in_buf[5]=='e' && in_buf[6]=='a' &&
                                    in_buf[7]=='d' && in_buf[8]=='I' && in_buf[9]=='n' &&
@@ -710,11 +797,16 @@ namespace SRL
                 volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
 
                 // Patch our exceptions
+                // SH-2 exception vector layout from VBR:
+                //   Fixed exceptions (reset, NMI, etc): VBR + 0x000..0x07C  (indices 0..31)
+                //   External/internal interrupts:         VBR + 0x080..0x0FC  (indices 32..63)
+                //   TRAPA #N vectors:                     VBR + 0x100 + N*4   (indices 64+N)
+                static constexpr uint32_t TrapVecBase = 0x100U / 4U; // = 64
                 vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Illegal Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
-                vbr_table[BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #32
+                vbr_table[TrapVecBase + BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #32
 
                 PurgeCache();
                 g_handlers_installed = true;
