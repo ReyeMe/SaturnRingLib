@@ -20,12 +20,18 @@ This will produce `./BuildDrop/Debug_GDBStub.elf` (which contains your debug sym
 
 To ensure a stable upload and execution environment on real hardware, it is highly recommended to follow the clean hardware state sequence before uploading your payload:
 
+### Optional Host Tools
+
+Make sure these tools are installed and available in `PATH` before starting:
+
+- [`usbreset`](https://man7.org/linux/man-pages/man1/usbreset.1.html) (reset FT245R endpoint)
+- [`ESP-SaturnPSU_Control`](https://github.com/willll/ESP-SaturnPSU_Control) (control power supply - esp32-saturn-psu firmware)
+
 ### Required Host Tools
 
 Make sure these tools are installed and available in `PATH` before starting:
 
-- `usbreset` (reset FT245R endpoint)
-- `ftx` (USBGamers uploader)
+- [`ftx`](https://github.com/willll/ftx) (USBGamers uploader)
 - `gdb-multiarch` or `sh-elf-gdb` (debugger)
 
 Quick sanity checks:
@@ -93,14 +99,42 @@ or with multiarch GDB:
 gdb-multiarch ./BuildDrop/Debug_GDBStub.elf
 ```
 
-Once inside the `(gdb)` prompt, connect to the Saturn over the serial/USB interface. (Depending on your OS and drivers, this might be `/dev/ttyUSB0` on Linux, or `COM3` on Windows).
+Once inside the `(gdb)` prompt, connect to the Saturn over the `ftx` TCP interface.
+
+```sh
+ftx -g 1234 -v
+```
 
 ```gdb
 (gdb) set architecture sh
-(gdb) target remote /dev/ttyUSB0
+(gdb) set endian big
+(gdb) target extended-remote host.docker.internal:1234
 ```
 
-If successful, GDB will connect and show you that the program is halted at the `trapa #3` breakpoint in `main.cxx`.
+Ftx will print the communication log :
+
+```ftx
+[TCPProxy] listening on port 1234
+[TCPProxy] client connected
+GDB>+
+GDB>$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;QThreadOptions+;no-resumed+;memory-tagging+;xmlRegisters=i386;error-message+#14
+GDB>$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;QThreadOptions+;no-resumed+;memory-tagging+;xmlRegisters=i386;error-message+#14
+Target>+
+Target>$PacketSize=400;swbreak+;qXfer:features:read+#f4
+GDB>+
+GDB>$vCont?#49
+...
+```
+
+and GDB will show:
+
+```gdb
+...
+Connected to Saturn.
+0x60044444 in main () at src/main.cxx:15
+15		SRL::GDBStub::Poll();
+(gdb) 
+```
 
 ### Useful GDB Commands:
 - `info registers`: View the state of all SH-2 CPU registers.
