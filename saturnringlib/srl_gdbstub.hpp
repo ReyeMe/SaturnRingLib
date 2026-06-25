@@ -542,10 +542,15 @@ namespace SRL
                 while (!SRL::DevCart::CS0::isRXFEmpty()) {
                     (void)*(volatile uint8_t*)(SRL::DevCart::CS0::USB_FIFO);
                 }
+            } else if (g_handshake_done) {
+                // If we are already connected and we just entered the trap handler
+                // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
+                send_stop_signal(g_stop_requested_by_ctrl_c ? 2U : g_last_stop_signal);
+                g_stop_requested_by_ctrl_c = false;
             }
 
             // The stop reason (SIGTRAP or SIGINT) is preserved until '?' arrives.
-            // Do not clear g_stop_requested_by_ctrl_c here — the '?' handler reads it.
+            // Do not clear g_stop_requested_by_ctrl_c here (if not sent above) — the '?' handler reads it.
 
             while (true) {
                 out_buf[0] = 0;
@@ -579,29 +584,29 @@ namespace SRL
                                 "<target version=\"1.0\">\n"
                                 "  <architecture>sh2</architecture>\n"
                                 "  <feature name=\"org.gnu.gdb.sh.core\">\n"
-                                "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r2\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r3\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r4\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r5\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r6\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r7\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r8\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r9\"  bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r10\" bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r11\" bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r2\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r3\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r4\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r5\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r6\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r7\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r8\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r9\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\"/>\n"
                                 "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" regnum=\"16\"/>\n"
                                 "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\"/>\n"
-                                "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\"/>\n"
-                                "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\"/>\n"
-                                "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\"/>\n"
+                                "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                                "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "  </feature>\n"
                                 "</target>\n";
                             // Send in chunks respecting the requested length from GDB.
@@ -824,9 +829,19 @@ namespace SRL
                         // Report thread as alive for single-thread target.
                         packet_put('\0', "OK", 2);
                         break;
+                    case 's': // Stepping is explicitly unsupported (SH-2 has no hw step).
+                        packet_put('\0', "E01", 3);
+                        break;
                     case 'c':
+                        // Normal continue – first clear the slave‑pause flag so the slave can resume.
+                        g_debug_pause = false;
+                        // De‑assert the IPI request (write‑clear the register – exact mechanism depends on HW).
+                        SLAVE_IPI_CLEAR();
                         PurgeCache();
                         return;
+                    case 's': // stepping is unsupported – keep existing error handling
+                        packet_put('\0', "E01", 3);
+                        break;
                     default:
                         packet_put('\0', nullptr, 0);
                         break;
@@ -848,6 +863,20 @@ namespace SRL
                 
                 // Write directly to the Cache-Through mirror of the VBR table
                 volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
+                
+                // ---------------------------------------------------------------
+                // Install an additional IPI handler for the *slave* CPU.  The slave's
+                // VBR lives at the same physical address (0x06000000) but each CPU
+                // has its own VBR register, so writing the same vector table entry
+                // also installs the handler for the slave.
+                // Vector 0x100 (interrupt 0) is repurposed as a software‑IPI.
+                // We point it at the function `slave_ipi_handler` (defined in
+                // SlaveDebug.hpp) which simply spins while `g_debug_pause` is set.
+                extern void slave_ipi_handler();
+                vbr_table[0x40] = reinterpret_cast<uint32_t>(&slave_ipi_handler);
+                // Ensure the cache sees the new instruction.
+                PurgeCache();
+                // ---------------------------------------------------------------
 
                 // Patch our exceptions
                 // SH-2 exception vector layout from VBR:
@@ -889,6 +918,8 @@ namespace SRL
             g_stop_requested_by_ctrl_c = false;
             g_last_stop_signal = 5;
             clear_breakpoints(false);
+            // Initialise the pause flag – false by default.
+            g_debug_pause = false;
 
             if (!g_handlers_installed) {
                 InstallExceptionHandlers();

@@ -10,7 +10,7 @@ SRL_MALLOC_METHOD = SIMPLE
 
 # Enable debug symbol
 DEBUG = 1
-USER_FLAGS = -g
+USER_FLAGS = -g -O0
 SRL_CUSTOM_CCFLAGS = $(USER_FLAGS)
 
 # Sound driver specific configuration
