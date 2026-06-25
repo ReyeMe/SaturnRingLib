@@ -3,6 +3,7 @@
 #include <srl_devcart.hpp>
 #include <srl_interrupt.hpp>
 #include <srl_system.hpp>
+#include <srl_log.hpp>
 #include <cstdint>
 #include <cstddef>
 
@@ -62,6 +63,25 @@ namespace SRL
         // Globals — inline so they are defined exactly once across all TUs.
         __attribute__((used)) inline SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
         inline bool g_is_stepping = false;
+
+        static inline void debug_write(char c) {
+            if (SRL::DevCart::CS0::waitTXE(500U)) {
+                *(volatile uint8_t *)(SRL::DevCart::CS0::USB_FIFO) = static_cast<uint8_t>(c);
+            }
+        }
+
+        static inline void debug_print(const char* msg) {
+            while (*msg) {
+                debug_write(*msg++);
+            }
+        }
+
+        static inline void debug_print_hex(uint32_t val) {
+            for (int i = 7; i >= 0; i--) {
+                uint32_t nibble = (val >> (i * 4)) & 0xF;
+                debug_write(nibble < 10 ? '0' + nibble : 'A' + (nibble - 10));
+            }
+        }
         inline volatile bool g_has_connection = false;    // set on any valid RSP packet received
         inline volatile bool g_handshake_done = false;    // set only after qSupported exchange
         inline volatile uint32_t g_command_count = 0;
@@ -78,11 +98,16 @@ namespace SRL
         inline uint8_t g_last_usb_flags = 0xFF;
         inline volatile bool g_stop_requested_by_ctrl_c = false;
         inline volatile uint8_t g_last_stop_signal = 5; // 5=SIGTRAP, 2=SIGINT
-        // Global pause flag used to freeze the slave SH‑2 while the master is in GDB.
+        // Set when $c stepped over a software breakpoint; cleared after re-insertion.
+        // When set, the next process_commands() entry is silent (re-inserts BP, continues).
+        inline bool g_resuming_from_breakpoint = false;
+        inline int  g_resume_bp_slot = -1; // slot index of the BP that was stepped over
+        // Global pause flag used to freeze the slave SH-2 while the master is in GDB.
         inline volatile uint32_t g_debug_pause = 0;
 extern "C" void slave_ipi_handler(void);
-        // Simple IPI register – adjust address if your hardware uses a different one.
-        #define SLAVE_IPI_REG (*(volatile uint32_t*)0x1F0000U)
+        // IPI scratch location in Work RAM High (safe for both CPUs, won't bus-error).
+        // Using a word near the top of the 1MB Work RAM High region (0x06000000 + 0xFF000).
+        #define SLAVE_IPI_REG (*(volatile uint32_t*)0x060FFF00U)
         #define SLAVE_IPI_SET()   (SLAVE_IPI_REG = 0x01U)
         #define SLAVE_IPI_CLEAR() (SLAVE_IPI_REG = 0x00U)
 
@@ -283,13 +308,89 @@ extern "C" void slave_ipi_handler(void);
             return true;
         }
 
+        struct StepData {
+            uint32_t address;
+            uint16_t original_instruction;
+            bool active;
+        };
+        inline StepData g_step_data = {0, 0, false};
+
+        static inline void undo_software_step() {
+            if (g_step_data.active) {
+                if (is_valid_memory_range(g_step_data.address, 2U)) {
+                    volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_step_data.address | 0x20000000U);
+                    *code = g_step_data.original_instruction;
+                    PurgeCache();
+                }
+                g_step_data.active = false;
+            }
+        }
+
+        static inline void do_software_step() {
+            undo_software_step();
+
+            uint32_t pc = g_ctx.pc;
+            if ((pc & 1U) != 0U || !is_valid_memory_range(pc, 2U)) {
+                return;
+            }
+
+            volatile uint16_t* code_ptr = reinterpret_cast<volatile uint16_t*>(pc | 0x20000000U);
+            uint16_t opcode = *code_ptr;
+            uint32_t target_pc = pc + 2U;
+
+            // Decodes branch and jump instructions on SH-2 to predict the next PC.
+            if ((opcode & 0xfd00U) == 0x8900U) { // BT label, BT/S label
+                if ((g_ctx.sr & 1U) != 0U) { // T bit is set
+                    int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
+                    int displacement = static_cast<int>(disp8) << 1;
+                    target_pc = pc + displacement + 4U;
+                }
+            } else if ((opcode & 0xfd00U) == 0x8b00U) { // BF label, BF/S label
+                if ((g_ctx.sr & 1U) == 0U) { // T bit is clear
+                    int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
+                    int displacement = static_cast<int>(disp8) << 1;
+                    target_pc = pc + displacement + 4U;
+                }
+            } else if ((opcode & 0xe000U) == 0xa000U) { // BRA label, BSR label
+                int16_t disp12 = static_cast<int16_t>((opcode & 0x0fffU) << 4) >> 4;
+                int displacement = static_cast<int>(disp12) << 1;
+                target_pc = pc + displacement + 4U;
+            } else if ((opcode & 0xf0dfU) == 0x400bU) { // JMP @Rm, JSR @Rm
+                uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
+                target_pc = g_ctx.r[reg_idx];
+            } else if (opcode == 0x000bU) { // RTS
+                target_pc = g_ctx.pr;
+            } else if (opcode == 0x002bU) { // RTE
+                uint32_t sp = g_ctx.r[15];
+                if (is_valid_memory_range(sp + 4U, 4U)) {
+                    target_pc = *reinterpret_cast<volatile uint32_t*>((sp + 4U) | 0x20000000U);
+                }
+            } else if ((opcode & 0xff00U) == 0xc300U) { // TRAPA #imm
+                uint32_t vec_num = opcode & 0xffU;
+                uint32_t vec_addr = g_ctx.vbr + (vec_num * 4U);
+                if (is_valid_memory_range(vec_addr, 4U)) {
+                    target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
+                }
+            }
+
+            // Put a single-step trap at the target address.
+            if ((target_pc & 1U) == 0U && is_valid_memory_range(target_pc, 2U)) {
+                volatile uint16_t* target_code = reinterpret_cast<volatile uint16_t*>(target_pc | 0x20000000U);
+                g_step_data.address = target_pc;
+                g_step_data.original_instruction = *target_code;
+                *target_code = SoftwareBreakInstruction;
+                g_step_data.active = true;
+                PurgeCache();
+            }
+        }
+
         static inline void adjust_pc_for_software_breakpoint() {
             if (g_ctx.pc < 2U) {
                 return;
             }
 
             const uint32_t trap_address = g_ctx.pc - 2U;
-            if (find_breakpoint_slot(trap_address) >= 0) {
+            if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address)) {
                 g_ctx.pc = trap_address;
             }
         }
@@ -539,7 +640,31 @@ extern "C" void slave_ipi_handler(void);
             char in_buf[1024];
             char out_buf[1024];
 
+            debug_print("[GDBStub] process_commands() entered. PC: 0x");
+            debug_print_hex(g_ctx.pc);
+            debug_print("\n");
+
             adjust_pc_for_software_breakpoint();
+            undo_software_step();
+
+            // --- Silent step-over: re-insert the breakpoint we temporarily removed for $c ---
+            if (g_resuming_from_breakpoint) {
+                g_resuming_from_breakpoint = false;
+                if (g_resume_bp_slot >= 0 && g_resume_bp_slot < static_cast<int>(MaxSoftwareBreakpoints)) {
+                    // Re-activate the breakpoint slot (the instruction was restored when we
+                    // cleared it; now re-patch the target address with the trap instruction).
+                    const uint32_t bp_addr = g_software_breakpoints[g_resume_bp_slot].address;
+                    if ((bp_addr & 1U) == 0U && is_valid_memory_range(bp_addr, 2U)) {
+                        volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(bp_addr | 0x20000000U);
+                        *code = SoftwareBreakInstruction;
+                        g_software_breakpoints[g_resume_bp_slot].active = true;
+                        PurgeCache();
+                    }
+                }
+                g_resume_bp_slot = -1;
+                // Resume transparent execution — do NOT report a stop to GDB.
+                return;
+            }
 
             // Drain any stale bytes that GDB sent before this trap fired.
             // Without this, GDB startup packets (including vCont;c) queued in
@@ -589,7 +714,7 @@ extern "C" void slave_ipi_handler(void);
                                 "<?xml version=\"1.0\"?>\n"
                                 "<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
                                 "<target version=\"1.0\">\n"
-                                "  <architecture>sh2</architecture>\n"
+                                "  <architecture>sh</architecture>\n"
                                 "  <feature name=\"org.gnu.gdb.sh.core\">\n"
                                 "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
@@ -670,13 +795,20 @@ extern "C" void slave_ipi_handler(void);
                     case 'v':
                         // Minimal v packet support for MI/VS Code remote sessions.
                         if (starts_with(in_buf, "vCont?")) {
-                            packet_put('\0', "vCont;c", 7);
+                            packet_put('\0', "vCont;c;s", 9); // Support both continue and step
                         } else if (starts_with(in_buf, "vCont;")) {
-                            // Resume target.
+                            if (starts_with(in_buf + 6, "s") || starts_with(in_buf + 6, "S")) {
+                                do_software_step();
+                            } else {
+                                g_debug_pause = false;
+                                SLAVE_IPI_CLEAR();
+                            }
                             PurgeCache();
                             return;
                         } else if (starts_with(in_buf, "vRun")) {
                             // Extended-remote run compatibility: treat like continue.
+                            g_debug_pause = false;
+                            SLAVE_IPI_CLEAR();
                             PurgeCache();
                             return;
                         } else {
@@ -837,19 +969,38 @@ extern "C" void slave_ipi_handler(void);
                         // Report thread as alive for single-thread target.
                         packet_put('\0', "OK", 2);
                         break;
-                    case 'c':
-                        // Normal continue – first clear the slave‑pause flag so the slave can resume.
+                    case 'c': {
+                        // Normal continue.
+                        // g_ctx.pc was backed up by adjust_pc_for_software_breakpoint() to point AT
+                        // the TRAPA instruction.  If we returned now the CPU would immediately re-trap.
+                        // We must restore the original instruction there and place a single-step trap
+                        // at the next instruction so we can re-insert the breakpoint after one step.
                         g_debug_pause = false;
-                        // De‑assert the IPI request (write‑clear the register – exact mechanism depends on HW).
                         SLAVE_IPI_CLEAR();
-                        PurgeCache();
+
+                        // Check if PC sits on a software breakpoint we own.
+                        const int bp_slot = find_breakpoint_slot(g_ctx.pc);
+                        if (bp_slot >= 0) {
+                            // Restore original instruction at the breakpoint site.
+                            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
+                            *code = g_software_breakpoints[bp_slot].original_instruction;
+                            g_software_breakpoints[bp_slot].active = false;
+                            
+                            // Breakpoint is active. We must single-step over it.
+                            do_software_step();
+                            
+                            // Signal the next process_commands() entry to silently re-insert and continue.
+                            g_resuming_from_breakpoint = true;
+                            g_resume_bp_slot = bp_slot;
+                            PurgeCache();
+                        }
                         return;
+                    }
                     case 's':
                     case 'S':
-                        // Explicitly block unsupported single-stepping commands with an error
-                        // instead of an empty packet, to prevent GDB from hanging or crashing.
-                        packet_put('\0', "E01", 3);
-                        break;
+                        do_software_step();
+                        PurgeCache();
+                        return;
                     default:
                         packet_put('\0', nullptr, 0);
                         break;
@@ -864,6 +1015,7 @@ extern "C" void slave_ipi_handler(void);
         inline uint32_t* g_vbr_table_ptr = nullptr;
 
         static inline void InstallExceptionHandlers() {
+            debug_print("[GDBStub] InstallExceptionHandlers() start\n");
             if (!g_handlers_installed) {
                 // Force VBR to SGL's standard address to bypass the Boot ROM TRAPA wrapper
                 uint32_t current_vbr = 0x06000000;
@@ -880,27 +1032,28 @@ extern "C" void slave_ipi_handler(void);
                 // Vector 0x100 (interrupt 0) is repurposed as a software‑IPI.
                 // We point it at the function `slave_ipi_handler` (defined in
                 // SlaveDebug.hpp) which simply spins while `g_debug_pause` is set.
-
                 // Disabled IPI vector registration – out-of-range write caused crash.
+                // extern void slave_ipi_handler();
                 // vbr_table[0x40] = reinterpret_cast<uint32_t>(&slave_ipi_handler);
                 // PurgeCache();
-
                 // ---------------------------------------------------------------
 
                 // Patch our exceptions
                 // SH-2 exception vector layout from VBR:
                 //   Fixed exceptions (reset, NMI, etc): VBR + 0x000..0x07C  (indices 0..31)
                 //   External/internal interrupts:         VBR + 0x080..0x0FC  (indices 32..63)
-                //   TRAPA #N vectors:                     VBR + N*4   (indices 32..63)
+                //   TRAPA #N vectors:                     VBR + 0x080 + N*4   (indices 32+N)
                 vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Illegal Instruction
+                vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Slot Illegal Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
-                vbr_table[BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #32
+                vbr_table[BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA
 
                 PurgeCache();
                 g_handlers_installed = true;
             }
+            debug_print("[GDBStub] InstallExceptionHandlers() end\n");
         }
 
 extern "C" void slave_ipi_handler(void) {
@@ -920,6 +1073,7 @@ extern "C" void slave_ipi_handler(void) {
         static inline bool IsUsbDataPathEnabled();
 
         inline void Init() {
+            debug_print("[GDBStub] Init() start\n");
             g_has_connection = false;
             g_handshake_done = false;
             g_command_count = 0;
@@ -929,7 +1083,12 @@ extern "C" void slave_ipi_handler(void) {
             g_poll_fallback_count = 0;
             g_last_command[0] = '\0';
             g_unget_char = -1;
-            g_devcart_ready = SRL::DevCart::CS1::HasWascaSignature();
+            // Use CS0 USB_FLAGS readability as the proxy for cart detection.
+            // Do NOT read CS1 registers here: on USBGamers carts the CS1 space
+            // may not be decoded, causing the SH-2 bus to hang (bus error).
+            // HasWascaSignature() checks CS1 CPLD magic bytes (0x24000001/03);
+            // isPortAvailable() only reads CS0 USB_FLAGS which is always safe.
+            g_devcart_ready = SRL::DevCart::CS0::isPortAvailable(); // CS0-only check
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
             g_devcart_usb_datapath_enabled = IsUsbDataPathEnabled();
             g_last_usb_flags = SRL::DevCart::CS0::readFlags();
@@ -939,9 +1098,18 @@ extern "C" void slave_ipi_handler(void) {
             // Initialise the pause flag – false by default.
             g_debug_pause = false;
 
+            debug_print("[GDBStub] DevCart ready: ");
+            debug_print(g_devcart_ready ? "1" : "0");
+            debug_print(", Port: ");
+            debug_print(g_devcart_port_available ? "1" : "0");
+            debug_print(", USB Datapath: ");
+            debug_print(g_devcart_usb_datapath_enabled ? "1" : "0");
+            debug_print("\n");
+
             if (!g_handlers_installed) {
                 InstallExceptionHandlers();
             }
+            debug_print("[GDBStub] Init() end\n");
         }
 
         /**

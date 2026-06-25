@@ -7,6 +7,8 @@ SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
 SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
 SRL_MAX_CD_FILES = 256          # Maximum number of files on a CD
 SRL_MALLOC_METHOD = SIMPLE
+SRL_LOG_LEVEL = NONE          	# Maximum log level to display
+SRL_LOG_OUTPUT = DEV_CART    	# Log output method (DEV_CART, EMULATOR, NONE)
 
 # Enable debug symbol
 DEBUG = 1
@@ -14,7 +16,7 @@ USER_FLAGS = -g -O0
 SRL_CUSTOM_CCFLAGS = $(USER_FLAGS)
 
 # Sound driver specific configuration
-SRL_USE_SGL_SOUND_DRIVER = 1    # Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
+SRL_USE_SGL_SOUND_DRIVER = 0    # Disabled: GDB stub doesn't need audio
 SRL_ENABLE_FREQ_ANALYSIS = 0    # Set to 1 if you want to enable frequency analysis for CD audio, this will load a DSP program into effect slot 1, SGL sound driver must be enabled
 
 # SGL configuration

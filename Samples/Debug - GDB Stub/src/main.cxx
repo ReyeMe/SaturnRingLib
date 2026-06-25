@@ -1,19 +1,30 @@
 #include <srl.hpp>
 #include <srl_gdbstub.hpp>
+#include <srl_log.hpp>      // Logging system
+#include <srl_devcart.hpp>  // DevCart USB and CPLD access
 
 using namespace SRL::Types;
+using namespace SRL::Logger;
+using namespace SRL::DevCart;
 
 // Main program entry
 int main()
 {
     SRL::Core::Initialize(HighColor::Colors::Black);
+     Log::LogPrint("Before GDBStub::Init");
+
     SRL::GDBStub::Init();
 
+     Log::LogPrint("After GDBStub::Init");
+
     SRL::Debug::Print(1, 1, "GDB Stub Sample");
-    SRL::Debug::Print(1, 3, "Initializing GDB Stub...");
+    SRL::Debug::Print(1, 3, "Stub active - connect GDB to break");
+     Log::LogPrint("GDB Stub active, waiting for GDB connection via Poll()");
     
     SRL::Core::Synchronize();
-    SRL::GDBStub::Break();
+    // NOTE: Break() issues trapa #32 which blocks the Saturn in the RSP command loop
+    // waiting for a GDB client. Only call it when GDB is already connected.
+    // SRL::GDBStub::Break();
 
     int counter = 0;
 
