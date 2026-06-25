@@ -138,6 +138,16 @@ Connected to Saturn.
 
 ### Useful GDB Commands:
 - `info registers`: View the state of all SH-2 CPU registers.
+- `break <file>:<line>`: Set a software breakpoint.
 - `continue` or `c`: Resume game execution.
 - `Ctrl-C`: Pause the running game (requires the game to periodically call `SRL::GDBStub::Poll()`, which this sample does in its main loop).
 - `x/10x $pc`: Read 10 words of memory at the Program Counter.
+
+### Unsupported Operations (IMPORTANT):
+The SH-2 CPU does not have a hardware single-step feature, and the `SaturnRingLib` stub does not emulate it via software instruction decoding. 
+Because of this, the following commands are **unsupported and will fail**:
+- `step` (Step Into)
+- `next` (Step Over)
+- `finish` (Step Out)
+
+If you use these commands in GDB (or the corresponding buttons in VS Code), GDB will receive an error reply (`E01`). **You must use breakpoints and `continue` to navigate your code.**
