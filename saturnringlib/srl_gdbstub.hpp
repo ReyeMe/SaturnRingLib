@@ -78,6 +78,13 @@ namespace SRL
         inline uint8_t g_last_usb_flags = 0xFF;
         inline volatile bool g_stop_requested_by_ctrl_c = false;
         inline volatile uint8_t g_last_stop_signal = 5; // 5=SIGTRAP, 2=SIGINT
+        // Global pause flag used to freeze the slave SH‑2 while the master is in GDB.
+        inline volatile uint32_t g_debug_pause = 0;
+extern "C" void slave_ipi_handler(void);
+        // Simple IPI register – adjust address if your hardware uses a different one.
+        #define SLAVE_IPI_REG (*(volatile uint32_t*)0x1F0000U)
+        #define SLAVE_IPI_SET()   (SLAVE_IPI_REG = 0x01U)
+        #define SLAVE_IPI_CLEAR() (SLAVE_IPI_REG = 0x00U)
 
         static constexpr uint16_t SoftwareBreakInstruction = static_cast<uint16_t>(0xC300U | (BreakTrapNumber & 0xFFU));
         static constexpr size_t MaxSoftwareBreakpoints = 32;
@@ -753,7 +760,8 @@ namespace SRL
                             while (*ptr && *ptr != ',') addr = (addr << 4) | hex(*ptr++);
                             if (*ptr == ',') ptr++;
                             while (*ptr) length = (length << 4) | hex(*ptr++);
-
+                            // If the slave is paused, refuse memory reads to avoid USB FIFO overflow.
+                            if (g_debug_pause) { packet_put('\0', "E22", 3); break; }
                             // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
                             if (length > 511U || !is_valid_memory_range(addr, length)) {
                                 packet_put('\0', "E01", 3);
@@ -829,9 +837,6 @@ namespace SRL
                         // Report thread as alive for single-thread target.
                         packet_put('\0', "OK", 2);
                         break;
-                    case 's': // Stepping is explicitly unsupported (SH-2 has no hw step).
-                        packet_put('\0', "E01", 3);
-                        break;
                     case 'c':
                         // Normal continue – first clear the slave‑pause flag so the slave can resume.
                         g_debug_pause = false;
@@ -839,7 +844,10 @@ namespace SRL
                         SLAVE_IPI_CLEAR();
                         PurgeCache();
                         return;
-                    case 's': // stepping is unsupported – keep existing error handling
+                    case 's':
+                    case 'S':
+                        // Explicitly block unsupported single-stepping commands with an error
+                        // instead of an empty packet, to prevent GDB from hanging or crashing.
                         packet_put('\0', "E01", 3);
                         break;
                     default:
@@ -872,10 +880,11 @@ namespace SRL
                 // Vector 0x100 (interrupt 0) is repurposed as a software‑IPI.
                 // We point it at the function `slave_ipi_handler` (defined in
                 // SlaveDebug.hpp) which simply spins while `g_debug_pause` is set.
-                extern void slave_ipi_handler();
-                vbr_table[0x40] = reinterpret_cast<uint32_t>(&slave_ipi_handler);
-                // Ensure the cache sees the new instruction.
-                PurgeCache();
+
+                // Disabled IPI vector registration – out-of-range write caused crash.
+                // vbr_table[0x40] = reinterpret_cast<uint32_t>(&slave_ipi_handler);
+                // PurgeCache();
+
                 // ---------------------------------------------------------------
 
                 // Patch our exceptions
@@ -893,6 +902,15 @@ namespace SRL
                 g_handlers_installed = true;
             }
         }
+
+extern "C" void slave_ipi_handler(void) {
+    // This handler runs on the slave SH‑2 when the master triggers an IPI.
+    // It simply spins until the master clears the pause flag.
+    while (g_debug_pause) {
+        asm volatile("nop");
+    }
+    // Returning from the interrupt will resume the slave where it left off.
+}
 
         // --- Public API ---
 
