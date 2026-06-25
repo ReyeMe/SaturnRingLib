@@ -8,11 +8,12 @@ int main()
 {
     SRL::Core::Initialize(HighColor::Colors::Black);
     SRL::GDBStub::Init();
-    SRL::GDBStub::Break();
 
     SRL::Debug::Print(1, 1, "GDB Stub Sample");
     SRL::Debug::Print(1, 3, "Initializing GDB Stub...");
-
+    
+    SRL::Core::Synchronize();
+    SRL::GDBStub::Break();
 
     int counter = 0;
 
