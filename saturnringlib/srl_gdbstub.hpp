@@ -658,9 +658,9 @@ namespace SRL
                     case 'v':
                         // Minimal v packet support for MI/VS Code remote sessions.
                         if (starts_with(in_buf, "vCont?")) {
-                            packet_put('\0', "vCont;c;s", 9);
+                            packet_put('\0', "vCont;c", 7);
                         } else if (starts_with(in_buf, "vCont;")) {
-                            // Resume target. For now, c/s actions both map to standard resume.
+                            // Resume target.
                             PurgeCache();
                             return;
                         } else if (starts_with(in_buf, "vRun")) {
@@ -827,8 +827,6 @@ namespace SRL
                     case 'c':
                         PurgeCache();
                         return;
-                    case 's':
-                        return;
                     default:
                         packet_put('\0', nullptr, 0);
                         break;
@@ -855,13 +853,12 @@ namespace SRL
                 // SH-2 exception vector layout from VBR:
                 //   Fixed exceptions (reset, NMI, etc): VBR + 0x000..0x07C  (indices 0..31)
                 //   External/internal interrupts:         VBR + 0x080..0x0FC  (indices 32..63)
-                //   TRAPA #N vectors:                     VBR + 0x100 + N*4   (indices 64+N)
-                static constexpr uint32_t TrapVecBase = 0x100U / 4U; // = 64
+                //   TRAPA #N vectors:                     VBR + N*4   (indices 32..63)
                 vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Illegal Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
-                vbr_table[TrapVecBase + BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #32
+                vbr_table[BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #32
 
                 PurgeCache();
                 g_handlers_installed = true;
