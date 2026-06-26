@@ -321,8 +321,16 @@ extern "C" void slave_ipi_handler(void);
             uint32_t address;
             uint16_t original_instruction;
             bool active;
+
+            bool is_delayed;
+            uint32_t delayed_branch_pc;
+            uint32_t delayed_target;
+            bool delayed_updates_pr;
+            uint32_t delayed_pr;
+            bool delayed_is_rte;
+            uint32_t delayed_sr;
         };
-        inline StepData g_step_data = {0, 0, false};
+        inline StepData g_step_data = {0, 0, false, false, 0, 0, false, 0, false, 0};
 
         static inline void undo_software_step() {
             if (g_step_data.active) {
@@ -347,43 +355,80 @@ extern "C" void slave_ipi_handler(void);
             uint16_t opcode = *code_ptr;
             uint32_t target_pc = pc + 2U;
 
-            // Decodes branch and jump instructions on SH-2 to predict the next PC.
-            if ((opcode & 0xfd00U) == 0x8900U) { // BT label, BT/S label
-                if ((g_ctx.sr & 1U) != 0U) { // T bit is set
-                    int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
-                    int displacement = static_cast<int>(disp8) << 1;
-                    target_pc = pc + displacement + 4U;
+            if (g_step_data.is_delayed) {
+                target_pc = pc + 2U;
+            } else {
+                bool is_branch = false;
+                bool has_delay_slot = false;
+                uint32_t branch_target = pc + 2U;
+
+                if ((opcode & 0xfb00U) == 0x8900U) { // BT label, BT/S label
+                    is_branch = true;
+                    has_delay_slot = ((opcode & 0xff00U) == 0x8d00U);
+                    if ((g_ctx.sr & 1U) != 0U) {
+                        int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
+                        branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
+                    } else {
+                        branch_target = pc + (has_delay_slot ? 4U : 2U);
+                    }
+                } else if ((opcode & 0xfb00U) == 0x8b00U) { // BF label, BF/S label
+                    is_branch = true;
+                    has_delay_slot = ((opcode & 0xff00U) == 0x8f00U);
+                    if ((g_ctx.sr & 1U) == 0U) {
+                        int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
+                        branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
+                    } else {
+                        branch_target = pc + (has_delay_slot ? 4U : 2U);
+                    }
+                } else if ((opcode & 0xe000U) == 0xa000U) { // BRA label, BSR label
+                    is_branch = true;
+                    has_delay_slot = true;
+                    int16_t disp12 = static_cast<int16_t>((opcode & 0x0fffU) << 4) >> 4;
+                    branch_target = pc + (static_cast<int>(disp12) << 1) + 4U;
+                    if ((opcode & 0xf000U) == 0xb000U) { // BSR label
+                        g_step_data.delayed_updates_pr = true;
+                        g_step_data.delayed_pr = pc + 4U;
+                    }
+                } else if ((opcode & 0xf0dfU) == 0x400bU) { // JMP @Rm, JSR @Rm
+                    is_branch = true;
+                    has_delay_slot = true;
+                    uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
+                    branch_target = g_ctx.r[reg_idx];
+                    if ((opcode & 0xf0ffU) == 0x400bU) { // JSR @Rm
+                        g_step_data.delayed_updates_pr = true;
+                        g_step_data.delayed_pr = pc + 4U;
+                    }
+                } else if (opcode == 0x000bU) { // RTS
+                    is_branch = true;
+                    has_delay_slot = true;
+                    branch_target = g_ctx.pr;
+                } else if (opcode == 0x002bU) { // RTE
+                    is_branch = true;
+                    has_delay_slot = true;
+                    uint32_t sp = g_ctx.r[15];
+                    if (is_valid_memory_range(sp, 8U)) {
+                        branch_target = *reinterpret_cast<volatile uint32_t*>(sp | 0x20000000U);
+                        g_step_data.delayed_is_rte = true;
+                        g_step_data.delayed_sr = *reinterpret_cast<volatile uint32_t*>((sp + 4U) | 0x20000000U);
+                    }
+                } else if ((opcode & 0xff00U) == 0xc300U) { // TRAPA #imm
+                    uint32_t vec_num = opcode & 0xffU;
+                    uint32_t vec_addr = g_ctx.vbr + ((32U + vec_num) * 4U);
+                    if (is_valid_memory_range(vec_addr, 4U)) {
+                        target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
+                    }
+                } else if (opcode == 0xFFFFU) { // Illegal Instruction (our breakpoint)
+                    target_pc = pc;
                 }
-            } else if ((opcode & 0xfd00U) == 0x8b00U) { // BF label, BF/S label
-                if ((g_ctx.sr & 1U) == 0U) { // T bit is clear
-                    int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
-                    int displacement = static_cast<int>(disp8) << 1;
-                    target_pc = pc + displacement + 4U;
+
+                if (is_branch && has_delay_slot) {
+                    g_step_data.is_delayed = true;
+                    g_step_data.delayed_branch_pc = pc;
+                    g_step_data.delayed_target = branch_target;
+                    target_pc = pc + 2U;
+                } else if (is_branch) {
+                    target_pc = branch_target;
                 }
-            } else if ((opcode & 0xe000U) == 0xa000U) { // BRA label, BSR label
-                int16_t disp12 = static_cast<int16_t>((opcode & 0x0fffU) << 4) >> 4;
-                int displacement = static_cast<int>(disp12) << 1;
-                target_pc = pc + displacement + 4U;
-            } else if ((opcode & 0xf0dfU) == 0x400bU) { // JMP @Rm, JSR @Rm
-                uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                target_pc = g_ctx.r[reg_idx];
-            } else if (opcode == 0x000bU) { // RTS
-                target_pc = g_ctx.pr;
-            } else if (opcode == 0x002bU) { // RTE
-                uint32_t sp = g_ctx.r[15];
-                if (is_valid_memory_range(sp + 4U, 4U)) {
-                    target_pc = *reinterpret_cast<volatile uint32_t*>((sp + 4U) | 0x20000000U);
-                }
-            } else if ((opcode & 0xff00U) == 0xc300U) { // TRAPA #imm
-                uint32_t vec_num = opcode & 0xffU;
-                uint32_t vec_addr = g_ctx.vbr + ((32U + vec_num) * 4U);
-                if (is_valid_memory_range(vec_addr, 4U)) {
-                    target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
-                }
-            } else if (opcode == 0xFFFFU) { // Illegal Instruction (our breakpoint)
-                // If we step over our own breakpoint (should not happen natively but for completeness)
-                // the PC just stays here. The exception handler handles it.
-                target_pc = pc;
             }
 
             // Put a single-step trap at the target address.
@@ -398,8 +443,29 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline void adjust_pc_for_software_breakpoint() {
+            if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.delayed_branch_pc) {
+                // We hit the trap in the delay slot. Hardware pushed branch PC.
+                g_ctx.pc = g_step_data.address;
+                return;
+            }
+
             // Check if current PC matches a breakpoint slot
             if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
+                if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.address) {
+                    // We just finished stepping the delay slot instruction
+                    g_ctx.pc = g_step_data.delayed_target;
+                    
+                    if (g_step_data.delayed_updates_pr) {
+                        g_ctx.pr = g_step_data.delayed_pr;
+                    }
+                    if (g_step_data.delayed_is_rte) {
+                        g_ctx.sr = g_step_data.delayed_sr;
+                        g_ctx.r[15] += 8U;
+                    }
+                    g_step_data.is_delayed = false;
+                    g_step_data.delayed_updates_pr = false;
+                    g_step_data.delayed_is_rte = false;
+                }
                 return; // PC is already exactly at the breakpoint.
             }
 
@@ -1060,25 +1126,18 @@ extern "C" void slave_ipi_handler(void);
                         break;
                     case 'c': {
                         // Normal continue.
-                        // g_ctx.pc was backed up by adjust_pc_for_software_breakpoint() to point AT
-                        // the TRAPA instruction.  If we returned now the CPU would immediately re-trap.
-                        // We must restore the original instruction there and place a single-step trap
-                        // at the next instruction so we can re-insert the breakpoint after one step.
                         g_debug_pause = false;
                         SLAVE_IPI_CLEAR();
 
-                        // Check if PC sits on a software breakpoint we own.
                         const int bp_slot = find_breakpoint_slot(g_ctx.pc);
                         if (bp_slot >= 0) {
-                            // Restore original instruction at the breakpoint site.
                             volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
                             *code = g_software_breakpoints[bp_slot].original_instruction;
                             g_software_breakpoints[bp_slot].active = false;
-                            
-                            // Breakpoint is active. We must single-step over it.
+                        }
+
+                        if (bp_slot >= 0 || g_step_data.is_delayed) {
                             do_software_step();
-                            
-                            // Signal the next process_commands() entry to silently re-insert and continue.
                             g_resuming_from_breakpoint = true;
                             g_resume_bp_slot = bp_slot;
                             PurgeCache();
