@@ -867,8 +867,12 @@ extern "C" void slave_ipi_handler(void);
                                 int colons = 0;
                                 while (*colon && colons < 4) { if (*colon++ == ':') ++colons; }
                                 // colon now points past the 4th ':', i.e. at "off,len"
-                                while (*colon && *colon != ',') xfer_off = (xfer_off << 4) | hex(*colon++);
-                                if (*colon == ',') { ++colon; while (*colon) xfer_len = (xfer_len == 0xFFFFU ? 0 : xfer_len) << 4 | hex(*colon++); }
+                                if (parse_hex_u32_until(colon, ',', xfer_off, colon)) {
+                                    if (*colon == ',') {
+                                        ++colon;
+                                        parse_hex_u32_until(colon, '\0', xfer_len, colon);
+                                    }
+                                }
                             }
                             if (xfer_off >= xml_len) {
                                 out_buf[0] = 'l'; packet_put('\0', out_buf, 1);
