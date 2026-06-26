@@ -757,7 +757,7 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline void send_stop_signal(uint8_t signal) {
-            char buf[32];
+            char buf[64];
             buf[0] = hexchar(signal >> 4);
             buf[1] = hexchar(signal & 0xF);
             int len = 2;
