@@ -120,6 +120,7 @@ extern "C" void slave_ipi_handler(void);
         // for its own CD-ROM and BIOS system calls.
         static constexpr uint16_t SoftwareBreakInstruction = 0xFFFFU;
         static constexpr size_t MaxSoftwareBreakpoints = 32;
+        static constexpr size_t kPacketDataMax = 399U;
 
         struct SoftwareBreakpoint {
             uint32_t address;
@@ -143,6 +144,19 @@ extern "C" void slave_ipi_handler(void);
         static inline char hexchar(int v) {
             v &= 0xf;
             return v < 10 ? '0' + v : 'a' + v - 10;
+        }
+
+        static inline size_t format_uint(char* buf, uint32_t val) {
+            char temp[10];
+            int len = 0;
+            do {
+                temp[len++] = '0' + (val % 10);
+                val /= 10;
+            } while (val > 0);
+            for (int i = 0; i < len; ++i) {
+                buf[i] = temp[len - 1 - i];
+            }
+            return len;
         }
 
         static inline const char* hex2mem(const char* buf, uint8_t* mem, int count) {
@@ -897,8 +911,13 @@ extern "C" void slave_ipi_handler(void);
                     case 'q':
                         if (starts_with(in_buf, "qSupported")) {
                             // Advertise swbreak and target description so GDB knows the arch.
-                            constexpr const char features[] = "PacketSize=400;swbreak+;qXfer:features:read+";
-                            packet_put('\0', features, sizeof(features) - 1);
+                            // Dynamically insert the PacketSize to ensure it stays in sync with kPacketDataMax.
+                            size_t out_len = 0;
+                            for (const char* s = "PacketSize="; *s; ++s) out_buf[out_len++] = *s;
+                            out_len += format_uint(out_buf + out_len, kPacketDataMax + 1U);
+                            for (const char* s = ";swbreak+;qXfer:features:read+"; *s; ++s) out_buf[out_len++] = *s;
+                            out_buf[out_len] = '\0';
+                            packet_put('\0', out_buf, out_len);
                             g_handshake_done = true;
                         } else if (starts_with(in_buf, "qXfer:features:read:")) {
                             // qXfer:features:read:target.xml:offset,length
@@ -977,7 +996,7 @@ extern "C" void slave_ipi_handler(void);
                             } else {
                                 size_t avail = xml_len - xfer_off;
                                 size_t send  = avail < xfer_len ? avail : xfer_len;
-                                if (send > 399U) send = 399U;
+                                if (send > kPacketDataMax) send = kPacketDataMax;
                                 bool last = (xfer_off + send >= xml_len);
                                 out_buf[0] = last ? 'l' : 'm';
                                 for (size_t i = 0; i < send; ++i) out_buf[1 + i] = target_xml[xfer_off + i];
