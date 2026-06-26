@@ -834,6 +834,10 @@ extern "C" void slave_ipi_handler(void);
             if (bp_slot >= 0 || g_step_data.is_delayed) {
                 do_software_step();
                 g_resuming_from_breakpoint = true;
+                // If this is purely a delay-slot step-over (bp_slot == -1), g_resume_bp_slot
+                // captures -1. The re-insertion block in process_commands safely skips the -1
+                // slot but still honors g_resuming_from_breakpoint, allowing the target to
+                // silently resume execution without notifying GDB.
                 g_resume_bp_slot = bp_slot;
                 PurgeCache();
             }
