@@ -1110,9 +1110,15 @@ extern "C" void slave_ipi_handler(void);
                         {
                             uint32_t addr = 0, length = 0;
                             const char* ptr = &in_buf[1];
-                            while (*ptr && *ptr != ',') addr = (addr << 4) | hex(*ptr++);
-                            if (*ptr == ',') ptr++;
-                            while (*ptr) length = (length << 4) | hex(*ptr++);
+                            if (!parse_hex_u32_until(ptr, ',', addr, ptr) || *ptr != ',') {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
+                            ++ptr; // skip ','
+                            if (!parse_hex_u32_until(ptr, '\0', length, ptr)) {
+                                packet_put('\0', "E01", 3);
+                                break;
+                            }
                             // If the slave is paused, refuse memory reads to avoid USB FIFO overflow.
                             if (g_debug_pause) { packet_put('\0', "E22", 3); break; }
                             // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
@@ -1129,10 +1135,16 @@ extern "C" void slave_ipi_handler(void);
                         {
                             uint32_t addr = 0, length = 0;
                             const char* p = &in_buf[1];
-                            while (*p && *p != ',') addr = (addr << 4) | hex(*p++);
-                            if (*p == ',') p++;
-                            while (*p && *p != ':') length = (length << 4) | hex(*p++);
-                            if (*p == ':') p++;
+                            if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',') {
+                                packet_put('\0', "E02", 3);
+                                break;
+                            }
+                            ++p; // skip ','
+                            if (!parse_hex_u32_until(p, ':', length, p) || *p != ':') {
+                                packet_put('\0', "E02", 3);
+                                break;
+                            }
+                            ++p; // skip ':'
 
                             if (length > 511U || !is_valid_memory_range(addr, length)) {
                                 packet_put('\0', "E02", 3);
