@@ -16,6 +16,9 @@
     #include "srl_sound.hpp"
 #endif
 
+#ifdef DEBUG
+    #include "srl_gdbstub.hpp"
+#endif
         
 /** @brief Selects default resolution based on an option in the makefile
  */
@@ -116,7 +119,7 @@ namespace SRL
 
 #ifdef DEBUG
 			// Initialize GDB stub only if we are debugging.
-			SRL::Debug::GDB::Initialize();
+			SRL::GDBStub::Init();
 #endif
         }
 
@@ -136,7 +139,7 @@ namespace SRL
 
 #ifdef DEBUG
 			// Poll GDB stub.
-			SRL::Debug::GDB::Poll();
+			SRL::GDBStub::Poll();
 #endif
         }
     };
