@@ -107,9 +107,11 @@ namespace SRL
 extern "C" void slave_ipi_handler(void);
         // IPI scratch location in Work RAM High (safe for both CPUs, won't bus-error).
         // Using a word near the top of the 1MB Work RAM High region (0x06000000 + 0xFF000).
-        #define SLAVE_IPI_REG (*(volatile uint32_t*)0x060FFF00U)
-        #define SLAVE_IPI_SET()   (SLAVE_IPI_REG = 0x01U)
-        #define SLAVE_IPI_CLEAR() (SLAVE_IPI_REG = 0x00U)
+        // IPI scratch location in Work RAM High, safe for both CPUs.
+        static constexpr volatile uint32_t* kSlaveIPIReg =
+            reinterpret_cast<volatile uint32_t*>(0x060FFF00U);
+        static inline void SlaveIPISet()   { *kSlaveIPIReg = 0x01U; }
+        static inline void SlaveIPIClear() { *kSlaveIPIReg = 0x00U; }
 
         // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
         // This avoids collisions with SGL which frequently overwrites TRAPA vectors (32-63)
@@ -780,7 +782,7 @@ extern "C" void slave_ipi_handler(void);
 
         static inline void handle_gdb_continue() {
             g_debug_pause = false;
-            SLAVE_IPI_CLEAR();
+            SlaveIPIClear();
 
             const int bp_slot = find_breakpoint_slot(g_ctx.pc);
             if (bp_slot >= 0) {
