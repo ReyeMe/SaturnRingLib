@@ -811,11 +811,25 @@ extern "C" void slave_ipi_handler(void);
         };
         static constexpr size_t NumExtraRegs = sizeof(ExtraRegs) / sizeof(ExtraRegs[0]);
 
+        /**
+         * @brief Prepares the CPU state for a GDB single-step command ('s' / 'vCont;s').
+         * 
+         * Places a temporary software breakpoint on the next sequential instruction
+         * (or the branch target if the current instruction is a branch), ensuring
+         * the stub catches execution immediately after one instruction.
+         */
         static inline void handle_gdb_step() {
             do_software_step();
             PurgeCache();
         }
 
+        /**
+         * @brief Prepares the CPU state for a GDB continue command ('c' / 'vCont;c').
+         * 
+         * Restores the original instruction if the CPU is currently halted on a
+         * software breakpoint, and sets up a silent step-over trap to re-insert
+         * the breakpoint after the instruction executes.
+         */
         static inline void handle_gdb_continue() {
             g_debug_pause = false;
             SlaveIPIClear();
@@ -844,6 +858,15 @@ extern "C" void slave_ipi_handler(void);
         }
 
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
+
+        /**
+         * @brief Core GDB Remote Serial Protocol (RSP) packet processor.
+         * 
+         * This function reads and parses RSP packets ('g', 'G', 'm', 'M', 'z', 'Z', 'vCont', etc.)
+         * from the USB FIFO. It reads/writes CPU state via the `g_ctx` global exception frame,
+         * manipulates software breakpoints, and responds to the debugger.
+         * It executes entirely from the SH-2 exception context.
+         */
         __attribute__((used)) inline void process_commands() {
             // CacheFlusher guarantees a single cache purge on every exit path from this
             // function — continue, step, detach, disconnect, and early error returns alike.
@@ -1311,6 +1334,13 @@ extern "C" void slave_ipi_handler(void);
         extern "C" void srl_gdbstub_exception_thunk();
 
 
+        /**
+         * @brief Hook the SH-2 CPU exception vectors for the GDB stub.
+         * 
+         * Relocates the Vector Base Register (VBR) from ROM to RAM if necessary,
+         * and installs `srl_gdbstub_exception_thunk` as the handler for critical
+         * CPU traps including Illegal Instruction, Address Errors, and NMI.
+         */
         static inline void InstallExceptionHandlers() {
             debug_print("[GDBStub] InstallExceptionHandlers() start\n");
             if (!g_handlers_installed) {
@@ -1352,7 +1382,7 @@ extern "C" void slave_ipi_handler(void);
                 vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Slot Reserved Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
-                vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // NMI
+                // vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // NMI (Reset button)
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
