@@ -158,7 +158,7 @@ extern "C" void slave_ipi_handler(void);
         static inline char* mem2hex(const uint8_t* mem, char* buf, int count) {
             for (int i = 0; i < count; i++) {
                 *buf++ = hexchar(*mem >> 4);
-                *buf++ = hexchar(*mem % 16);
+                *buf++ = hexchar(*mem & 0xF);
                 mem++;
             }
             *buf = 0;
