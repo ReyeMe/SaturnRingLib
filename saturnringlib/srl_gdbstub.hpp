@@ -1419,14 +1419,6 @@ extern "C" void slave_ipi_handler(void);
             debug_print("[GDBStub] InstallExceptionHandlers() end\n");
         }
 
-extern "C" void slave_ipi_handler(void) {
-    // This handler runs on the slave SH‑2 when the master triggers an IPI.
-    // It simply spins until the master clears the pause flag.
-    while (g_debug_pause) {
-        asm volatile("nop");
-    }
-    // Returning from the interrupt will resume the slave where it left off.
-}
 
         // --- Public API ---
 
@@ -1617,7 +1609,16 @@ extern "C" void slave_ipi_handler(void) {
                 g_handshake_done = false;
             }
         }
+}
+}
+
+extern "C" void slave_ipi_handler(void) {
+    // This handler runs on the slave SH‑2 when the master triggers an IPI.
+    // It simply spins until the master clears the pause flag.
+    while (SRL::GDBStub::g_debug_pause) {
+        asm volatile("nop");
     }
+    // Returning from the interrupt will resume the slave where it left off.
 }
 
 __asm__(
