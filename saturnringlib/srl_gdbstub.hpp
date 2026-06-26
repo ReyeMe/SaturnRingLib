@@ -953,10 +953,16 @@ extern "C" void slave_ipi_handler(void);
                         }
                         break;
                     case 'G':
-                        if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
-                            packet_put('\0', "OK", 2);
-                        } else {
-                            packet_put('\0', "E01", 3);
+                        {
+                            size_t len = 0;
+                            while (in_buf[1 + len] != '\0') len++;
+                            if (len != sizeof(SH2Context) * 2) {
+                                packet_put('\0', "E01", 3);
+                            } else if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
+                                packet_put('\0', "OK", 2);
+                            } else {
+                                packet_put('\0', "E01", 3);
+                            }
                         }
                         break;
                     case 'p': // Read a single register
