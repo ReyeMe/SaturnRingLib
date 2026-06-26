@@ -1,7 +1,5 @@
 #include <srl.hpp>
-#include <srl_gdbstub.hpp>
-#include <srl_log.hpp>     // Logging system
-#include <srl_devcart.hpp> // DevCart USB and CPLD access
+#include <srl_log.hpp>     // Logging systemcess
 #include <srl_input.hpp>   // Gamepad input
 
 using namespace SRL::Types;
@@ -222,8 +220,6 @@ int main()
     SRL::Core::Initialize(HighColor::Colors::Black);
     Log::LogPrint("Before GDBStub::Init");
 
-    SRL::GDBStub::Init();
-
     Log::LogPrint("After GDBStub::Init");
 
     SRL::Debug::Print(1, 1, "GDB Stub Sample");
@@ -276,8 +272,6 @@ int main()
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::L)) { DMAAddressError(); }
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::R)) { UserBreakController(); }
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::START)) { Trapa3(); }
-
-        SRL::GDBStub::Poll();
 
         SRL::Core::Synchronize();
     }
