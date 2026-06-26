@@ -951,10 +951,23 @@ extern "C" void slave_ipi_handler(void);
                         if (starts_with(in_buf, "qSupported")) {
                             // Advertise swbreak and target description so GDB knows the arch.
                             // Dynamically insert the PacketSize to ensure it stays in sync with kPacketDataMax.
+                            constexpr const char kPacketSizeStr[] = "PacketSize=";
+                            constexpr const char kFeaturesStr[] = ";swbreak+;qXfer:features:read+";
+                            
+                            static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + 10 + (sizeof(kFeaturesStr) - 1);
+                            static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
+
                             size_t out_len = 0;
-                            for (const char* s = "PacketSize="; *s; ++s) out_buf[out_len++] = *s;
-                            out_len += format_uint(out_buf + out_len, kPacketDataMax + 1U);
-                            for (const char* s = ";swbreak+;qXfer:features:read+"; *s; ++s) out_buf[out_len++] = *s;
+                            for (const char* s = kPacketSizeStr; *s; ++s) {
+                                if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = *s;
+                            }
+                            if (out_len + 10 < sizeof(out_buf)) {
+                                out_len += format_uint(out_buf + out_len, kPacketDataMax + 1U);
+                            }
+                            for (const char* s = kFeaturesStr; *s; ++s) {
+                                if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = *s;
+                            }
+                            
                             out_buf[out_len] = '\0';
                             packet_put('\0', out_buf, out_len);
                             g_handshake_done = true;
