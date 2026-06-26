@@ -102,6 +102,11 @@ namespace SRL
         // Set when $c stepped over a software breakpoint; cleared after re-insertion.
         // When set, the next process_commands() entry is silent (re-inserts BP, continues).
         inline bool g_resuming_from_breakpoint = false;
+        // Constraint: If Poll() is called from user code and handles a 'z0' packet that deallocates
+        // this specific breakpoint slot before the step-over trap fires, the slot's active flag is cleared.
+        // However, the re-insertion handler will silently re-patch the freed address and set active=true
+        // on what should be a dead slot. Since process_commands is single-threaded, this race only
+        // occurs if user code calls Poll() between the continue and the trap.
         inline int  g_resume_bp_slot = -1; // slot index of the BP that was stepped over
         // Global pause flag used to freeze the slave SH-2 while the master is in GDB.
         inline volatile uint32_t g_debug_pause = 0;
