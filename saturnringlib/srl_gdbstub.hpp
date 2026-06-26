@@ -655,6 +655,7 @@ extern "C" void slave_ipi_handler(void);
 
                 uint8_t csum = 0;
                 size_t len = 0;
+                bool overflow = false;
 
                 while (true) {
                     raw = __gdb_getc();
@@ -662,7 +663,11 @@ extern "C" void slave_ipi_handler(void);
                     uint8_t ch = static_cast<uint8_t>(raw & 0x7F);
                     if (ch == '#') break;
                     csum += ch;
-                    if (len + 1 < max_len) buffer[len++] = static_cast<char>(ch);
+                    if (len + 1 < max_len) {
+                        buffer[len++] = static_cast<char>(ch);
+                    } else {
+                        overflow = true;
+                    }
                 }
                 buffer[len] = '\0';
 
@@ -678,7 +683,7 @@ extern "C" void slave_ipi_handler(void);
                 }
                 const uint8_t xmit_csum = static_cast<uint8_t>((hi << 4) | lo);
 
-                if (csum != xmit_csum) {
+                if (csum != xmit_csum || overflow) {
                     uint8_t nack = '-';
                     __gdb_putc(nack);
                     continue;
