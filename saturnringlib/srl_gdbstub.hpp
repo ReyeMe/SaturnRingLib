@@ -62,7 +62,6 @@ namespace SRL
 
         // Globals — inline so they are defined exactly once across all TUs.
         __attribute__((used)) inline SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
-        inline bool g_is_stepping = false;
 
         static inline void debug_write(char c) {
             if (SRL::DevCart::CS0::waitTXE(500U)) {
