@@ -1310,8 +1310,6 @@ extern "C" void slave_ipi_handler(void);
 
         extern "C" void srl_gdbstub_exception_thunk();
 
-        inline uint32_t g_vbr_table_buffer[512] = {0};
-        inline uint32_t* g_vbr_table_ptr = nullptr;
 
         static inline void InstallExceptionHandlers() {
             debug_print("[GDBStub] InstallExceptionHandlers() start\n");
