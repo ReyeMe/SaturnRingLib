@@ -202,9 +202,10 @@ extern "C" void slave_ipi_handler(void);
                 return false;
             }
 
-            // Prevent accesses into clearly invalid high address space that can fault and stall RSP.
+            // Prevent accesses that overlap with the invalid high address space that can fault and stall RSP.
             // Note: SH-2 on-chip peripherals reside at 0xFFFF8000 - 0xFFFFFFFF, which we must allow.
-            if ((addr >= 0xF0000000U && addr < 0xFFFF8000U) || (end >= 0xF0000000U && end < 0xFFFF8000U)) {
+            // Two intervals [addr, end] and [0xF0000000, 0xFFFF7FFF] overlap if addr <= 0xFFFF7FFF and end >= 0xF0000000.
+            if (addr < 0xFFFF8000U && end >= 0xF0000000U) {
                 return false;
             }
 
