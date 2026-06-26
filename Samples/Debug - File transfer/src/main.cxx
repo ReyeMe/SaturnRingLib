@@ -414,6 +414,82 @@ namespace
   }
 
   /**
+   * @brief Handles a request from the host to create a directory.
+   * 
+   * @param path The path of the directory to create.
+   * @param response Buffer to write the response string into.
+   * @param responseLen Reference to the length of the written response string.
+   * @return The status of the operation (e.g., Ok, BadRequest, Error).
+   */
+  SRL::DevCart::HostIo::Status HandleMkdir(const char *path, char *response,
+                                            size_t &responseLen)
+  {
+    if (IsSdFsPath(path))
+    {
+      if (!EnsureSgclibReady())
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoMkdir] SGCLIB init failed\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      const FRESULT rc = f_mkdir(path);
+      if (rc != FR_OK)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoMkdir] Mkdir failed (%d): %s\n", rc, path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoMkdir] Created directory: %s\n", path);
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+               "[DoMkdir] Read-only or unsupported path: %s\n", path);
+    return SRL::DevCart::HostIo::Status::Unsupported;
+  }
+
+  /**
+   * @brief Handles a request from the host to remove a directory.
+   * 
+   * @param path The path of the directory to remove.
+   * @param response Buffer to write the response string into.
+   * @param responseLen Reference to the length of the written response string.
+   * @return The status of the operation (e.g., Ok, BadRequest, Error).
+   */
+  SRL::DevCart::HostIo::Status HandleRmdir(const char *path, char *response,
+                                            size_t &responseLen)
+  {
+    if (IsSdFsPath(path))
+    {
+      if (!EnsureSgclibReady())
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoRmdir] SGCLIB init failed\n");
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      const FRESULT rc = f_unlink(path);
+      if (rc != FR_OK)
+      {
+        APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                   "[DoRmdir] Rmdir failed (%d): %s\n", rc, path);
+        return SRL::DevCart::HostIo::Status::Error;
+      }
+
+      APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+                 "[DoRmdir] Removed directory: %s\n", path);
+      return SRL::DevCart::HostIo::Status::Ok;
+    }
+
+    APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,
+               "[DoRmdir] Read-only or unsupported path: %s\n", path);
+    return SRL::DevCart::HostIo::Status::Unsupported;
+  }
+
+  /**
    * @brief Handles a request from the host to calculate the CRC-8 checksum of a file.
    * 
    * Supports both SD FAT files and standard CD/host filesystem files.
@@ -681,6 +757,12 @@ namespace
     case SRL::DevCart::HostIo::Command::Upload:
       commandName = "UPLOAD";
       break;
+    case SRL::DevCart::HostIo::Command::Mkdir:
+      commandName = "MKDIR";
+      break;
+    case SRL::DevCart::HostIo::Command::Rmdir:
+      commandName = "RMDIR";
+      break;
     default:
       break;
     }
@@ -707,6 +789,12 @@ namespace
       break;
     case SRL::DevCart::HostIo::Command::Upload:
       status = HandleUpload(path, response, responseLen);
+      break;
+    case SRL::DevCart::HostIo::Command::Mkdir:
+      status = HandleMkdir(path, response, responseLen);
+      break;
+    case SRL::DevCart::HostIo::Command::Rmdir:
+      status = HandleRmdir(path, response, responseLen);
       break;
     default:
       APPEND_FMT(response, kMaxResponseBytes + 1, responseLen,

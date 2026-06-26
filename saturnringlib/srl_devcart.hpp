@@ -510,7 +510,9 @@ namespace SRL
         List = 1,
         Remove = 2,
         Crc = 3,
-        Upload = 4
+        Upload = 4,
+        Mkdir = 5,
+        Rmdir = 6
       };
 
       enum class Status : uint8_t
