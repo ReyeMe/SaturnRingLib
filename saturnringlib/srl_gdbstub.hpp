@@ -460,29 +460,36 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline void adjust_pc_for_software_breakpoint() {
-            if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.delayed_branch_pc) {
-                // We hit the trap in the delay slot. Hardware pushed branch PC.
-                g_ctx.pc = g_step_data.address;
+            // SH-2 exception PC semantics:
+            //   - Illegal Instruction (0xFFFF): hardware pushes the address of the
+            //     faulting instruction itself (the 0xFFFF word), i.e. g_step_data.address.
+            //   - TRAPA #imm: hardware pushes PC+2 (past the trap), so we subtract 2.
+            //
+            // Phase 1 of delay-slot stepping: we placed 0xFFFF at the delay slot
+            // (g_step_data.address == branch_pc + 2). The hardware pushes that address.
+            // Detect this as g_ctx.pc == g_step_data.address (NOT delayed_branch_pc).
+            // Correct PC to the branch target and apply side effects.
+            if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.address) {
+                // Delay slot trap fired — hardware gave us the delay slot's address.
+                // Present PC to GDB as the branch target (where execution will resume).
+                g_ctx.pc = g_step_data.delayed_target;
+
+                if (g_step_data.delayed_updates_pr) {
+                    g_ctx.pr = g_step_data.delayed_pr;
+                }
+                if (g_step_data.delayed_is_rte) {
+                    g_ctx.sr = g_step_data.delayed_sr;
+                    g_ctx.r[15] += 8U;
+                }
+                g_step_data.is_delayed = false;
+                g_step_data.delayed_updates_pr = false;
+                g_step_data.delayed_is_rte = false;
                 return;
             }
 
-            // Check if current PC matches a breakpoint slot
+            // Normal (non-delayed) step trap or software breakpoint:
+            // PC pushed by hardware IS the faulting instruction address.
             if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
-                if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.address) {
-                    // We just finished stepping the delay slot instruction
-                    g_ctx.pc = g_step_data.delayed_target;
-                    
-                    if (g_step_data.delayed_updates_pr) {
-                        g_ctx.pr = g_step_data.delayed_pr;
-                    }
-                    if (g_step_data.delayed_is_rte) {
-                        g_ctx.sr = g_step_data.delayed_sr;
-                        g_ctx.r[15] += 8U;
-                    }
-                    g_step_data.is_delayed = false;
-                    g_step_data.delayed_updates_pr = false;
-                    g_step_data.delayed_is_rte = false;
-                }
                 return; // PC is already exactly at the breakpoint.
             }
 
