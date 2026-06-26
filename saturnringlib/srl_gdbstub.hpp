@@ -1291,7 +1291,12 @@ extern "C" void slave_ipi_handler(void);
                 // We use 0x06000000 as a safe fallback and copy the Boot ROM vectors there to preserve the chain.
                 if (current_vbr == 0) {
                     current_vbr = 0x06000000;
-                    volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U); // Boot ROM
+                    // On the Saturn, physical address 0x00000000 maps to the Boot ROM.
+                    // We read from the cache-through mirror at 0x20000000 to ensure we bypass
+                    // the cache. Using the 0x20000000 mirror explicitly guarantees we read the
+                    // actual ROM vectors even if a dev environment mapped something else to
+                    // the cached address 0.
+                    volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U);
                     volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
                     // The SH-2 exception vector table is exactly 256 bytes = 64 × uint32_t entries.
                     // Copying 256 uint32_t would read 1024 bytes — 768 bytes past the table end.
