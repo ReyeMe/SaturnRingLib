@@ -455,9 +455,11 @@ extern "C" void slave_ipi_handler(void);
                     }
                 } else if ((opcode & 0xff00U) == 0xc300U) { // TRAPA #imm
                     uint32_t vec_num = opcode & 0xffU;
-                    uint32_t vec_addr = g_ctx.vbr + ((32U + vec_num) * 4U);
-                    if (is_valid_memory_range(vec_addr, 4U)) {
-                        target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
+                    if (vec_num <= 31U) {
+                        uint32_t vec_addr = g_ctx.vbr + ((32U + vec_num) * 4U);
+                        if (is_valid_memory_range(vec_addr, 4U)) {
+                            target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
+                        }
                     }
                 } else if (opcode == 0xFFFFU) { // Illegal Instruction (our breakpoint)
                     target_pc = pc;
