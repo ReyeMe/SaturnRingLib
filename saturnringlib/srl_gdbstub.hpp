@@ -377,6 +377,12 @@ extern "C" void slave_ipi_handler(void);
             uint32_t target_pc = pc + 2U;
 
             if (g_step_data.is_delayed) {
+                // We are stepping the instruction inside a delay slot.
+                // The SH-2 architecture explicitly forbids branch instructions from being
+                // placed in delay slots. Thus, we safely ignore the decoded opcode here
+                // and assume it's a regular instruction that progresses to PC + 2.
+                // If a buggy program violates this rule, the trap will be placed at PC + 2
+                // rather than aborting or following the nested branch.
                 target_pc = pc + 2U;
             } else {
                 bool is_branch = false;
