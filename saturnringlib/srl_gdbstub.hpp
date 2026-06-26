@@ -134,7 +134,6 @@ extern "C" void slave_ipi_handler(void);
 
         inline SoftwareBreakpoint g_software_breakpoints[MaxSoftwareBreakpoints] = {};
 
-        static constexpr uint32_t InterruptSetupMask = 0x0F;
 
         // --- Utility Functions ---
 
