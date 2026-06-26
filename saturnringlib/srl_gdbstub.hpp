@@ -1228,7 +1228,9 @@ extern "C" void slave_ipi_handler(void);
                     current_vbr = 0x06000000;
                     volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U); // Boot ROM
                     volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
-                    for (int i = 0; i < 256; i++) {
+                    // The SH-2 exception vector table is exactly 256 bytes = 64 × uint32_t entries.
+                    // Copying 256 uint32_t would read 1024 bytes — 768 bytes past the table end.
+                    for (int i = 0; i < 64; i++) {
                         dst_table[i] = src_table[i];
                     }
                     asm volatile("ldc %0, vbr" :: "r"(current_vbr));
