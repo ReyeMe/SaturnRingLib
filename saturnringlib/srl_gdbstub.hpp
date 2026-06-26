@@ -1433,7 +1433,12 @@ extern "C" void slave_ipi_handler(void) {
         /**
          * @brief Initialize the GDB stub and hook exception vectors.
          */
-        static inline bool IsUsbDataPathEnabled();
+        /**
+         * @brief Returns true when cartridge-level USB data path should be enabled.
+         */
+        inline bool IsUsbDataPathEnabled() {
+            return g_devcart_usb_datapath_enabled;
+        }
 
         inline void Init() {
             debug_print("[GDBStub] Init() start\n");
@@ -1531,12 +1536,6 @@ extern "C" void slave_ipi_handler(void) {
             return g_devcart_port_available;
         }
 
-        /**
-         * @brief Returns true when cartridge-level USB data path should be enabled.
-         */
-        inline bool IsUsbDataPathEnabled() {
-            return g_devcart_usb_datapath_enabled;
-        }
 
         /**
          * @brief Returns latest raw USB_FLAGS value sampled by the stub.
