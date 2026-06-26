@@ -20,6 +20,18 @@ using namespace SRL::DevCart;
     __builtin_unreachable();
 }
 
+static inline void TriggerAlignmentCrash()
+{
+    // SH-2 requires 32-bit accesses to be 4-byte aligned and
+    // 16-bit accesses to be 2-byte aligned. Violating this raises
+    // a CPU Address Error exception (vector 9), which your stub
+    // already routes to srl_gdbstub_exception_thunk.
+    volatile uint8_t buf[8] = {};
+    // Take a byte pointer and offset it by 1 so it is never 4-byte aligned.
+    volatile uint32_t* misaligned = reinterpret_cast<volatile uint32_t*>(&buf[1]);
+    (void)*misaligned; // read from misaligned address → CPU Address Error
+}
+
 // Main program entry
 int main()
 {
@@ -32,7 +44,8 @@ int main()
 
     SRL::Debug::Print(1, 1, "GDB Stub Sample");
     SRL::Debug::Print(1, 3, "Stub active - connect GDB to break");
-    SRL::Debug::Print(1, 5, "Press START to crash into GDB");
+    SRL::Debug::Print(1, 5, "Press B to trigger Illegal Instr.");
+    SRL::Debug::Print(1, 6, "Press A to trigger Address Error");
      Log::LogPrint("GDB Stub active, waiting for GDB connection via Poll()");
     
     SRL::Core::Synchronize();
@@ -62,9 +75,13 @@ int main()
         SRL::Debug::Print(1, 23, "USB_FLAGS:       0x%02X", static_cast<unsigned int>(SRL::GDBStub::GetLastUsbFlags()));
         SRL::Debug::Print(1, 24, "Poll fallback:   %lu", static_cast<unsigned long>(SRL::GDBStub::GetPollFallbackCount()));
 
-        if (gamepad.WasPressed(SRL::Input::Digital::Button::START))
+        if (gamepad.WasPressed(SRL::Input::Digital::Button::B))
         {
             CrashProgram();
+        }
+        else if (gamepad.WasPressed(SRL::Input::Digital::Button::A))
+        {
+            TriggerAlignmentCrash();
         }
 
         SRL::GDBStub::Poll();
