@@ -29,8 +29,8 @@ namespace SRL
             uint32_t sr;
         };
 
-        // SRL break vector — using TRAPA #32 (Standard GDB SH breakpoint)
-        static constexpr uint32_t BreakTrapNumber = 32;
+        // SRL break vector — using TRAPA #3 (Vector 35, safe from SCU interrupts)
+        static constexpr uint32_t BreakTrapNumber = 3;
 
         // Upstream libyaul-gdbstub compatibility surface.
         static constexpr uint32_t GDBSTUB_LOAD_ADDRESS = 0x202FE000;
@@ -111,7 +111,10 @@ extern "C" void slave_ipi_handler(void);
         #define SLAVE_IPI_SET()   (SLAVE_IPI_REG = 0x01U)
         #define SLAVE_IPI_CLEAR() (SLAVE_IPI_REG = 0x00U)
 
-        static constexpr uint16_t SoftwareBreakInstruction = static_cast<uint16_t>(0xC300U | (BreakTrapNumber & 0xFFU));
+        // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
+        // This avoids collisions with SGL which frequently overwrites TRAPA vectors (32-63)
+        // for its own CD-ROM and BIOS system calls.
+        static constexpr uint16_t SoftwareBreakInstruction = 0xFFFFU;
         static constexpr size_t MaxSoftwareBreakpoints = 32;
 
         struct SoftwareBreakpoint {
@@ -368,10 +371,14 @@ extern "C" void slave_ipi_handler(void);
                 }
             } else if ((opcode & 0xff00U) == 0xc300U) { // TRAPA #imm
                 uint32_t vec_num = opcode & 0xffU;
-                uint32_t vec_addr = g_ctx.vbr + (vec_num * 4U);
+                uint32_t vec_addr = g_ctx.vbr + ((32U + vec_num) * 4U);
                 if (is_valid_memory_range(vec_addr, 4U)) {
                     target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
                 }
+            } else if (opcode == 0xFFFFU) { // Illegal Instruction (our breakpoint)
+                // If we step over our own breakpoint (should not happen natively but for completeness)
+                // the PC just stays here. The exception handler handles it.
+                target_pc = pc;
             }
 
             // Put a single-step trap at the target address.
@@ -386,10 +393,16 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline void adjust_pc_for_software_breakpoint() {
+            // Check if current PC matches a breakpoint slot
+            if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
+                return; // PC is already exactly at the breakpoint.
+            }
+
             if (g_ctx.pc < 2U) {
                 return;
             }
 
+            // Fallback: If we ever used TRAPA, the PC pushed is PC + 2.
             const uint32_t trap_address = g_ctx.pc - 2U;
             if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address)) {
                 g_ctx.pc = trap_address;
@@ -1107,7 +1120,7 @@ extern "C" void slave_ipi_handler(void);
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
-                vbr_table[BreakTrapNumber] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA
+                vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
                 PurgeCache();
                 g_handlers_installed = true;
@@ -1242,10 +1255,13 @@ extern "C" void slave_ipi_handler(void) {
         }
 
         /**
-         * @brief Enter the GDB stub via software trap (Interrupt::Vector::Trap3).
+         * @brief Enter the GDB stub via software trap (Illegal Instruction).
          */
         static inline void Break() {
-            asm volatile("trapa #32" ::: "memory");
+            // Force a breakpoint exception.
+            // Using Illegal Instruction (0xFFFF) which reliably vectors to VBR[4].
+            // SGL frequently overwrites TRAPA vectors (32-63) causing them to be ignored.
+            asm volatile(".word 0xFFFF" ::: "memory");
         }
 
         /**
