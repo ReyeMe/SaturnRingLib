@@ -805,6 +805,12 @@ extern "C" void slave_ipi_handler(void);
 
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
         __attribute__((used)) inline void process_commands() {
+            // CacheFlusher guarantees a single cache purge on every exit path from this
+            // function — continue, step, detach, disconnect, and early error returns alike.
+            // This is intentional: any return that follows a memory patch (breakpoint install/
+            // remove, M-packet write, or single-step trap placement) must have flushed before
+            // the CPU resumes executing the patched region. On disconnect/detach the flush is
+            // harmless. DO NOT remove this object or move it past the first PurgeCache() call.
             CacheFlusher flusher;
             constexpr size_t max_g_packet_size = (sizeof(SH2Context) + NumExtraRegs * 4) * 2;
             static_assert(max_g_packet_size < 1024, "out_buf is too small for GDB 'g' packet");
