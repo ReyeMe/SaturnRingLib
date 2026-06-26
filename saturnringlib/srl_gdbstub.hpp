@@ -978,12 +978,25 @@ extern "C" void slave_ipi_handler(void);
                         if (starts_with(in_buf, "vCont?")) {
                             packet_put('\0', "vCont;c;s", 9); // Support both continue and step
                         } else if (starts_with(in_buf, "vCont;")) {
+                            // Scan each ;action[:tid] pair.
+                            // Only treat as step if s/S applies to thread 1 (:1),
+                            // to all threads (:*), or has no thread qualifier at all.
+                            // A step directed at an unrecognised thread (e.g. ;s:2) is
+                            // ignored — fall through to continue for our single thread.
                             bool has_step = false;
-                            for (const char* p = in_buf + 5; *p != '\0'; ++p) {
-                                if (*p == ';' && (p[1] == 's' || p[1] == 'S')) {
-                                    has_step = true;
-                                    break;
+                            for (const char* p = in_buf + 5; *p != '\0'; ) {
+                                if (*p != ';') { ++p; continue; }
+                                ++p; // skip ';'
+                                if (*p != 's' && *p != 'S') { continue; }
+                                const char* q = p + 1;
+                                // No qualifier or end of string → applies to all
+                                if (*q == '\0' || *q == ';') { has_step = true; break; }
+                                // Thread qualifier present: :1 or :* are our thread
+                                if (*q == ':') {
+                                    ++q;
+                                    if (*q == '*' || *q == '1') { has_step = true; break; }
                                 }
+                                // Qualified to another thread — skip this action
                             }
                             if (has_step) {
                                 handle_gdb_step();
