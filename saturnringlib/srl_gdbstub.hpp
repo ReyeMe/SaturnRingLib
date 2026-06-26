@@ -938,18 +938,21 @@ extern "C" void slave_ipi_handler(void);
                             // Send in chunks respecting the requested length from GDB.
                             // Parse offset and length from "qXfer:features:read:target.xml:off,len"
                             static const size_t xml_len = sizeof(target_xml) - 1U;
-                            uint32_t xfer_off = 0, xfer_len = 0xFFFFU;
+                            uint32_t xfer_off = 0, xfer_len = 0;
+                            bool xfer_ok = false;
                             {
                                 const char* colon = in_buf;
                                 int colons = 0;
                                 while (*colon && colons < 4) { if (*colon++ == ':') ++colons; }
                                 // colon now points past the 4th ':', i.e. at "off,len"
-                                if (parse_hex_u32_until(colon, ',', xfer_off, colon)) {
-                                    if (*colon == ',') {
-                                        ++colon;
-                                        parse_hex_u32_until(colon, '\0', xfer_len, colon);
-                                    }
+                                if (parse_hex_u32_until(colon, ',', xfer_off, colon) && *colon == ',') {
+                                    ++colon;
+                                    xfer_ok = parse_hex_u32_until(colon, '\0', xfer_len, colon);
                                 }
+                            }
+                            if (!xfer_ok) {
+                                packet_put('\0', "E01", 3);
+                                break;
                             }
                             if (xfer_off >= xml_len) {
                                 out_buf[0] = 'l'; packet_put('\0', out_buf, 1);
