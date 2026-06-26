@@ -535,6 +535,10 @@ extern "C" void slave_ipi_handler(void);
         static inline void snapshot_polling_context() {
             // Fallback context used when we service GDB packets outside ExceptionThunk.
             // It keeps PC/SP/special registers valid so GDB does not see a null frame.
+            // We zero r0-r14 intentionally. The C++ compiler constantly clobbers these
+            // during the Poll() execution itself, so capturing them via inline asm
+            // would just yield meaningless compiler-generated garbage. Only the
+            // structural frame (SP, PC, PR, etc) is accurate.
             for (int i = 0; i < 16; ++i) {
                 g_ctx.r[i] = 0;
             }
