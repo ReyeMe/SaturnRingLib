@@ -1037,7 +1037,11 @@ extern "C" void slave_ipi_handler(void);
                             for (const char* p = in_buf + 5; *p != '\0'; ) {
                                 if (*p != ';') { ++p; continue; }
                                 ++p; // skip ';'
-                                if (*p != 's' && *p != 'S') { continue; }
+                                if (*p != 's' && *p != 'S') {
+                                    // Not a step action, skip to the next ';'
+                                    while (*p != '\0' && *p != ';') { ++p; }
+                                    continue;
+                                }
                                 const char* q = p + 1;
                                 // No qualifier or end of string → applies to all
                                 if (*q == '\0' || *q == ';') { has_step = true; break; }
@@ -1047,6 +1051,7 @@ extern "C" void slave_ipi_handler(void);
                                     if (*q == '*' || *q == '1') { has_step = true; break; }
                                 }
                                 // Qualified to another thread — skip this action
+                                while (*p != '\0' && *p != ';') { ++p; }
                             }
                             if (has_step) {
                                 handle_gdb_step();
