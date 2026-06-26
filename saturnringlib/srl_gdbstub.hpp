@@ -142,6 +142,11 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline const char* hex2mem(const char* buf, uint8_t* mem, int count) {
+            // Validate all characters first to prevent partial memory corruption
+            for (int i = 0; i < count * 2; i++) {
+                if (hex(buf[i]) < 0) return nullptr;
+            }
+            
             for (int i = 0; i < count; i++) {
                 int h1 = hex(*buf++);
                 int h2 = hex(*buf++);
@@ -882,8 +887,11 @@ extern "C" void slave_ipi_handler(void);
                         }
                         break;
                     case 'G':
-                        hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context));
-                        packet_put('\0', "OK", 2);
+                        if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
+                            packet_put('\0', "OK", 2);
+                        } else {
+                            packet_put('\0', "E01", 3);
+                        }
                         break;
                     case 'p': // Read a single register
                         {
@@ -937,9 +945,12 @@ extern "C" void slave_ipi_handler(void);
 
                             if (reg_idx >= 23) {
                                 uint16_t val = 0;
-                                hex2mem(ptr, (uint8_t*)&val, 2);
-                                *(volatile uint16_t*)ExtraRegs[reg_idx - 23] = val;
-                                packet_put('\0', "OK", 2);
+                                if (hex2mem(ptr, (uint8_t*)&val, 2)) {
+                                    *(volatile uint16_t*)ExtraRegs[reg_idx - 23] = val;
+                                    packet_put('\0', "OK", 2);
+                                } else {
+                                    packet_put('\0', "E01", 3);
+                                }
                                 break;
                             }
 
@@ -953,8 +964,11 @@ extern "C" void slave_ipi_handler(void);
                             else if (reg_idx == 21) reg_ptr = &g_ctx.macl;
                             else if (reg_idx == 22) reg_ptr = &g_ctx.sr;
 
-                            hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4);
-                            packet_put('\0', "OK", 2);
+                            if (hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4)) {
+                                packet_put('\0', "OK", 2);
+                            } else {
+                                packet_put('\0', "E01", 3);
+                            }
                         }
                         break;
                     case 'm':
@@ -990,8 +1004,11 @@ extern "C" void slave_ipi_handler(void);
                                 break;
                             }
 
-                            hex2mem(p, (uint8_t*)addr, length);
-                            packet_put('\0', "OK", 2);
+                            if (hex2mem(p, (uint8_t*)addr, length)) {
+                                packet_put('\0', "OK", 2);
+                            } else {
+                                packet_put('\0', "E01", 3);
+                            }
                         }
                         break;
                     case 'Z':
