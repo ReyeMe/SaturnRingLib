@@ -1049,6 +1049,10 @@ extern "C" void slave_ipi_handler(void);
                                 size_t avail = xml_len - xfer_off;
                                 size_t send  = avail < xfer_len ? avail : xfer_len;
                                 if (send > kPacketDataMax) send = kPacketDataMax;
+                                
+                                // Ensure kPacketDataMax can never be raised so high that out_buf[1 + i] overflows.
+                                static_assert(kPacketDataMax < sizeof(out_buf) - 1U, "kPacketDataMax is too large for out_buf");
+
                                 bool last = (xfer_off + send >= xml_len);
                                 out_buf[0] = last ? 'l' : 'm';
                                 for (size_t i = 0; i < send; ++i) out_buf[1 + i] = target_xml[xfer_off + i];
