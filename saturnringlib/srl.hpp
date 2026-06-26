@@ -20,3 +20,7 @@ static_assert(SGL_MAX_POLYGONS > 4,
 #if SRL_USE_SGL_SOUND_DRIVER == 1
     #include "srl_cinepak.hpp"
 #endif
+
+#ifdef DEBUG
+    #include <srl_gdbstub.hpp>
+#endif

@@ -113,6 +113,11 @@ namespace SRL
 
             // Initialize timer system
             SRL::Timer::Init();
+
+#ifdef DEBUG
+			// Initialize GDB stub only if we are debugging.
+			SRL::Debug::GDB::Initialize();
+#endif
         }
 
         /** @brief Wait until graphic processing time is reached
@@ -128,6 +133,11 @@ namespace SRL
 
             // Update timer delta values
             SRL::Timer::Update();
+
+#ifdef DEBUG
+			// Poll GDB stub.
+			SRL::Debug::GDB::Poll();
+#endif
         }
     };
 };
