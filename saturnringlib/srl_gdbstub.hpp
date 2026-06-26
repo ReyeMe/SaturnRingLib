@@ -524,6 +524,7 @@ extern "C" void slave_ipi_handler(void);
         // MMIO reads (USB_FLAGS) have ~10 wait states on Saturn, so each loop
         // iteration takes ~1-2 us. 3,000,000 iterations ≈ 3-6 seconds.
         static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 3000000U;
+        static constexpr uint32_t GDB_TX_IDLE_TIMEOUT = 3000000U;
 
         // Waits for USB RX data.
         // - Before first connection (g_has_connection=false): waits indefinitely
@@ -557,11 +558,21 @@ extern "C" void slave_ipi_handler(void);
         // Waits for USB TX space.
         // Aborts on cable unplug if we had an active session.
         static inline bool __gdb_wait_tx() {
+            uint32_t idle = 0;
             while (SRL::DevCart::CS0::isTXEFull()) {
-                if (g_has_connection && !SRL::DevCart::CS0::isConnected()) {
-                    g_has_connection = false;
-                    g_handshake_done = false;
-                    return false;
+                if (g_has_connection) {
+                    if (!SRL::DevCart::CS0::isConnected()) {
+                        g_has_connection = false;
+                        g_handshake_done = false;
+                        return false;
+                    }
+                    if (g_handshake_done) {
+                        if (++idle > GDB_TX_IDLE_TIMEOUT) {
+                            g_has_connection = false;
+                            g_handshake_done = false;
+                            return false;
+                        }
+                    }
                 }
             }
             return true;
