@@ -857,15 +857,12 @@ extern "C" void slave_ipi_handler(void);
                         g_stop_requested_by_ctrl_c = false;
                         break;
                     case 'q':
-                        if (in_buf[1]=='S' && in_buf[2]=='u' && in_buf[3]=='p' &&
-                            in_buf[4]=='p' && in_buf[5]=='o' && in_buf[6]=='r' &&
-                            in_buf[7]=='t' && in_buf[8]=='e' && in_buf[9]=='d') {
+                        if (starts_with(in_buf, "qSupported")) {
                             // Advertise swbreak and target description so GDB knows the arch.
                             constexpr const char features[] = "PacketSize=400;swbreak+;qXfer:features:read+";
                             packet_put('\0', features, sizeof(features) - 1);
                             g_handshake_done = true;
-                        } else if (in_buf[1]=='X' && in_buf[2]=='f' && in_buf[3]=='e' &&
-                                   in_buf[4]=='r' && in_buf[5]==':' && in_buf[6]=='f') {
+                        } else if (starts_with(in_buf, "qXfer:features:read:")) {
                             // qXfer:features:read:target.xml:offset,length
                             // Full SH-2 register description so gdb-multiarch auto-detects
                             // architecture and register layout without needing 'set arch'.
@@ -945,26 +942,16 @@ extern "C" void slave_ipi_handler(void);
                                 for (size_t i = 0; i < send; ++i) out_buf[1 + i] = target_xml[xfer_off + i];
                                 packet_put('\0', out_buf, 1 + send);
                             }
-                        } else if (in_buf[1]=='f' && in_buf[2]=='T' && in_buf[3]=='h' &&
-                                   in_buf[4]=='r' && in_buf[5]=='e' && in_buf[6]=='a' &&
-                                   in_buf[7]=='d' && in_buf[8]=='I' && in_buf[9]=='n' &&
-                                   in_buf[10]=='f' && in_buf[11]=='o' && in_buf[12]=='\0') {
+                        } else if (starts_with(in_buf, "qfThreadInfo")) {
                             // Single-thread target.
                             packet_put('\0', "m1", 2);
-                        } else if (in_buf[1]=='s' && in_buf[2]=='T' && in_buf[3]=='h' &&
-                                   in_buf[4]=='r' && in_buf[5]=='e' && in_buf[6]=='a' &&
-                                   in_buf[7]=='d' && in_buf[8]=='I' && in_buf[9]=='n' &&
-                                   in_buf[10]=='f' && in_buf[11]=='o' && in_buf[12]=='\0') {
+                        } else if (starts_with(in_buf, "qsThreadInfo")) {
                             packet_put('\0', "l", 1);
-                        } else if (in_buf[1]=='A' && in_buf[2]=='t' && in_buf[3]=='t' &&
-                                   in_buf[4]=='a' && in_buf[5]=='c' && in_buf[6]=='h' &&
-                                   in_buf[7]=='e' && in_buf[8]=='d') {
+                        } else if (starts_with(in_buf, "qAttached")) {
                             packet_put('\0', "1", 1);
-                        } else if (in_buf[1]=='O' && in_buf[2]=='f' && in_buf[3]=='f' &&
-                                   in_buf[4]=='s' && in_buf[5]=='e' && in_buf[6]=='t' &&
-                                   in_buf[7]=='s' && in_buf[8]=='\0') {
+                        } else if (starts_with(in_buf, "qOffsets")) {
                             packet_put('\0', "Text=0;Data=0;Bss=0", 19);
-                        } else if (in_buf[1]=='C' && in_buf[2]=='\0') {
+                        } else if (starts_with(in_buf, "qC")) {
                             packet_put('\0', "QC1", 3);
                         } else {
                             packet_put('\0', nullptr, 0);
