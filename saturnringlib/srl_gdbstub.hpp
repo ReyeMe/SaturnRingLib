@@ -248,11 +248,28 @@ extern "C" void slave_ipi_handler(void);
             return -1;
         }
 
-        static inline void PurgeCache() {
+        inline static bool g_cache_dirty = false;
+
+        static inline void ForcePurgeCache() {
             *reinterpret_cast<volatile uint8_t*>(0xFFFFFE92) |= 0x10;
             // The SH-2 hardware manual requires waiting at least two instructions
             // before accessing the cache after a purge. We add several NOPs to be safe.
             asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory");
+        }
+
+        static inline void FlushCacheIfDirty() {
+            if (g_cache_dirty) {
+                ForcePurgeCache();
+                g_cache_dirty = false;
+            }
+        }
+
+        struct CacheFlusher {
+            ~CacheFlusher() { FlushCacheIfDirty(); }
+        };
+
+        static inline void PurgeCache() {
+            g_cache_dirty = true;
         }
 
         static inline void clear_breakpoints(bool restore_memory) {
@@ -775,6 +792,7 @@ extern "C" void slave_ipi_handler(void);
 
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
         __attribute__((used)) inline void process_commands() {
+            CacheFlusher flusher;
             char in_buf[1024];
             char out_buf[1024];
 
@@ -1126,6 +1144,7 @@ extern "C" void slave_ipi_handler(void);
                             }
 
                             if (hex2mem(p, (uint8_t*)addr, length)) {
+                                PurgeCache();
                                 packet_put('\0', "OK", 2);
                             } else {
                                 packet_put('\0', "E01", 3);
@@ -1234,7 +1253,7 @@ extern "C" void slave_ipi_handler(void);
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
-                PurgeCache();
+                ForcePurgeCache();
                 g_handlers_installed = true;
             }
             debug_print("[GDBStub] InstallExceptionHandlers() end\n");
@@ -1522,6 +1541,9 @@ __asm__(
     "mov.l @(3*4,  r0), r3\n"
     "mov.l @(2*4,  r0), r2\n"
     "mov.l @(1*4,  r0), r1\n"
+    // CRITICAL: r0 must be restored LAST, and this instruction assumes r0 
+    // STILL holds the base pointer to g_ctx (loaded before the epilogue).
+    // Do NOT reorder this or use r0 as a scratch register above!
     "mov.l @r0, r0\n"
     "rte\n"
     "nop\n"
