@@ -1017,9 +1017,14 @@ extern "C" void slave_ipi_handler(void);
                         break;
                     case 'G':
                         {
+                            // The G packet payload must contain at least the core register set.
+                            // GDB may reflect back the full g response — which includes trailing
+                            // hex chars for NumExtraRegs VDP registers — so we accept any payload
+                            // >= core size and only write the first sizeof(SH2Context)*2 chars.
+                            constexpr size_t core_len = sizeof(SH2Context) * 2;
                             size_t len = 0;
                             while (in_buf[1 + len] != '\0') len++;
-                            if (len != sizeof(SH2Context) * 2) {
+                            if (len < core_len) {
                                 packet_put('\0', "E01", 3);
                             } else if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
                                 packet_put('\0', "OK", 2);
