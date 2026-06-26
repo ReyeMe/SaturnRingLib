@@ -952,32 +952,32 @@ extern "C" void slave_ipi_handler(void);
                                 "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\"/>\n"
-                                "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" regnum=\"16\"/>\n"
-                                "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\"/>\n"
+                                "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\"/>\n"
+                                "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"16\"/>\n"
+                                "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
                                 "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\"/>\n"
+                                "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
                                 "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "  </feature>\n"
                                 "  <feature name=\"org.sega.saturn.vdp\">\n"
-                                "    <reg name=\"vdp1_tvmr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_fbcr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ptmr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ewdr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ewlr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ewrr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_endr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_edsr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_lopr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_copr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_modr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_tvmd\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_exten\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_tvstat\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_vrsize\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_bgon\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_tvmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_fbcr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ptmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ewdr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ewlr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ewrr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_endr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_edsr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_lopr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_copr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_modr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_tvmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_exten\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_tvstat\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_vrsize\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_bgon\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
                                 "  </feature>\n"
                                 "</target>\n";
                             // Send in chunks respecting the requested length from GDB.
@@ -1346,9 +1346,13 @@ extern "C" void slave_ipi_handler(void);
                 //   External/internal interrupts:         VBR + 0x080..0x0FC  (indices 32..63)
                 //   TRAPA #N vectors:                     VBR + 0x080 + N*4   (indices 32+N)
                 vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Illegal Instruction
+                vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Reserved Instruction
                 vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Slot Illegal Instruction
+                vbr_table[7] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // General Illegal Instruction
+                vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Slot Reserved Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
+                vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // NMI
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
