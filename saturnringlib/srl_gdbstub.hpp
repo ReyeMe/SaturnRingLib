@@ -191,7 +191,8 @@ extern "C" void slave_ipi_handler(void);
             }
 
             // Prevent accesses into clearly invalid high address space that can fault and stall RSP.
-            if (addr >= 0xF0000000U || end >= 0xF0000000U) {
+            // Note: SH-2 on-chip peripherals reside at 0xFFFF0000 - 0xFFFFFFFF, which we must allow.
+            if ((addr >= 0xF0000000U && addr < 0xFFFF0000U) || (end >= 0xF0000000U && end < 0xFFFF0000U)) {
                 return false;
             }
 
@@ -637,6 +638,17 @@ extern "C" void slave_ipi_handler(void);
 
         // --- Core Handler ---
 
+        static constexpr uint32_t ExtraRegs[] = {
+            // VDP1 (11 registers, indices 23..33)
+            0x25D00000, 0x25D00002, 0x25D00004, 0x25D00006,
+            0x25D00008, 0x25D0000A, 0x25D0000C, 0x25D0000E,
+            0x25D00010, 0x25D00012, 0x25D00014,
+            // VDP2 (5 registers, indices 34..38)
+            0x25F80000, 0x25F80002, 0x25F80004, 0x25F80006,
+            0x25F80020
+        };
+        static constexpr size_t NumExtraRegs = sizeof(ExtraRegs) / sizeof(ExtraRegs[0]);
+
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
         __attribute__((used)) inline void process_commands() {
             char in_buf[1024];
@@ -742,6 +754,24 @@ extern "C" void slave_ipi_handler(void);
                                 "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "  </feature>\n"
+                                "  <feature name=\"org.sega.saturn.vdp\">\n"
+                                "    <reg name=\"vdp1_tvmr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_fbcr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ptmr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ewdr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ewlr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_ewrr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_endr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_edsr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_lopr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_copr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_modr\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_tvmd\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_exten\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_tvstat\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_vrsize\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp2_bgon\" bitsize=\"16\" type=\"uint16\" group=\"system\"/>\n"
+                                "  </feature>\n"
                                 "</target>\n";
                             // Send in chunks respecting the requested length from GDB.
                             // Parse offset and length from "qXfer:features:read:target.xml:off,len"
@@ -822,7 +852,19 @@ extern "C" void slave_ipi_handler(void);
                             if (g_ctx.pc == 0) {
                                 snapshot_polling_context();
                             }
-                            const int tx_len = static_cast<int>(mem2hex((uint8_t*)&g_ctx, out_buf, sizeof(SH2Context)) - out_buf);
+                            char* p_out = out_buf;
+                            p_out = mem2hex((uint8_t*)&g_ctx, p_out, sizeof(SH2Context));
+                            
+                            // Append extra pseudo-registers (VDP1/VDP2)
+                            for (size_t i = 0; i < NumExtraRegs; ++i) {
+                                // These are 16-bit hardware registers
+                                uint16_t val = *(volatile uint16_t*)ExtraRegs[i];
+                                // We swap manually or rely on memory order if big endian
+                                // SH-2 is big endian, so memory order is correct for GDB.
+                                p_out = mem2hex((uint8_t*)&val, p_out, 2);
+                            }
+                            
+                            const int tx_len = static_cast<int>(p_out - out_buf);
                             packet_put('\0', out_buf, static_cast<size_t>(tx_len));
                         }
                         break;
@@ -839,8 +881,15 @@ extern "C" void slave_ipi_handler(void);
                                 break;
                             }
 
-                            if (reg_idx > 22) {
+                            if (reg_idx > 22 + NumExtraRegs) {
                                 packet_put('\0', "E01", 3);
+                                break;
+                            }
+
+                            if (reg_idx >= 23) {
+                                uint16_t val = *(volatile uint16_t*)ExtraRegs[reg_idx - 23];
+                                const int tx_len = static_cast<int>(mem2hex((uint8_t*)&val, out_buf, 2) - out_buf);
+                                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
                                 break;
                             }
 
@@ -868,8 +917,16 @@ extern "C" void slave_ipi_handler(void);
                             }
                             ptr++; // skip '='
 
-                            if (reg_idx > 22) {
+                            if (reg_idx > 22 + NumExtraRegs) {
                                 packet_put('\0', "E01", 3);
+                                break;
+                            }
+
+                            if (reg_idx >= 23) {
+                                uint16_t val = 0;
+                                hex2mem(ptr, (uint8_t*)&val, 2);
+                                *(volatile uint16_t*)ExtraRegs[reg_idx - 23] = val;
+                                packet_put('\0', "OK", 2);
                                 break;
                             }
 
