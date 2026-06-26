@@ -793,6 +793,8 @@ extern "C" void slave_ipi_handler(void);
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
         __attribute__((used)) inline void process_commands() {
             CacheFlusher flusher;
+            constexpr size_t max_g_packet_size = (sizeof(SH2Context) + NumExtraRegs * 4) * 2;
+            static_assert(max_g_packet_size < 1024, "out_buf is too small for GDB 'g' packet");
             char in_buf[1024];
             char out_buf[1024];
 
