@@ -39,6 +39,13 @@ namespace
     }                                                                        \
   } while (0)
 
+  /**
+   * @brief Calculates or updates a CRC-8 checksum over a buffer of data.
+   * @param crc The initial CRC value, or the previous CRC for chained updates.
+   * @param data Pointer to the buffer of data to process.
+   * @param dataLen Length of the data buffer in bytes.
+   * @return The updated CRC-8 checksum.
+   */
   uint8_t Crc8Update(uint8_t crc, const uint8_t *data, size_t dataLen)
   {
     static const uint8_t crcTable[256] = {
@@ -79,6 +86,11 @@ namespace
     extern unsigned char __sgclib_stub_end;
   }
 
+  /**
+   * @brief Ensures that the SGCLIB (SD Cart) stub is loaded into memory.
+   * 
+   * The SGCLIB stub provides low-level SD card access routines.
+   */
   void EnsureSgclibStubLoaded()
   {
     if (g_sgcStubLoaded)
@@ -92,6 +104,10 @@ namespace
     g_sgcStubLoaded = true;
   }
 
+  /**
+   * @brief Ensures that the SGCLIB and FAT file system are initialized and mounted.
+   * @return True if the SD card is successfully mounted; false otherwise.
+   */
   bool EnsureSgclibReady()
   {
     if (g_sgcReady)
@@ -110,16 +126,31 @@ namespace
     return g_sgcReady;
   }
 
+  /**
+   * @brief Checks if a path is intended for the SD card FAT file system.
+   * @param path The path to check.
+   * @return True if the path starts with a slash ('/'); false otherwise.
+   */
   bool IsSdFsPath(const char *path)
   {
     return path != NULL && path[0] == '/';
   }
 
+  /**
+   * @brief Normalizes an SD FAT file system path.
+   * @param path The path to normalize.
+   * @return A pointer to the normalized path string.
+   */
   const char *NormalizeSdFsPath(const char *path)
   {
     return path;
   }
 
+  /**
+   * @brief Saves the current FAT file system working directory to a buffer.
+   * @param buffer Pointer to the buffer where the current directory will be saved.
+   * @param size Size of the buffer in bytes.
+   */
   void SaveCurrentDir(char *buffer, size_t size)
   {
     if (buffer == NULL || size == 0)
@@ -132,6 +163,10 @@ namespace
     buffer[size - 1] = '\0';
   }
 
+  /**
+   * @brief Restores the FAT file system working directory from a buffer.
+   * @param buffer Pointer to the buffer containing the directory path to restore.
+   */
   void RestoreCurrentDir(const char *buffer)
   {
     if (buffer != NULL && buffer[0] != '\0')
@@ -140,6 +175,14 @@ namespace
     }
   }
 
+  /**
+   * @brief Splits a full path into directory path and file name.
+   * 
+   * Modifies the input string by replacing the last slash with a null terminator.
+   * 
+   * @param fullPath The full path string to split (will be modified).
+   * @return A pointer to the file name component.
+   */
   char *SplitPathAndName(char *fullPath)
   {
     int slash = -1;
@@ -160,6 +203,15 @@ namespace
     return fullPath + slash + 1;
   }
 
+  /**
+   * @brief Placeholder function for opening an SD file for reading.
+   * 
+   * Currently simplified for testing purposes.
+   * 
+   * @param path The path of the file to open.
+   * @param fd Reference to store the file descriptor.
+   * @return True if successful; false otherwise.
+   */
   bool OpenSdFileRead(const char *path, int &fd)
   {
     fd = -1;
@@ -181,6 +233,16 @@ namespace
     return true; 
   }
 
+  /**
+   * @brief Handles a request from the host to list directory contents.
+   * 
+   * Supports SD card FAT filesystem paths and SD raw sector ranges.
+   * 
+   * @param path The path or raw sector range to list.
+   * @param response Buffer to write the response string into.
+   * @param responseLen Reference to the length of the written response string.
+   * @return The status of the operation (e.g., Ok, BadRequest, Error).
+   */
   SRL::DevCart::HostIo::Status HandleList(const char *path, char *response,
                                           size_t &responseLen)
   {
@@ -290,6 +352,14 @@ namespace
     return SRL::DevCart::HostIo::Status::BadRequest;
   }
 
+  /**
+   * @brief Handles a request from the host to remove a file or erase a raw sector range.
+   * 
+   * @param path The path of the file to remove, or the raw sector range to erase.
+   * @param response Buffer to write the response string into.
+   * @param responseLen Reference to the length of the written response string.
+   * @return The status of the operation (e.g., Ok, BadRequest, Error).
+   */
   SRL::DevCart::HostIo::Status HandleRemove(const char *path, char *response,
                                             size_t &responseLen)
   {
@@ -343,6 +413,16 @@ namespace
     return SRL::DevCart::HostIo::Status::Unsupported;
   }
 
+  /**
+   * @brief Handles a request from the host to calculate the CRC-8 checksum of a file.
+   * 
+   * Supports both SD FAT files and standard CD/host filesystem files.
+   * 
+   * @param path The path of the file to checksum.
+   * @param response Buffer to write the response string into.
+   * @param responseLen Reference to the length of the written response string.
+   * @return The status of the operation (e.g., Ok, Error).
+   */
   SRL::DevCart::HostIo::Status HandleCrc(const char *path, char *response,
                                          size_t &responseLen)
   {
@@ -425,6 +505,20 @@ namespace
     return SRL::DevCart::HostIo::Status::Ok;
   }
 
+  /**
+   * @brief Handles a request from the host to upload a file to the SD card.
+   * 
+   * The upload protocol consists of:
+   * 1. Receiving a 4-byte file size (Big Endian).
+   * 2. Receiving the file data in chunks.
+   * 3. Receiving a 1-byte CRC-8 checksum from the host.
+   * 4. Sending a 1-byte result code (0x00 for success, 0x01 for failure).
+   * 
+   * @param path The destination path on the SD card FAT filesystem.
+   * @param response Buffer to write the response string into (used for errors).
+   * @param responseLen Reference to the length of the written response string.
+   * @return The status of the operation, typically Handled as the response is manual.
+   */
   SRL::DevCart::HostIo::Status HandleUpload(const char *path, char *response,
                                             size_t &responseLen)
   {
@@ -509,6 +603,13 @@ namespace
   const int kShellMaxY = 27;
   int g_shellY = kShellStartY;
 
+  /**
+   * @brief Prints text to a scrolling shell-like view on the screen.
+   * 
+   * Wraps long lines and handles scrolling when the text reaches the bottom of the screen.
+   * 
+   * @param text The text to print.
+   */
   void PrintShell(const char* text)
   {
       if (!text) return;
@@ -539,6 +640,13 @@ namespace
       SRL::Debug::PrintClearLine(g_shellY);
   }
 
+  /**
+   * @brief Reads and processes an incoming Host I/O request.
+   * 
+   * Decodes the request command, routes it to the appropriate handler (e.g., HandleList,
+   * HandleUpload), and sends the response back to the host via the DevCart interface.
+   * Also echoes the command and response to the on-screen shell.
+   */
   void HandleHostIoRequest()
   {
     uint8_t requestPayload[kMaxRequestBytes + 1];
