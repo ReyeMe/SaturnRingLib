@@ -98,6 +98,7 @@ namespace SRL
         inline uint8_t g_last_usb_flags = 0xFF;
         inline volatile bool g_stop_requested_by_ctrl_c = false;
         inline volatile uint8_t g_last_stop_signal = 5; // 5=SIGTRAP, 2=SIGINT
+        inline bool g_was_swbreak = false; // Set during PC adjustment if we hit a GDB swbreak
         // Set when $c stepped over a software breakpoint; cleared after re-insertion.
         // When set, the next process_commands() entry is silent (re-inserts BP, continues).
         inline bool g_resuming_from_breakpoint = false;
@@ -108,10 +109,11 @@ extern "C" void slave_ipi_handler(void);
         // IPI scratch location in Work RAM High (safe for both CPUs, won't bus-error).
         // Using a word near the top of the 1MB Work RAM High region (0x06000000 + 0xFF000).
         // IPI scratch location in Work RAM High, safe for both CPUs.
-        static constexpr volatile uint32_t* kSlaveIPIReg =
-            reinterpret_cast<volatile uint32_t*>(0x060FFF00U);
-        static inline void SlaveIPISet()   { *kSlaveIPIReg = 0x01U; }
-        static inline void SlaveIPIClear() { *kSlaveIPIReg = 0x00U; }
+        static inline volatile uint32_t* SlaveIPIReg() {
+            return reinterpret_cast<volatile uint32_t*>(0x060FFF00U);
+        }
+        static inline void SlaveIPISet()   { *SlaveIPIReg() = 0x01U; }
+        static inline void SlaveIPIClear() { *SlaveIPIReg() = 0x00U; }
 
         // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
         // This avoids collisions with SGL which frequently overwrites TRAPA vectors (32-63)
@@ -462,6 +464,7 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline void adjust_pc_for_software_breakpoint() {
+            g_was_swbreak = false;
             // SH-2 exception PC semantics:
             //   - Illegal Instruction (0xFFFF): hardware pushes the address of the
             //     faulting instruction itself (the 0xFFFF word), i.e. g_step_data.address.
@@ -472,6 +475,7 @@ extern "C" void slave_ipi_handler(void);
             // Detect this as g_ctx.pc == g_step_data.address (NOT delayed_branch_pc).
             // Correct PC to the branch target and apply side effects.
             if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.address) {
+                g_was_swbreak = true;
                 // Delay slot trap fired — hardware gave us the delay slot's address.
                 // Present PC to GDB as the branch target (where execution will resume).
                 g_ctx.pc = g_step_data.delayed_target;
@@ -492,6 +496,7 @@ extern "C" void slave_ipi_handler(void);
             // Normal (non-delayed) step trap or software breakpoint:
             // PC pushed by hardware IS the faulting instruction address.
             if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
+                g_was_swbreak = true;
                 return; // PC is already exactly at the breakpoint.
             }
 
@@ -751,8 +756,14 @@ extern "C" void slave_ipi_handler(void);
             int len = 2;
             
             if (signal == 5) {
-                const char* swb = "swbreak:;";
-                for (int i = 0; i < 9; ++i) buf[len++] = swb[i];
+                // Only append "swbreak:;" if this was actually a GDB-managed software breakpoint
+                // or a single-step trap. If we append it for a programmatic Break() or a real crash
+                // using 0xFFFF, GDB will fail to find it in its list and auto-continue the target,
+                // resulting in an infinite loop.
+                if (g_was_swbreak) {
+                    const char* swb = "swbreak:;";
+                    for (int i = 0; i < 9; ++i) buf[len++] = swb[i];
+                }
             }
             
             const char* thread = "thread:1;";

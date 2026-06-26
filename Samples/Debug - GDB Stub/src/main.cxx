@@ -2,10 +2,23 @@
 #include <srl_gdbstub.hpp>
 #include <srl_log.hpp>      // Logging system
 #include <srl_devcart.hpp>  // DevCart USB and CPLD access
+#include <srl_input.hpp>    // Gamepad input
 
 using namespace SRL::Types;
 using namespace SRL::Logger;
 using namespace SRL::DevCart;
+
+// Deliberately triggers an Illegal Instruction exception that the GDB stub catches,
+// allowing post-mortem inspection of the register state and call stack.
+[[noreturn]] static void CrashProgram()
+{
+    SRL::Debug::Print(1, 27, "*** CRASH TRIGGERED ***");
+    SRL::Core::Synchronize();
+    // Emit 0xFFFF — the SH-2 Illegal Instruction opcode.
+    // The GDB stub's exception thunk catches this and enters the RSP command loop.
+    asm volatile(".word 0xFFFF" ::: "memory");
+    __builtin_unreachable();
+}
 
 // Main program entry
 int main()
@@ -19,6 +32,7 @@ int main()
 
     SRL::Debug::Print(1, 1, "GDB Stub Sample");
     SRL::Debug::Print(1, 3, "Stub active - connect GDB to break");
+    SRL::Debug::Print(1, 5, "Press START to crash into GDB");
      Log::LogPrint("GDB Stub active, waiting for GDB connection via Poll()");
     
     SRL::Core::Synchronize();
@@ -27,6 +41,7 @@ int main()
     // SRL::GDBStub::Break();
 
     int counter = 0;
+    SRL::Input::Digital gamepad(0);
 
     while (true)
     {
@@ -47,6 +62,11 @@ int main()
         SRL::Debug::Print(1, 23, "USB_FLAGS:       0x%02X", static_cast<unsigned int>(SRL::GDBStub::GetLastUsbFlags()));
         SRL::Debug::Print(1, 24, "Poll fallback:   %lu", static_cast<unsigned long>(SRL::GDBStub::GetPollFallbackCount()));
 
+        if (gamepad.WasPressed(SRL::Input::Digital::Button::START))
+        {
+            CrashProgram();
+        }
+
         SRL::GDBStub::Poll();
 
         SRL::Core::Synchronize();
@@ -54,4 +74,3 @@ int main()
 
     return 0;
 }
-
