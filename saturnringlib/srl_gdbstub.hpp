@@ -528,6 +528,7 @@ extern "C" void slave_ipi_handler(void);
             // Fallback: If we ever used TRAPA, the PC pushed is PC + 2.
             const uint32_t trap_address = g_ctx.pc - 2U;
             if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address)) {
+                g_was_swbreak = true;
                 g_ctx.pc = trap_address;
             }
         }
