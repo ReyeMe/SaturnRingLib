@@ -618,19 +618,21 @@ extern "C" void slave_ipi_handler(void);
         }
 
         static inline void send_stop_signal(uint8_t signal) {
-            // Use T-packet with thread and swbreak so GDB knows it's a real
-            // software-breakpoint stop and does NOT auto-continue.
-            // Format: T<sig>swbreak:;thread:1;
             char buf[32];
             buf[0] = hexchar(signal >> 4);
             buf[1] = hexchar(signal & 0xF);
-            buf[2] = 's'; buf[3] = 'w'; buf[4] = 'b'; buf[5] = 'r';
-            buf[6] = 'e'; buf[7] = 'a'; buf[8] = 'k'; buf[9] = ':';
-            buf[10] = ';'; buf[11] = 't'; buf[12] = 'h'; buf[13] = 'r';
-            buf[14] = 'e'; buf[15] = 'a'; buf[16] = 'd'; buf[17] = ':';
-            buf[18] = '1'; buf[19] = ';';
+            int len = 2;
+            
+            if (signal == 5) {
+                const char* swb = "swbreak:;";
+                for (int i = 0; i < 9; ++i) buf[len++] = swb[i];
+            }
+            
+            const char* thread = "thread:1;";
+            for (int i = 0; i < 9; ++i) buf[len++] = thread[i];
+            
             g_last_stop_signal = signal;
-            packet_put('T', buf, 20);
+            packet_put('T', buf, len);
         }
 
         // --- Core Handler ---
@@ -1234,9 +1236,8 @@ extern "C" void slave_ipi_handler(void) {
                     if (ch == 0x03U) {
                         record_command("<Ctrl-C>");
                         g_stop_requested_by_ctrl_c = true;
-                        snapshot_polling_context();
                         g_poll_fallback_count = g_poll_fallback_count + 1;
-                        process_commands();
+                        Break();
                     } else if (ch == '$') {
                         // Preserve packet start byte and process packet without forcing a trap.
                         g_unget_char = '$';
