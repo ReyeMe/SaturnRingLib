@@ -973,7 +973,8 @@ extern "C" void slave_ipi_handler(void);
                         } else if (starts_with(in_buf, "qAttached")) {
                             packet_put('\0', "1", 1);
                         } else if (starts_with(in_buf, "qOffsets")) {
-                            packet_put('\0', "Text=0;Data=0;Bss=0", 19);
+                            constexpr const char offsets[] = "Text=0;Data=0;Bss=0";
+                            packet_put('\0', offsets, sizeof(offsets) - 1);
                         } else if (starts_with(in_buf, "qC")) {
                             packet_put('\0', "QC1", 3);
                         } else {
@@ -987,7 +988,8 @@ extern "C" void slave_ipi_handler(void);
                     case 'v':
                         // Minimal v packet support for MI/VS Code remote sessions.
                         if (starts_with(in_buf, "vCont?")) {
-                            packet_put('\0', "vCont;c;s", 9); // Support both continue and step
+                            constexpr const char vcont_supported[] = "vCont;c;s";
+                            packet_put('\0', vcont_supported, sizeof(vcont_supported) - 1);
                         } else if (starts_with(in_buf, "vCont;")) {
                             // Scan each ;action[:tid] pair.
                             // Only treat as step if s/S applies to thread 1 (:1),
