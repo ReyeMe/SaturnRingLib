@@ -796,6 +796,9 @@ extern "C" void slave_ipi_handler(void);
                 if (g_was_swbreak) {
                     const char* swb = "swbreak:;";
                     for (int i = 0; i < 9; ++i) buf[len++] = swb[i];
+                } else {
+                    const char* rsn = "reason:signal;";
+                    for (int i = 0; i < 14; ++i) buf[len++] = rsn[i];
                 }
             }
             
