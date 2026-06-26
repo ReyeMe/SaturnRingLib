@@ -784,9 +784,13 @@ extern "C" void slave_ipi_handler(void);
 
             const int bp_slot = find_breakpoint_slot(g_ctx.pc);
             if (bp_slot >= 0) {
+                // Temporarily restore the original instruction so the CPU can execute it.
+                // We deliberately leave active = true so the slot remains owned throughout
+                // the step-over sequence — no interrupt between here and re-insertion can
+                // see a half-released slot with a valid address but active = false.
                 volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
                 *code = g_software_breakpoints[bp_slot].original_instruction;
-                g_software_breakpoints[bp_slot].active = false;
+                // active intentionally kept true; re-insertion handler will re-patch it.
             }
 
             if (bp_slot >= 0 || g_step_data.is_delayed) {
@@ -816,14 +820,15 @@ extern "C" void slave_ipi_handler(void);
             if (g_resuming_from_breakpoint) {
                 g_resuming_from_breakpoint = false;
                 if (g_resume_bp_slot >= 0 && g_resume_bp_slot < static_cast<int>(MaxSoftwareBreakpoints)) {
-                    // Re-activate the breakpoint slot (the instruction was restored when we
-                    // cleared it; now re-patch the target address with the trap instruction).
                     const uint32_t bp_addr = g_software_breakpoints[g_resume_bp_slot].address;
                     if ((bp_addr & 1U) == 0U && is_valid_memory_range(bp_addr, 2U)) {
                         volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(bp_addr | 0x20000000U);
                         *code = SoftwareBreakInstruction;
-                        g_software_breakpoints[g_resume_bp_slot].active = true;
+                        // active was kept true throughout; confirm the write then leave it true.
                         PurgeCache();
+                    } else {
+                        // Address became invalid — release the slot cleanly.
+                        g_software_breakpoints[g_resume_bp_slot].active = false;
                     }
                 }
                 g_resume_bp_slot = -1;
