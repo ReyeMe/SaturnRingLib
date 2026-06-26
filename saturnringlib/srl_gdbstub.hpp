@@ -1171,26 +1171,24 @@ extern "C" void slave_ipi_handler(void);
         static inline void InstallExceptionHandlers() {
             debug_print("[GDBStub] InstallExceptionHandlers() start\n");
             if (!g_handlers_installed) {
-                // Force VBR to SGL's standard address to bypass the Boot ROM TRAPA wrapper
-                uint32_t current_vbr = 0x06000000;
-                asm volatile("ldc %0, vbr" :: "r"(current_vbr));
+                // Read the current VBR
+                uint32_t current_vbr = 0;
+                asm volatile("stc vbr, %0" : "=r"(current_vbr));
+                
+                // If VBR is still 0 (Boot ROM), we cannot write to it. We must relocate to RAM.
+                // We use 0x06000000 as a safe fallback and copy the Boot ROM vectors there to preserve the chain.
+                if (current_vbr == 0) {
+                    current_vbr = 0x06000000;
+                    volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U); // Boot ROM
+                    volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
+                    for (int i = 0; i < 256; i++) {
+                        dst_table[i] = src_table[i];
+                    }
+                    asm volatile("ldc %0, vbr" :: "r"(current_vbr));
+                }
                 
                 // Write directly to the Cache-Through mirror of the VBR table
                 volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
-                
-                // ---------------------------------------------------------------
-                // Install an additional IPI handler for the *slave* CPU.  The slave's
-                // VBR lives at the same physical address (0x06000000) but each CPU
-                // has its own VBR register, so writing the same vector table entry
-                // also installs the handler for the slave.
-                // Vector 0x100 (interrupt 0) is repurposed as a software‑IPI.
-                // We point it at the function `slave_ipi_handler` (defined in
-                // SlaveDebug.hpp) which simply spins while `g_debug_pause` is set.
-                // Disabled IPI vector registration – out-of-range write caused crash.
-                // extern void slave_ipi_handler();
-                // vbr_table[0x40] = reinterpret_cast<uint32_t>(&slave_ipi_handler);
-                // PurgeCache();
-                // ---------------------------------------------------------------
 
                 // Patch our exceptions
                 // SH-2 exception vector layout from VBR:
