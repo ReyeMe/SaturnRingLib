@@ -749,6 +749,30 @@ extern "C" void slave_ipi_handler(void);
         };
         static constexpr size_t NumExtraRegs = sizeof(ExtraRegs) / sizeof(ExtraRegs[0]);
 
+        static inline void handle_gdb_step() {
+            do_software_step();
+            PurgeCache();
+        }
+
+        static inline void handle_gdb_continue() {
+            g_debug_pause = false;
+            SLAVE_IPI_CLEAR();
+
+            const int bp_slot = find_breakpoint_slot(g_ctx.pc);
+            if (bp_slot >= 0) {
+                volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
+                *code = g_software_breakpoints[bp_slot].original_instruction;
+                g_software_breakpoints[bp_slot].active = false;
+            }
+
+            if (bp_slot >= 0 || g_step_data.is_delayed) {
+                do_software_step();
+                g_resuming_from_breakpoint = true;
+                g_resume_bp_slot = bp_slot;
+                PurgeCache();
+            }
+        }
+
         __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
         __attribute__((used)) inline void process_commands() {
             char in_buf[1024];
@@ -929,24 +953,28 @@ extern "C" void slave_ipi_handler(void);
                     case 'H':
                         packet_put('\0', "OK", 2);
                         break;
+
                     case 'v':
                         // Minimal v packet support for MI/VS Code remote sessions.
                         if (starts_with(in_buf, "vCont?")) {
                             packet_put('\0', "vCont;c;s", 9); // Support both continue and step
                         } else if (starts_with(in_buf, "vCont;")) {
-                            if (starts_with(in_buf + 6, "s") || starts_with(in_buf + 6, "S")) {
-                                do_software_step();
-                            } else {
-                                g_debug_pause = false;
-                                SLAVE_IPI_CLEAR();
+                            bool has_step = false;
+                            for (const char* p = in_buf + 5; *p != '\0'; ++p) {
+                                if (*p == ';' && (p[1] == 's' || p[1] == 'S')) {
+                                    has_step = true;
+                                    break;
+                                }
                             }
-                            PurgeCache();
+                            if (has_step) {
+                                handle_gdb_step();
+                            } else {
+                                handle_gdb_continue();
+                            }
                             return;
                         } else if (starts_with(in_buf, "vRun")) {
                             // Extended-remote run compatibility: treat like continue.
-                            g_debug_pause = false;
-                            SLAVE_IPI_CLEAR();
-                            PurgeCache();
+                            handle_gdb_continue();
                             return;
                         } else {
                             packet_put('\0', nullptr, 0);
@@ -1152,29 +1180,12 @@ extern "C" void slave_ipi_handler(void);
                         packet_put('\0', "OK", 2);
                         break;
                     case 'c': {
-                        // Normal continue.
-                        g_debug_pause = false;
-                        SLAVE_IPI_CLEAR();
-
-                        const int bp_slot = find_breakpoint_slot(g_ctx.pc);
-                        if (bp_slot >= 0) {
-                            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
-                            *code = g_software_breakpoints[bp_slot].original_instruction;
-                            g_software_breakpoints[bp_slot].active = false;
-                        }
-
-                        if (bp_slot >= 0 || g_step_data.is_delayed) {
-                            do_software_step();
-                            g_resuming_from_breakpoint = true;
-                            g_resume_bp_slot = bp_slot;
-                            PurgeCache();
-                        }
+                        handle_gdb_continue();
                         return;
                     }
                     case 's':
                     case 'S':
-                        do_software_step();
-                        PurgeCache();
+                        handle_gdb_step();
                         return;
                     default:
                         packet_put('\0', nullptr, 0);
