@@ -533,6 +533,17 @@ extern "C" void slave_ipi_handler(void);
                 return; // PC is already exactly at the breakpoint.
             }
 
+            // If it is a programmatic Break() (0xFFFF) not inserted by GDB, we must advance the PC
+            // past it so that execution can resume cleanly on continue/step. We do NOT set g_was_swbreak
+            // to true, otherwise GDB will auto-continue over it because it isn't in its breakpoint list.
+            if (is_valid_memory_range(g_ctx.pc, 2U)) {
+                volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
+                if (*code == SoftwareBreakInstruction) {
+                    g_ctx.pc += 2U;
+                    return;
+                }
+            }
+
             if (g_ctx.pc < 2U) {
                 return;
             }
