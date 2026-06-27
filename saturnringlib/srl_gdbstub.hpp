@@ -881,7 +881,6 @@ extern "C" void slave_ipi_handler(void);
         static inline void handle_gdb_step() {
             g_is_ctrl_c_stop = false;
             do_software_step();
-            PurgeCache();
         }
 
         /**
@@ -915,7 +914,6 @@ extern "C" void slave_ipi_handler(void);
                 // slot but still honors g_resuming_from_breakpoint, allowing the target to
                 // silently resume execution without notifying GDB.
                 g_resume_bp_slot = bp_slot;
-                PurgeCache();
             }
         }
 
