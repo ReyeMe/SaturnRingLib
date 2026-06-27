@@ -1572,6 +1572,7 @@ namespace SRL
             g_is_ctrl_c_stop = false;
             g_last_stop_signal = 5;
             g_ubc_channel_a_active = false;
+            g_devcart_usb_datapath_enabled = true;
             clear_breakpoints(false);
             // Initialise the pause flag – false by default.
             g_debug_pause = false;
