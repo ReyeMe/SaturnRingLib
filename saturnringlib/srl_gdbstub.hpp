@@ -1243,6 +1243,12 @@ namespace SRL
                             if (len < core_len) {
                                 packet_put('\0', "E01", 3);
                             } else {
+                                // Capture original PR and R14 before applying GDB's payload.
+                                // If we are in a Ctrl-C stop, we masked these registers in the 'g'
+                                // packet to prevent GDB unwinding bugs. If GDB echoes those masked
+                                // values (0) back to us in a 'G' packet, we must reject the overwrite.
+                                // NOTE: hex2mem pre-validates the entire string before writing.
+                                // If validation fails, g_ctx is untouched and this restore is harmless.
                                 const uint32_t saved_pr = g_ctx.pr;
                                 const uint32_t saved_r14 = g_ctx.r[14];
                                 if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
