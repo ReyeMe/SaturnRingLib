@@ -96,7 +96,6 @@ namespace SRL
         inline bool g_devcart_port_available = false;
         inline bool g_devcart_usb_datapath_enabled = true;
         inline uint8_t g_last_usb_flags = 0xFF;
-        inline volatile bool g_stop_requested_by_ctrl_c = false;
         inline volatile uint8_t g_last_stop_signal = 5; // 5=SIGTRAP, 2=SIGINT
         inline bool g_was_swbreak = false; // Set during PC adjustment if we hit a GDB swbreak
         // Set when $c stepped over a software breakpoint; cleared after re-insertion.
@@ -984,15 +983,11 @@ extern "C" void slave_ipi_handler(void);
             } else if (g_handshake_done) {
                 // If we are already connected and we just entered the trap handler
                 // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
-                send_stop_signal(g_stop_requested_by_ctrl_c ? 2U : g_last_stop_signal);
-                if (g_stop_requested_by_ctrl_c) {
-                    g_is_ctrl_c_stop = true;
-                }
-                g_stop_requested_by_ctrl_c = false;
+                send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
             }
 
             // The stop reason (SIGTRAP or SIGINT) is preserved until '?' arrives.
-            // Do not clear g_stop_requested_by_ctrl_c here (if not sent above) — the '?' handler reads it.
+            // g_is_ctrl_c_stop remains active to mask PR/R14, and is cleared upon resume.
 
             while (true) {
                 out_buf[0] = 0;
@@ -1005,11 +1000,7 @@ extern "C" void slave_ipi_handler(void);
                     case '?':
                         // First '?' marks the connection as active and sends the stop reason.
                         g_has_connection = true;
-                        if (g_stop_requested_by_ctrl_c) {
-                            g_is_ctrl_c_stop = true;
-                        }
-                        send_stop_signal(g_stop_requested_by_ctrl_c ? 2U : g_last_stop_signal);
-                        g_stop_requested_by_ctrl_c = false;
+                        send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
                         break;
                     case 'q':
                         if (starts_with(in_buf, "qSupported")) {
@@ -1558,7 +1549,7 @@ extern "C" void slave_ipi_handler(void);
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
             g_devcart_usb_datapath_enabled = IsUsbDataPathEnabled();
             g_last_usb_flags = SRL::DevCart::CS0::readFlags();
-            g_stop_requested_by_ctrl_c = false;
+            g_is_ctrl_c_stop = false;
             g_last_stop_signal = 5;
             clear_breakpoints(false);
             // Initialise the pause flag – false by default.
@@ -1705,7 +1696,7 @@ extern "C" void slave_ipi_handler(void);
 
                     if (ch == 0x03U) {
                         record_command("<Ctrl-C>");
-                        g_stop_requested_by_ctrl_c = true;
+                        g_is_ctrl_c_stop = true;
                         g_poll_fallback_count = g_poll_fallback_count + 1;
                         Break();
                     } else if (ch == '$') {
