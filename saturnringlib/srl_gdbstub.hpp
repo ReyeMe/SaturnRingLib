@@ -149,25 +149,8 @@ extern "C" void slave_ipi_handler(void);
             return v < 10 ? '0' + v : 'a' + v - 10;
         }
 
-        template<size_t val>
-        struct PacketSizeString {
-            char str[32] = "PacketSize=";
-            size_t len = 11;
-            constexpr PacketSizeString() {
-                char temp[10] = {};
-                size_t num_len = 0;
-                size_t v = val;
-                do {
-                    temp[num_len++] = '0' + (v % 10);
-                    v /= 10;
-                } while (v > 0);
-                for (size_t i = 0; i < num_len; ++i) {
-                    str[len++] = temp[num_len - 1 - i];
-                }
-                str[len] = '\0';
-            }
-        };
-        static constexpr PacketSizeString<kPacketDataMax + 1U> kPacketSizeStrBuilder{};
+        static constexpr char kPacketSizeStr[] = "PacketSize=400";
+        static_assert(kPacketDataMax + 1U == 400, "Update kPacketSizeStr if kPacketDataMax changes");
 
         static inline const char* hex2mem(const char* buf, uint8_t* mem, int count) {
             // Validate all characters first to prevent partial memory corruption
@@ -1008,12 +991,12 @@ extern "C" void slave_ipi_handler(void);
                             // Dynamically insert the PacketSize to ensure it stays in sync with kPacketDataMax.
                             constexpr const char kFeaturesStr[] = ";swbreak+;qXfer:features:read+";
                             
-                            static constexpr size_t max_qsupported_len = kPacketSizeStrBuilder.len + (sizeof(kFeaturesStr) - 1);
+                            static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
                             static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
 
                             size_t out_len = 0;
-                            for (size_t i = 0; i < kPacketSizeStrBuilder.len; ++i) {
-                                if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = kPacketSizeStrBuilder.str[i];
+                            for (size_t i = 0; i < sizeof(kPacketSizeStr) - 1; ++i) {
+                                if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = kPacketSizeStr[i];
                             }
                             for (const char* s = kFeaturesStr; *s; ++s) {
                                 if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = *s;
