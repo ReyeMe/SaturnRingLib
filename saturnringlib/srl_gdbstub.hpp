@@ -7,6 +7,10 @@
 #include <cstdint>
 #include <cstddef>
 
+extern "C" {
+    void slave_ipi_handler(void);
+}
+
 namespace SRL
 {
     /**
@@ -109,7 +113,7 @@ namespace SRL
         inline int  g_resume_bp_slot = -1; // slot index of the BP that was stepped over
         // Global pause flag used to freeze the slave SH-2 while the master is in GDB.
         inline volatile uint32_t g_debug_pause = 0;
-extern "C" void slave_ipi_handler(void);
+
         // IPI scratch location in Work RAM High (safe for both CPUs, won't bus-error).
         // Using a word near the top of the 1MB Work RAM High region (0x06000000 + 0xFF000).
         // IPI scratch location in Work RAM High, safe for both CPUs.
