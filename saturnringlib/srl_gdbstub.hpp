@@ -1547,7 +1547,7 @@ extern "C" void slave_ipi_handler(void);
             // isPortAvailable() only reads CS0 USB_FLAGS which is always safe.
             g_devcart_ready = SRL::DevCart::CS0::isPortAvailable(); // CS0-only check
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
-            g_devcart_usb_datapath_enabled = IsUsbDataPathEnabled();
+
             g_last_usb_flags = SRL::DevCart::CS0::readFlags();
             g_is_ctrl_c_stop = false;
             g_last_stop_signal = 5;
@@ -1677,7 +1677,7 @@ extern "C" void slave_ipi_handler(void);
             const uint8_t usbFlags = SRL::DevCart::CS0::readFlags();
             g_last_usb_flags = usbFlags;
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
-            g_devcart_usb_datapath_enabled = IsUsbDataPathEnabled();
+
 
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::RXF) == 0;
             if (rxPending) {
