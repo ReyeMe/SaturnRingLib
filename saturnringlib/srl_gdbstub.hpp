@@ -1150,24 +1150,38 @@ extern "C" void slave_ipi_handler(void);
                             // A step directed at an unrecognised thread (e.g. ;s:2) is
                             // ignored — fall through to continue for our single thread.
                             bool has_step = false;
-                            for (const char* p = in_buf + 5; *p != '\0'; ) {
-                                if (*p != ';') { ++p; continue; }
-                                ++p; // skip ';'
-                                if (*p != 's' && *p != 'S') {
-                                    // Not a step action, skip to the next ';'
-                                    while (*p != '\0' && *p != ';') { ++p; }
-                                    continue;
+                            const char* p = in_buf + 5; 
+                            while (*p != '\0') {
+                                if (*p == ';') {
+                                    ++p; // Skip ';'
+                                    if (*p == '\0') break;
+                                    const char action = *p;
+                                    
+                                    // Scan to the next ';' or the end of the string
+                                    const char* next_semi = p;
+                                    while (*next_semi != '\0' && *next_semi != ';') {
+                                        ++next_semi;
+                                    }
+
+                                    if (action == 's' || action == 'S') {
+                                        // The token format is 's' or 'S' followed optionally by ':<thread>'
+                                        if (p + 1 == next_semi) {
+                                            // Just "s" or "S", no qualifier
+                                            has_step = true;
+                                            break;
+                                        } else if (p[1] == ':') {
+                                            const char thread_id = p[2];
+                                            if (thread_id == '1' || thread_id == '*') {
+                                                has_step = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    // Advance pointer to the next ';' (or end of string)
+                                    p = next_semi;
+                                } else {
+                                    ++p;
                                 }
-                                const char* q = p + 1;
-                                // No qualifier or end of string → applies to all
-                                if (*q == '\0' || *q == ';') { has_step = true; break; }
-                                // Thread qualifier present: :1 or :* are our thread
-                                if (*q == ':') {
-                                    ++q;
-                                    if (*q == '*' || *q == '1') { has_step = true; break; }
-                                }
-                                // Qualified to another thread — skip this action
-                                while (*p != '\0' && *p != ';') { ++p; }
                             }
                             if (has_step) {
                                 handle_gdb_step();
