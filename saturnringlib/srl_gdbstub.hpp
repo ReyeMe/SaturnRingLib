@@ -22,6 +22,11 @@ namespace SRL
     {
         // GDB Remote protocol expects registers for SH in this exact order:
         // R0-R15, PC, PR, GBR, VBR, MACH, MACL, SR
+        /**
+         * @brief Represents the SH-2 CPU register state.
+         * 
+         * This exactly matches the register layout expected by GDB's SH architecture.
+         */
         struct SH2Context {
             uint32_t r[16];
             uint32_t pc;
@@ -117,6 +122,9 @@ namespace SRL
         // IPI scratch location in Work RAM High (safe for both CPUs, won't bus-error).
         // Using a word near the top of the 1MB Work RAM High region (0x06000000 + 0xFF000).
         // IPI scratch location in Work RAM High, safe for both CPUs.
+        /**
+         * @brief Returns the address of the inter-processor interrupt (IPI) register.
+         */
         static inline volatile uint32_t* SlaveIPIReg() {
             return reinterpret_cast<volatile uint32_t*>(0x060FFF00U);
         }
@@ -130,6 +138,9 @@ namespace SRL
         static constexpr size_t MaxSoftwareBreakpoints = 32;
         static constexpr size_t kPacketDataMax = 399U;
 
+        /**
+         * @brief Tracks the state of a single software breakpoint.
+         */
         struct SoftwareBreakpoint {
             uint32_t address;
             uint16_t original_instruction;
@@ -141,6 +152,9 @@ namespace SRL
 
         // --- Utility Functions ---
 
+        /**
+         * @brief Converts a hex character to its integer value.
+         */
         static inline int hex(char ch) {
             if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
             if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
@@ -148,6 +162,9 @@ namespace SRL
             return -1;
         }
 
+        /**
+         * @brief Converts a 4-bit integer to its hex character equivalent.
+         */
         static inline char hexchar(int v) {
             v &= 0xf;
             return v < 10 ? '0' + v : 'a' + v - 10;
@@ -156,6 +173,10 @@ namespace SRL
         static constexpr char kPacketSizeStr[] = "PacketSize=400";
         static_assert(kPacketDataMax + 1U == 400, "Update kPacketSizeStr if kPacketDataMax changes");
 
+        /**
+         * @brief Decodes a hex string into memory.
+         * @return Pointer to the character following the decoded hex string, or nullptr on failure.
+         */
         static inline const char* hex2mem(const char* buf, uint8_t* mem, int count) {
             // Validate all characters first to prevent partial memory corruption
             for (int i = 0; i < count * 2; i++) {
@@ -170,6 +191,10 @@ namespace SRL
             return buf;
         }
 
+        /**
+         * @brief Encodes memory into a hex string.
+         * @return Pointer to the null terminator of the resulting string.
+         */
         static inline char* mem2hex(const uint8_t* mem, char* buf, int count) {
             for (int i = 0; i < count; i++) {
                 *buf++ = hexchar(*mem >> 4);
@@ -202,6 +227,9 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Checks if a memory range is valid for access, preventing bus errors.
+         */
         static inline bool is_valid_memory_range(uint32_t addr, uint32_t length) {
             if (length == 0) {
                 return true;
@@ -246,6 +274,10 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Finds the software breakpoint slot for a given address.
+         * @return The slot index, or -1 if not found.
+         */
         static inline int find_breakpoint_slot(uint32_t address) {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
                 if (g_software_breakpoints[i].active && g_software_breakpoints[i].address == address) {
@@ -288,6 +320,9 @@ namespace SRL
             g_cache_dirty = true;
         }
 
+        /**
+         * @brief Clears all active software breakpoints.
+         */
         static inline void clear_breakpoints(bool restore_memory) {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
                 if (!g_software_breakpoints[i].active) {
@@ -308,6 +343,9 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Installs a software breakpoint (0xFFFF) at the specified address.
+         */
         static inline bool install_software_breakpoint(uint32_t address) {
             if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
                 return false;
@@ -331,6 +369,9 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Removes a software breakpoint and restores the original instruction.
+         */
         static inline bool remove_software_breakpoint(uint32_t address) {
             if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
                 return false;
@@ -352,6 +393,9 @@ namespace SRL
 
         inline bool g_ubc_channel_a_active = false;
 
+        /**
+         * @brief Configures the User Break Controller (UBC) for a hardware watchpoint.
+         */
         static inline bool install_hardware_watchpoint(uint32_t address, uint32_t type) {
             if (g_ubc_channel_a_active) {
                 return false; // Only one channel supported currently
@@ -382,6 +426,9 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Disables the User Break Controller (UBC) hardware watchpoint.
+         */
         static inline bool remove_hardware_watchpoint(uint32_t address, uint32_t type) {
             (void)address;
             (void)type;
@@ -394,6 +441,9 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Tracks the state of a single-step operation, including delay slot mechanics.
+         */
         struct StepData {
             uint32_t address;
             uint16_t original_instruction;
@@ -409,6 +459,9 @@ namespace SRL
         };
         inline StepData g_step_data = {0, 0, false, false, 0, 0, false, 0, false, 0};
 
+        /**
+         * @brief Removes the temporary software step trap and restores the original instruction.
+         */
         static inline void undo_software_step() {
             if (g_step_data.active) {
                 if (is_valid_memory_range(g_step_data.address, 2U)) {
@@ -420,6 +473,9 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Places a temporary software step trap to catch execution after one instruction.
+         */
         static inline void do_software_step() {
             undo_software_step();
 
@@ -531,6 +587,9 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Adjusts the program counter (PC) following a breakpoint or step trap.
+         */
         static inline void adjust_pc_for_software_breakpoint() {
             g_was_swbreak = false;
             // SH-2 exception PC semantics:
@@ -599,6 +658,9 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Captures a dummy context for asynchronous packet handling outside of exceptions.
+         */
         static inline void snapshot_polling_context() {
             // Fallback context used when we service GDB packets outside ExceptionThunk.
             // It keeps PC/SP/special registers valid so GDB does not see a null frame.
@@ -735,6 +797,12 @@ namespace SRL
             return sum;
         }
 
+        /**
+         * @brief Sends a GDB RSP packet over the communication channel.
+         * @param prefix Optional prefix character (e.g. '+' for ack), or '\0' for none.
+         * @param payload The packet payload to send.
+         * @param payload_len The length of the payload.
+         */
         static inline void packet_put(char type, const char* data, size_t len) {
             do {
                 uint8_t csum = 0;
