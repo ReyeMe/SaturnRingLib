@@ -503,7 +503,11 @@ namespace SRL
                         }
                     }
                 } else if (opcode == 0xFFFFU) { // Illegal Instruction (our breakpoint)
-                    target_pc = pc;
+                    if (find_breakpoint_slot(pc) >= 0) {
+                        target_pc = pc + 2U;
+                    } else {
+                        target_pc = pc;
+                    }
                 }
 
                 if (is_branch && has_delay_slot) {
