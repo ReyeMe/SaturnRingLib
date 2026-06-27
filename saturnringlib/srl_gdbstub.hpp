@@ -350,7 +350,13 @@ namespace SRL
             return true;
         }
 
+        inline bool g_ubc_channel_a_active = false;
+
         static inline bool install_hardware_watchpoint(uint32_t address, uint32_t type) {
+            if (g_ubc_channel_a_active) {
+                return false; // Only one channel supported currently
+            }
+
             volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
             volatile uint16_t *BAMRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF44U);
             volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
@@ -371,14 +377,20 @@ namespace SRL
             *BBRA = bbra_val;
             *BRCR = 0x0001U; // Enable UBC Channel A
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
+            
+            g_ubc_channel_a_active = true;
             return true;
         }
 
         static inline bool remove_hardware_watchpoint(uint32_t address, uint32_t type) {
             (void)address;
             (void)type;
+            if (!g_ubc_channel_a_active) {
+                return false;
+            }
             volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
             *BRCR = 0x0000U; // Disable UBC
+            g_ubc_channel_a_active = false;
             return true;
         }
 
@@ -1538,6 +1550,7 @@ namespace SRL
             g_last_usb_flags = SRL::DevCart::CS0::readFlags();
             g_is_ctrl_c_stop = false;
             g_last_stop_signal = 5;
+            g_ubc_channel_a_active = false;
             clear_breakpoints(false);
             // Initialise the pause flag – false by default.
             g_debug_pause = false;
