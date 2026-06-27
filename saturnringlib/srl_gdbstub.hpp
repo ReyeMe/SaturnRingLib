@@ -1173,7 +1173,7 @@ namespace SRL
                                             break;
                                         } else if (p[1] == ':') {
                                             const char thread_id = p[2];
-                                            if (thread_id == '1' || thread_id == '*') {
+                                            if (thread_id == '*' || (thread_id == '1' && (p[3] == '\0' || p[3] == ';'))) {
                                                 has_step = true;
                                                 break;
                                             }
