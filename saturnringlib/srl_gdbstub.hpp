@@ -1225,10 +1225,18 @@ extern "C" void slave_ipi_handler(void);
                             while (in_buf[1 + len] != '\0') len++;
                             if (len < core_len) {
                                 packet_put('\0', "E01", 3);
-                            } else if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
-                                packet_put('\0', "OK", 2);
                             } else {
-                                packet_put('\0', "E01", 3);
+                                const uint32_t saved_pr = g_ctx.pr;
+                                const uint32_t saved_r14 = g_ctx.r[14];
+                                if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
+                                    if (g_is_ctrl_c_stop) {
+                                        g_ctx.pr = saved_pr;
+                                        g_ctx.r[14] = saved_r14;
+                                    }
+                                    packet_put('\0', "OK", 2);
+                                } else {
+                                    packet_put('\0', "E01", 3);
+                                }
                             }
                         }
                         break;
@@ -1303,7 +1311,9 @@ extern "C" void slave_ipi_handler(void);
                             else if (reg_idx == 21) reg_ptr = &g_ctx.macl;
                             else if (reg_idx == 22) reg_ptr = &g_ctx.sr;
 
-                            if (hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4)) {
+                            if (g_is_ctrl_c_stop && (reg_idx == 14 || reg_idx == 17)) {
+                                packet_put('\0', "E01", 3);
+                            } else if (hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4)) {
                                 packet_put('\0', "OK", 2);
                             } else {
                                 packet_put('\0', "E01", 3);
