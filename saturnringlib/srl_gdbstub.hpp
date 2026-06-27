@@ -817,7 +817,8 @@ extern "C" void slave_ipi_handler(void);
                 __gdb_putc(ack);
 
                 // Strip sequence id prefix (XX:payload → payload).
-                if (len >= 3 && buffer[2] == ':') {
+                // Ensure XX are valid hex digits so we don't accidentally truncate valid packets (e.g. M<addr>:).
+                if (len >= 3 && buffer[2] == ':' && hex(buffer[0]) >= 0 && hex(buffer[1]) >= 0) {
                     size_t i = 0;
                     while (buffer[3 + i] != '\0') {
                         buffer[i] = buffer[3 + i];
