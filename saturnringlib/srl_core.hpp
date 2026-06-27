@@ -55,11 +55,16 @@ namespace SRL
 
         /** @brief Handle V-Blank events
          */
-        inline static void VblankHandling()
+        __attribute__((noinline)) static void VblankHandling()
         {
             slGetStatus();
             SRL::Input::Gun::VblankRefresh();
             Core::OnVblank.Invoke();
+
+#ifdef DEBUG
+            // Poll GDB stub during V-blank to ensure Ctrl-C works even in tight loops
+            SRL::GDBStub::Poll();
+#endif
         }
         
     public:

@@ -83,6 +83,7 @@ namespace SRL
         }
         inline volatile bool g_has_connection = false;    // set on any valid RSP packet received
         inline volatile bool g_handshake_done = false;    // set only after qSupported exchange
+        inline volatile bool g_is_ctrl_c_stop = false;    // set when stopped via Ctrl-C, cleared on continue
         inline volatile uint32_t g_command_count = 0;
         __attribute__((used)) inline volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
         inline char g_last_command[64] = {};
@@ -226,10 +227,10 @@ extern "C" void slave_ipi_handler(void);
                 return false;
             }
 
-            // Prevent accesses that overlap with the invalid high address space that can fault and stall RSP.
-            // Note: SH-2 on-chip peripherals reside at 0xFFFF8000 - 0xFFFFFFFF, which we must allow.
-            // Two intervals [addr, end] and [0xF0000000, 0xFFFF7FFF] overlap if addr <= 0xFFFF7FFF and end >= 0xF0000000.
-            if (addr < 0xFFFF8000U && end >= 0xF0000000U) {
+            // Prevent accesses to the invalid high address space and peripheral space.
+            // Reading peripheral space (0xFFFF8000 - 0xFFFFFFFF) via byte-wise access (mov.b)
+            // causes bus errors on many SH-2 registers, which crashes the stub.
+            if (end >= 0xF0000000U) {
                 return false;
             }
 
@@ -360,6 +361,38 @@ extern "C" void slave_ipi_handler(void);
             g_software_breakpoints[slot].address = 0;
             g_software_breakpoints[slot].original_instruction = 0;
             PurgeCache();
+            return true;
+        }
+
+        static inline bool install_hardware_watchpoint(uint32_t address, uint32_t type) {
+            volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
+            volatile uint16_t *BAMRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF44U);
+            volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
+
+            *BARA = address;
+            *BAMRA = 0x0000U; // exact match
+            
+            uint16_t bbra_val = 0;
+            switch(type) {
+                case 1: bbra_val = 0x0010U; break; // HW breakpoint (Instruction fetch)
+                case 2: bbra_val = 0x0028U; break; // Write watchpoint
+                case 3: bbra_val = 0x0024U; break; // Read watchpoint
+                case 4: bbra_val = 0x002CU; break; // Access watchpoint (Read/Write)
+                default: return false;
+            }
+            
+            *BBRA = bbra_val;
+            *BRCR = 0x0001U; // Enable UBC Channel A
+            asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
+            return true;
+        }
+
+        static inline bool remove_hardware_watchpoint(uint32_t address, uint32_t type) {
+            (void)address;
+            (void)type;
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
+            *BRCR = 0x0000U; // Disable UBC
             return true;
         }
 
@@ -846,6 +879,7 @@ extern "C" void slave_ipi_handler(void);
          * the stub catches execution immediately after one instruction.
          */
         static inline void handle_gdb_step() {
+            g_is_ctrl_c_stop = false;
             do_software_step();
             PurgeCache();
         }
@@ -858,6 +892,7 @@ extern "C" void slave_ipi_handler(void);
          * the breakpoint after the instruction executes.
          */
         static inline void handle_gdb_continue() {
+            g_is_ctrl_c_stop = false;
             g_debug_pause = false;
             SlaveIPIClear();
 
@@ -946,6 +981,9 @@ extern "C" void slave_ipi_handler(void);
                 // If we are already connected and we just entered the trap handler
                 // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
                 send_stop_signal(g_stop_requested_by_ctrl_c ? 2U : g_last_stop_signal);
+                if (g_stop_requested_by_ctrl_c) {
+                    g_is_ctrl_c_stop = true;
+                }
                 g_stop_requested_by_ctrl_c = false;
             }
 
@@ -963,6 +1001,9 @@ extern "C" void slave_ipi_handler(void);
                     case '?':
                         // First '?' marks the connection as active and sends the stop reason.
                         g_has_connection = true;
+                        if (g_stop_requested_by_ctrl_c) {
+                            g_is_ctrl_c_stop = true;
+                        }
                         send_stop_signal(g_stop_requested_by_ctrl_c ? 2U : g_last_stop_signal);
                         g_stop_requested_by_ctrl_c = false;
                         break;
@@ -1143,8 +1184,19 @@ extern "C" void slave_ipi_handler(void);
                             if (g_ctx.pc == 0) {
                                 snapshot_polling_context();
                             }
+                            
+                            // Send a copy of the context. If we stopped via Ctrl-C (which happens inside
+                            // VblankHandling), zero out PR and R14 to prevent GDB from trying to unwind
+                            // through the SGL interrupt wrapper. SGL has no debug info, which causes GDB
+                            // to endlessly scan memory (looping) looking for function boundaries.
+                            SH2Context ctx_copy = g_ctx;
+                            if (g_is_ctrl_c_stop) {
+                                ctx_copy.pr = 0;
+                                ctx_copy.r[14] = 0;
+                            }
+
                             char* p_out = out_buf;
-                            p_out = mem2hex((uint8_t*)&g_ctx, p_out, sizeof(SH2Context));
+                            p_out = mem2hex((uint8_t*)&ctx_copy, p_out, sizeof(SH2Context));
                             
                             // Append extra pseudo-registers (VDP1/VDP2)
                             for (size_t i = 0; i < NumExtraRegs; ++i) {
@@ -1311,11 +1363,14 @@ extern "C" void slave_ipi_handler(void);
                     case 'Z':
                     case 'z':
                         {
-                            // RSP software breakpoints: Z0,addr,kind / z0,addr,kind
-                            if (in_buf[1] != '0' || in_buf[2] != ',') {
-                                packet_put('\0', nullptr, 0);
+                            // RSP breakpoints/watchpoints: Z[type],addr,kind / z[type],addr,kind
+                            const char type_char = in_buf[1];
+                            if ((type_char < '0' || type_char > '4') || in_buf[2] != ',') {
+                                packet_put('\0', nullptr, 0); // Not supported type or bad format
                                 break;
                             }
+                            
+                            const uint32_t wp_type = static_cast<uint32_t>(type_char - '0');
 
                             uint32_t addr = 0;
                             const char* p = &in_buf[3];
@@ -1332,15 +1387,25 @@ extern "C" void slave_ipi_handler(void);
                                 break;
                             }
 
-                            // SH-2 instructions are 16-bit (kind normally 2).
-                            if (kind != 0U && kind != 2U) {
-                                packet_put('\0', "E03", 3);
-                                break;
+                            bool ok = false;
+                            if (in_buf[0] == 'Z') {
+                                if (wp_type == 0) {
+                                    // SH-2 instructions are 16-bit (kind normally 2).
+                                    if (kind == 0U || kind == 2U) {
+                                        ok = install_software_breakpoint(addr);
+                                    }
+                                } else {
+                                    ok = install_hardware_watchpoint(addr, wp_type);
+                                }
+                            } else {
+                                if (wp_type == 0) {
+                                    if (kind == 0U || kind == 2U) {
+                                        ok = remove_software_breakpoint(addr);
+                                    }
+                                } else {
+                                    ok = remove_hardware_watchpoint(addr, wp_type);
+                                }
                             }
-
-                            const bool ok = (in_buf[0] == 'Z')
-                                ? install_software_breakpoint(addr)
-                                : remove_software_breakpoint(addr);
 
                             packet_put('\0', ok ? "OK" : "E03", ok ? 2 : 3);
                         }
@@ -1552,7 +1617,7 @@ extern "C" void slave_ipi_handler(void);
         /**
          * @brief Enter the GDB stub via software trap (Illegal Instruction).
          */
-        static inline void Break() {
+        __attribute__((noinline)) static void Break() {
             // Force a breakpoint exception.
             // Using Illegal Instruction (0xFFFF) which reliably vectors to VBR[4].
             // SGL frequently overwrites TRAPA vectors (32-63) causing them to be ignored.
@@ -1580,7 +1645,7 @@ extern "C" void slave_ipi_handler(void);
         /**
          * @brief Check for incoming GDB interrupt request (Ctrl-C)
          */
-        inline void Poll() {
+        __attribute__((noinline)) void Poll() {
             const uint8_t usbFlags = SRL::DevCart::CS0::readFlags();
             g_last_usb_flags = usbFlags;
             g_devcart_port_available = SRL::DevCart::CS0::isPortAvailable();
