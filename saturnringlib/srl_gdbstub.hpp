@@ -1540,15 +1540,15 @@ namespace SRL
         // --- Public API ---
 
         /**
-         * @brief Initialize the GDB stub and hook exception vectors.
-         */
-        /**
          * @brief Returns true when cartridge-level USB data path should be enabled.
          */
         inline bool IsUsbDataPathEnabled() {
             return g_devcart_usb_datapath_enabled;
         }
 
+        /**
+         * @brief Initialize the GDB stub and hook exception vectors.
+         */
         inline void Init() {
             debug_print("[GDBStub] Init() start\n");
             g_has_connection = false;
