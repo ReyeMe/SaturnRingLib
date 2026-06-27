@@ -1629,6 +1629,15 @@ extern "C" void slave_ipi_handler(void);
 
         /**
          * @brief Enter the GDB stub via software trap (Illegal Instruction).
+         * 
+         * IMPORTANT: The __attribute__((noinline)) is load-bearing. 
+         * When this function executes, it triggers an exception via the 0xFFFF instruction.
+         * The GDB stub's `adjust_pc_for_software_breakpoint()` handles this exception by 
+         * advancing the program counter by 2 bytes (`g_ctx.pc += 2U`).
+         * If this function were inlined, `g_ctx.pc += 2U` would incorrectly skip the actual user
+         * instruction immediately following the `Break()` call. By forcing this to not be inlined,
+         * the instruction following `0xFFFF` is this function's `rts` (Return from Subroutine).
+         * The `+= 2U` safely skips the `0xFFFF` and lands on `rts`, returning to the caller.
          */
         __attribute__((noinline)) static void Break() {
             // Force a breakpoint exception.
