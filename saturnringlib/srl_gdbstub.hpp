@@ -1096,6 +1096,9 @@ namespace SRL
                                 int colons = 0;
                                 while (*colon && colons < 4) { if (*colon++ == ':') ++colons; }
                                 // colon now points past the 4th ':', i.e. at "off,len"
+                                // If the packet was malformed (fewer than 4 colons), *colon will 
+                                // point exactly to '\0'. parse_hex_u32_until handles empty strings
+                                // correctly by immediately returning false, safely aborting the parse.
                                 if (parse_hex_u32_until(colon, ',', xfer_off, colon) && *colon == ',') {
                                     ++colon;
                                     xfer_ok = parse_hex_u32_until(colon, '\0', xfer_len, colon);
