@@ -563,6 +563,14 @@ namespace SRL
 
             // Normal (non-delayed) step trap or software breakpoint:
             // PC pushed by hardware IS the faulting instruction address.
+            // 
+            // EDGE CASE: If a user places a GDB software breakpoint exactly on a programmatic
+            // Break() call, this check matches first and returns early (PC is NOT advanced).
+            // When GDB removes the breakpoint, it restores the original instruction (0xFFFF).
+            // Upon resume, the CPU re-executes 0xFFFF and traps a second time. This time,
+            // find_breakpoint_slot() will fail, and the block below will correctly advance
+            // the PC past the Break(). This is acceptable as the user will just see two
+            // stops at the same address (one for their BP, one for the hardcoded Break).
             if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
                 g_was_swbreak = true;
                 return; // PC is already exactly at the breakpoint.
