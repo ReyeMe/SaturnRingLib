@@ -937,8 +937,8 @@ extern "C" void slave_ipi_handler(void);
             // the CPU resumes executing the patched region. On disconnect/detach the flush is
             // harmless. DO NOT remove this object or move it past the first PurgeCache() call.
             CacheFlusher flusher;
-            constexpr size_t max_g_packet_size = (sizeof(SH2Context) + NumExtraRegs * 4) * 2;
-            static_assert(max_g_packet_size < 1024, "out_buf is too small for GDB 'g' packet");
+            constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (NumExtraRegs * 2)) * 2;
+            static_assert(max_g_packet_hex_chars < 1024, "out_buf is too small for GDB 'g' packet");
             char in_buf[1024];
             char out_buf[1024];
 
