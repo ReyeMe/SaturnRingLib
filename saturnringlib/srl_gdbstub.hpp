@@ -945,6 +945,11 @@ extern "C" void slave_ipi_handler(void);
             debug_print("\n");
 
             adjust_pc_for_software_breakpoint();
+            
+            // Clear the UBC Channel A match flag (CMFA) in BRCR to prevent infinite re-entry loops.
+            volatile uint16_t* BRCR = reinterpret_cast<volatile uint16_t*>(0xFFFFFF60U);
+            *BRCR &= ~0x0080U;
+
             undo_software_step();
 
             // --- Silent step-over: re-insert the breakpoint we temporarily removed for $c ---
