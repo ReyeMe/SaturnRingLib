@@ -16,6 +16,63 @@ To build the sample, open a terminal in this directory and run the provided make
 
 This will produce `./BuildDrop/Debug_GDBStub.elf` (which contains your debug symbols for GDB) and `./BuildDrop/Debug_GDBStub.bin` (which is the executable payload).
 
+## 1.1 VS Code Debug Configuration
+
+This sample includes a `.vscode` folder with a `launch.json` and `tasks.json` for debugging in VS Code.
+
+- `launch.json` is based on the repository's existing `Debug - GDB Stub` example in `.vscode/launch.json`.
+- It launches the generated ELF file at `Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf`.
+- It connects to the remote GDB stub on `host.docker.internal:1234` using `gdb-multiarch`.
+- It sets SH-2 architecture and big-endian mode before starting the debug session.
+- `sourceFileMap` maps `src` to `${workspaceFolder}/Samples/Debug - GDB Stub/src` so breakpoints resolve correctly.
+
+The `.vscode/tasks.json` file provides these tasks:
+
+- `Compile [DEBUG]` — runs `../../tools/scripts/make.sh` from this sample folder.
+- `Run on Saturn` — runs `../../tools/scripts/run.sh USBGamers` from this sample folder.
+
+### Example `launch.json` for Docker
+
+```json
+{
+    "name": "Debug - GDB Stub (Debug - GDB Stub)",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf",
+    "stopAtEntry": true,
+    "cwd": "${workspaceFolder}/Samples/Debug - GDB Stub",
+    "MIMode": "gdb",
+    "miDebuggerPath": "gdb-multiarch",
+    "miDebuggerServerAddress": "host.docker.internal:1234",
+    "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
+    "sourceFileMap": {
+        "src": "${workspaceFolder}/Samples/Debug - GDB Stub/src"
+    }
+}
+```
+
+### Example `launch.json` for native Linux/macOS
+
+```json
+{
+    "name": "Debug - GDB Stub (Debug - GDB Stub)",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "${workspaceFolder}/Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf",
+    "stopAtEntry": true,
+    "cwd": "${workspaceFolder}/Samples/Debug - GDB Stub",
+    "MIMode": "gdb",
+    "miDebuggerPath": "gdb-multiarch",
+    "miDebuggerServerAddress": "localhost:1234",
+    "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
+    "sourceFileMap": {
+        "src": "${workspaceFolder}/Samples/Debug - GDB Stub/src"
+    }
+}
+```
+
+> Note: On native hosts, replace `localhost` with the actual IP if `ftx` is bound to a different address. Use `sh-elf-gdb` instead of `gdb-multiarch` if that is your installed SH-2 GDB executable.
+
 ## 2. Running on the Saturn (Hardware Test Flow)
 
 To ensure a stable upload and execution environment on real hardware, it is highly recommended to follow the clean hardware state sequence before uploading your payload:
