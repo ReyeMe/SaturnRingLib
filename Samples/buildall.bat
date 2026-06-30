@@ -5,5 +5,10 @@ for /d %%i in (.\*) do (
     cd "%%i"
     echo "%%i";
     compile.bat release
+    if errorlevel 1 (
+        echo Build failed in "%%i" with errorlevel %ERRORLEVEL%.
+        cd ..
+        exit /b %ERRORLEVEL%
+    )
     cd ..
 )
