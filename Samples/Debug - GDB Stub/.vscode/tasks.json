@@ -1,0 +1,69 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Compile [DEBUG]",
+            "type": "shell",
+            "command": "../../tools/scripts/make.sh",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Run on Saturn",
+            "type": "shell",
+            "command": "../../tools/scripts/run.sh",
+            "args": ["USBGamers"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Start FTX",
+            "type": "shell",
+            "command": "if ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; fi",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "Connect to GDB",
+            "type": "shell",
+            "command": "if ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; fi && gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true,
+                "focus": true,
+                "panel": "shared"
+            }
+        }
+    ]
+}

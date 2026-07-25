@@ -16,6 +16,9 @@
     #include "srl_sound.hpp"
 #endif
 
+#ifdef DEBUG
+    #include "srl_gdbstub.hpp"
+#endif
         
 /** @brief Selects default resolution based on an option in the makefile
  */
@@ -57,6 +60,11 @@ namespace SRL
             slGetStatus();
             SRL::Input::Gun::VblankRefresh();
             Core::OnVblank.Invoke();
+
+#ifdef DEBUG
+            // Poll GDB stub during V-blank to ensure Ctrl-C works even in tight loops
+            SRL::GDBStub::Poll();
+#endif
         }
         
     public:
@@ -113,6 +121,11 @@ namespace SRL
 
             // Initialize timer system
             SRL::Timer::Init();
+
+#ifdef DEBUG
+			// Initialize GDB stub only if we are debugging.
+			SRL::GDBStub::Init();
+#endif
         }
 
         /** @brief Wait until graphic processing time is reached
@@ -128,6 +141,11 @@ namespace SRL
 
             // Update timer delta values
             SRL::Timer::Update();
+
+#ifdef DEBUG
+			// Poll GDB stub.
+			SRL::GDBStub::Poll();
+#endif
         }
     };
 };

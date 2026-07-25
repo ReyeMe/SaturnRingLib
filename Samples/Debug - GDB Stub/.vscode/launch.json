@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug - GDB Stub (Debug - GDB Stub)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/BuildDrop/Debug_GDBStub.elf",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "gdb-multiarch",
+            "miDebuggerServerAddress": "localhost:1234",
+            "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
+            "preLaunchTask": "Start FTX",
+            "sourceFileMap": {
+                "src": "${workspaceFolder}/src"
+            },
+            "setupCommands": [
+                {
+                    "description": "Set architecture to SH2",
+                    "text": "set architecture sh2",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "Set endian to big",
+                    "text": "set endian big",
+                    "ignoreFailures": false
+                },
+                {
+                    "description": "Enable pretty printing",
+                    "text": "set print pretty on",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
