@@ -169,6 +169,26 @@ namespace SRL
                 return myAddress;
             }
 
+            /** @brief Automatically allocates general table data with no additional allignment
+             * or cycle access requirements
+             * @details Data types that fall under this use case include Line Scroll Tables,
+             * Line Color Tables, Line Window Tables, and Coefficient Tables for 2 Axis Rotation
+             * @param sz the size of the allocation
+             * @return Pointer to the allocated memory
+             */
+            inline static void *AutoAllocateTable(uint32_t sz)
+            {
+                void *alloc = VRAM::Allocate(sz, 32, VramBank::A0, 0);
+                if (alloc == nullptr) alloc = VRAM::Allocate(sz, 32, VramBank::A1, 0);
+
+                if (alloc == nullptr) alloc = VRAM::Allocate(sz, 32, VramBank::B0, 0);
+
+                if (alloc == nullptr) alloc = VRAM::Allocate(sz, 32, VramBank::B1, 0);
+
+                if (alloc == nullptr) SRL::Debug::Assert("VDP2 Data Allocation Failed, insufficient VRAM");
+                return alloc;
+            }
+
             /** @brief Automatically allocates cell data for specified screen
              * @param info Tile cell data description
              * @param screen The screen identifier
@@ -2177,5 +2197,122 @@ namespace SRL
             if (extend) flags |= CC_EXT;
             slColorCalc((uint16_t)flags);
         }
+
+/* Window control
+
+#define		win_OR			0x80
+#define		win_AND			0x00
+
+#define		win0_IN			0x03    000000000
+#define		win0_OUT		0x02
+
+#define		win1_IN			0x0c
+#define		win1_OUT		0x08
+
+#define		spw_IN			0x30
+#define		spw_OUT			0x20
+
+class enum WindowArea: (uint16_t)
+{
+InsideW0
+InsideW1
+InsideWspr
+OutsideW0
+OutsideW1
+OutsideWspr
+NoWindow//default
+};
+
+class enum
+{
+OFF,
+IN,
+OUT,
+}
+UseWindow(Combiner, Window0, Window1, SpriteWindow = OFF)
+
+SetWindow(condition, window1, window2, window3 = NoWindow)
+SetWindow(Combine::Union,Window::Inside0,Window::Inside1)
+SetWindow(window = NoWindow)*/
+
+        /** @brief template base class for the 2 configurable vdp2 windows
+         *  @note These are different from the VDP1 Clipping windows, which only apply inside VDP1 framebuffer.
+         *  These Windows apply to the final display of scrollScreens and VDP1 frambuffer data as a whole.
+         */
+        template <class ScrWindow>
+        class Window
+        {
+        public:
+            inline static uint16_t *LineAddress = (uint16_t *)VDP2_VRAM_A0 - 1;
+            /** @brief Set rectangular Window Area from Screen Space Fxp Coordinates:
+             *
+             *  - Screen Center = (0.0,0.0)
+             *  - Screen TopLeft = (-160.0, -120.0)
+             *  - Screen BotRight = (160.0,120.0)
+             *  @param TopLeft X,Y ScreenSpace Fxp Coordinate of Top Left corner of the window
+             *  @param BottomRight X,Y ScreenSpace Fxp Coordinate of Top Left corner of the window
+             */
+            static void ConfigArea(SRL::Math::Vector2D TopLeft, SRL::Math::Vector2D BottomRight)
+            {
+                ScrWindow::SetWindow((TopLeft.Y.RawValue() >> 16) + 120, (TopLeft.X.RawValue() >> 16) + 160,
+                                     (BottomRight.Y.RawValue() >> 16) + 120, (BottomRight.X.RawValue() >> 16) + 160);
+            }
+
+            /** @brief Set rectangular Window Area from Screen Pixel Coordinates:
+             *
+             *  - Screen TopLeft = (0, 0)
+             *  - Screen BotRight = (319,239)
+             *  @param TopLeft Pixel Coordinate of Top Left corner of the window
+             *  @param BottomRight Pixel Coordinate of Top Left corner of the window
+             */
+            static void ConfigArea(uint16_t top, uint16_t left, uint16_t bot, uint16_t right)
+            {
+                ScrWindow::SetWindow(top, left, bot, right);
+            }
+            /** @brief Set Window as a Line Window using Window Table data (See VDP2 data types)
+             *  @details If VRAM for table has been previously allocated the Source table will be loaded
+             *  to the existing allocation. Otherwise, VRAM will first be auto allocated and table will be loaded
+             *  to the new allocation.
+             *  @param SourceTable address to load line data from
+             *  @note Because the table will reside in VRAM, calling VDP2::ClearVRAM will clear
+             *  the table refferences. To avoid refferencing an invalid address, the Window will be reset
+             *  to rectangular area mode at this time, and must then be reconfigured with this function.
+             */
+            static void ConfigArea(void *SourceTable, uint16_t size)
+            {
+                ScrWindow::SetWindow(0, 0, 240, 320); // reset Y window values to full range
+                if (ScrWindow::LineAddress < (uint16_t *)VDP2_VRAM_A0)
+                    ScrWindow::LineAddress = (uint16_t *)VDP2::VRAM::AutoAllocateTable(240 * 4);
+                if (ScrWindow::LineAddress == nullptr)
+                    return;
+                slDMACopy(SourceTable, (void *)ScrWindow::LineAddress, size);
+                ScrWindow::SetWindowL((uint32_t)ScrWindow::LineAddress | 0x80000000);
+                // ScrWindow::LineAddress = (uint16_t*) SourceTable;
+            }
+            /** @brief Set the VRAM address of Line Window Table
+             */
+            static void SetTableAddress(uint16_t *address) { ScrWindow::LineAddress = address; }
+            /** @brief Get the VRAM address Of Line Window Table
+             */
+            static uint16_t *GetTableAddress() { return ScrWindow::LineAddress; }
+        };
+
+        /** @brief interface for VDP2 window 0
+         */
+        class Window0 : public Window<Window0>
+        {
+        public:
+            static void SetWindow(uint16_t top, uint16_t left, uint16_t bot, uint16_t right) { slScrWindow0(left, top, right, bot); }
+            static void SetWindowL(uint32_t address) { slScrLineWindow0((void *)address); }
+        };
+
+        /** @brief interface for VDP2 window 1
+         */
+        class Window1 : public Window<Window1>
+        {
+        public:
+            static void SetWindow(uint16_t top, uint16_t left, uint16_t bot, uint16_t right) { slScrWindow1(left, top, right, bot); }
+            static void SetWindowL(uint32_t address) { slScrLineWindow1((void *)address); }
+        };
     };
 }
