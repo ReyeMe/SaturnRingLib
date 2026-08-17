@@ -705,7 +705,23 @@ namespace SRL
                 return files;
             }
         }
-
+        
+        /** @brief Check if the CD tray is opened
+         * @returns True if the tray is open
+         */        
+        inline static bool IsTrayOpen()
+        {
+            CdcStat stat;
+            
+            CDC_GetCurStat(&stat);
+            
+            if (stat.status == CDC_ST_OPEN) // tray is open - go to system menu
+            {
+                return true;
+            }
+        
+            return false;
+        }
 
         /** @brief Table of contents of the CD
          */
