@@ -75,6 +75,37 @@ namespace SRL
             Quarter = ZOOM_QUARTER,
         };
 
+        /** @brief Used to specify the type of Combining Logic used when applying multiple VDP2 window areas
+         *  to one ScrollScreen
+         */
+        enum class Logic : uint16_t
+        {
+            /** @brief Display ScrollScreen in the Intersection of the specified window areas
+             */
+            And = 0,
+
+            /** @brief Display ScrollScreen in the Union of the specified window areas
+             */
+            Or = 0x80,
+        };
+
+        /** @brief Used to specify how a scrollscreen applies a VDP2 Window area to its display
+         */
+        enum class Area : uint16_t
+        {
+            /** @brief Do not use the window to affect the ScrollScreen
+             */
+            Off = 0,
+
+            /** @brief Only Display Scrollscreen outside the window area
+             */
+            Out = 2,
+
+            /** @brief Only Display Scrollscreen inside the window area
+             */
+            In = 3,
+        };
+
         /**  @brief converts an SRL TextureColorMode enum to its corresponding SGL macro for VDP2
          *   @param colorMode the colorMode to convert
          *   @return SGL VDP2 color macro corresponding to the colormode
@@ -367,8 +398,8 @@ namespace SRL
             }
 
             /** @brief Overwrites a specified VRAM region with 0 data.
-             *  @param Address The vram address of the area to blank.
-             *  @param Size The size of area to overwrite in bytes.
+             *  @param address The vram address of the area to blank.
+             *  @param size The size of area to overwrite in bytes.
              */
             static void Blank(void* address, uint32_t size)
             {
@@ -378,7 +409,8 @@ namespace SRL
 
         };
 
-        /** @brief Bitfield recording all Currently enabled Scroll Screens*/
+        /** @brief Bitfield recording all Currently enabled Scroll Screens
+        */
         inline static uint16_t ActiveScrolls = NBG3ON | SPRON;
 
         /** @brief Bitfield recording all Scroll Screens with VDP2 Color Calculation enabled
@@ -831,6 +863,26 @@ namespace SRL
                 slScrTransparent(VDP2::TransparentScrolls);
             }
 
+            /** @brief Configures the ScrollScreen's use of VDP2 Windows
+             * @details Use to register the scrollScreen to apply VDP2 window processing
+             * @param combo The type of logic used to apply multiple window areas to the ScrollScreen (AND/OR)
+             * @param Window0 The desired setting for use of window 0
+             * @param Window1 The desired setting for use of window 1
+             * @param SpriteWindow (Optional) The desired setting for use of the Sprite Window. Defaults to Off.
+             * @note The Sprite Window can only be used when VDP1 framebuffer is set to palette exclusive mode
+             * and EnableSpriteWindow is set with the VDP2::SpriteLayer Interface.
+             */
+            inline static void UseWindows(VDP2::Logic combo, VDP2::Area Window0, VDP2::Area Window1, VDP2::Area SpriteWindow = VDP2::Area::Off)
+            {
+                uint16_t WindowArea = (uint16_t)combo | (uint16_t)Window0 | ((uint16_t)Window1 << 2) | ((uint16_t)SpriteWindow << 4);
+                slScrWindowMode(ScreenType::ScreenID, WindowArea);
+            }
+
+            inline static void SetWindows(uint16_t win)
+            {
+                slScrWindowMode(ScreenType::ScreenID, win);
+            }
+
             /** @brief Compute the offset that must be added to map data When Corresponding Cell Data does not start on a VRAM bank boundary
             * @param tile The data configuration of the tilemap
             * @param cellAddress Address of corresponding Cell Data in VRAM (must be a 32 byte boundary)
@@ -855,7 +907,7 @@ namespace SRL
                 return cellOffset;
             }
 
-            /** @brief Gets the Pallet Bank That must be included in Map Data to Reference a Palette in CRAM
+            /** @brief Gets the Palette Bank That must be included in Map Data to Reference a Palette in CRAM
              * @param paletteID (optional) specify to reference an arbitrary palette, otherwise uses Id from ScrollScreen::TilePalette
              * @return The Formatted Palette ID to be included in Map Indicies to reference a specified palette
              */
@@ -930,8 +982,10 @@ namespace SRL
             *  | 16bpp   | 512x256            | Always 2 banks    |
             *
             *  @param bmp Pointer to the bitmap interface to load from.
+            *  @param loadPalette (optional) Enable/disable Auto loading a bitmaps's color palette to CRAM (default = true)
             *  @note If source Bitmap size is not equal to one of the container sizes, excess VRAM will be wasted.
             *  To conserve VRAM, consider converting to tilemap format with Bmp2Tile for smaller images when possible.
+            *
             *  @note RBG0 only supports the 512x256 and 512x512 containers.
             */
             inline static void LoadBitmap(SRL::Bitmap::IBitmap* bmp, bool loadPalette = true)
@@ -1029,6 +1083,7 @@ namespace SRL
 
         /** @brief NBG0 interface
          *  @details Normal Background Scroll 0:
+         *
          *      -Available color depths: Paletted16, Paletted256, RGB555
          *      -Available Modes: Bitmap, Tilemap
          *      -Available features: Vertical/Horizontal Scrolling, Scaling, LineScroll Tables
@@ -1102,6 +1157,7 @@ namespace SRL
 
         /** @brief NBG1 interface
          * @details Normal Background Scroll 1:
+         *
          *      -Available color depths: Paletted16, Paletted256, RGB555
          *      -Available Modes: Bitmap, Tilemap
          *      -Available features: Vertical/Horizontal Scrolling, Scaling, LineScroll Tables
@@ -1174,6 +1230,7 @@ namespace SRL
 
         /** @brief  NBG2 interface
          *  @details Normal Background Scroll 2:
+         *
          *      -Available color depths: Paletted16, Paletted256
          *      -Available Modes: Tilemap
          *      -Available features: Vertical/Horizontal Scrolling
@@ -1210,6 +1267,7 @@ namespace SRL
 
         /** @brief NBG3 interface
          *  @details Normal Background Scroll 3:
+         *
          *      -Available color depths: Paletted16, Paletted256
          *      -Available Modes: Tilemap
          *      -Available features: Vertical/Horizontal Scrolling
@@ -1255,12 +1313,12 @@ namespace SRL
              */
             OneAxis,
 
-            /** @brief 3d rotation with pitch and yaw, but no roll (scale modified per line)
+            /** @brief Enables psuedo 3d rotation with pitch and yaw, but no roll (scale modified per line)
              * @note Requires 0x2000-0x18000 bytes in arbitrary VRAM Bank (No cycle slots required)
              */
             TwoAxis,
 
-            /** @brief Full 3d rotation with pitch, yaw and roll (scale modified per pixel)
+            /** @brief Enables full 3d rotation with pitch, yaw and roll (scale modified per pixel)
              * @note Requires 0x2000-0x18000 bytes in Reserved VRAM bank (all 8 cycle slots required)
              */
             ThreeAxis,
@@ -1269,7 +1327,7 @@ namespace SRL
         /** @brief Options for treating display of rotation parameters outside of the
          * main tilemap/bitmap area.
          * @details when 3d rotation and scaling is simulated, some perspectives may display
-         * areas on screen that extend beyond the 4x4 plane area defined by the tilemap data.
+         * areas on screen that extend beyond the 4x4 plane area defined by the tilemap pattern.
          * Use these options with RBG0::SetOverDisplayA/B to specify what to display in
          * those areas.
         */
@@ -1343,15 +1401,16 @@ namespace SRL
 
         /** @brief RBG0 interface
          * @details Rotating Background Scroll 0:
+         *
          *      -Available color depths: Paletted16, Paletted256, RBG555
          *      -Available image modes: Tilemap, Bitmap
          *      -Available features: Scrolling, Scaling, Rotation,
          *      -Reading a coefficient table from VRAM allows per-line/per-pixel scaling
          *       to simulate a 3D plane.
-         *      -simulate up to 2 planes using separate rotation parameters and tilemaps
+         *      -Simulate up to 2 planes using separate rotation parameters and tilemaps
          * @note Tilemap Loading for Secondary rotation parameter through RBG0 interface does not support configuration
          * for display on RBG1. While it is possible to control RBG1 rotation mode and perspective through
-         * the functions for the secondary parameter, the required VRAM reservations for its display would need to be
+         * the functions for the secondary parameter, the required VRAM reservations for its display must be
          * configured manually.
          */
         class RBG0 : public BmpScreen<RBG0, scnRBG0, RBG0ON>
@@ -1366,7 +1425,14 @@ namespace SRL
             {
                 if (info.MapMode!= RBG0::Info.MapMode || info.SGLColorMode() != RBG0::Info.SGLColorMode() || info.CharSize != RBG0::Info.CharSize)
                 {
-                    SRL::Debug::Assert("RBG0 Secondary Tilemap Init Failed: Format does not match primary tilemap");
+
+                    if (info.MapMode!= RBG0::Info.MapMode)
+                        SRL::Debug::Print(0, 10, "MAP");
+                    else if (info.SGLColorMode() != RBG0::Info.SGLColorMode())
+                        SRL::Debug::Print(0, 10, "COL");
+                    else
+                        SRL::Debug::Print(0, 10, "CHAR");
+                    // SRL::Debug::Assert("RBG0 Secondary Tilemap Init Failed: Format does not match primary tilemap");
                     return false;
                 }
                 slPlaneRB(info.PlaneSize);
@@ -1584,6 +1650,7 @@ namespace SRL
             inline static void LoadTilemap(SRL::Tilemap::ITilemap& tilemapA,SRL::Tilemap::ITilemap& tilemapB, VDP2::RotationMode modeA,VDP2::RotationMode modeB, bool LoadPalette = true)
             {
                 SetRotationMode(modeA,modeB,false);
+                SetParameterMode(SwitchMode::PerspectiveSwitch);
                 LoadTilemap(tilemapA,LoadPalette);
                 LoadTilemapB(tilemapB);
             }
@@ -1799,6 +1866,22 @@ namespace SRL
                 if (param == VDP2::RotationParameter::Primary) sl16MapRA((uint8_t*)sLayout);
                 else sl16MapRB((uint8_t*)sLayout);
             }
+
+            /** @brief Registers a VDP2 window area to Display Seconday rotation in.
+             * @details When the parameter switching mode is set to WindowSwitch, Secondary Tilemap and Rotation
+             * will display inside the window area specified here, while Primary Tilemap will display outside the window.
+             * This can be set independently from the the window specified with RBG0::UseWindow(), which specifies the area
+             * in which to display RBG0 as a whole.
+             * @param combo The type of logic used to compine window0 and window1 areas when using both for Secondary Tilemap display (AND/OR)
+             * @param Window0 The desired setting for window 0
+             * @param Window1 The desired setting for window 1
+             * @note The Rotation Window can not be set to use the Sprite Window.
+             */
+            inline static void SetRotationWindow(VDP2::Logic combo, VDP2::Area Window0, VDP2::Area Window1)
+            {
+                uint16_t WindowArea = (uint16_t)combo | (uint16_t)Window0 | ((uint16_t)Window1 << 2);
+                slScrWindowMode(scnROT, WindowArea);
+            }
         };
 
         /** @brief Sprite Color Calculation Conditions (See SpriteLayer::SetColorCondition() for details)
@@ -1866,7 +1949,7 @@ namespace SRL
              * @note -RGB sprites always use the opacity set in CC register[bank0]
              * @note -Does NOT turn color calc ON or OFF for the Sprite Layer(use SpriteLayer::ColorCalcON,OFF())
              * @note -available cc registers vary by Palette code config- default allows selecting all 8 banks
-             * @param opacity Fxp decimal value between 0.0 and 1.0 representing pixel opacity of the cc register
+             * @param opacity Fxp decimal value between 0.0 and 1.0 representing the opacity to set in the selected bank
              * @param bank (optional) which of the 8 CC registers to Set the opacity in (defaults to 0)
              */
             inline static void SetOpacity(SRL::Math::Types::Fxp opacity, VDP2::SpriteBank bank = VDP2::SpriteBank::Bank0)
@@ -1884,7 +1967,7 @@ namespace SRL
             /** @brief Set the priority Layers That sprites can select from in PR registers
              * @details This function sets one of the 8 priority registers that a Palette sprite can reference (default bank0)
              * @note -available registers vary by Palette code config- default can only pull from bank0 and bank1
-             * @note -RGB sprites always use the priority from bank0
+             * @note -RGB555 data always use the priority set in bank0
              * @note -During VDP2 init, priority bank0 and bank1 are initialized to Layer3 and Layer4 respectively
              * @note -Changing these priorities will result in differing behavior for sprite color calculation
              * (See documentation of SpriteLayer::SetColorCondition() for more details)
@@ -1911,6 +1994,28 @@ namespace SRL
                 slSpriteCCalcCond((uint16_t)Condition);
                 slSpriteCCalcNum((uint16_t)TestValue);
             }
+
+            /** @brief Causes VDP2 to interpret all data from the VDP1 framebuffer as Palette Data, regardless of the
+             * original image type. RGB color can no longer be displayed, and its raw data will be cast to a Palette code.
+             * @note Certain effects such as sprite shadow and sprite window can only be used in this mode.
+             */
+            inline static void PaletteExclusiveMode()
+            {
+                slSpriteColMode(0);
+                slSpriteType(2);
+            }
+
+            /** @brief Enable use of the Sprite Window on VDP2 ScrollScreens.
+            *  @note Only Available in Palette Exclusive Mode with Palette Code Types 2-7.
+            *  Not available in Hi resolution Modes.
+            *  VDP2 Sprite Shadow effect becomes unavailable when Sprite Window is enabled.
+            */
+            inline static void EnableSpriteWindow()
+            {
+                slSpriteWinMode(1);
+            }
+
+
         };
 
         /** @brief Clear all VDP2 VRAM allocations and reset all Scroll Screen VRAM References, as well
@@ -2198,52 +2303,32 @@ namespace SRL
             slColorCalc((uint16_t)flags);
         }
 
-/* Window control
-
-#define		win_OR			0x80
-#define		win_AND			0x00
-
-#define		win0_IN			0x03    000000000
-#define		win0_OUT		0x02
-
-#define		win1_IN			0x0c
-#define		win1_OUT		0x08
-
-#define		spw_IN			0x30
-#define		spw_OUT			0x20
-
-class enum WindowArea: (uint16_t)
-{
-InsideW0
-InsideW1
-InsideWspr
-OutsideW0
-OutsideW1
-OutsideWspr
-NoWindow//default
-};
-
-class enum
-{
-OFF,
-IN,
-OUT,
-}
-UseWindow(Combiner, Window0, Window1, SpriteWindow = OFF)
-
-SetWindow(condition, window1, window2, window3 = NoWindow)
-SetWindow(Combine::Union,Window::Inside0,Window::Inside1)
-SetWindow(window = NoWindow)*/
+        /** @brief Registers a window area where color calculation is turned on.
+         * @details VDP2 color calculation (half transparency) will be limited to the specified window area
+         * @param combo The type of logic used to compose multiple window areas for color caculation (AND/OR)
+         * @param Window0 The desired setting for window 0
+         * @param Window1 The desired setting for window 1
+         * @param SpriteWindow (Optional) The desired setting for the Sprite Window. Defaults to Off.
+         * @note The Sprite Window is only available when VDP1 framebuffer is in exclusive palette mode (No RGB data)
+         */
+        inline static void SetColorCalcWindow(VDP2::Logic combo, VDP2::Area Window0, VDP2::Area Window1, VDP2::Area SpriteWindow = VDP2::Area::Off)
+        {
+            uint16_t WindowArea = (uint16_t)combo | (uint16_t)Window0 | ((uint16_t)Window1 << 2) | ((uint16_t)SpriteWindow << 4);
+            slScrWindowMode(scnCCAL, WindowArea);
+        }
 
         /** @brief template base class for the 2 configurable vdp2 windows
          *  @note These are different from the VDP1 Clipping windows, which only apply inside VDP1 framebuffer.
-         *  These Windows apply to the final display of scrollScreens and VDP1 frambuffer data as a whole.
+         *  These Windows apply on a per Screen basis to the final display of scrollScreens
+         *  and VDP1 frambuffer data as a whole. They can be defined with either a retangular region or line table.
          */
         template <class ScrWindow>
         class Window
         {
         public:
-            inline static uint16_t *LineAddress = (uint16_t *)VDP2_VRAM_A0 - 1;
+            inline static uint16_t *LineAddress = (uint16_t*) VDP2_VRAM_A0 - 1;
+            inline static uint16_t *SourceAddress = (uint16_t *)VDP2_VRAM_A0 - 1;
+            inline static uint16_t TableSize = 1;
             /** @brief Set rectangular Window Area from Screen Space Fxp Coordinates:
              *
              *  - Screen Center = (0.0,0.0)
@@ -2260,8 +2345,8 @@ SetWindow(window = NoWindow)*/
 
             /** @brief Set rectangular Window Area from Screen Pixel Coordinates:
              *
-             *  - Screen TopLeft = (0, 0)
-             *  - Screen BotRight = (319,239)
+             *  - Screen Top Left = (0, 0)
+             *  - Screen Bottom Right = (319,239)
              *  @param TopLeft Pixel Coordinate of Top Left corner of the window
              *  @param BottomRight Pixel Coordinate of Top Left corner of the window
              */
@@ -2269,29 +2354,48 @@ SetWindow(window = NoWindow)*/
             {
                 ScrWindow::SetWindow(top, left, bot, right);
             }
-            /** @brief Set Window as a Line Window using Window Table data (See VDP2 data types)
+
+            /** @brief Set the Window as a Line Window using Window Table data (See VDP2 data types)
              *  @details If VRAM for table has been previously allocated the Source table will be loaded
              *  to the existing allocation. Otherwise, VRAM will first be auto allocated and table will be loaded
              *  to the new allocation.
              *  @param SourceTable address to load line data from
+             *
              *  @note Because the table will reside in VRAM, calling VDP2::ClearVRAM will clear
-             *  the table refferences. To avoid refferencing an invalid address, the Window will be reset
+             *  the table references. To avoid referencing an invalid address, the Window will be reset
              *  to rectangular area mode at this time, and must then be reconfigured with this function.
              */
-            static void ConfigArea(void *SourceTable, uint16_t size)
+            static void ConfigArea(void *Source, uint16_t size)
             {
                 ScrWindow::SetWindow(0, 0, 240, 320); // reset Y window values to full range
-                if (ScrWindow::LineAddress < (uint16_t *)VDP2_VRAM_A0)
-                    ScrWindow::LineAddress = (uint16_t *)VDP2::VRAM::AutoAllocateTable(240 * 4);
-                if (ScrWindow::LineAddress == nullptr)
-                    return;
-                slDMACopy(SourceTable, (void *)ScrWindow::LineAddress, size);
+                if (ScrWindow::LineAddress < (uint16_t*)VDP2_VRAM_A0) ScrWindow::LineAddress = (uint16_t*)VDP2::VRAM::AutoAllocateTable(240 * 4);
+
+                if (ScrWindow::LineAddress == nullptr) return;
+
+                slDMACopy(Source, (void *)ScrWindow::LineAddress, size);
                 ScrWindow::SetWindowL((uint32_t)ScrWindow::LineAddress | 0x80000000);
-                // ScrWindow::LineAddress = (uint16_t*) SourceTable;
+                ScrWindow::TableSize = size;
+                ScrWindow::SourceAddress = (uint16_t*) Source;
             }
-            /** @brief Set the VRAM address of Line Window Table
+
+            /** @brief Copy Registered Work Ram Table to Window table allocated in VDP2 VRAM.
+             *  Can be Registered to execute at VBLANK to update Line Window every frame.
+             *  @note The source table and VRAM destination must be registered with ConfigArea()
+             *  beforehand, or the transfer will not execute.
              */
-            static void SetTableAddress(uint16_t *address) { ScrWindow::LineAddress = address; }
+            static void CopyLineTable()
+            {
+                if (ScrWindow::TableSize == 1 || LineAddress < (uint16_t *)VDP2_VRAM_A0) return;
+                slDMACopy(ScrWindow::SourceAddress, (void *)ScrWindow::LineAddress, ScrWindow::TableSize);
+            }
+
+            /** @brief Set the VRAM address of Line Window Table Manually
+            */
+            static void SetTableAddress(uint16_t *address)
+            {
+                ScrWindow::LineAddress = address;
+            }
+
             /** @brief Get the VRAM address Of Line Window Table
              */
             static uint16_t *GetTableAddress() { return ScrWindow::LineAddress; }
