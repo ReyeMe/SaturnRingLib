@@ -274,7 +274,7 @@ endif
 	xorrisofs --norock -quiet -sysid "SEGA SATURN" -volid "SaturnApp" -volset "SaturnApp" \
 	-publisher "SEGA ENTERPRISES, LTD." -preparer "SEGA ENTERPRISES, LTD." -appid "SaturnApp" \
 	-abstract "$(ASSETS_DIR)/ABS.TXT" -copyright "$(ASSETS_DIR)/CPY.TXT" -biblio "$(ASSETS_DIR)/BIB.TXT" -generic-boot $(IPFILE) \
-	-full-iso9660-filenames -o "$(BUILD_ISO)" $(ASSETS_DIR) $(ENTRYPOINT)
+	-full-iso9660-filenames -o "$(BUILD_ISO)" -m ".DS_Store" $(ASSETS_DIR)
 
 # Create CUE sheet
 create_bin_cue: create_iso
