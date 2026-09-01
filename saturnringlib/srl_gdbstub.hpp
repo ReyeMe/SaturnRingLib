@@ -1763,7 +1763,7 @@ namespace SRL
         /**
          * @brief Check for incoming GDB interrupt request (Ctrl-C)
          */
-        __attribute__((noinline)) void Poll() {
+        __attribute__((noinline)) inline void Poll() {
             const uint8_t usbFlags = SRL::DevCart::CS0::ReadFlags();
             g_last_usb_flags = usbFlags;
             g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
@@ -1808,7 +1808,7 @@ namespace SRL
 }
 }
 
-extern "C" void slave_ipi_handler(void) {
+extern "C" inline void slave_ipi_handler(void) {
     // This handler runs on the slave SH‑2 when the master triggers an IPI.
     // It simply spins until the master clears the pause flag.
     while (SRL::GDBStub::g_debug_pause) {
@@ -1818,6 +1818,7 @@ extern "C" void slave_ipi_handler(void) {
 }
 
 __asm__(
+    ".weak _srl_gdbstub_exception_thunk\n"
     ".global _srl_gdbstub_exception_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_exception_thunk:\n"
