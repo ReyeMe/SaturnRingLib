@@ -3,7 +3,7 @@
 This sample demonstrates how to use the Sega Saturn GDB stub (`srl_gdbstub.hpp`) to debug your game running on real hardware.
 
 > [!WARNING]
-> **Real Hardware Required:** This sample utilizes the USB interface on the DevCart (Wasca/Action Replay with USB). It **cannot** be run in emulators like Mednafen, Kronos, or Yabause, because they do not emulate this custom USB hardware. Attempting to run this in an emulator will likely cause it to hang or crash.
+> **Real Hardware Required:** This sample utilizes the USB interface on a DevCart with USB support. It **cannot** be run in emulators like Mednafen, Kronos, or Yabause, because they do not emulate this custom USB hardware. Attempting to run this in an emulator will likely cause it to hang or crash.
 
 ## 1. Building the Sample
 
@@ -18,60 +18,44 @@ This will produce `./BuildDrop/Debug_GDBStub.elf` (which contains your debug sym
 
 ## 1.1 VS Code Debug Configuration
 
-This sample includes a `.vscode` folder with a `launch.json` and `tasks.json` for debugging in VS Code.
+This sample includes a `.vscode` folder with `launch.json` and `tasks.json` for debugging in VS Code.
 
-- `launch.json` is based on the repository's existing `Debug - GDB Stub` example in `.vscode/launch.json`.
-- It launches the generated ELF file at `Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf`.
-- It connects to the remote GDB stub on `host.docker.internal:1234` using `gdb-multiarch`.
-- It sets SH-2 architecture and big-endian mode before starting the debug session.
-- `sourceFileMap` maps `src` to `${workspaceFolder}/Samples/Debug - GDB Stub/src` so breakpoints resolve correctly.
+- `launch.json` connects to the remote GDB stub on `localhost:1234` using `gdb-multiarch`.
+- It configures `preLaunchTask` (`Start FTX`) to automatically launch the `ftx` GDB proxy in the background on port 1234 if it is not already running.
+- It loads `./BuildDrop/Debug_GDBStub.elf` and configures SH-2 architecture and big-endian mode before starting the debug session.
+- `sourceFileMap` maps `src` to `${workspaceFolder}/src` so breakpoints resolve correctly.
 
 The `.vscode/tasks.json` file provides these tasks:
 
 - `Compile [DEBUG]` — runs `../../tools/scripts/make.sh` from this sample folder.
 - `Run on Saturn` — runs `../../tools/scripts/run.sh USBGamers` from this sample folder.
+- `Start FTX` — checks if port 1234 is listening on `localhost` and launches `ftx -g 1234 -v` using `nohup` in the background if not started.
+- `Connect to GDB` — checks/starts `ftx` on port 1234 if needed and connects `gdb-multiarch` CLI in the terminal.
 
-### Example `launch.json` for Docker
-
-```json
-{
-    "name": "Debug - GDB Stub (Debug - GDB Stub)",
-    "type": "cppdbg",
-    "request": "launch",
-    "program": "${workspaceFolder}/Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf",
-    "stopAtEntry": true,
-    "cwd": "${workspaceFolder}/Samples/Debug - GDB Stub",
-    "MIMode": "gdb",
-    "miDebuggerPath": "gdb-multiarch",
-    "miDebuggerServerAddress": "host.docker.internal:1234",
-    "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
-    "sourceFileMap": {
-        "src": "${workspaceFolder}/Samples/Debug - GDB Stub/src"
-    }
-}
-```
-
-### Example `launch.json` for native Linux/macOS
+### `launch.json` Configuration
 
 ```json
 {
     "name": "Debug - GDB Stub (Debug - GDB Stub)",
     "type": "cppdbg",
     "request": "launch",
-    "program": "${workspaceFolder}/Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf",
+    "program": "${workspaceFolder}/BuildDrop/Debug_GDBStub.elf",
     "stopAtEntry": true,
-    "cwd": "${workspaceFolder}/Samples/Debug - GDB Stub",
+    "cwd": "${workspaceFolder}",
+    "environment": [],
+    "externalConsole": false,
     "MIMode": "gdb",
     "miDebuggerPath": "gdb-multiarch",
     "miDebuggerServerAddress": "localhost:1234",
     "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
+    "preLaunchTask": "Start FTX",
     "sourceFileMap": {
-        "src": "${workspaceFolder}/Samples/Debug - GDB Stub/src"
+        "src": "${workspaceFolder}/src"
     }
 }
 ```
 
-> Note: On native hosts, replace `localhost` with the actual IP if `ftx` is bound to a different address. Use `sh-elf-gdb` instead of `gdb-multiarch` if that is your installed SH-2 GDB executable.
+> Note: If using Docker, set `"miDebuggerServerAddress": "host.docker.internal:1234"`. Use `sh-elf-gdb` instead of `gdb-multiarch` if that is your installed SH-2 GDB executable.
 
 ## 2. Running on the Saturn (Hardware Test Flow)
 
@@ -82,7 +66,6 @@ To ensure a stable upload and execution environment on real hardware, it is high
 Make sure these tools are installed and available in `PATH` before starting:
 
 - [`usbreset`](https://man7.org/linux/man-pages/man1/usbreset.1.html) (reset FT245R endpoint)
-- [`ESP-SaturnPSU_Control`](https://github.com/willll/ESP-SaturnPSU_Control) (control power supply - esp32-saturn-psu firmware)
 
 ### Required Host Tools
 
@@ -99,7 +82,7 @@ command -v ftx
 command -v gdb-multiarch
 ```
 
-1. **Power Cycle:** Turn your Sega Saturn completely off and then back on (using a physical switch or your networked PSU controller, e.g., `saturnpsu.local`).
+1. **Power Cycle:** Turn your Sega Saturn completely off and then back on.
 2. **Reset USB Cartridge:** Reset the state of your USB cartridge on the PC to avoid stale buffer issues:
    ```bash
    usbreset "FT245R USB FIFO"
@@ -114,27 +97,6 @@ command -v gdb-multiarch
    ```bash
    ../../tools/scripts/run.sh USBGamers
    ```
-
-### Optional: PSU REST Automation
-
-If you use ESP-SaturnPSU_Control at `saturnpsu.local`, you can automate a clean power cycle from the host:
-
-```bash
-curl -sS -X POST http://saturnpsu.local/api/v1/off
-sleep 2
-curl -sS -X POST http://saturnpsu.local/api/v1/on
-sleep 10
-usbreset "FT245R USB FIFO"
-sleep 2
-ftx -c
-../../tools/scripts/run.sh USBGamers
-```
-
-You can also query relay state with:
-
-```bash
-curl -sS http://saturnpsu.local/api/v1/status
-```
 
 > [!TIP]
 > **Troubleshooting:** If the upload fails with `usb bulk write failed`, rerun the full sequence above (Power Cycle -> `usbreset` -> Wait 10s) before retrying the upload.
