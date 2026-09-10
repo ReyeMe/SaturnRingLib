@@ -91,6 +91,12 @@ void DMAAddressError()
     // The DMAC detects the misaligned SAR immediately and fires vector 10.
 }
 
+// @warning Programs the UBC (channel A) directly instead of going through
+// SRL::GDBStub's own install_hardware_watchpoint()/remove_hardware_watchpoint() --
+// there is only one physical channel, so calling this while a GDB `watch`/hardware
+// breakpoint is active silently steals it out from under GDB (see
+// g_ubc_channel_a_active's doc comment in srl_gdbstub.hpp). Fine for this sample's
+// own one-shot test trigger in isolation; avoid combining with GDB-side watchpoints.
 void UserBreakController()
 {
     volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
@@ -145,11 +151,12 @@ void HandleMonitorCommand(const char* cmd)
     else if (StrEquals(cmd, "touch")) { g_testVariable = g_testVariable + 1; }
     else
     {
-        // "regs slave" and "regs vdp" aren't handled here -- they're intercepted
-        // directly in srl_gdbstub.hpp's qRcmd handler (see send_slave_regs_dump()/
-        // send_vdp_regs_dump()) and never reach this dispatcher.
+        // "regs slave", "regs vdp", "nmi", and "trace" aren't handled here --
+        // they're intercepted directly in srl_gdbstub.hpp's qRcmd handler (see
+        // send_slave_regs_dump()/send_vdp_regs_dump()/send_nmi_diag_dump()/
+        // send_halt_trace_dump()) and never reach this dispatcher.
         Log::LogPrint("monitor: unknown command '%s' -- try crash illegal|addr|reserved|"
             "slotillegal|slotreserved|genillegal|dma|ubc|trapa3, step, touch, "
-            "regs slave, or regs vdp", cmd);
+            "regs slave, regs vdp, nmi, or trace", cmd);
     }
 }
