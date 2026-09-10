@@ -38,9 +38,28 @@
             }
         },
         {
+            "label": "Upload to Saturn",
+            "type": "shell",
+            "command": "usbreset \"FT245R USB FIFO\" && sleep 2 && ftx -x ./cd/data/0.bin 0x06004000 && sleep 1",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "Upload and Start FTX",
+            "dependsOrder": "sequence",
+            "dependsOn": ["Upload to Saturn", "Start FTX"],
+            "problemMatcher": []
+        },
+        {
             "label": "Start FTX",
             "type": "shell",
-            "command": "if ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; fi",
+            "command": "if pgrep -f \"^ftx -g\" > /dev/null && ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" > /dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; timeout 8 gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1; fi",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -53,7 +72,7 @@
         {
             "label": "Connect to GDB",
             "type": "shell",
-            "command": "if ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; fi && gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
+            "command": "if pgrep -f \"^ftx -g\" > /dev/null && ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" > /dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; timeout 8 gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1; fi && gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

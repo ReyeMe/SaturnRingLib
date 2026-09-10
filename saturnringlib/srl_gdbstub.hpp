@@ -4,6 +4,7 @@
 #include <srl_interrupt.hpp>
 #include <srl_system.hpp>
 #include <srl_log.hpp>
+#include <srl_slave.hpp>
 #include <cstdint>
 #include <cstddef>
 
@@ -71,6 +72,26 @@ namespace SRL
 
         // Globals — inline so they are defined exactly once across all TUs.
         __attribute__((used)) inline SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
+        // Second SH-2 context for the slave CPU. Exported in the GDB register map
+        // (see the 'g'/'G'/'p'/'P' handlers) and made live by the FRT Input Capture
+        // Interrupt mechanism below: once InstallSlaveFreezeHandler() has been run on
+        // the slave, its own exception thunk snapshots full register state here before
+        // spinning, and restores it from here on resume.
+        __attribute__((used)) inline SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
+
+        // Set true by snapshot_polling_context() immediately before it calls
+        // process_commands() from Poll()'s out-of-band packet path (initial
+        // handshake, or a GDB packet arriving while the target is nominally
+        // "running" outside any real hardware exception). g_ctx in that case has
+        // r0-r14 zeroed and a pc/pr that do not correspond to a real, resumable
+        // instruction (see snapshot_polling_context()'s doc comment) -- the real
+        // CPU registers were never touched. handle_gdb_continue()/handle_gdb_step()
+        // must treat this as a no-op rather than using that data for breakpoint
+        // restore or step-trap placement, which would corrupt state using
+        // garbage addresses/register values. Read-and-cleared by
+        // handle_gdb_continue()/handle_gdb_step() so it never leaks into a
+        // later, real exception-driven invocation.
+        inline volatile bool g_ctx_is_fake = false;
 
         static inline void debug_write(char c) {
             if (SRL::DevCart::CS0::WaitTxe(500U)) {
@@ -92,10 +113,17 @@ namespace SRL
         }
         inline volatile bool g_has_connection = false;    // set on any valid RSP packet received
         inline volatile bool g_handshake_done = false;    // set only after qSupported exchange
-        inline volatile bool g_is_ctrl_c_stop = false;    // set when stopped via Ctrl-C, cleared on continue
+        inline volatile bool g_is_ctrl_c_stop __asm__("srl_gdbstub_is_ctrl_c_stop") = false;    // set when stopped via Ctrl-C (or the Saturn's physical Reset button, via NMI), cleared on continue
         inline volatile uint32_t g_command_count = 0;
         __attribute__((used)) inline volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
         inline char g_last_command[64] = {};
+        // Last "monitor <text>" command received via qRcmd, and how many have
+        // arrived. User code can poll GetMonitorCommandCount() to detect a new
+        // one and dispatch on GetLastMonitorCommand() -- this gives host-side
+        // tooling (or a script) a way to trigger sample behavior without a
+        // physical gamepad, e.g. `(gdb) monitor crash illegal`.
+        inline char g_last_monitor_command[64] = {};
+        inline volatile uint32_t g_monitor_command_count = 0;
         inline int g_unget_char = -1;
         inline bool g_handlers_installed = false;
         inline volatile uint32_t g_rx_detect_count = 0;  // incremented each time the stub reads a byte from DevCart RX
@@ -105,7 +133,10 @@ namespace SRL
         inline bool g_devcart_port_available = false;
         inline bool g_devcart_usb_datapath_enabled = true;
         inline uint8_t g_last_usb_flags = 0xFF;
-        inline volatile uint8_t g_last_stop_signal = 5; // 5=SIGTRAP, 2=SIGINT
+        // __asm__-named (like g_ctx above) so the per-exception-type trampolines
+        // below (srl_gdbstub_illegal_thunk / srl_gdbstub_addrerr_thunk) can write
+        // to it directly by a fixed symbol, without needing a C++-mangled name.
+        __attribute__((used)) inline volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5; // 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS
         inline bool g_was_swbreak = false; // Set during PC adjustment if we hit a GDB swbreak
         // Set when $c stepped over a software breakpoint; cleared after re-insertion.
         // When set, the next process_commands() entry is silent (re-inserts BP, continues).
@@ -119,17 +150,67 @@ namespace SRL
         // Global pause flag used to freeze the slave SH-2 while the master is in GDB.
         inline volatile uint32_t g_debug_pause = 0;
 
-        // IPI scratch location in Work RAM High (safe for both CPUs, won't bus-error).
-        // Using a word near the top of the 1MB Work RAM High region (0x06000000 + 0xFF000).
-        // IPI scratch location in Work RAM High, safe for both CPUs.
+        // --- Slave freeze via SH-2 on-chip FRT Input Capture Interrupt (ICI) ---
+        //
+        // The slave SH-2 has no path to the SCU interrupt bus, so it cannot be
+        // signalled through SRL::Interrupt. The documented cross-CPU mechanism is
+        // each SH-2's own on-chip Free-Running Timer (FRT): a word write to a
+        // special SCU-mapped address pulses the *other* CPU's FRT input-capture
+        // pin, setting that CPU's own FTCSR.ICF flag. If that CPU has enabled the
+        // Input Capture Interrupt (TIER.ICIE) and given it a non-zero priority
+        // (IPRB), the pulse fires a genuine hardware interrupt — vector 0x64
+        // (FRT-ICI) — in that CPU's own, independent VBR table.
+        //
+        // @warning Hardware-confirmed conflict (see Samples/Debug - GDB Stub/readme.md
+        // for the full writeup): SGL's own SRL::Slave::ExecuteOnSlave (slSlaveFunc)
+        // uses this exact FRT-ICI mechanism to dispatch jobs to the slave CPU, and
+        // InstallSlaveFreezeHandler() below does not coexist with it. On real
+        // hardware, g_slave_ici_count (below) tracks past SRL::Slave dispatch
+        // activity, not live freeze pulses — it stops incrementing for good once
+        // SRL::Slave::ExecuteOnSlave activity ceases, in either call order, and does
+        // not respond to subsequent debug stops. Working theory: SGL leaves the
+        // slave's own on-chip TIER.ICIE disabled once it has no queued work, and
+        // that bit lives in the slave's private peripheral space — the master
+        // cannot re-arm it directly, and the only sanctioned way to run code on the
+        // slave that could is SRL::Slave::ExecuteOnSlave() itself, which reopens the
+        // same conflict. Do not rely on slave-freeze in any project that also uses
+        // SRL::Slave; it has not been tested in a project that avoids SRL::Slave
+        // entirely.
+        static constexpr uint32_t FRT_TIER  = 0xFFFFFE10U; // Timer Interrupt Enable Register
+        static constexpr uint32_t FRT_FTCSR = 0xFFFFFE11U; // FRT Control/Status Register
+        static constexpr uint32_t FRT_IPRB  = 0xFFFFFE60U; // Interrupt Priority Register B (FRT: bits 11-8)
+        static constexpr uint8_t  FRT_ICF   = 0x80U;       // FTCSR.ICF / TIER.ICIE share this bit position
+        static constexpr uint32_t FRT_ICI_VECTOR = 0x64U;  // FRT Input Capture Interrupt vector, own VBR
+
+        // Cross-CPU "doorbell" addresses (SCU A-bus mapped). A 16-bit write to one
+        // of these pulses the *other* CPU's FRT input-capture pin. Safe to write
+        // even if the target CPU never installed a handler for it — it just sets
+        // an unused status flag in that case.
+        static constexpr uint32_t MasterNotifiesSlave = 0x21000000U;
+        static constexpr uint32_t SlaveNotifiesMaster = 0x21800000U;
+
+        // Diagnostic: incremented by the slave-side ICI thunk every time it fires,
+        // so the master can confirm (via g_slave_ctx / this counter, both in
+        // shared Work RAM) whether the interrupt is actually reaching the slave.
+        __attribute__((used)) inline volatile uint32_t g_slave_ici_count __asm__("srl_gdbstub_slave_ici_count") = 0;
+
         /**
-         * @brief Returns the address of the inter-processor interrupt (IPI) register.
+         * @brief Requests that the slave SH-2 freeze (spin) for the duration of a debug stop.
+         * @details Sets the shared pause flag and pulses the slave's FRT input-capture
+         * pin. If InstallSlaveFreezeHandler() was never run on the slave, this is a
+         * harmless no-op from the slave's point of view.
          */
-        static inline volatile uint32_t* SlaveIPIReg() {
-            return reinterpret_cast<volatile uint32_t*>(0x060FFF00U);
+        static inline void SlaveIPISet() {
+            g_debug_pause = 1;
+            *reinterpret_cast<volatile uint16_t*>(MasterNotifiesSlave) = 0xFFFFU;
         }
-        static inline void SlaveIPISet()   { *SlaveIPIReg() = 0x01U; }
-        static inline void SlaveIPIClear() { *SlaveIPIReg() = 0x00U; }
+
+        /**
+         * @brief Releases a slave previously frozen via SlaveIPISet().
+         */
+        static inline void SlaveIPIClear() {
+            g_debug_pause = 0;
+        }
 
         // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
         // This avoids collisions with SGL which frequently overwrites TRAPA vectors (32-63)
@@ -227,6 +308,15 @@ namespace SRL
             return true;
         }
 
+        static inline bool str_equals(const char* a, const char* b) {
+            size_t i = 0;
+            while (a[i] != '\0' && b[i] != '\0') {
+                if (a[i] != b[i]) return false;
+                ++i;
+            }
+            return a[i] == b[i];
+        }
+
         /**
          * @brief Checks if a memory range is valid for access, preventing bus errors.
          */
@@ -314,6 +404,41 @@ namespace SRL
 
         struct CacheFlusher {
             ~CacheFlusher() { FlushCacheIfDirty(); }
+        };
+
+        /**
+         * @brief Masks all maskable interrupts (SR.IMASK = 15) for the lifetime of
+         * the object, restoring the exact original SR on destruction.
+         *
+         * @details Hardware-confirmed reentrancy bug this fixes: SGL's VBlank
+         * interrupt handler drives this stub's Ctrl-C detection (see the
+         * "VblankHandling" references elsewhere in this file), and nothing
+         * previously stopped VBlank from firing WHILE the CPU was already inside
+         * process_commands() (e.g. sitting halted, mid-conversation with GDB).
+         * If that happened, Poll()'s Ctrl-C read could see a stray byte and call
+         * Break() again, re-entering process_commands() reentrantly — clobbering
+         * the single shared g_ctx and interleaving a fresh stop notification into
+         * the outer call's in-flight reply. Confirmed on real hardware via a
+         * temporary reentrancy-depth counter: max_depth reached 2 (with
+         * reentry_count incrementing) immediately before the target became
+         * permanently unresponsive during repeated rapid Ctrl-C/continue
+         * cycling from VS Code -- exactly the "restarts, then crashes" report
+         * this was added to fix. IMASK=15 blocks all maskable interrupts
+         * (VBlank included) but NOT NMI, which is intentionally non-maskable at
+         * the hardware level and has its own dedicated thunk.
+         */
+        struct InterruptMaskGuard {
+            uint32_t saved_sr;
+            InterruptMaskGuard() {
+                uint32_t sr;
+                asm volatile("stc sr, %0" : "=r"(sr));
+                saved_sr = sr;
+                uint32_t masked = sr | 0x000000F0U;
+                asm volatile("ldc %0, sr" :: "r"(masked) : "memory");
+            }
+            ~InterruptMaskGuard() {
+                asm volatile("ldc %0, sr" :: "r"(saved_sr) : "memory");
+            }
         };
 
         static inline void PurgeCache() {
@@ -592,6 +717,17 @@ namespace SRL
          */
         static inline void adjust_pc_for_software_breakpoint() {
             g_was_swbreak = false;
+            // SoftwareBreakInstruction (0xFFFF) is the SAME opcode CrashProgram() uses to
+            // deliberately trigger a real Illegal Instruction crash, so vector 4's thunk
+            // (srl_gdbstub_illegal_thunk) cannot tell "GDB's own breakpoint/step-trap fired"
+            // apart from "the user's code genuinely executed an illegal instruction" -- it
+            // unconditionally pre-sets g_last_stop_signal = SIGILL(4) before this function
+            // even runs. Every g_was_swbreak = true branch below IS one of our own traps
+            // (a GDB-inserted breakpoint or do_software_step()'s internal step trap), never
+            // a real crash, so it must be reported as SIGTRAP(5) -- overriding the thunk's
+            // pre-set value -- or GDB won't recognize it as its own breakpoint (no swbreak
+            // annotation in the T-packet, see send_stop_signal), and will treat a completely
+            // ordinary breakpoint hit as an unrecoverable program crash.
             // SH-2 exception PC semantics:
             //   - Illegal Instruction (0xFFFF): hardware pushes the address of the
             //     faulting instruction itself (the 0xFFFF word), i.e. g_step_data.address.
@@ -603,6 +739,7 @@ namespace SRL
             // Correct PC to the branch target and apply side effects.
             if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.address) {
                 g_was_swbreak = true;
+                g_last_stop_signal = 5U; // SIGTRAP — our own step trap, not a real crash
                 // Delay slot trap fired — hardware gave us the delay slot's address.
                 // Present PC to GDB as the branch target (where execution will resume).
                 g_ctx.pc = g_step_data.delayed_target;
@@ -632,6 +769,7 @@ namespace SRL
             // stops at the same address (one for their BP, one for the hardcoded Break).
             if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
                 g_was_swbreak = true;
+                g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
                 return; // PC is already exactly at the breakpoint.
             }
 
@@ -654,6 +792,7 @@ namespace SRL
             const uint32_t trap_address = g_ctx.pc - 2U;
             if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address)) {
                 g_was_swbreak = true;
+                g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
                 g_ctx.pc = trap_address;
             }
         }
@@ -701,6 +840,12 @@ namespace SRL
             g_ctx.mach = mach;
             g_ctx.macl = macl;
             g_ctx.sr = sr;
+
+            // g_ctx.pc above is the address of a label inside THIS function
+            // (captured via "mova 1f, r0") -- always the same fixed address
+            // regardless of where Poll()'s real caller actually is. It is not a
+            // valid resume point. Flag this so continue/step treat it as a no-op.
+            g_ctx_is_fake = true;
         }
 
         // --- Transport (libyaul-style device hooks) ---
@@ -937,18 +1082,469 @@ namespace SRL
             packet_put('T', buf, len);
         }
 
+        static inline size_t append_str(char* buf, size_t pos, const char* s) {
+            while (*s != '\0') buf[pos++] = *s++;
+            return pos;
+        }
+
+        static inline size_t append_hex(char* buf, size_t pos, uint32_t value, int digits) {
+            for (int shift = (digits - 1) * 4; shift >= 0; shift -= 4) {
+                buf[pos++] = hexchar(static_cast<int>(value >> shift));
+            }
+            return pos;
+        }
+
+        /**
+         * @brief Sends `text` to the GDB console as one or more $O (console output)
+         * packets, hex-encoding and chunking it as needed to stay within the
+         * negotiated packet size. Used to implement built-in `monitor` diagnostic
+         * commands (e.g. "regs slave") whose formatted output is too large for a
+         * single hex-encoded qRcmd reply. Safe to call only while still inside the
+         * RSP command loop responding to a qRcmd request -- GDB keeps reading
+         * packets after `monitor` until it sees a non-'O' reply, so any number of
+         * $O packets sent here arrive before the final $OK.
+         */
+        static inline void send_monitor_text(const char* text, size_t len) {
+            constexpr size_t kChunkRaw = kPacketDataMax / 2U;
+            char hexbuf[kChunkRaw * 2U + 1U];
+            size_t off = 0;
+            while (off < len) {
+                size_t chunk = len - off;
+                if (chunk > kChunkRaw) chunk = kChunkRaw;
+                mem2hex(reinterpret_cast<const uint8_t*>(text + off), hexbuf, static_cast<int>(chunk));
+                packet_put('O', hexbuf, chunk * 2U);
+                off += chunk;
+            }
+        }
+
         // --- Core Handler ---
 
-        static constexpr uint32_t ExtraRegs[] = {
+        enum class ExtraReg : uint32_t {
             // VDP1 (11 registers, indices 23..33)
-            0x25D00000, 0x25D00002, 0x25D00004, 0x25D00006,
-            0x25D00008, 0x25D0000A, 0x25D0000C, 0x25D0000E,
-            0x25D00010, 0x25D00012, 0x25D00014,
-            // VDP2 (5 registers, indices 34..38)
-            0x25F80000, 0x25F80002, 0x25F80004, 0x25F80006,
-            0x25F80020
+            VDP1_TVMR = 0x25D00000,
+            VDP1_FBCR = 0x25D00002,
+            VDP1_PTMR = 0x25D00004,
+            VDP1_EWDR = 0x25D00006,
+            VDP1_EWLR = 0x25D00008,
+            VDP1_EWRR = 0x25D0000A,
+            VDP1_ENDR = 0x25D0000C,
+            VDP1_RESERVED_0E = 0x25D0000E,
+            VDP1_EDSR = 0x25D00010,
+            VDP1_LOPR = 0x25D00012,
+            VDP1_COPR = 0x25D00014,
+
+            // VDP2 (142 registers, indices 34..175) -- full register set, TVMD..COBB
+            VDP2_TVMD = 0x25F80000,
+            VDP2_EXTEN = 0x25F80002,
+            VDP2_TVSTAT = 0x25F80004,
+            VDP2_VRSIZE = 0x25F80006,
+            VDP2_HCNT = 0x25F80008,
+            VDP2_VCNT = 0x25F8000A,
+            VDP2_RAMCTL = 0x25F8000E,
+            VDP2_CYCA0L = 0x25F80010,
+            VDP2_CYCA0U = 0x25F80012,
+            VDP2_CYCA1L = 0x25F80014,
+            VDP2_CYCA1U = 0x25F80016,
+            VDP2_CYCB0L = 0x25F80018,
+            VDP2_CYCB0U = 0x25F8001A,
+            VDP2_CYCB1L = 0x25F8001C,
+            VDP2_CYCB1U = 0x25F8001E,
+            VDP2_BGON = 0x25F80020,
+            VDP2_MZCTL = 0x25F80022,
+            VDP2_SFSEL = 0x25F80024,
+            VDP2_SFCODE = 0x25F80026,
+            VDP2_CHCTLA = 0x25F80028,
+            VDP2_CHCTLB = 0x25F8002A,
+            VDP2_BMPNA = 0x25F8002C,
+            VDP2_BMPNB = 0x25F8002E,
+            VDP2_PNCN0 = 0x25F80030,
+            VDP2_PNCN1 = 0x25F80032,
+            VDP2_PNCN2 = 0x25F80034,
+            VDP2_PNCN3 = 0x25F80036,
+            VDP2_PNCR = 0x25F80038,
+            VDP2_PLSZ = 0x25F8003A,
+            VDP2_MPOFN = 0x25F8003C,
+            VDP2_MPOFR = 0x25F8003E,
+            VDP2_MPABN0 = 0x25F80040,
+            VDP2_MPCDN0 = 0x25F80042,
+            VDP2_MPABN1 = 0x25F80044,
+            VDP2_MPCDN1 = 0x25F80046,
+            VDP2_MPABN2 = 0x25F80048,
+            VDP2_MPCDN2 = 0x25F8004A,
+            VDP2_MPABN3 = 0x25F8004C,
+            VDP2_MPCDN3 = 0x25F8004E,
+            VDP2_MPABRA = 0x25F80050,
+            VDP2_MPCDRA = 0x25F80052,
+            VDP2_MPEFRA = 0x25F80054,
+            VDP2_MPGHRA = 0x25F80056,
+            VDP2_MPIJRA = 0x25F80058,
+            VDP2_MPKLRA = 0x25F8005A,
+            VDP2_MPMNRA = 0x25F8005C,
+            VDP2_MPOPRA = 0x25F8005E,
+            VDP2_MPABRB = 0x25F80060,
+            VDP2_MPCDRB = 0x25F80062,
+            VDP2_MPEFRB = 0x25F80064,
+            VDP2_MPGHRB = 0x25F80066,
+            VDP2_MPIJRB = 0x25F80068,
+            VDP2_MPKLRB = 0x25F8006A,
+            VDP2_MPMNRB = 0x25F8006C,
+            VDP2_MPOPRB = 0x25F8006E,
+            VDP2_SCXIN0 = 0x25F80070,
+            VDP2_SCXDN0 = 0x25F80072,
+            VDP2_SCYIN0 = 0x25F80074,
+            VDP2_SCYDN0 = 0x25F80076,
+            VDP2_ZMXIN0 = 0x25F80078,
+            VDP2_ZMXDN0 = 0x25F8007A,
+            VDP2_ZMYIN0 = 0x25F8007C,
+            VDP2_ZMYDN0 = 0x25F8007E,
+            VDP2_SCXIN1 = 0x25F80080,
+            VDP2_SCXDN1 = 0x25F80082,
+            VDP2_SCYIN1 = 0x25F80084,
+            VDP2_SCYDN1 = 0x25F80086,
+            VDP2_ZMXIN1 = 0x25F80088,
+            VDP2_ZMXDN1 = 0x25F8008A,
+            VDP2_ZMYIN1 = 0x25F8008C,
+            VDP2_ZMYDN1 = 0x25F8008E,
+            VDP2_SCXN2 = 0x25F80090,
+            VDP2_SCYN2 = 0x25F80092,
+            VDP2_SCXN3 = 0x25F80094,
+            VDP2_SCYN3 = 0x25F80096,
+            VDP2_ZMCTL = 0x25F80098,
+            VDP2_SCRCTL = 0x25F8009A,
+            VDP2_VCSTAU = 0x25F8009C,
+            VDP2_VCSTAL = 0x25F8009E,
+            VDP2_LSTA0U = 0x25F800A0,
+            VDP2_LSTA0L = 0x25F800A2,
+            VDP2_LSTA1U = 0x25F800A4,
+            VDP2_LSTA1L = 0x25F800A6,
+            VDP2_LCTAU = 0x25F800A8,
+            VDP2_LCTAL = 0x25F800AA,
+            VDP2_BKTAU = 0x25F800AC,
+            VDP2_BKTAL = 0x25F800AE,
+            VDP2_RPMD = 0x25F800B0,
+            VDP2_RPRCTL = 0x25F800B2,
+            VDP2_KTCTL = 0x25F800B4,
+            VDP2_KTAOF = 0x25F800B6,
+            VDP2_OVPNRA = 0x25F800B8,
+            VDP2_OVPNRB = 0x25F800BA,
+            VDP2_RPTAU = 0x25F800BC,
+            VDP2_RPTAL = 0x25F800BE,
+            VDP2_WPSX0 = 0x25F800C0,
+            VDP2_WPSY0 = 0x25F800C2,
+            VDP2_WPEX0 = 0x25F800C4,
+            VDP2_WPEY0 = 0x25F800C6,
+            VDP2_WPSX1 = 0x25F800C8,
+            VDP2_WPSY1 = 0x25F800CA,
+            VDP2_WPEX1 = 0x25F800CC,
+            VDP2_WPEY1 = 0x25F800CE,
+            VDP2_WCTLA = 0x25F800D0,
+            VDP2_WCTLB = 0x25F800D2,
+            VDP2_WCTLC = 0x25F800D4,
+            VDP2_WCTLD = 0x25F800D6,
+            VDP2_LWTA0U = 0x25F800D8,
+            VDP2_LWTA0L = 0x25F800DA,
+            VDP2_LWTA1U = 0x25F800DC,
+            VDP2_LWTA1L = 0x25F800DE,
+            VDP2_SPCTL = 0x25F800E0,
+            VDP2_SDCTL = 0x25F800E2,
+            VDP2_CRAOFA = 0x25F800E4,
+            VDP2_CRAOFB = 0x25F800E6,
+            VDP2_LNCLEN = 0x25F800E8,
+            VDP2_SFPRMD = 0x25F800EA,
+            VDP2_CCCTL = 0x25F800EC,
+            VDP2_SFCCMD = 0x25F800EE,
+            VDP2_PRISA = 0x25F800F0,
+            VDP2_PRISB = 0x25F800F2,
+            VDP2_PRISC = 0x25F800F4,
+            VDP2_PRISD = 0x25F800F6,
+            VDP2_PRINA = 0x25F800F8,
+            VDP2_PRINB = 0x25F800FA,
+            VDP2_PRIR = 0x25F800FC,
+            VDP2_CCRSA = 0x25F80100,
+            VDP2_CCRSB = 0x25F80102,
+            VDP2_CCRSC = 0x25F80104,
+            VDP2_CCRSD = 0x25F80106,
+            VDP2_CCRNA = 0x25F80108,
+            VDP2_CCRNB = 0x25F8010A,
+            VDP2_CCRR = 0x25F8010C,
+            VDP2_CCRLB = 0x25F8010E,
+            VDP2_CLOFEN = 0x25F80110,
+            VDP2_CLOFSL = 0x25F80112,
+            VDP2_COAR = 0x25F80114,
+            VDP2_COAG = 0x25F80116,
+            VDP2_COAB = 0x25F80118,
+            VDP2_COBR = 0x25F8011A,
+            VDP2_COBG = 0x25F8011C,
+            VDP2_COBB = 0x25F8011E,
+        };
+
+        static constexpr ExtraReg ExtraRegs[] = {
+            ExtraReg::VDP1_TVMR, ExtraReg::VDP1_FBCR, ExtraReg::VDP1_PTMR, ExtraReg::VDP1_EWDR,
+            ExtraReg::VDP1_EWLR, ExtraReg::VDP1_EWRR, ExtraReg::VDP1_ENDR, ExtraReg::VDP1_RESERVED_0E,
+            ExtraReg::VDP1_EDSR, ExtraReg::VDP1_LOPR, ExtraReg::VDP1_COPR,
+            ExtraReg::VDP2_TVMD,
+            ExtraReg::VDP2_EXTEN,
+            ExtraReg::VDP2_TVSTAT,
+            ExtraReg::VDP2_VRSIZE,
+            ExtraReg::VDP2_HCNT,
+            ExtraReg::VDP2_VCNT,
+            ExtraReg::VDP2_RAMCTL,
+            ExtraReg::VDP2_CYCA0L,
+            ExtraReg::VDP2_CYCA0U,
+            ExtraReg::VDP2_CYCA1L,
+            ExtraReg::VDP2_CYCA1U,
+            ExtraReg::VDP2_CYCB0L,
+            ExtraReg::VDP2_CYCB0U,
+            ExtraReg::VDP2_CYCB1L,
+            ExtraReg::VDP2_CYCB1U,
+            ExtraReg::VDP2_BGON,
+            ExtraReg::VDP2_MZCTL,
+            ExtraReg::VDP2_SFSEL,
+            ExtraReg::VDP2_SFCODE,
+            ExtraReg::VDP2_CHCTLA,
+            ExtraReg::VDP2_CHCTLB,
+            ExtraReg::VDP2_BMPNA,
+            ExtraReg::VDP2_BMPNB,
+            ExtraReg::VDP2_PNCN0,
+            ExtraReg::VDP2_PNCN1,
+            ExtraReg::VDP2_PNCN2,
+            ExtraReg::VDP2_PNCN3,
+            ExtraReg::VDP2_PNCR,
+            ExtraReg::VDP2_PLSZ,
+            ExtraReg::VDP2_MPOFN,
+            ExtraReg::VDP2_MPOFR,
+            ExtraReg::VDP2_MPABN0,
+            ExtraReg::VDP2_MPCDN0,
+            ExtraReg::VDP2_MPABN1,
+            ExtraReg::VDP2_MPCDN1,
+            ExtraReg::VDP2_MPABN2,
+            ExtraReg::VDP2_MPCDN2,
+            ExtraReg::VDP2_MPABN3,
+            ExtraReg::VDP2_MPCDN3,
+            ExtraReg::VDP2_MPABRA,
+            ExtraReg::VDP2_MPCDRA,
+            ExtraReg::VDP2_MPEFRA,
+            ExtraReg::VDP2_MPGHRA,
+            ExtraReg::VDP2_MPIJRA,
+            ExtraReg::VDP2_MPKLRA,
+            ExtraReg::VDP2_MPMNRA,
+            ExtraReg::VDP2_MPOPRA,
+            ExtraReg::VDP2_MPABRB,
+            ExtraReg::VDP2_MPCDRB,
+            ExtraReg::VDP2_MPEFRB,
+            ExtraReg::VDP2_MPGHRB,
+            ExtraReg::VDP2_MPIJRB,
+            ExtraReg::VDP2_MPKLRB,
+            ExtraReg::VDP2_MPMNRB,
+            ExtraReg::VDP2_MPOPRB,
+            ExtraReg::VDP2_SCXIN0,
+            ExtraReg::VDP2_SCXDN0,
+            ExtraReg::VDP2_SCYIN0,
+            ExtraReg::VDP2_SCYDN0,
+            ExtraReg::VDP2_ZMXIN0,
+            ExtraReg::VDP2_ZMXDN0,
+            ExtraReg::VDP2_ZMYIN0,
+            ExtraReg::VDP2_ZMYDN0,
+            ExtraReg::VDP2_SCXIN1,
+            ExtraReg::VDP2_SCXDN1,
+            ExtraReg::VDP2_SCYIN1,
+            ExtraReg::VDP2_SCYDN1,
+            ExtraReg::VDP2_ZMXIN1,
+            ExtraReg::VDP2_ZMXDN1,
+            ExtraReg::VDP2_ZMYIN1,
+            ExtraReg::VDP2_ZMYDN1,
+            ExtraReg::VDP2_SCXN2,
+            ExtraReg::VDP2_SCYN2,
+            ExtraReg::VDP2_SCXN3,
+            ExtraReg::VDP2_SCYN3,
+            ExtraReg::VDP2_ZMCTL,
+            ExtraReg::VDP2_SCRCTL,
+            ExtraReg::VDP2_VCSTAU,
+            ExtraReg::VDP2_VCSTAL,
+            ExtraReg::VDP2_LSTA0U,
+            ExtraReg::VDP2_LSTA0L,
+            ExtraReg::VDP2_LSTA1U,
+            ExtraReg::VDP2_LSTA1L,
+            ExtraReg::VDP2_LCTAU,
+            ExtraReg::VDP2_LCTAL,
+            ExtraReg::VDP2_BKTAU,
+            ExtraReg::VDP2_BKTAL,
+            ExtraReg::VDP2_RPMD,
+            ExtraReg::VDP2_RPRCTL,
+            ExtraReg::VDP2_KTCTL,
+            ExtraReg::VDP2_KTAOF,
+            ExtraReg::VDP2_OVPNRA,
+            ExtraReg::VDP2_OVPNRB,
+            ExtraReg::VDP2_RPTAU,
+            ExtraReg::VDP2_RPTAL,
+            ExtraReg::VDP2_WPSX0,
+            ExtraReg::VDP2_WPSY0,
+            ExtraReg::VDP2_WPEX0,
+            ExtraReg::VDP2_WPEY0,
+            ExtraReg::VDP2_WPSX1,
+            ExtraReg::VDP2_WPSY1,
+            ExtraReg::VDP2_WPEX1,
+            ExtraReg::VDP2_WPEY1,
+            ExtraReg::VDP2_WCTLA,
+            ExtraReg::VDP2_WCTLB,
+            ExtraReg::VDP2_WCTLC,
+            ExtraReg::VDP2_WCTLD,
+            ExtraReg::VDP2_LWTA0U,
+            ExtraReg::VDP2_LWTA0L,
+            ExtraReg::VDP2_LWTA1U,
+            ExtraReg::VDP2_LWTA1L,
+            ExtraReg::VDP2_SPCTL,
+            ExtraReg::VDP2_SDCTL,
+            ExtraReg::VDP2_CRAOFA,
+            ExtraReg::VDP2_CRAOFB,
+            ExtraReg::VDP2_LNCLEN,
+            ExtraReg::VDP2_SFPRMD,
+            ExtraReg::VDP2_CCCTL,
+            ExtraReg::VDP2_SFCCMD,
+            ExtraReg::VDP2_PRISA,
+            ExtraReg::VDP2_PRISB,
+            ExtraReg::VDP2_PRISC,
+            ExtraReg::VDP2_PRISD,
+            ExtraReg::VDP2_PRINA,
+            ExtraReg::VDP2_PRINB,
+            ExtraReg::VDP2_PRIR,
+            ExtraReg::VDP2_CCRSA,
+            ExtraReg::VDP2_CCRSB,
+            ExtraReg::VDP2_CCRSC,
+            ExtraReg::VDP2_CCRSD,
+            ExtraReg::VDP2_CCRNA,
+            ExtraReg::VDP2_CCRNB,
+            ExtraReg::VDP2_CCRR,
+            ExtraReg::VDP2_CCRLB,
+            ExtraReg::VDP2_CLOFEN,
+            ExtraReg::VDP2_CLOFSL,
+            ExtraReg::VDP2_COAR,
+            ExtraReg::VDP2_COAG,
+            ExtraReg::VDP2_COAB,
+            ExtraReg::VDP2_COBR,
+            ExtraReg::VDP2_COBG,
+            ExtraReg::VDP2_COBB,
         };
         static constexpr size_t NumExtraRegs = sizeof(ExtraRegs) / sizeof(ExtraRegs[0]);
+        static constexpr size_t NumSlaveRegs = 24U;
+        static constexpr size_t TotalPseudoRegs = NumExtraRegs + NumSlaveRegs;
+
+        // Empirically confirmed on real hardware (gdb-multiarch 15.1 and this repo's
+        // bundled sh-elf-gdb 14.2): both have a HARD-CODED, non-negotiable 268-byte
+        // 'g' packet size for the "sh"/"sh2" architecture -- 23 real registers plus
+        // 44 padding slots that GDB's own static register table already reserves as
+        // blank/anonymous (verified via `maintenance print registers` after
+        // `set architecture sh2`). Neither client honors qXfer:features:read-declared
+        // register counts for this architecture (GDB prints "Target-supplied
+        // registers are not supported by the current architecture" and then rejects
+        // any 'g' reply whose length does not match its own fixed count exactly --
+        // not just longer ones). The default 'g'/'G' packet below therefore pads out
+        // to this fixed size instead of appending the VDP1/VDP2/slave pseudo-registers,
+        // so basic sessions (breakpoints, stepping, core registers, memory) work with
+        // stock GDB. Those pseudo-registers remain reachable via 'p'/'P' with the same
+        // indices (23..), and VDP1/VDP2 registers are always readable as ordinary
+        // memory via 'm' at their real addresses regardless of this limitation.
+        static constexpr size_t GdbFixedShRegisterCount = 67U;
+        static constexpr size_t GdbFixedShPaddingRegisters = GdbFixedShRegisterCount - 23U;
+
+        /**
+         * @brief Built-in `monitor regs slave` command: dumps the slave SH-2 context
+         * (see g_slave_ctx above) to the GDB console via $O packets. Since GDB's SH
+         * architecture backend rejects this stub's target-supplied register
+         * description outright (see the GdbFixedShRegisterCount comment above), the
+         * slave_r0..slave_sr pseudo-registers are never reachable by name through
+         * GDB's Registers UI -- this command is the practical way to inspect them.
+         * @note Reads as all zero unless InstallSlaveFreezeHandler() has been
+         * installed on the slave and at least one debug stop has occurred since --
+         * this stub's own samples generally don't call it (see SlaveCounterTask's
+         * doc comment for why it's incompatible with SRL::Slave::ExecuteOnSlave()).
+         */
+        static inline void send_slave_regs_dump() {
+            char text[320];
+            size_t pos = 0;
+
+            pos = append_str(text, pos, "slave r0-r7 : ");
+            for (int i = 0; i < 8; ++i) {
+                pos = append_hex(text, pos, g_slave_ctx.r[i], 8);
+                text[pos++] = ' ';
+            }
+            text[pos++] = '\n';
+
+            pos = append_str(text, pos, "slave r8-r15: ");
+            for (int i = 8; i < 16; ++i) {
+                pos = append_hex(text, pos, g_slave_ctx.r[i], 8);
+                text[pos++] = ' ';
+            }
+            text[pos++] = '\n';
+
+            pos = append_str(text, pos, "pc="); pos = append_hex(text, pos, g_slave_ctx.pc, 8);
+            pos = append_str(text, pos, " pr="); pos = append_hex(text, pos, g_slave_ctx.pr, 8);
+            pos = append_str(text, pos, " sr="); pos = append_hex(text, pos, g_slave_ctx.sr, 8);
+            text[pos++] = '\n';
+
+            pos = append_str(text, pos, "gbr="); pos = append_hex(text, pos, g_slave_ctx.gbr, 8);
+            pos = append_str(text, pos, " vbr="); pos = append_hex(text, pos, g_slave_ctx.vbr, 8);
+            text[pos++] = '\n';
+
+            pos = append_str(text, pos, "mach="); pos = append_hex(text, pos, g_slave_ctx.mach, 8);
+            pos = append_str(text, pos, " macl="); pos = append_hex(text, pos, g_slave_ctx.macl, 8);
+            text[pos++] = '\n';
+
+            send_monitor_text(text, pos);
+        }
+
+        /**
+         * @brief Built-in `monitor regs vdp` command: dumps a curated subset of the
+         * VDP1/VDP2 registers most relevant to sprite/NBG priority and status work
+         * (the same registers this sample's rasterbar/priority debugging touched) to
+         * the GDB console via $O packets. Not the full 153-register ExtraRegs set --
+         * that's far more than is useful in a console dump. Same rationale as
+         * send_slave_regs_dump(): GDB never learns these pseudo-register names, so a
+         * `monitor` command is the practical way to see them.
+         */
+        static inline void send_vdp_regs_dump() {
+            static constexpr const char* kVdp1Names[] = { "tvmr", "fbcr", "ptmr", "edsr", "lopr", "copr" };
+            static constexpr ExtraReg kVdp1Regs[] = {
+                ExtraReg::VDP1_TVMR, ExtraReg::VDP1_FBCR, ExtraReg::VDP1_PTMR,
+                ExtraReg::VDP1_EDSR, ExtraReg::VDP1_LOPR, ExtraReg::VDP1_COPR,
+            };
+            static constexpr const char* kVdp2Names[] = {
+                "tvmd", "exten", "tvstat", "spctl",
+                "prisa", "prisb", "prisc", "prisd", "prina", "prinb", "prir",
+            };
+            static constexpr ExtraReg kVdp2Regs[] = {
+                ExtraReg::VDP2_TVMD, ExtraReg::VDP2_EXTEN, ExtraReg::VDP2_TVSTAT, ExtraReg::VDP2_SPCTL,
+                ExtraReg::VDP2_PRISA, ExtraReg::VDP2_PRISB, ExtraReg::VDP2_PRISC, ExtraReg::VDP2_PRISD,
+                ExtraReg::VDP2_PRINA, ExtraReg::VDP2_PRINB, ExtraReg::VDP2_PRIR,
+            };
+            static constexpr size_t kNumVdp1 = sizeof(kVdp1Regs) / sizeof(kVdp1Regs[0]);
+            static constexpr size_t kNumVdp2 = sizeof(kVdp2Regs) / sizeof(kVdp2Regs[0]);
+
+            char text[320];
+            size_t pos = 0;
+
+            pos = append_str(text, pos, "vdp1: ");
+            for (size_t i = 0; i < kNumVdp1; ++i) {
+                pos = append_str(text, pos, kVdp1Names[i]);
+                text[pos++] = '=';
+                uint16_t val = *reinterpret_cast<volatile uint16_t*>(static_cast<uint32_t>(kVdp1Regs[i]));
+                pos = append_hex(text, pos, val, 4);
+                text[pos++] = ' ';
+            }
+            text[pos++] = '\n';
+
+            pos = append_str(text, pos, "vdp2: ");
+            for (size_t i = 0; i < kNumVdp2; ++i) {
+                pos = append_str(text, pos, kVdp2Names[i]);
+                text[pos++] = '=';
+                uint16_t val = *reinterpret_cast<volatile uint16_t*>(static_cast<uint32_t>(kVdp2Regs[i]));
+                pos = append_hex(text, pos, val, 4);
+                text[pos++] = ' ';
+            }
+            text[pos++] = '\n';
+
+            send_monitor_text(text, pos);
+        }
 
         /**
          * @brief Prepares the CPU state for a GDB single-step command ('s' / 'vCont;s').
@@ -959,12 +1555,25 @@ namespace SRL
          */
         static inline void handle_gdb_step() {
             g_is_ctrl_c_stop = false;
+
+            // See g_ctx_is_fake's declaration: if the current halt came from
+            // Poll()'s out-of-band snapshot path rather than a real exception,
+            // g_ctx.pc is not a real instruction address and r0-r14 are zeroed --
+            // decoding an opcode there or planting a trap based on it would
+            // corrupt state. The real CPU registers were never touched, so the
+            // only correct behavior is to do nothing and let execution continue
+            // untouched wherever it actually is.
+            if (g_ctx_is_fake) {
+                g_ctx_is_fake = false;
+                return;
+            }
+
             do_software_step();
         }
 
         /**
          * @brief Prepares the CPU state for a GDB continue command ('c' / 'vCont;c').
-         * 
+         *
          * Restores the original instruction if the CPU is currently halted on a
          * software breakpoint, and sets up a silent step-over trap to re-insert
          * the breakpoint after the instruction executes.
@@ -973,6 +1582,13 @@ namespace SRL
             g_is_ctrl_c_stop = false;
             g_debug_pause = false;
             SlaveIPIClear();
+
+            // See handle_gdb_step() / g_ctx_is_fake: same hazard applies to
+            // continue's breakpoint-restore-and-step-over logic below.
+            if (g_ctx_is_fake) {
+                g_ctx_is_fake = false;
+                return;
+            }
 
             const int bp_slot = find_breakpoint_slot(g_ctx.pc);
             if (bp_slot >= 0) {
@@ -1007,6 +1623,12 @@ namespace SRL
          * It executes entirely from the SH-2 exception context.
          */
         __attribute__((used)) inline void process_commands() {
+            // Must be the very first thing: blocks VBlank (and all other maskable
+            // interrupts) from re-entering this function for as long as we're
+            // active. See InterruptMaskGuard's doc comment for the hardware-
+            // confirmed reentrancy bug this prevents.
+            InterruptMaskGuard interrupt_mask_guard;
+
             // CacheFlusher guarantees a single cache purge on every exit path from this
             // function — continue, step, detach, disconnect, and early error returns alike.
             // This is intentional: any return that follows a memory patch (breakpoint install/
@@ -1014,7 +1636,7 @@ namespace SRL
             // the CPU resumes executing the patched region. On disconnect/detach the flush is
             // harmless. DO NOT remove this object or move it past the first PurgeCache() call.
             CacheFlusher flusher;
-            constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (NumExtraRegs * 2)) * 2;
+            constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (GdbFixedShPaddingRegisters * 4U)) * 2;
             static_assert(max_g_packet_hex_chars < 1024, "out_buf is too small for GDB 'g' packet");
             char in_buf[1024];
             char out_buf[1024];
@@ -1024,7 +1646,7 @@ namespace SRL
             debug_print("\n");
 
             adjust_pc_for_software_breakpoint();
-            
+
             // Clear the UBC Channel A match flag (CMFA) in BRCR to prevent infinite re-entry loops.
             volatile uint16_t* BRCR = reinterpret_cast<volatile uint16_t*>(0xFFFFFF60U);
             *BRCR &= ~0x0080U;
@@ -1051,6 +1673,10 @@ namespace SRL
                 return;
             }
 
+            // Freeze the slave SH-2 for the duration of this debug stop. Safe
+            // no-op if InstallSlaveFreezeHandler() was never run on the slave.
+            SlaveIPISet();
+
             // Drain any stale bytes that GDB sent before this trap fired.
             // Without this, GDB startup packets (including vCont;c) queued in
             // the FIFO while the Saturn was initialising would immediately resume
@@ -1071,11 +1697,24 @@ namespace SRL
             while (true) {
                 out_buf[0] = 0;
                 if (!packet_get(in_buf, sizeof(in_buf))) {
-                    // USB disconnected while waiting for a packet — stop processing.
+                    // USB disconnected while waiting for a packet — release the
+                    // slave (if frozen) and stop processing.
+                    SlaveIPIClear();
                     return;
                 }
 
                 switch (in_buf[0]) {
+                    case '!':
+                        // Enable extended-remote mode. We already tolerate vRun without this,
+                        // but acknowledging it properly avoids relying on that leniency.
+                        packet_put('\0', "OK", 2);
+                        break;
+                    case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
+                        clear_breakpoints(true);
+                        g_handshake_done = false;
+                        g_has_connection = false;
+                        SlaveIPIClear();
+                        return;
                     case '?':
                         // First '?' marks the connection as active and sends the stop reason.
                         g_has_connection = true;
@@ -1083,9 +1722,11 @@ namespace SRL
                         break;
                     case 'q':
                         if (starts_with(in_buf, "qSupported")) {
-                            // Advertise swbreak and target description so GDB knows the arch.
-                            // Dynamically insert the PacketSize to ensure it stays in sync with kPacketDataMax.
-                            constexpr const char kFeaturesStr[] = ";swbreak+;qXfer:features:read+";
+                            // Advertise swbreak, hwbreak (Z1-Z4 are implemented via the UBC,
+                            // see install_hardware_watchpoint), and target description so GDB
+                            // knows the arch. Dynamically insert the PacketSize to ensure it
+                            // stays in sync with kPacketDataMax.
+                            constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+;qXfer:features:read+";
                             
                             static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
                             static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
@@ -1136,22 +1777,184 @@ namespace SRL
                                 "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "  </feature>\n"
                                 "  <feature name=\"org.sega.saturn.vdp\">\n"
-                                "    <reg name=\"vdp1_tvmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_fbcr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ptmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ewdr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ewlr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_ewrr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_endr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_edsr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_lopr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_copr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp1_modr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_tvmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_exten\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_tvstat\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_vrsize\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
-                                "    <reg name=\"vdp2_bgon\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\"/>\n"
+                                "    <reg name=\"vdp1_tvmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"23\"/>\n"
+                                "    <reg name=\"vdp1_fbcr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"24\"/>\n"
+                                "    <reg name=\"vdp1_ptmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"25\"/>\n"
+                                "    <reg name=\"vdp1_ewdr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"26\"/>\n"
+                                "    <reg name=\"vdp1_ewlr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"27\"/>\n"
+                                "    <reg name=\"vdp1_ewrr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"28\"/>\n"
+                                "    <reg name=\"vdp1_endr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"29\"/>\n"
+                                "    <reg name=\"vdp1_edsr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"30\"/>\n"
+                                "    <reg name=\"vdp1_lopr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"31\"/>\n"
+                                "    <reg name=\"vdp1_copr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"32\"/>\n"
+                                "    <reg name=\"vdp1_modr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"33\"/>\n"
+                                "    <reg name=\"vdp2_tvmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"34\"/>\n"
+                                "    <reg name=\"vdp2_exten\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"35\"/>\n"
+                                "    <reg name=\"vdp2_tvstat\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"36\"/>\n"
+                                "    <reg name=\"vdp2_vrsize\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"37\"/>\n"
+                                "    <reg name=\"vdp2_hcnt\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"38\"/>\n"
+                                "    <reg name=\"vdp2_vcnt\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"39\"/>\n"
+                                "    <reg name=\"vdp2_ramctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"40\"/>\n"
+                                "    <reg name=\"vdp2_cyca0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"41\"/>\n"
+                                "    <reg name=\"vdp2_cyca0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"42\"/>\n"
+                                "    <reg name=\"vdp2_cyca1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"43\"/>\n"
+                                "    <reg name=\"vdp2_cyca1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"44\"/>\n"
+                                "    <reg name=\"vdp2_cycb0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"45\"/>\n"
+                                "    <reg name=\"vdp2_cycb0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"46\"/>\n"
+                                "    <reg name=\"vdp2_cycb1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"47\"/>\n"
+                                "    <reg name=\"vdp2_cycb1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"48\"/>\n"
+                                "    <reg name=\"vdp2_bgon\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"49\"/>\n"
+                                "    <reg name=\"vdp2_mzctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"50\"/>\n"
+                                "    <reg name=\"vdp2_sfsel\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"51\"/>\n"
+                                "    <reg name=\"vdp2_sfcode\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"52\"/>\n"
+                                "    <reg name=\"vdp2_chctla\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"53\"/>\n"
+                                "    <reg name=\"vdp2_chctlb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"54\"/>\n"
+                                "    <reg name=\"vdp2_bmpna\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"55\"/>\n"
+                                "    <reg name=\"vdp2_bmpnb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"56\"/>\n"
+                                "    <reg name=\"vdp2_pncn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"57\"/>\n"
+                                "    <reg name=\"vdp2_pncn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"58\"/>\n"
+                                "    <reg name=\"vdp2_pncn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"59\"/>\n"
+                                "    <reg name=\"vdp2_pncn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"60\"/>\n"
+                                "    <reg name=\"vdp2_pncr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"61\"/>\n"
+                                "    <reg name=\"vdp2_plsz\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"62\"/>\n"
+                                "    <reg name=\"vdp2_mpofn\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"63\"/>\n"
+                                "    <reg name=\"vdp2_mpofr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"64\"/>\n"
+                                "    <reg name=\"vdp2_mpabn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"65\"/>\n"
+                                "    <reg name=\"vdp2_mpcdn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"66\"/>\n"
+                                "    <reg name=\"vdp2_mpabn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"67\"/>\n"
+                                "    <reg name=\"vdp2_mpcdn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"68\"/>\n"
+                                "    <reg name=\"vdp2_mpabn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"69\"/>\n"
+                                "    <reg name=\"vdp2_mpcdn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"70\"/>\n"
+                                "    <reg name=\"vdp2_mpabn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"71\"/>\n"
+                                "    <reg name=\"vdp2_mpcdn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"72\"/>\n"
+                                "    <reg name=\"vdp2_mpabra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"73\"/>\n"
+                                "    <reg name=\"vdp2_mpcdra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"74\"/>\n"
+                                "    <reg name=\"vdp2_mpefra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"75\"/>\n"
+                                "    <reg name=\"vdp2_mpghra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"76\"/>\n"
+                                "    <reg name=\"vdp2_mpijra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"77\"/>\n"
+                                "    <reg name=\"vdp2_mpklra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"78\"/>\n"
+                                "    <reg name=\"vdp2_mpmnra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"79\"/>\n"
+                                "    <reg name=\"vdp2_mpopra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"80\"/>\n"
+                                "    <reg name=\"vdp2_mpabrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"81\"/>\n"
+                                "    <reg name=\"vdp2_mpcdrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"82\"/>\n"
+                                "    <reg name=\"vdp2_mpefrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"83\"/>\n"
+                                "    <reg name=\"vdp2_mpghrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"84\"/>\n"
+                                "    <reg name=\"vdp2_mpijrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"85\"/>\n"
+                                "    <reg name=\"vdp2_mpklrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"86\"/>\n"
+                                "    <reg name=\"vdp2_mpmnrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"87\"/>\n"
+                                "    <reg name=\"vdp2_mpoprb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"88\"/>\n"
+                                "    <reg name=\"vdp2_scxin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"89\"/>\n"
+                                "    <reg name=\"vdp2_scxdn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"90\"/>\n"
+                                "    <reg name=\"vdp2_scyin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"91\"/>\n"
+                                "    <reg name=\"vdp2_scydn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"92\"/>\n"
+                                "    <reg name=\"vdp2_zmxin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"93\"/>\n"
+                                "    <reg name=\"vdp2_zmxdn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"94\"/>\n"
+                                "    <reg name=\"vdp2_zmyin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"95\"/>\n"
+                                "    <reg name=\"vdp2_zmydn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"96\"/>\n"
+                                "    <reg name=\"vdp2_scxin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"97\"/>\n"
+                                "    <reg name=\"vdp2_scxdn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"98\"/>\n"
+                                "    <reg name=\"vdp2_scyin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"99\"/>\n"
+                                "    <reg name=\"vdp2_scydn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"100\"/>\n"
+                                "    <reg name=\"vdp2_zmxin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"101\"/>\n"
+                                "    <reg name=\"vdp2_zmxdn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"102\"/>\n"
+                                "    <reg name=\"vdp2_zmyin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"103\"/>\n"
+                                "    <reg name=\"vdp2_zmydn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"104\"/>\n"
+                                "    <reg name=\"vdp2_scxn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"105\"/>\n"
+                                "    <reg name=\"vdp2_scyn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"106\"/>\n"
+                                "    <reg name=\"vdp2_scxn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"107\"/>\n"
+                                "    <reg name=\"vdp2_scyn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"108\"/>\n"
+                                "    <reg name=\"vdp2_zmctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"109\"/>\n"
+                                "    <reg name=\"vdp2_scrctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"110\"/>\n"
+                                "    <reg name=\"vdp2_vcstau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"111\"/>\n"
+                                "    <reg name=\"vdp2_vcstal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"112\"/>\n"
+                                "    <reg name=\"vdp2_lsta0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"113\"/>\n"
+                                "    <reg name=\"vdp2_lsta0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"114\"/>\n"
+                                "    <reg name=\"vdp2_lsta1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"115\"/>\n"
+                                "    <reg name=\"vdp2_lsta1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"116\"/>\n"
+                                "    <reg name=\"vdp2_lctau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"117\"/>\n"
+                                "    <reg name=\"vdp2_lctal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"118\"/>\n"
+                                "    <reg name=\"vdp2_bktau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"119\"/>\n"
+                                "    <reg name=\"vdp2_bktal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"120\"/>\n"
+                                "    <reg name=\"vdp2_rpmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"121\"/>\n"
+                                "    <reg name=\"vdp2_rprctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"122\"/>\n"
+                                "    <reg name=\"vdp2_ktctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"123\"/>\n"
+                                "    <reg name=\"vdp2_ktaof\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"124\"/>\n"
+                                "    <reg name=\"vdp2_ovpnra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"125\"/>\n"
+                                "    <reg name=\"vdp2_ovpnrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"126\"/>\n"
+                                "    <reg name=\"vdp2_rptau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"127\"/>\n"
+                                "    <reg name=\"vdp2_rptal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"128\"/>\n"
+                                "    <reg name=\"vdp2_wpsx0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"129\"/>\n"
+                                "    <reg name=\"vdp2_wpsy0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"130\"/>\n"
+                                "    <reg name=\"vdp2_wpex0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"131\"/>\n"
+                                "    <reg name=\"vdp2_wpey0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"132\"/>\n"
+                                "    <reg name=\"vdp2_wpsx1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"133\"/>\n"
+                                "    <reg name=\"vdp2_wpsy1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"134\"/>\n"
+                                "    <reg name=\"vdp2_wpex1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"135\"/>\n"
+                                "    <reg name=\"vdp2_wpey1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"136\"/>\n"
+                                "    <reg name=\"vdp2_wctla\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"137\"/>\n"
+                                "    <reg name=\"vdp2_wctlb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"138\"/>\n"
+                                "    <reg name=\"vdp2_wctlc\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"139\"/>\n"
+                                "    <reg name=\"vdp2_wctld\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"140\"/>\n"
+                                "    <reg name=\"vdp2_lwta0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"141\"/>\n"
+                                "    <reg name=\"vdp2_lwta0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"142\"/>\n"
+                                "    <reg name=\"vdp2_lwta1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"143\"/>\n"
+                                "    <reg name=\"vdp2_lwta1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"144\"/>\n"
+                                "    <reg name=\"vdp2_spctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"145\"/>\n"
+                                "    <reg name=\"vdp2_sdctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"146\"/>\n"
+                                "    <reg name=\"vdp2_craofa\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"147\"/>\n"
+                                "    <reg name=\"vdp2_craofb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"148\"/>\n"
+                                "    <reg name=\"vdp2_lnclen\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"149\"/>\n"
+                                "    <reg name=\"vdp2_sfprmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"150\"/>\n"
+                                "    <reg name=\"vdp2_ccctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"151\"/>\n"
+                                "    <reg name=\"vdp2_sfccmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"152\"/>\n"
+                                "    <reg name=\"vdp2_prisa\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"153\"/>\n"
+                                "    <reg name=\"vdp2_prisb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"154\"/>\n"
+                                "    <reg name=\"vdp2_prisc\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"155\"/>\n"
+                                "    <reg name=\"vdp2_prisd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"156\"/>\n"
+                                "    <reg name=\"vdp2_prina\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"157\"/>\n"
+                                "    <reg name=\"vdp2_prinb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"158\"/>\n"
+                                "    <reg name=\"vdp2_prir\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"159\"/>\n"
+                                "    <reg name=\"vdp2_ccrsa\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"160\"/>\n"
+                                "    <reg name=\"vdp2_ccrsb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"161\"/>\n"
+                                "    <reg name=\"vdp2_ccrsc\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"162\"/>\n"
+                                "    <reg name=\"vdp2_ccrsd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"163\"/>\n"
+                                "    <reg name=\"vdp2_ccrna\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"164\"/>\n"
+                                "    <reg name=\"vdp2_ccrnb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"165\"/>\n"
+                                "    <reg name=\"vdp2_ccrr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"166\"/>\n"
+                                "    <reg name=\"vdp2_ccrlb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"167\"/>\n"
+                                "    <reg name=\"vdp2_clofen\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"168\"/>\n"
+                                "    <reg name=\"vdp2_clofsl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"169\"/>\n"
+                                "    <reg name=\"vdp2_coar\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"170\"/>\n"
+                                "    <reg name=\"vdp2_coag\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"171\"/>\n"
+                                "    <reg name=\"vdp2_coab\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"172\"/>\n"
+                                "    <reg name=\"vdp2_cobr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"173\"/>\n"
+                                "    <reg name=\"vdp2_cobg\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"174\"/>\n"
+                                "    <reg name=\"vdp2_cobb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"175\"/>\n"
+                                "  </feature>\n"
+                                "  <feature name=\"org.sega.saturn.slave_sh2\">\n"
+                                "    <reg name=\"slave_r0\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"176\"/>\n"
+                                "    <reg name=\"slave_r1\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"177\"/>\n"
+                                "    <reg name=\"slave_r2\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"178\"/>\n"
+                                "    <reg name=\"slave_r3\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"179\"/>\n"
+                                "    <reg name=\"slave_r4\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"180\"/>\n"
+                                "    <reg name=\"slave_r5\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"181\"/>\n"
+                                "    <reg name=\"slave_r6\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"182\"/>\n"
+                                "    <reg name=\"slave_r7\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"183\"/>\n"
+                                "    <reg name=\"slave_r8\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"184\"/>\n"
+                                "    <reg name=\"slave_r9\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"185\"/>\n"
+                                "    <reg name=\"slave_r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"186\"/>\n"
+                                "    <reg name=\"slave_r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"187\"/>\n"
+                                "    <reg name=\"slave_r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"188\"/>\n"
+                                "    <reg name=\"slave_r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"189\"/>\n"
+                                "    <reg name=\"slave_r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"190\"/>\n"
+                                "    <reg name=\"slave_r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\" regnum=\"191\"/>\n"
+                                "    <reg name=\"slave_pc\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"192\"/>\n"
+                                "    <reg name=\"slave_pr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"193\"/>\n"
+                                "    <reg name=\"slave_gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"194\"/>\n"
+                                "    <reg name=\"slave_vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"195\"/>\n"
+                                "    <reg name=\"slave_mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"196\"/>\n"
+                                "    <reg name=\"slave_macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"197\"/>\n"
+                                "    <reg name=\"slave_sr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"198\"/>\n"
                                 "  </feature>\n"
                                 "</target>\n";
                             // Send in chunks respecting the requested length from GDB.
@@ -1203,6 +2006,36 @@ namespace SRL
                             packet_put('\0', offsets, sizeof(offsets) - 1);
                         } else if (starts_with(in_buf, "qC")) {
                             packet_put('\0', "QC1", 3);
+                        } else if (starts_with(in_buf, "qRcmd,")) {
+                            // GDB's `monitor <text>` command: qRcmd,<hex-encoded-ascii-text>.
+                            // Two built-in diagnostic commands ("regs slave", "regs vdp") are
+                            // handled synchronously right here, replying with $O console-output
+                            // packets (see send_monitor_text) before the final OK, since their
+                            // data already lives in memory the stub can read itself. Everything
+                            // else is decoded into g_last_monitor_command and the counter is
+                            // bumped; user code polls GetMonitorCommandCount()/
+                            // GetLastMonitorCommand() to react (e.g. "crash illegal").
+                            const char* hex_payload = in_buf + 6;
+                            size_t hex_len = 0;
+                            while (hex_payload[hex_len] != '\0') hex_len++;
+                            const size_t cmd_len = hex_len / 2;
+                            if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_last_monitor_command)) {
+                                packet_put('\0', "E01", 3);
+                            } else if (hex2mem(hex_payload, reinterpret_cast<uint8_t*>(g_last_monitor_command), static_cast<int>(cmd_len))) {
+                                g_last_monitor_command[cmd_len] = '\0';
+                                if (str_equals(g_last_monitor_command, "regs slave")) {
+                                    send_slave_regs_dump();
+                                    packet_put('\0', "OK", 2);
+                                } else if (str_equals(g_last_monitor_command, "regs vdp")) {
+                                    send_vdp_regs_dump();
+                                    packet_put('\0', "OK", 2);
+                                } else {
+                                    g_monitor_command_count = g_monitor_command_count + 1;
+                                    packet_put('\0', "OK", 2);
+                                }
+                            } else {
+                                packet_put('\0', "E01", 3);
+                            }
                         } else {
                             packet_put('\0', nullptr, 0);
                         }
@@ -1288,16 +2121,18 @@ namespace SRL
 
                             char* p_out = out_buf;
                             p_out = mem2hex((uint8_t*)&ctx_copy, p_out, sizeof(SH2Context));
-                            
-                            // Append extra pseudo-registers (VDP1/VDP2)
-                            for (size_t i = 0; i < NumExtraRegs; ++i) {
-                                // These are 16-bit hardware registers
-                                uint16_t val = *(volatile uint16_t*)ExtraRegs[i];
-                                // We swap manually or rely on memory order if big endian
-                                // SH-2 is big endian, so memory order is correct for GDB.
-                                p_out = mem2hex((uint8_t*)&val, p_out, 2);
+
+                            // Pad to the fixed size stock GDB's SH backend requires (see
+                            // GdbFixedShPaddingRegisters above) instead of appending the
+                            // VDP1/VDP2/slave pseudo-registers -- those remain reachable via
+                            // 'p'/'P' with the same register indices, and VDP1/VDP2 are always
+                            // readable as ordinary memory via 'm' at their real addresses.
+                            for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i) {
+                                *p_out++ = '0';
+                                *p_out++ = '0';
                             }
-                            
+                            *p_out = '\0';
+
                             const int tx_len = static_cast<int>(p_out - out_buf);
                             packet_put('\0', out_buf, static_cast<size_t>(tx_len));
                         }
@@ -1305,9 +2140,9 @@ namespace SRL
                     case 'G':
                         {
                             // The G packet payload must contain at least the core register set.
-                            // GDB may reflect back the full g response — which includes trailing
-                            // hex chars for NumExtraRegs VDP registers — so we accept any payload
-                            // >= core size and only write the first sizeof(SH2Context)*2 chars.
+                            // GDB reflects back the full g response -- including the trailing
+                            // zero-padding block -- so we accept any payload >= core size and
+                            // only write the first sizeof(SH2Context)*2 chars.
                             constexpr size_t core_len = sizeof(SH2Context) * 2;
                             size_t len = 0;
                             while (in_buf[1 + len] != '\0') len++;
@@ -1343,14 +2178,34 @@ namespace SRL
                                 break;
                             }
 
-                            if (reg_idx > 22 + NumExtraRegs) {
+                            if (reg_idx > 22 + TotalPseudoRegs) {
                                 packet_put('\0', "E01", 3);
                                 break;
                             }
 
-                            if (reg_idx >= 23) {
+                            if (reg_idx >= 23 && reg_idx < 23 + NumExtraRegs) {
                                 uint16_t val = *(volatile uint16_t*)ExtraRegs[reg_idx - 23];
                                 const int tx_len = static_cast<int>(mem2hex((uint8_t*)&val, out_buf, 2) - out_buf);
+                                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                                break;
+                            }
+
+                            if (reg_idx >= 23 + NumExtraRegs) {
+                                const uint32_t slave_reg_index = reg_idx - (23 + NumExtraRegs);
+                                uint32_t* reg_ptr = &g_slave_ctx.r[0];
+                                if (slave_reg_index < 16U) reg_ptr = &g_slave_ctx.r[slave_reg_index];
+                                else if (slave_reg_index == 16U) reg_ptr = &g_slave_ctx.pc;
+                                else if (slave_reg_index == 17U) reg_ptr = &g_slave_ctx.pr;
+                                else if (slave_reg_index == 18U) reg_ptr = &g_slave_ctx.gbr;
+                                else if (slave_reg_index == 19U) reg_ptr = &g_slave_ctx.vbr;
+                                else if (slave_reg_index == 20U) reg_ptr = &g_slave_ctx.mach;
+                                else if (slave_reg_index == 21U) reg_ptr = &g_slave_ctx.macl;
+                                else if (slave_reg_index == 22U) reg_ptr = &g_slave_ctx.sr;
+                                else {
+                                    packet_put('\0', "E01", 3);
+                                    break;
+                                }
+                                const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t*>(reg_ptr), out_buf, 4) - out_buf);
                                 packet_put('\0', out_buf, static_cast<size_t>(tx_len));
                                 break;
                             }
@@ -1379,15 +2234,40 @@ namespace SRL
                             }
                             ptr++; // skip '='
 
-                            if (reg_idx > 22 + NumExtraRegs) {
+                            if (reg_idx > 22 + TotalPseudoRegs) {
                                 packet_put('\0', "E01", 3);
                                 break;
                             }
 
-                            if (reg_idx >= 23) {
+                            if (reg_idx >= 23 && reg_idx < 23 + NumExtraRegs) {
                                 uint16_t val = 0;
                                 if (hex2mem(ptr, (uint8_t*)&val, 2)) {
                                     *(volatile uint16_t*)ExtraRegs[reg_idx - 23] = val;
+                                    packet_put('\0', "OK", 2);
+                                } else {
+                                    packet_put('\0', "E01", 3);
+                                }
+                                break;
+                            }
+
+                            if (reg_idx >= 23 + NumExtraRegs) {
+                                const uint32_t slave_reg_index = reg_idx - (23 + NumExtraRegs);
+                                uint32_t* reg_ptr = &g_slave_ctx.r[0];
+                                if (slave_reg_index < 16U) reg_ptr = &g_slave_ctx.r[slave_reg_index];
+                                else if (slave_reg_index == 16U) reg_ptr = &g_slave_ctx.pc;
+                                else if (slave_reg_index == 17U) reg_ptr = &g_slave_ctx.pr;
+                                else if (slave_reg_index == 18U) reg_ptr = &g_slave_ctx.gbr;
+                                else if (slave_reg_index == 19U) reg_ptr = &g_slave_ctx.vbr;
+                                else if (slave_reg_index == 20U) reg_ptr = &g_slave_ctx.mach;
+                                else if (slave_reg_index == 21U) reg_ptr = &g_slave_ctx.macl;
+                                else if (slave_reg_index == 22U) reg_ptr = &g_slave_ctx.sr;
+                                else {
+                                    packet_put('\0', "E01", 3);
+                                    break;
+                                }
+                                if (g_is_ctrl_c_stop && (slave_reg_index == 17U || slave_reg_index == 14U)) {
+                                    packet_put('\0', "E01", 3);
+                                } else if (hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4)) {
                                     packet_put('\0', "OK", 2);
                                 } else {
                                     packet_put('\0', "E01", 3);
@@ -1427,8 +2307,9 @@ namespace SRL
                                 packet_put('\0', "E01", 3);
                                 break;
                             }
-                            // If the slave is paused, refuse memory reads to avoid USB FIFO overflow.
-                            if (g_debug_pause) { packet_put('\0', "E22", 3); break; }
+                            // Note: reading memory here does not touch the slave, so this is
+                            // safe even while g_debug_pause is set (slave frozen) -- the master's
+                            // own bus access is independent of slave state.
                             // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
                             if (length > 511U || !is_valid_memory_range(addr, length)) {
                                 packet_put('\0', "E01", 3);
@@ -1522,6 +2403,7 @@ namespace SRL
                         clear_breakpoints(true);
                         g_handshake_done = false;
                         g_has_connection = false;
+                        SlaveIPIClear();
                         return;
                     case 'T': // Is thread alive?
                         // Report thread as alive for single-thread target.
@@ -1544,6 +2426,18 @@ namespace SRL
         // --- Exception Handler ---
 
         extern "C" void srl_gdbstub_exception_thunk();
+        // Tiny trampolines that tag g_last_stop_signal with the right POSIX
+        // signal for their exception family before falling into the shared
+        // thunk above -- see their definition (right after
+        // srl_gdbstub_exception_thunk's __asm__ block) for why this needs to
+        // be a jump into the SAME shared body rather than a full duplicate:
+        // every SH-2 exception vector lands at a fixed address with no
+        // argument-passing convention and no on-chip "cause" register (unlike
+        // e.g. SH-3/4's EXPEVT), so the only way to tell GDB which exception
+        // family fired is to give each family its own tiny entry stub.
+        extern "C" void srl_gdbstub_illegal_thunk();
+        extern "C" void srl_gdbstub_addrerr_thunk();
+        extern "C" void srl_gdbstub_nmi_thunk();
 
 
         /**
@@ -1552,6 +2446,11 @@ namespace SRL
          * Relocates the Vector Base Register (VBR) from ROM to RAM if necessary,
          * and installs `srl_gdbstub_exception_thunk` as the handler for critical
          * CPU traps including Illegal Instruction, Address Errors, and NMI.
+         *
+         * NMI is how the Saturn's physical Reset button reaches the SH-2 (it is
+         * not a hard reset line) -- once this is installed, pressing Reset stops
+         * the program at whatever instruction it interrupted and reports SIGINT
+         * to GDB, exactly like Ctrl-C, instead of actually rebooting the console.
          */
         static inline void InstallExceptionHandlers() {
             debug_print("[GDBStub] InstallExceptionHandlers() start\n");
@@ -1587,14 +2486,26 @@ namespace SRL
                 //   Fixed exceptions (reset, NMI, etc): VBR + 0x000..0x07C  (indices 0..31)
                 //   External/internal interrupts:         VBR + 0x080..0x0FC  (indices 32..63)
                 //   TRAPA #N vectors:                     VBR + 0x080 + N*4   (indices 32+N)
-                vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Illegal Instruction
-                vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Reserved Instruction
-                vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Slot Illegal Instruction
-                vbr_table[7] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // General Illegal Instruction
-                vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // Slot Reserved Instruction
-                vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk);  // CPU Address Error
-                vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // DMA Address Error
-                // vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // NMI (Reset button)
+                // The "illegal opcode" family and "address error" family route through
+                // their own tiny trampolines so GDB is told SIGILL/SIGBUS instead of a
+                // generic SIGTRAP for these -- see srl_gdbstub_illegal_thunk /
+                // srl_gdbstub_addrerr_thunk's doc comment. UBC break and TRAPA #3 are
+                // genuinely trap/breakpoint-like, so they keep reporting SIGTRAP as
+                // before and go straight to the shared thunk. NMI gets its own
+                // trampoline too (srl_gdbstub_nmi_thunk) so it's reported as SIGINT --
+                // the same signal Ctrl-C uses -- rather than a generic SIGTRAP; this
+                // also reuses the existing g_is_ctrl_c_stop-gated PR/R14 masking in the
+                // 'g' register-read handler, since NMI (an asynchronous button press)
+                // can interrupt SGL/BIOS code with no debug info to unwind through,
+                // exactly like a Ctrl-C stop can.
+                vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Illegal Instruction
+                vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Reserved Instruction
+                vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Slot Illegal Instruction
+                vbr_table[7] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // General Illegal Instruction
+                vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Slot Reserved Instruction
+                vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);  // CPU Address Error
+                vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk); // DMA Address Error
+                vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_nmi_thunk);      // NMI (Reset button)
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
@@ -1724,6 +2635,121 @@ namespace SRL
         }
 
         /**
+         * @brief Returns how many `monitor <text>` commands have been received via qRcmd.
+         * @details Compare against a locally-cached value each frame to detect a new
+         * command, then dispatch on GetLastMonitorCommand(). This lets a GDB `monitor`
+         * command (or any scripted qRcmd sender) trigger sample/test behavior without
+         * needing a physical gamepad.
+         *
+         * @warning qRcmd is processed entirely on the target while it is stopped
+         * (inside process_commands()'s packet loop), so user code only sees this
+         * counter change once execution actually resumes via 'c'/'D'. If multiple
+         * `monitor` commands are sent before that happens, edge-triggered polling
+         * of this counter only observes ONE change and dispatches whatever
+         * GetLastMonitorCommand() holds at that point -- earlier commands sent
+         * while still stopped are silently coalesced away, not queued. Confirmed
+         * on real hardware: two `monitor touch` calls sent back-to-back while
+         * stopped only incremented the target variable once after resuming.
+         * Send one `monitor` command, `continue`, then repeat if you need each
+         * one to take effect individually.
+         */
+        inline uint32_t GetMonitorCommandCount() {
+            return g_monitor_command_count;
+        }
+
+        /**
+         * @brief Returns the text of the most recently received `monitor` command.
+         */
+        inline const char* GetLastMonitorCommand() {
+            return g_last_monitor_command;
+        }
+
+        /**
+         * @brief Returns how many times the slave's FRT-ICI freeze handler has fired.
+         * @details Reads shared Work RAM, so this is safe to call from the master
+         * even though the counter is incremented by code running on the slave.
+         */
+        inline uint32_t GetSlaveIciCount() {
+            return g_slave_ici_count;
+        }
+
+        extern "C" void srl_gdbstub_slave_ici_thunk();
+
+        /**
+         * @brief Installs GDBStub's slave-freeze handler on the FRT Input Capture
+         * Interrupt (vector 0x64) of whichever CPU executes this function.
+         *
+         * @warning MUST be called from code running ON THE SLAVE SH-2 (e.g. via
+         * SRL::Slave::ExecuteOnSlave / InstallSlaveFreezeTask below) — VBR, TIER,
+         * and IPRB are per-CPU registers, so calling this from the master has no
+         * effect on the slave's interrupt controller.
+         *
+         * @warning Hardware-confirmed: does not coexist with any use of
+         * SRL::Slave::ExecuteOnSlave (slSlaveFunc) in the same project — see the
+         * @warning above "Slave freeze via SH-2 on-chip FRT Input Capture
+         * Interrupt (ICI)" and Samples/Debug - GDB Stub/readme.md for the full
+         * hardware writeup. Only use this in a project that never calls
+         * SRL::Slave::ExecuteOnSlave.
+         */
+        static inline void InstallSlaveFreezeHandler() {
+            uint32_t vbr = 0;
+            asm volatile("stc vbr, %0" : "=r"(vbr));
+
+            if (vbr == 0) {
+                // The slave boots with VBR == 0, same as the master. Relocate to a
+                // slave-private area distinct from the master's own relocation
+                // target (0x06000000, see InstallExceptionHandlers()) so the two
+                // CPUs never overwrite each other's copy of the boot ROM vector
+                // table.
+                vbr = 0x06010000U;
+                volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U);
+                volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
+                for (int i = 0; i < 64; i++) {
+                    dst_table[i] = src_table[i];
+                }
+                asm volatile("ldc %0, vbr" :: "r"(vbr));
+            }
+
+            volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
+            vbr_table[FRT_ICI_VECTOR] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_ici_thunk);
+
+            // Give the FRT interrupt group (ICI/OCIA/OCIB/OVI) a non-zero priority —
+            // priority 0 is always masked regardless of the SR interrupt mask level.
+            volatile uint16_t* iprb = reinterpret_cast<volatile uint16_t*>(FRT_IPRB);
+            *iprb = static_cast<uint16_t>((*iprb & 0xF0FFU) | (0x0FU << 8));
+
+            // Enable the Input Capture Interrupt itself.
+            *reinterpret_cast<volatile uint8_t*>(FRT_TIER) |= FRT_ICF;
+
+            // Lower this CPU's own SR interrupt mask (I3-I0) so priority-15
+            // interrupts are actually accepted — out of reset, all interrupts are
+            // masked (mask level 15).
+            uint32_t sr = 0;
+            asm volatile("stc sr, %0" : "=r"(sr));
+            sr &= ~0x000000F0U;
+            asm volatile("ldc %0, sr" :: "r"(sr) : "memory");
+
+            ForcePurgeCache();
+        }
+
+        /**
+         * @brief Convenience task that installs GDBStub's slave-freeze handler.
+         * @details Must be dispatched via SRL::Slave::ExecuteOnSlave so that
+         * InstallSlaveFreezeHandler() actually executes on the slave CPU:
+         * @code
+         * SRL::GDBStub::InstallSlaveFreezeTask installTask;
+         * SRL::Slave::ExecuteOnSlave(installTask);
+         * @endcode
+         * @see InstallSlaveFreezeHandler
+         */
+        class InstallSlaveFreezeTask : public SRL::Types::ITask {
+        protected:
+            void Do() override {
+                InstallSlaveFreezeHandler();
+            }
+        };
+
+        /**
          * @brief Enter the GDB stub via software trap (Illegal Instruction).
          * 
          * IMPORTANT: The __attribute__((noinline)) is load-bearing. 
@@ -1808,13 +2834,26 @@ namespace SRL
 }
 }
 
-extern "C" inline void slave_ipi_handler(void) {
-    // This handler runs on the slave SH‑2 when the master triggers an IPI.
-    // It simply spins until the master clears the pause flag.
+extern "C" __attribute__((used)) inline void slave_ipi_handler(void) {
+    // Called by srl_gdbstub_slave_ici_thunk (below) on the slave SH-2, AFTER the
+    // thunk has already snapshotted the slave's full register state into
+    // SRL::GDBStub::g_slave_ctx. Disable further ICI firing while we are already
+    // inside one — mirrors the disable/spin/re-enable shape used for master<->slave
+    // ICI handlers elsewhere in Saturn homebrew (e.g. libyaul's cpu_dual) — and
+    // clear the flag the doorbell write set.
+    *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_TIER) &= ~SRL::GDBStub::FRT_ICF;
+    *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_FTCSR) &= ~SRL::GDBStub::FRT_ICF;
+
     while (SRL::GDBStub::g_debug_pause) {
         asm volatile("nop");
     }
-    // Returning from the interrupt will resume the slave where it left off.
+
+    // The master may have patched breakpoints into memory the slave executes;
+    // purge the slave's own cache before resuming.
+    SRL::GDBStub::ForcePurgeCache();
+
+    *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_TIER) |= SRL::GDBStub::FRT_ICF;
+    // Returning here lets srl_gdbstub_slave_ici_thunk restore registers and rte.
 }
 
 __asm__(
@@ -1908,4 +2947,182 @@ __asm__(
     "1: .long srl_gdbstub_ctx\n"
     "2: .long srl_gdbstub_process_commands\n"
     "3: .long srl_gdbstub_thunk_count\n"
+);
+
+// Per-exception-family entry trampolines. The SH-2 has no on-chip "cause"
+// register and every exception vector transfers control to a fixed address
+// with no argument-passing convention, so the only way to tell GDB which
+// exception family actually fired (illegal opcode vs misaligned access,
+// rather than always reporting a generic SIGTRAP) is to give each family
+// its own tiny entry stub that tags g_last_stop_signal before falling
+// through into the real (shared, much larger) context-save thunk above.
+//
+// Each stub is careful to leave every register exactly as the CPU's own
+// exception entry left it before reaching srl_gdbstub_exception_thunk: r0
+// and r1 are the only registers touched, and both are saved to the stack
+// and restored before the branch, so the shared thunk's own "mov.l r0,
+// @-r15" (its first instruction, which captures the TRUE pre-exception r0
+// into g_ctx) sees an untouched value. The temporary push/pop is balanced,
+// so r15 is also back where the CPU left it by the time of the branch.
+__asm__(
+    ".weak _srl_gdbstub_illegal_thunk\n"
+    ".global _srl_gdbstub_illegal_thunk\n"
+    ".align 2\n"
+    "_srl_gdbstub_illegal_thunk:\n"
+    "mov.l r0, @-r15\n"
+    "mov.l r1, @-r15\n"
+    "mov.l 1f, r0\n"
+    "mov #4, r1\n"        // SIGILL
+    "mov.b r1, @r0\n"
+    "mov.l @r15+, r1\n"
+    "mov.l @r15+, r0\n"
+    "bra _srl_gdbstub_exception_thunk\n"
+    "nop\n"
+    ".align 4\n"
+    "1: .long srl_gdbstub_last_stop_signal\n"
+);
+
+// NMI (the Saturn's physical Reset button) is asynchronous and, unlike the
+// illegal-opcode/address-error families above, carries no "this address is
+// definitely a fault" semantics -- it can land literally anywhere, including
+// inside SGL/BIOS code with no debug info. It should be reported to GDB as
+// SIGINT, exactly like Ctrl-C, so tag g_is_ctrl_c_stop (not g_last_stop_signal)
+// before falling into the shared thunk -- see send_stop_signal's callers,
+// which already prefer g_is_ctrl_c_stop over g_last_stop_signal, and the 'g'
+// register-read handler, which already masks PR/R14 when g_is_ctrl_c_stop is
+// set for exactly this "interrupted inside code with no unwind info" reason.
+__asm__(
+    ".weak _srl_gdbstub_nmi_thunk\n"
+    ".global _srl_gdbstub_nmi_thunk\n"
+    ".align 2\n"
+    "_srl_gdbstub_nmi_thunk:\n"
+    "mov.l r0, @-r15\n"
+    "mov.l r1, @-r15\n"
+    "mov.l 1f, r0\n"
+    "mov #1, r1\n"
+    "mov.b r1, @r0\n"
+    "mov.l @r15+, r1\n"
+    "mov.l @r15+, r0\n"
+    "bra _srl_gdbstub_exception_thunk\n"
+    "nop\n"
+    ".align 4\n"
+    "1: .long srl_gdbstub_is_ctrl_c_stop\n"
+);
+
+__asm__(
+    ".weak _srl_gdbstub_addrerr_thunk\n"
+    ".global _srl_gdbstub_addrerr_thunk\n"
+    ".align 2\n"
+    "_srl_gdbstub_addrerr_thunk:\n"
+    "mov.l r0, @-r15\n"
+    "mov.l r1, @-r15\n"
+    "mov.l 1f, r0\n"
+    "mov #10, r1\n"       // SIGBUS
+    "mov.b r1, @r0\n"
+    "mov.l @r15+, r1\n"
+    "mov.l @r15+, r0\n"
+    "bra _srl_gdbstub_exception_thunk\n"
+    "nop\n"
+    ".align 4\n"
+    "1: .long srl_gdbstub_last_stop_signal\n"
+);
+
+// Slave-side counterpart of the thunk above, installed by
+// SRL::GDBStub::InstallSlaveFreezeHandler() onto the slave SH-2's own FRT-ICI
+// vector (0x64). Byte-for-byte the same register save/restore sequence as
+// _srl_gdbstub_exception_thunk — only the three referenced symbols differ:
+// it snapshots into srl_gdbstub_slave_ctx, calls slave_ipi_handler (a plain
+// spin-wait, not the RSP command processor), and counts into
+// srl_gdbstub_slave_ici_count instead of srl_gdbstub_thunk_count.
+__asm__(
+    ".weak _srl_gdbstub_slave_ici_thunk\n"
+    ".global _srl_gdbstub_slave_ici_thunk\n"
+    ".align 2\n"
+    "_srl_gdbstub_slave_ici_thunk:\n"
+    "mov.l r0, @-r15\n"
+    "stc.l gbr, @-r15\n"
+    "mov.l 1f, r0\n"
+    "mov.l r14, @(14*4, r0)\n"
+    "mov.l r13, @(13*4, r0)\n"
+    "mov.l r12, @(12*4, r0)\n"
+    "mov.l r11, @(11*4, r0)\n"
+    "mov.l r10, @(10*4, r0)\n"
+    "mov.l r9,  @(9*4,  r0)\n"
+    "mov.l r8,  @(8*4,  r0)\n"
+    "mov.l r7,  @(7*4,  r0)\n"
+    "mov.l r6,  @(6*4,  r0)\n"
+    "mov.l r5,  @(5*4,  r0)\n"
+    "mov.l r4,  @(4*4,  r0)\n"
+    "mov.l r3,  @(3*4,  r0)\n"
+    "mov.l r2,  @(2*4,  r0)\n"
+    "mov.l r1,  @(1*4,  r0)\n"
+    "mov r15, r1\n"
+    "add #16, r1\n"
+    "mov.l r1, @(15*4, r0)\n"
+    "mov.l @r15+, r1\n"
+    "mov.l @r15+, r2\n"
+    "mov.l r2, @r0\n"
+    "mov r0, r2\n"
+    "add #64, r2\n"
+    "mov.l r1, @(2*4, r2)\n"
+    "mov.l @r15, r1\n"
+    "mov.l r1, @r2\n"
+    "mov.l @(4, r15), r1\n"
+    "mov.l r1, @(24, r2)\n"
+    "sts pr, r1\n"
+    "mov.l r1, @(1*4, r2)\n"
+    "stc vbr, r1\n"
+    "mov.l r1, @(3*4, r2)\n"
+    "sts mach, r1\n"
+    "mov.l r1, @(4*4, r2)\n"
+    "sts macl, r1\n"
+    "mov.l r1, @(5*4, r2)\n"
+    "mov.l 3f, r1\n"
+    "mov.l @r1, r2\n"
+    "add #1, r2\n"
+    "mov.l r2, @r1\n"
+    "mov.l 2f, r1\n"
+    "jsr @r1\n"
+    "nop\n"
+    "mov.l 1f, r0\n"
+    "mov r0, r2\n"
+    "add #64, r2\n"
+    "mov.l @(1*4, r2), r1\n"
+    "lds r1, pr\n"
+    "mov.l @(3*4, r2), r1\n"
+    "ldc r1, vbr\n"
+    "mov.l @(4*4, r2), r1\n"
+    "lds r1, mach\n"
+    "mov.l @(5*4, r2), r1\n"
+    "lds r1, macl\n"
+    "mov.l @(2*4, r2), r1\n"
+    "ldc r1, gbr\n"
+    "mov.l @(24, r2), r1\n"
+    "mov.l r1, @(4, r15)\n"
+    "mov.l @r2, r1\n"
+    "mov.l r1, @r15\n"
+    "mov.l @(14*4, r0), r14\n"
+    "mov.l @(13*4, r0), r13\n"
+    "mov.l @(12*4, r0), r12\n"
+    "mov.l @(11*4, r0), r11\n"
+    "mov.l @(10*4, r0), r10\n"
+    "mov.l @(9*4,  r0), r9\n"
+    "mov.l @(8*4,  r0), r8\n"
+    "mov.l @(7*4,  r0), r7\n"
+    "mov.l @(6*4,  r0), r6\n"
+    "mov.l @(5*4,  r0), r5\n"
+    "mov.l @(4*4,  r0), r4\n"
+    "mov.l @(3*4,  r0), r3\n"
+    "mov.l @(2*4,  r0), r2\n"
+    "mov.l @(1*4,  r0), r1\n"
+    // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
+    // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
+    // Do NOT reorder this or use r0 as a scratch register above!
+    "mov.l @r0, r0\n"
+    "rte\n"
+    "nop\n"
+    ".align 4\n"
+    "1: .long srl_gdbstub_slave_ctx\n"
+    "2: .long _slave_ipi_handler\n"
+    "3: .long srl_gdbstub_slave_ici_count\n"
 );
