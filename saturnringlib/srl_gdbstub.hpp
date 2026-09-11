@@ -467,7 +467,7 @@ namespace SRL
             *reinterpret_cast<volatile uint8_t*>(0xFFFFFE92) |= 0x10;
             // The SH-2 hardware manual requires waiting at least two instructions
             // before accessing the cache after a purge. We add several NOPs to be safe.
-            asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory");
+            asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory"); // 8 nops -- pure delay, no register/memory effect
         }
 
         static inline void FlushCacheIfDirty() {
@@ -524,84 +524,6 @@ namespace SRL
             g_cache_dirty = true;
         }
 
-        // Hardware-confirmed bug this fixes: a software breakpoint's 0xFFFF
-        // patch is written to shared RAM once and PurgeCache() above only
-        // purges the MASTER's own instruction cache -- the SH-2 Cache
-        // Control Register at 0xFFFFFE92 is private on-chip hardware, with
-        // no bus path from one CPU to the other's copy of it. If the
-        // breakpoint's address is code that runs on the SLAVE (e.g. inside
-        // an SRL::Slave::ExecuteOnSlave() task), and the slave has already
-        // cached that line -- which for any repeatedly-dispatched task it
-        // almost always has -- the slave keeps executing its own stale,
-        // unpatched copy indefinitely. GDB is told "OK", the memory really
-        // is patched, but the slave silently never sees it: confirmed by
-        // reading srl_gdbstub_slave_bp_count (see GetSlaveBreakpointCount())
-        // via raw memory before and after a 15s `continue` with a fresh
-        // slave breakpoint installed -- it never incremented, even though
-        // the target task is dispatched roughly every 0.25s all session
-        // long. This explains the erratic, boot-order-dependent hit rate
-        // observed for slave breakpoints before this fix: whether the
-        // slave's cache happened to still hold that exact line at the
-        // moment of the next dispatch.
-        //
-        // The master cannot purge the slave's cache directly -- only code
-        // running ON the slave can write its own CCR -- so this dispatches
-        // a tiny task there via the same SRL::Slave::ExecuteOnSlave()
-        // mechanism InstallSlaveExceptionHandler() already uses, with the
-        // same bounded (never-indefinite) wait for completion that caller
-        // already has to use: see InstallSlaveExceptionHandler()'s own
-        // @warning about SRL::Slave::ExecuteOnSlave() dispatches leaving an
-        // ITask's IsRunning() flag stuck true. That warning was specifically
-        // about VBR-table patching disrupting slSlaveFunc's own
-        // dispatch-completion signal; this task does nothing but purge the
-        // cache and return, so it's expected NOT to share that failure mode
-        // -- but the bounded wait is kept regardless, since process_commands()
-        // must never hang the whole debug session waiting on the slave.
-        //
-        // Called unconditionally by every breakpoint install/remove/restore
-        // below rather than only when the target address is "known" to be
-        // slave code: the RSP protocol carries no such distinction, and a
-        // breakpoint that works only sometimes depending on which CPU
-        // happens to execute it is worse than a small, rare dispatch to an
-        // idle slave. The one residual risk this doesn't fully close: if
-        // the slave is genuinely mid-execution of a DIFFERENT
-        // ExecuteOnSlave()-dispatched task at the exact instant a
-        // breakpoint is installed, concurrent slSlaveFunc() dispatch
-        // behavior is unverified (SGL's implementation is precompiled, not
-        // available to inspect) -- in practice this window is tiny, since
-        // the master is already halted inside process_commands() (the only
-        // thing that ever dispatches NEW user tasks) for the entire
-        // duration of any GDB command that could reach this code.
-        // Temporary diagnostic: confirms SlaveCachePurgeTask::Do() actually
-        // executes ON the slave when dispatched from inside
-        // process_commands() -- remove once PurgeSlaveCacheBestEffort() is
-        // confirmed reliable on real hardware.
-        __attribute__((used)) inline volatile uint32_t g_slave_purge_task_ran_count __asm__("srl_gdbstub_slave_purge_task_ran_count") = 0;
-
-        class SlaveCachePurgeTask : public SRL::Types::ITask {
-        protected:
-            void Do() override {
-                g_slave_purge_task_ran_count = g_slave_purge_task_ran_count + 1;
-                *reinterpret_cast<volatile uint8_t*>(0xFFFFFE92) |= 0x10;
-                asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory");
-            }
-        };
-        inline SlaveCachePurgeTask g_slave_cache_purge_task;
-
-        // Temporary diagnostics, same removal plan as g_slave_purge_task_ran_count above.
-        __attribute__((used)) inline volatile uint32_t g_slave_purge_called_count __asm__("srl_gdbstub_slave_purge_called_count") = 0;
-        __attribute__((used)) inline volatile uint32_t g_slave_purge_wait_iters __asm__("srl_gdbstub_slave_purge_wait_iters") = 0;
-        __attribute__((used)) inline volatile uint32_t g_slave_purge_was_running_at_start __asm__("srl_gdbstub_slave_purge_was_running_at_start") = 0;
-
-        static inline void PurgeSlaveCacheBestEffort() {
-            g_slave_purge_called_count = g_slave_purge_called_count + 1;
-            g_slave_purge_was_running_at_start = g_slave_cache_purge_task.IsRunning() ? 1U : 0U;
-            SRL::Slave::ExecuteOnSlave(g_slave_cache_purge_task);
-            uint32_t wait = 0;
-            while (g_slave_cache_purge_task.IsRunning() && wait < 5000000U) { ++wait; }
-            g_slave_purge_wait_iters = wait;
-        }
-
         /**
          * @brief Clears all active software breakpoints.
          */
@@ -622,7 +544,6 @@ namespace SRL
             }
             if (restore_memory) {
                 PurgeCache();
-                PurgeSlaveCacheBestEffort();
             }
         }
 
@@ -649,32 +570,11 @@ namespace SRL
             *code = SoftwareBreakInstruction;
             g_software_breakpoints[slot].active = true;
             PurgeCache();
-            // See PurgeSlaveCacheBestEffort()'s doc comment: without this, a
-            // breakpoint on slave-executed code silently never fires once
-            // the slave's own cache already holds that line.
-            PurgeSlaveCacheBestEffort();
             return true;
         }
 
         /**
          * @brief Removes a software breakpoint and restores the original instruction.
-         *
-         * @note Deliberately does NOT call PurgeSlaveCacheBestEffort() itself,
-         * unlike install_software_breakpoint() -- this function is called
-         * from two different execution contexts: the master's own Z/z
-         * packet handler (below), and slave_breakpoint_handler()'s one-shot
-         * auto-removal, which runs ON THE SLAVE. PurgeSlaveCacheBestEffort()
-         * calls SRL::Slave::ExecuteOnSlave(), which assumes it's being
-         * called FROM the master TO dispatch work onto the slave -- calling
-         * it from code already running on the slave is undefined territory
-         * (hardware-confirmed to produce inconsistent results: the purge
-         * task's own "did it actually run" counter frequently stayed flat
-         * across calls made from that context). slave_breakpoint_handler()
-         * doesn't need it anyway: it already purges the slave's OWN cache
-         * directly (a plain local ForcePurgeCache(), no cross-CPU dispatch
-         * needed since it's already executing there) immediately after
-         * this call returns. Master-context callers purge the slave's
-         * cache themselves, right after calling this.
          */
         static inline bool remove_software_breakpoint(uint32_t address) {
             if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
@@ -1019,17 +919,17 @@ namespace SRL
             uint32_t macl = 0;
             uint32_t sr = 0;
 
-            asm volatile("mov r15, %0" : "=r"(sp));
-            asm volatile("mova 1f, r0\n\t"
-                         "mov r0, %0\n\t"
-                         ".align 2\n\t"
-                         "1:\n\t" : "=r"(pc) : : "r0");
-            asm volatile("sts pr, %0" : "=r"(pr));
-            asm volatile("stc gbr, %0" : "=r"(gbr));
-            asm volatile("stc vbr, %0" : "=r"(vbr));
-            asm volatile("sts mach, %0" : "=r"(mach));
-            asm volatile("sts macl, %0" : "=r"(macl));
-            asm volatile("stc sr, %0" : "=r"(sr));
+            asm volatile("mov r15, %0" : "=r"(sp));                 // sp = current r15 (this function's own live stack pointer, not the real caller's -- see the doc comment below on why that's fine here)
+            asm volatile("mova 1f, r0\n\t"                          // r0 = address of local label "1" (a fixed point a few instructions below, inside this same function)
+                         "mov r0, %0\n\t"                           // pc = r0 -- captures that fixed address as the "current PC", since there's no direct "read PC" instruction on SH-2
+                         ".align 2\n\t"                              // realign after the mova/mov pair so label 1 lands on a valid instruction boundary
+                         "1:\n\t" : "=r"(pc) : : "r0");              // label 1 itself -- purely a marker for mova to compute the address of, emits no code
+            asm volatile("sts pr, %0" : "=r"(pr));                  // pr = current PR (procedure register / return address)
+            asm volatile("stc gbr, %0" : "=r"(gbr));                // gbr = current GBR
+            asm volatile("stc vbr, %0" : "=r"(vbr));                // vbr = current VBR
+            asm volatile("sts mach, %0" : "=r"(mach));              // mach = current MACH
+            asm volatile("sts macl, %0" : "=r"(macl));              // macl = current MACL
+            asm volatile("stc sr, %0" : "=r"(sr));                  // sr = current SR
 
             g_ctx.r[15] = sp;
             g_ctx.pc = pc;
@@ -2738,13 +2638,6 @@ namespace SRL
                                 if (wp_type == 0) {
                                     if (kind == 0U || kind == 2U) {
                                         ok = remove_software_breakpoint(addr);
-                                        // Master context here (this is GDB's own
-                                        // z-packet handler) -- see
-                                        // remove_software_breakpoint()'s doc comment
-                                        // for why it doesn't do this itself.
-                                        if (ok) {
-                                            PurgeSlaveCacheBestEffort();
-                                        }
                                     }
                                 } else {
                                     ok = remove_hardware_watchpoint(addr, wp_type);
@@ -2840,7 +2733,7 @@ namespace SRL
             if (!g_handlers_installed) {
                 // Read the current VBR
                 uint32_t current_vbr = 0;
-                asm volatile("stc vbr, %0" : "=r"(current_vbr));
+                asm volatile("stc vbr, %0" : "=r"(current_vbr)); // current_vbr = this CPU's (the master's) current VBR
                 
                 // If VBR is still 0 (Boot ROM), we cannot write to it. We must relocate to RAM.
                 // We use 0x06000000 as a safe fallback and copy the Boot ROM vectors there to preserve the chain.
@@ -2858,9 +2751,9 @@ namespace SRL
                     for (int i = 0; i < 64; i++) {
                         dst_table[i] = src_table[i];
                     }
-                    asm volatile("ldc %0, vbr" :: "r"(current_vbr));
+                    asm volatile("ldc %0, vbr" :: "r"(current_vbr)); // VBR = current_vbr (0x06000000) -- point the CPU at the freshly-copied RAM table
                 }
-                
+
                 // Write directly to the Cache-Through mirror of the VBR table
                 volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
 
@@ -3083,7 +2976,7 @@ namespace SRL
          */
         static inline void InstallSlaveFreezeHandler() {
             uint32_t vbr = 0;
-            asm volatile("stc vbr, %0" : "=r"(vbr));
+            asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's (the slave's) current VBR
 
             if (vbr == 0) {
                 // The slave boots with VBR == 0, same as the master. Relocate to a
@@ -3097,7 +2990,7 @@ namespace SRL
                 for (int i = 0; i < 64; i++) {
                     dst_table[i] = src_table[i];
                 }
-                asm volatile("ldc %0, vbr" :: "r"(vbr));
+                asm volatile("ldc %0, vbr" :: "r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied RAM table
             }
 
             volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
@@ -3115,9 +3008,9 @@ namespace SRL
             // interrupts are actually accepted — out of reset, all interrupts are
             // masked (mask level 15).
             uint32_t sr = 0;
-            asm volatile("stc sr, %0" : "=r"(sr));
-            sr &= ~0x000000F0U;
-            asm volatile("ldc %0, sr" :: "r"(sr) : "memory");
+            asm volatile("stc sr, %0" : "=r"(sr));           // sr = this CPU's current SR
+            sr &= ~0x000000F0U;                               // clear the I3-I0 interrupt mask bits (bring the mask level down to 0, i.e. accept all interrupt priorities)
+            asm volatile("ldc %0, sr" :: "r"(sr) : "memory"); // SR = sr -- commit the lowered mask so the ICI can actually reach this CPU
 
             ForcePurgeCache();
         }
@@ -3148,25 +3041,53 @@ namespace SRL
          * @warning MUST be called from code running ON THE SLAVE SH-2 (e.g. via
          * SRL::Slave::ExecuteOnSlave / InstallSlaveExceptionTask below).
          *
-         * Independent of, and safe alongside, InstallSlaveFreezeHandler() and
-         * ongoing SRL::Slave::ExecuteOnSlave() use: that documented conflict is
-         * specifically about the FRT Input Capture Interrupt vector (0x64),
-         * which SGL's own slSlaveFunc dispatch also uses -- this hooks a
-         * completely different vector (illegal instruction) that SGL's
-         * dispatch has no reason to touch. Software breakpoints set via GDB's
-         * normal 'Z0' packet are just a 0xFFFF memory patch and work
-         * regardless of which CPU's code they land in; without this handler,
-         * the slave executing one takes an unhandled exception on its
-         * unconfigured boot-ROM default vector and never returns (see
-         * "don't set breakpoints inside code that runs on the slave" in
-         * Samples/Debug - GDB Stub/readme.md for the hardware-confirmed
-         * symptom this replaces).
+         * @warning UPDATE, hardware-confirmed: the "independent of, safe
+         * alongside SRL::Slave::ExecuteOnSlave()" claim this doc comment used
+         * to make here does NOT hold once a breakpoint actually fires. The
+         * vector itself (illegal instruction) genuinely doesn't overlap with
+         * FRT-ICI, and a breakpoint installs/hits/reports correctly the
+         * FIRST time -- but after exactly one hit, SRL::Slave::ExecuteOnSlave()
+         * never dispatches ANY task again for the rest of the boot session:
+         * confirmed by instrumenting SlaveTask() (srl_slave.hpp) with a
+         * dispatch counter that climbs steadily right up until a breakpoint
+         * fires here, then goes completely flat, and separately by
+         * instrumenting SlaveCounterTask::Do() itself the same way -- not a
+         * Do()-specific hang, the whole dispatch pipeline stops. The
+         * interrupted ITask's `running` flag simply never clears, so
+         * SRL::Slave::ExecuteOnSlave()'s documented `!task.IsRunning()`
+         * calling convention (see main.cxx) permanently blocks redispatch. A
+         * targeted fix attempt (re-arming TIER.ICIE from inside
+         * slave_breakpoint_handler() on the resume path, mirroring
+         * slave_ipi_handler()'s own re-enable) did NOT resolve it, so this
+         * is very likely NOT simply "the interrupt-enable bit got left
+         * off" -- it looks like the same broader class of issue
+         * slave_counter_task.hpp's own @warning already documents for
+         * InstallSlaveFreezeHandler() (SGL's slSlaveFunc dispatch-completion
+         * signaling getting disrupted by ANYTHING unusual happening during a
+         * dispatched callback -- that doc comment's own conclusion, "no
+         * ordering or dispatch-count workaround found... would need a
+         * from-scratch (non-SGL) slave wake-up path," appears to extend to
+         * this handler too, just via a different trigger (a nested
+         * exception mid-callback, not a competing interrupt vector) -- not
+         * fully root-caused; SGL's slSlaveFunc is precompiled, not available
+         * to inspect further without lower-level hardware tooling. Only a
+         * power-cycle currently recovers a task stuck this way.
+         *
+         * Software breakpoints set via GDB's normal 'Z0' packet are just a
+         * 0xFFFF memory patch and work regardless of which CPU's code they
+         * land in; without this handler, the slave executing one takes an
+         * unhandled exception on its unconfigured boot-ROM default vector
+         * and never returns (see "don't set breakpoints inside code that
+         * runs on the slave" in Samples/Debug - GDB Stub/readme.md for the
+         * hardware-confirmed symptom this replaces).
          *
          * @warning No single-step or step-over support for slave code: a
          * breakpoint hit here is one-shot (see slave_breakpoint_handler())
          * -- it's automatically removed the moment it's hit, so resuming
          * doesn't immediately re-fault on the same patched instruction. Set
-         * it again with a fresh 'break'/'Z0' if you need it to fire again.
+         * it again with a fresh 'break'/'Z0' if you need it to fire again --
+         * though per the warning above, that redispatch itself is currently
+         * not expected to succeed after the first hit.
          * There is also no real multi-thread RSP support: a slave stop halts
          * the whole session the same way Ctrl-C does, and the slave's saved
          * state is inspected via the existing `monitor regs slave` / slave
@@ -3191,10 +3112,13 @@ namespace SRL
          * to the master, even though it doesn't touch FRT-ICI. Callers must
          * bound their own wait around this dispatch (see main.cxx's
          * installExceptionTask usage) rather than waiting unconditionally.
+         * (See the UPDATE warning above: this same "running never clears"
+         * symptom, from an unrelated trigger, is what a slave breakpoint hit
+         * causes too -- likely the same underlying SGL fragility.)
          */
         static inline void InstallSlaveExceptionHandler() {
             uint32_t vbr = 0;
-            asm volatile("stc vbr, %0" : "=r"(vbr));
+            asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's (the slave's) current VBR
 
             if (vbr == 0) {
                 // Same relocation target as InstallSlaveFreezeHandler() (see its
@@ -3207,7 +3131,7 @@ namespace SRL
                 for (int i = 0; i < 64; i++) {
                     dst_table[i] = src_table[i];
                 }
-                asm volatile("ldc %0, vbr" :: "r"(vbr));
+                asm volatile("ldc %0, vbr" :: "r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied (or already-relocated) RAM table
             }
 
             volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
@@ -3251,7 +3175,7 @@ namespace SRL
             // Force a breakpoint exception.
             // Using Illegal Instruction (0xFFFF) which reliably vectors to VBR[4].
             // SGL frequently overwrites TRAPA vectors (32-63) causing them to be ignored.
-            asm volatile(".word 0xFFFF" ::: "memory");
+            asm volatile(".word 0xFFFF" ::: "memory"); // emit the raw 0xFFFF opcode -- not a real instruction, deliberately traps as Illegal Instruction
         }
 
         /**
@@ -3364,7 +3288,7 @@ extern "C" __attribute__((used)) inline void slave_ipi_handler(void) {
     *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_FTCSR) &= ~SRL::GDBStub::FRT_ICF;
 
     while (SRL::GDBStub::g_debug_pause) {
-        asm volatile("nop");
+        asm volatile("nop"); // spin -- just burns a cycle each iteration while frozen, no state to touch
     }
 
     // The master may have patched breakpoints into memory the slave executes;
@@ -3375,6 +3299,12 @@ extern "C" __attribute__((used)) inline void slave_ipi_handler(void) {
     // Returning here lets srl_gdbstub_slave_ici_thunk restore registers and rte.
 }
 
+// @warning Hardware-confirmed, NOT YET FIXED: a task interrupted by this
+// handler never dispatches again for the rest of the boot session --
+// see InstallSlaveExceptionHandler()'s doc comment (above this file's
+// InstallSlaveExceptionHandler() definition) for the full investigation,
+// evidence, and its connection to the already-documented SGL/FRT-ICI
+// dispatch-completion fragility in slave_counter_task.hpp.
 extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void) {
     // Called by srl_gdbstub_slave_illegal_thunk (below) on the slave SH-2,
     // AFTER the thunk has already snapshotted the slave's full register
@@ -3400,7 +3330,7 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void) {
     SRL::GDBStub::g_slave_resume = false;
 
     while (!SRL::GDBStub::g_slave_resume) {
-        asm volatile("nop");
+        asm volatile("nop"); // spin -- waiting for the master to release this slave breakpoint stop, no state to touch
     }
 
     SRL::GDBStub::g_slave_stopped = false;
@@ -3411,97 +3341,105 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void) {
     // Returning here lets srl_gdbstub_slave_illegal_thunk restore registers and rte.
 }
 
+// Every instruction below is commented individually since this is the one
+// piece of the whole file where getting a single line wrong is a silent,
+// hard-to-diagnose miscompile of the debug story itself (wrong register
+// values shown to GDB, or a corrupted resume) rather than a normal bug.
+// SH2Context field offsets in play throughout (see the struct above):
+// r[0..15] at bytes 0..60, then pc=64, pr=68, gbr=72, vbr=76, mach=80,
+// macl=84, sr=88 -- i.e. "@(N*4, r0)" for N<16 is r[N], and "@(64,r0)" is
+// the start of the pc/pr/gbr/vbr/mach/macl/sr block, indexed from there.
 __asm__(
     ".weak _srl_gdbstub_exception_thunk\n"
     ".global _srl_gdbstub_exception_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_exception_thunk:\n"
-    "mov.l r0, @-r15\n"
-    "stc.l gbr, @-r15\n"
-    "mov.l 1f, r0\n"
-    "mov.l r14, @(14*4, r0)\n"
-    "mov.l r13, @(13*4, r0)\n"
-    "mov.l r12, @(12*4, r0)\n"
-    "mov.l r11, @(11*4, r0)\n"
-    "mov.l r10, @(10*4, r0)\n"
-    "mov.l r9,  @(9*4,  r0)\n"
-    "mov.l r8,  @(8*4,  r0)\n"
-    "mov.l r7,  @(7*4,  r0)\n"
-    "mov.l r6,  @(6*4,  r0)\n"
-    "mov.l r5,  @(5*4,  r0)\n"
-    "mov.l r4,  @(4*4,  r0)\n"
-    "mov.l r3,  @(3*4,  r0)\n"
-    "mov.l r2,  @(2*4,  r0)\n"
-    "mov.l r1,  @(1*4,  r0)\n"
-    "mov r15, r1\n"
-    "add #16, r1\n"
-    "mov.l r1, @(15*4, r0)\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r2\n"
-    "mov.l r2, @r0\n"
-    "mov r0, r2\n"
-    "add #64, r2\n"
-    "mov.l r1, @(2*4, r2)\n"
-    "mov.l @r15, r1\n"
-    "mov.l r1, @r2\n"
-    "mov.l @(4, r15), r1\n"
-    "mov.l r1, @(24, r2)\n"
-    "sts pr, r1\n"
-    "mov.l r1, @(1*4, r2)\n"
-    "stc vbr, r1\n"
-    "mov.l r1, @(3*4, r2)\n"
-    "sts mach, r1\n"
-    "mov.l r1, @(4*4, r2)\n"
-    "sts macl, r1\n"
-    "mov.l r1, @(5*4, r2)\n"
-    "mov.l 3f, r1\n"
-    "mov.l @r1, r2\n"
-    "add #1, r2\n"
-    "mov.l r2, @r1\n"
-    "mov.l 2f, r1\n"
-    "jsr @r1\n"
-    "nop\n"
-    "mov.l 1f, r0\n"
-    "mov r0, r2\n"
-    "add #64, r2\n"
-    "mov.l @(1*4, r2), r1\n"
-    "lds r1, pr\n"
-    "mov.l @(3*4, r2), r1\n"
-    "ldc r1, vbr\n"
-    "mov.l @(4*4, r2), r1\n"
-    "lds r1, mach\n"
-    "mov.l @(5*4, r2), r1\n"
-    "lds r1, macl\n"
-    "mov.l @(2*4, r2), r1\n"
-    "ldc r1, gbr\n"
-    "mov.l @(24, r2), r1\n"
-    "mov.l r1, @(4, r15)\n"
-    "mov.l @r2, r1\n"
-    "mov.l r1, @r15\n"
-    "mov.l @(14*4, r0), r14\n"
-    "mov.l @(13*4, r0), r13\n"
-    "mov.l @(12*4, r0), r12\n"
-    "mov.l @(11*4, r0), r11\n"
-    "mov.l @(10*4, r0), r10\n"
-    "mov.l @(9*4,  r0), r9\n"
-    "mov.l @(8*4,  r0), r8\n"
-    "mov.l @(7*4,  r0), r7\n"
-    "mov.l @(6*4,  r0), r6\n"
-    "mov.l @(5*4,  r0), r5\n"
-    "mov.l @(4*4,  r0), r4\n"
-    "mov.l @(3*4,  r0), r3\n"
-    "mov.l @(2*4,  r0), r2\n"
-    "mov.l @(1*4,  r0), r1\n"
-    // CRITICAL: r0 must be restored LAST, and this instruction assumes r0 
+    "mov.l r0, @-r15\n"              // push r0 (predecrement r15, store) -- stash the CPU's true pre-exception r0 so it isn't lost to the scratch use below
+    "stc.l gbr, @-r15\n"             // push gbr the same way -- stash it too, restored into g_ctx a few lines down
+    "mov.l 1f, r0\n"                 // r0 = &g_ctx (address loaded from the literal pool at label 1, below)
+    "mov.l r14, @(14*4, r0)\n"       // g_ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n"       // g_ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n"       // g_ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n"       // g_ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n"       // g_ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n"       // g_ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n"       // g_ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n"       // g_ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n"       // g_ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n"       // g_ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n"       // g_ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n"       // g_ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n"       // g_ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n"       // g_ctx.r[1] = r1 -- r0 itself is saved later, once it's no longer needed as the g_ctx pointer
+    "mov r15, r1\n"                  // r1 = current r15 (post both of our pushes above, i.e. pre-exception SP minus 16: 8 for the hardware's own PC/SR push, 8 for ours)
+    "add #16, r1\n"                  // r1 = pre-exception SP exactly -- undoes both pushes, giving GDB the SP the interrupted code actually had, not our exception-frame SP
+    "mov.l r1, @(15*4, r0)\n"        // g_ctx.r[15] = r1 (the reconstructed, user-visible stack pointer)
+    "mov.l @r15+, r1\n"              // pop our earlier gbr push back into r1, r15 += 4 (now pointing just past our two pushes)
+    "mov.l @r15+, r2\n"              // pop our earlier r0 push into r2, r15 += 4 -- r15 is now exactly where the CPU's own exception entry left it, pointing at its PC/SR frame
+    "mov.l r2, @r0\n"                // g_ctx.r[0] = r2 (the true pre-exception r0, recovered from the stack)
+    "mov r0, r2\n"                   // r2 = r0 (= &g_ctx) -- r0 keeps pointing at g_ctx's base for the rest of this thunk
+    "add #64, r2\n"                  // r2 = &g_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block, everything below is offset from here
+    "mov.l r1, @(2*4, r2)\n"         // g_ctx.gbr = r1 (the gbr value popped a few lines up; offset 8 from &g_ctx.pc lands on .gbr)
+    "mov.l @r15, r1\n"               // r1 = *r15, i.e. the CPU's own hardware-pushed PC (peek, not pop -- we overwrite it in place later so `rte` can pick up a possibly-modified value)
+    "mov.l r1, @r2\n"                // g_ctx.pc = r1
+    "mov.l @(4, r15), r1\n"          // r1 = *(r15+4), the CPU's own hardware-pushed SR (same peek-not-pop reasoning)
+    "mov.l r1, @(24, r2)\n"          // g_ctx.sr = r1 (offset 24 from &g_ctx.pc lands on .sr)
+    "sts pr, r1\n"                   // r1 = current PR -- exceptions don't auto-save PR the way they do PC/SR, so this captures whatever the interrupted code's own return address was
+    "mov.l r1, @(1*4, r2)\n"         // g_ctx.pr = r1
+    "stc vbr, r1\n"                  // r1 = current VBR
+    "mov.l r1, @(3*4, r2)\n"         // g_ctx.vbr = r1
+    "sts mach, r1\n"                 // r1 = MACH (multiply/accumulate high word)
+    "mov.l r1, @(4*4, r2)\n"         // g_ctx.mach = r1
+    "sts macl, r1\n"                 // r1 = MACL (multiply/accumulate low word)
+    "mov.l r1, @(5*4, r2)\n"         // g_ctx.macl = r1 -- full context snapshot is now complete
+    "mov.l 3f, r1\n"                 // r1 = &g_exception_thunk_count (literal pool label 3)
+    "mov.l @r1, r2\n"                // r2 = current thunk-entry counter value
+    "add #1, r2\n"                   // r2 += 1
+    "mov.l r2, @r1\n"                // g_exception_thunk_count = r2 -- diagnostic: every real halt of any kind bumps this
+    "mov.l 2f, r1\n"                 // r1 = &process_commands (literal pool label 2)
+    "jsr @r1\n"                      // call process_commands() -- PR is set to the address right after this delay slot, i.e. the next instruction
+    "nop\n"                          // jsr's mandatory delay slot (executes before the call target starts; nothing needed here). process_commands() now owns the CPU until it decides to return -- the entire GDB session for this halt happens inside that call
+    "mov.l 1f, r0\n"                 // r0 = &g_ctx again -- reload since r0 isn't guaranteed preserved across the call above
+    "mov r0, r2\n"                   // r2 = r0 (= &g_ctx)
+    "add #64, r2\n"                  // r2 = &g_ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"         // r1 = g_ctx.pr (possibly rewritten by process_commands(), e.g. by single-step bookkeeping)
+    "lds r1, pr\n"                   // PR = r1
+    "mov.l @(3*4, r2), r1\n"         // r1 = g_ctx.vbr
+    "ldc r1, vbr\n"                  // VBR = r1
+    "mov.l @(4*4, r2), r1\n"         // r1 = g_ctx.mach
+    "lds r1, mach\n"                 // MACH = r1
+    "mov.l @(5*4, r2), r1\n"         // r1 = g_ctx.macl
+    "lds r1, macl\n"                 // MACL = r1
+    "mov.l @(2*4, r2), r1\n"         // r1 = g_ctx.gbr
+    "ldc r1, gbr\n"                  // GBR = r1
+    "mov.l @(24, r2), r1\n"          // r1 = g_ctx.sr (possibly rewritten by GDB/process_commands() -- e.g. to change the interrupt mask across a step)
+    "mov.l r1, @(4, r15)\n"          // overwrite the hardware's own pushed SR slot on the stack with r1, so the `rte` below resumes with this (possibly new) SR
+    "mov.l @r2, r1\n"                // r1 = g_ctx.pc (possibly rewritten -- this is how GDB redirects execution, e.g. a step-trap target or a `jump`)
+    "mov.l r1, @r15\n"               // overwrite the hardware's own pushed PC slot with r1, so `rte` resumes at this (possibly new) address
+    "mov.l @(14*4, r0), r14\n"       // restore r14 from g_ctx.r[14] (possibly rewritten by GDB)
+    "mov.l @(13*4, r0), r13\n"       // restore r13
+    "mov.l @(12*4, r0), r12\n"       // restore r12
+    "mov.l @(11*4, r0), r11\n"       // restore r11
+    "mov.l @(10*4, r0), r10\n"       // restore r10
+    "mov.l @(9*4,  r0), r9\n"        // restore r9
+    "mov.l @(8*4,  r0), r8\n"        // restore r8
+    "mov.l @(7*4,  r0), r7\n"        // restore r7
+    "mov.l @(6*4,  r0), r6\n"        // restore r6
+    "mov.l @(5*4,  r0), r5\n"        // restore r5
+    "mov.l @(4*4,  r0), r4\n"        // restore r4
+    "mov.l @(3*4,  r0), r3\n"        // restore r3
+    "mov.l @(2*4,  r0), r2\n"        // restore r2
+    "mov.l @(1*4,  r0), r1\n"        // restore r1
+    // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
     // STILL holds the base pointer to g_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n"
-    "rte\n"
-    "nop\n"
+    "mov.l @r0, r0\n"                // restore r0 itself, last, from g_ctx.r[0] (offset 0) -- r0 is both the value being restored and the pointer used to fetch it, hence "last"
+    "rte\n"                          // return from exception: on the SH-2 this pops SR then PC off the stack -- the very slots we overwrote above, so this resumes at the (possibly GDB-redirected) address with the (possibly GDB-redirected) SR
+    "nop\n"                          // rte's mandatory delay slot -- still executes in the pre-return context before control actually transfers
     ".align 4\n"
-    "1: .long srl_gdbstub_ctx\n"
-    "2: .long srl_gdbstub_process_commands\n"
-    "3: .long srl_gdbstub_thunk_count\n"
+    "1: .long srl_gdbstub_ctx\n"                // literal pool: address of g_ctx
+    "2: .long srl_gdbstub_process_commands\n"   // literal pool: address of process_commands()
+    "3: .long srl_gdbstub_thunk_count\n"        // literal pool: address of g_exception_thunk_count
 );
 
 // Per-exception-family entry trampolines. The SH-2 has no on-chip "cause"
@@ -3524,17 +3462,17 @@ __asm__(
     ".global _srl_gdbstub_illegal_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_illegal_thunk:\n"
-    "mov.l r0, @-r15\n"
-    "mov.l r1, @-r15\n"
-    "mov.l 1f, r0\n"
+    "mov.l r0, @-r15\n"              // push r0 -- only r0/r1 are used as scratch here, and both are restored before falling into the shared thunk, so it sees them untouched
+    "mov.l r1, @-r15\n"              // push r1
+    "mov.l 1f, r0\n"                 // r0 = &g_last_stop_signal (literal pool label 1)
     "mov #4, r1\n"        // SIGILL
-    "mov.b r1, @r0\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r0\n"
-    "bra _srl_gdbstub_exception_thunk\n"
-    "nop\n"
+    "mov.b r1, @r0\n"                // g_last_stop_signal = SIGILL(4) -- tags this halt's reported signal before the shared thunk (which doesn't know which vector fired) takes over
+    "mov.l @r15+, r1\n"              // pop r1 back
+    "mov.l @r15+, r0\n"              // pop r0 back -- r15 is now exactly where the CPU's own exception entry left it, as the shared thunk expects
+    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
+    "nop\n"                          // bra's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_last_stop_signal\n"
+    "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
 );
 
 // NMI (the Saturn's physical Reset button) is asynchronous and, unlike the
@@ -3572,55 +3510,55 @@ __asm__(
     ".global _srl_gdbstub_nmi_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_nmi_thunk:\n"
-    "mov.l r0, @-r15\n"
-    "mov.l r1, @-r15\n"
-    "mov.l r2, @-r15\n"
-    "mov.l 6f, r0\n"
-    "mov.l @r0, r1\n"
-    "add #1, r1\n"
-    "mov.l r1, @r0\n"
-    "mov.l 1f, r0\n"
-    "mov.l @r0, r1\n"
-    "add #1, r1\n"
-    "mov.l r1, @r0\n"
-    "mov r1, r2\n"
-    "mov.l 2f, r1\n"
+    "mov.l r0, @-r15\n"              // push r0 -- r0/r1/r2 are this thunk's scratch registers, all saved/restored around the debounce logic so the shared thunk (or a plain rte, for a swallowed bounce) sees them untouched
+    "mov.l r1, @-r15\n"              // push r1
+    "mov.l r2, @-r15\n"              // push r2
+    "mov.l 6f, r0\n"                 // r0 = &g_nmi_fire_count (label 6)
+    "mov.l @r0, r1\n"                // r1 = current fire count
+    "add #1, r1\n"                   // r1 += 1
+    "mov.l r1, @r0\n"                // g_nmi_fire_count = r1 -- unconditionally counts every edge, bounce or genuine
+    "mov.l 1f, r0\n"                 // r0 = &g_nmi_generation (label 1)
+    "mov.l @r0, r1\n"                // r1 = current generation
+    "add #1, r1\n"                   // r1 += 1 -- this edge claims the next generation number
+    "mov.l r1, @r0\n"                // g_nmi_generation = r1 (publish it)
+    "mov r1, r2\n"                   // r2 = r1 -- remember THIS edge's own generation number, to compare against after the wait
+    "mov.l 2f, r1\n"                 // r1 = 300000 (debounce wait iteration count, label 2)
     "3:\n"
-    "dt r1\n"
-    "bf 3b\n"
-    "mov.l 1f, r0\n"
-    "mov.l @r0, r1\n"
-    "cmp/eq r1, r2\n"
-    "bf 4f\n"
-    "mov.l 7f, r0\n"
-    "mov.l @r0, r1\n"
-    "add #1, r1\n"
-    "mov.l r1, @r0\n"
-    "mov.l 5f, r0\n"
-    "mov #1, r1\n"
-    "mov.b r1, @r0\n"
-    "mov.l @r15+, r2\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r0\n"
-    "bra _srl_gdbstub_exception_thunk\n"
-    "nop\n"
+    "dt r1\n"                        // r1 -= 1; T flag = (r1 == 0)
+    "bf 3b\n"                        // loop back to label 3 while T is false (r1 != 0) -- busy-waits long enough for mechanical switch bounce to settle; a newer edge arriving during this wait re-enters this same thunk from the top as a nested exception, safe since nothing shared is touched yet
+    "mov.l 1f, r0\n"                 // r0 = &g_nmi_generation again
+    "mov.l @r0, r1\n"                // r1 = generation now (possibly bumped again by a nested bounce edge while we waited)
+    "cmp/eq r1, r2\n"                // T = (r1 == r2), i.e. "is the generation still exactly what I set it to?"
+    "bf 4f\n"                        // if NOT equal (a newer edge arrived and moved it on), jump to label 4: this edge was superseded, quietly swallow it
+    "mov.l 7f, r0\n"                 // r0 = &g_nmi_report_count (label 7)
+    "mov.l @r0, r1\n"                // r1 = current report count
+    "add #1, r1\n"                   // r1 += 1
+    "mov.l r1, @r0\n"                // g_nmi_report_count = r1 -- this is the one edge (the last of any bounce train) that actually gets reported
+    "mov.l 5f, r0\n"                 // r0 = &g_is_ctrl_c_stop (label 5)
+    "mov #1, r1\n"                   // r1 = 1
+    "mov.b r1, @r0\n"                // g_is_ctrl_c_stop = true -- report this halt as SIGINT, the same signal Ctrl-C uses, not a generic trap
+    "mov.l @r15+, r2\n"              // pop r2 back
+    "mov.l @r15+, r1\n"              // pop r1 back
+    "mov.l @r15+, r0\n"              // pop r0 back -- restores exact pre-tag CPU state the shared thunk expects
+    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk to actually report the stop
+    "nop\n"                          // bra's mandatory delay slot
     "4:\n"
-    "mov.l 8f, r0\n"
-    "mov.l @r0, r1\n"
-    "add #1, r1\n"
-    "mov.l r1, @r0\n"
-    "mov.l @r15+, r2\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r0\n"
-    "rte\n"
-    "nop\n"
+    "mov.l 8f, r0\n"                 // r0 = &g_nmi_swallow_count (label 8)
+    "mov.l @r0, r1\n"                // r1 = current swallow count
+    "add #1, r1\n"                   // r1 += 1
+    "mov.l r1, @r0\n"                // g_nmi_swallow_count = r1 -- this edge was a bounce superseded by a newer one; counted for diagnostics, nothing else happens
+    "mov.l @r15+, r2\n"              // pop r2 back
+    "mov.l @r15+, r1\n"              // pop r1 back
+    "mov.l @r15+, r0\n"              // pop r0 back
+    "rte\n"                          // return from exception WITHOUT reporting anything to GDB -- g_ctx is never touched, so a bounce train of any length only ever leaves one clean report behind, from whichever edge's wait finished last
+    "nop\n"                          // rte's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_nmi_generation\n"
-    "2: .long 300000\n"
-    "5: .long srl_gdbstub_is_ctrl_c_stop\n"
-    "6: .long srl_gdbstub_nmi_fire_count\n"
-    "7: .long srl_gdbstub_nmi_report_count\n"
-    "8: .long srl_gdbstub_nmi_swallow_count\n"
+    "1: .long srl_gdbstub_nmi_generation\n"    // literal pool: address of g_nmi_generation
+    "2: .long 300000\n"                        // literal pool: debounce busy-wait iteration count
+    "5: .long srl_gdbstub_is_ctrl_c_stop\n"    // literal pool: address of g_is_ctrl_c_stop
+    "6: .long srl_gdbstub_nmi_fire_count\n"    // literal pool: address of g_nmi_fire_count
+    "7: .long srl_gdbstub_nmi_report_count\n"  // literal pool: address of g_nmi_report_count
+    "8: .long srl_gdbstub_nmi_swallow_count\n" // literal pool: address of g_nmi_swallow_count
 );
 
 __asm__(
@@ -3628,17 +3566,17 @@ __asm__(
     ".global _srl_gdbstub_addrerr_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_addrerr_thunk:\n"
-    "mov.l r0, @-r15\n"
-    "mov.l r1, @-r15\n"
-    "mov.l 1f, r0\n"
+    "mov.l r0, @-r15\n"              // push r0 -- same save/restore-around-the-tag pattern as srl_gdbstub_illegal_thunk above
+    "mov.l r1, @-r15\n"              // push r1
+    "mov.l 1f, r0\n"                 // r0 = &g_last_stop_signal (literal pool label 1)
     "mov #10, r1\n"       // SIGBUS
-    "mov.b r1, @r0\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r0\n"
-    "bra _srl_gdbstub_exception_thunk\n"
-    "nop\n"
+    "mov.b r1, @r0\n"                // g_last_stop_signal = SIGBUS(10) -- CPU/DMA address-error family reports as a bus error, not a generic trap
+    "mov.l @r15+, r1\n"              // pop r1 back
+    "mov.l @r15+, r0\n"              // pop r0 back -- restores the exact pre-tag CPU state the shared thunk expects
+    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
+    "nop\n"                          // bra's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_last_stop_signal\n"
+    "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
 );
 
 // Slave-side counterpart of the thunk above, installed by
@@ -3648,97 +3586,102 @@ __asm__(
 // it snapshots into srl_gdbstub_slave_ctx, calls slave_ipi_handler (a plain
 // spin-wait, not the RSP command processor), and counts into
 // srl_gdbstub_slave_ici_count instead of srl_gdbstub_thunk_count.
+// Same instruction-by-instruction commentary as _srl_gdbstub_exception_thunk
+// above (this is that same save/call/restore sequence, byte-for-byte,
+// retargeted at g_slave_ctx / slave_ipi_handler / the ICI counter) -- see
+// that thunk's comments for the full explanation of each step; only the
+// three literal-pool symbols at the bottom differ.
 __asm__(
     ".weak _srl_gdbstub_slave_ici_thunk\n"
     ".global _srl_gdbstub_slave_ici_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_slave_ici_thunk:\n"
-    "mov.l r0, @-r15\n"
-    "stc.l gbr, @-r15\n"
-    "mov.l 1f, r0\n"
-    "mov.l r14, @(14*4, r0)\n"
-    "mov.l r13, @(13*4, r0)\n"
-    "mov.l r12, @(12*4, r0)\n"
-    "mov.l r11, @(11*4, r0)\n"
-    "mov.l r10, @(10*4, r0)\n"
-    "mov.l r9,  @(9*4,  r0)\n"
-    "mov.l r8,  @(8*4,  r0)\n"
-    "mov.l r7,  @(7*4,  r0)\n"
-    "mov.l r6,  @(6*4,  r0)\n"
-    "mov.l r5,  @(5*4,  r0)\n"
-    "mov.l r4,  @(4*4,  r0)\n"
-    "mov.l r3,  @(3*4,  r0)\n"
-    "mov.l r2,  @(2*4,  r0)\n"
-    "mov.l r1,  @(1*4,  r0)\n"
-    "mov r15, r1\n"
-    "add #16, r1\n"
-    "mov.l r1, @(15*4, r0)\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r2\n"
-    "mov.l r2, @r0\n"
-    "mov r0, r2\n"
-    "add #64, r2\n"
-    "mov.l r1, @(2*4, r2)\n"
-    "mov.l @r15, r1\n"
-    "mov.l r1, @r2\n"
-    "mov.l @(4, r15), r1\n"
-    "mov.l r1, @(24, r2)\n"
-    "sts pr, r1\n"
-    "mov.l r1, @(1*4, r2)\n"
-    "stc vbr, r1\n"
-    "mov.l r1, @(3*4, r2)\n"
-    "sts mach, r1\n"
-    "mov.l r1, @(4*4, r2)\n"
-    "sts macl, r1\n"
-    "mov.l r1, @(5*4, r2)\n"
-    "mov.l 3f, r1\n"
-    "mov.l @r1, r2\n"
-    "add #1, r2\n"
-    "mov.l r2, @r1\n"
-    "mov.l 2f, r1\n"
-    "jsr @r1\n"
-    "nop\n"
-    "mov.l 1f, r0\n"
-    "mov r0, r2\n"
-    "add #64, r2\n"
-    "mov.l @(1*4, r2), r1\n"
-    "lds r1, pr\n"
-    "mov.l @(3*4, r2), r1\n"
-    "ldc r1, vbr\n"
-    "mov.l @(4*4, r2), r1\n"
-    "lds r1, mach\n"
-    "mov.l @(5*4, r2), r1\n"
-    "lds r1, macl\n"
-    "mov.l @(2*4, r2), r1\n"
-    "ldc r1, gbr\n"
-    "mov.l @(24, r2), r1\n"
-    "mov.l r1, @(4, r15)\n"
-    "mov.l @r2, r1\n"
-    "mov.l r1, @r15\n"
-    "mov.l @(14*4, r0), r14\n"
-    "mov.l @(13*4, r0), r13\n"
-    "mov.l @(12*4, r0), r12\n"
-    "mov.l @(11*4, r0), r11\n"
-    "mov.l @(10*4, r0), r10\n"
-    "mov.l @(9*4,  r0), r9\n"
-    "mov.l @(8*4,  r0), r8\n"
-    "mov.l @(7*4,  r0), r7\n"
-    "mov.l @(6*4,  r0), r6\n"
-    "mov.l @(5*4,  r0), r5\n"
-    "mov.l @(4*4,  r0), r4\n"
-    "mov.l @(3*4,  r0), r3\n"
-    "mov.l @(2*4,  r0), r2\n"
-    "mov.l @(1*4,  r0), r1\n"
+    "mov.l r0, @-r15\n"              // push r0 -- stash the slave's true pre-exception r0
+    "stc.l gbr, @-r15\n"             // push gbr
+    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx (literal pool label 1)
+    "mov.l r14, @(14*4, r0)\n"       // g_slave_ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n"       // g_slave_ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n"       // g_slave_ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n"       // g_slave_ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n"       // g_slave_ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n"       // g_slave_ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n"       // g_slave_ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n"       // g_slave_ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n"       // g_slave_ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n"       // g_slave_ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n"       // g_slave_ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n"       // g_slave_ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n"       // g_slave_ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n"       // g_slave_ctx.r[1] = r1
+    "mov r15, r1\n"                  // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
+    "add #16, r1\n"                  // r1 = pre-exception SP exactly
+    "mov.l r1, @(15*4, r0)\n"        // g_slave_ctx.r[15] = r1
+    "mov.l @r15+, r1\n"              // pop our gbr push back into r1
+    "mov.l @r15+, r2\n"              // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
+    "mov.l r2, @r0\n"                // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
+    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
+    "mov.l r1, @(2*4, r2)\n"         // g_slave_ctx.gbr = r1
+    "mov.l @r15, r1\n"               // r1 = hardware-pushed PC (peek)
+    "mov.l r1, @r2\n"                // g_slave_ctx.pc = r1
+    "mov.l @(4, r15), r1\n"          // r1 = hardware-pushed SR (peek)
+    "mov.l r1, @(24, r2)\n"          // g_slave_ctx.sr = r1
+    "sts pr, r1\n"                   // r1 = current PR (the interrupted code's own return address)
+    "mov.l r1, @(1*4, r2)\n"         // g_slave_ctx.pr = r1
+    "stc vbr, r1\n"                  // r1 = current VBR
+    "mov.l r1, @(3*4, r2)\n"         // g_slave_ctx.vbr = r1
+    "sts mach, r1\n"                 // r1 = MACH
+    "mov.l r1, @(4*4, r2)\n"         // g_slave_ctx.mach = r1
+    "sts macl, r1\n"                 // r1 = MACL
+    "mov.l r1, @(5*4, r2)\n"         // g_slave_ctx.macl = r1 -- snapshot complete
+    "mov.l 3f, r1\n"                 // r1 = &g_slave_ici_count (literal pool label 3)
+    "mov.l @r1, r2\n"                // r2 = current ICI-entry counter value
+    "add #1, r2\n"                   // r2 += 1
+    "mov.l r2, @r1\n"                // g_slave_ici_count = r2 -- diagnostic: every ICI-driven entry bumps this
+    "mov.l 2f, r1\n"                 // r1 = &slave_ipi_handler (literal pool label 2)
+    "jsr @r1\n"                      // call slave_ipi_handler() -- a plain spin-wait, not the RSP command processor (the slave has no direct link to the debugger)
+    "nop\n"                          // jsr's mandatory delay slot
+    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
+    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"         // r1 = g_slave_ctx.pr
+    "lds r1, pr\n"                   // PR = r1
+    "mov.l @(3*4, r2), r1\n"         // r1 = g_slave_ctx.vbr
+    "ldc r1, vbr\n"                  // VBR = r1
+    "mov.l @(4*4, r2), r1\n"         // r1 = g_slave_ctx.mach
+    "lds r1, mach\n"                 // MACH = r1
+    "mov.l @(5*4, r2), r1\n"         // r1 = g_slave_ctx.macl
+    "lds r1, macl\n"                 // MACL = r1
+    "mov.l @(2*4, r2), r1\n"         // r1 = g_slave_ctx.gbr
+    "ldc r1, gbr\n"                  // GBR = r1
+    "mov.l @(24, r2), r1\n"          // r1 = g_slave_ctx.sr
+    "mov.l r1, @(4, r15)\n"          // overwrite the hardware's pushed SR slot on the stack with r1
+    "mov.l @r2, r1\n"                // r1 = g_slave_ctx.pc
+    "mov.l r1, @r15\n"               // overwrite the hardware's pushed PC slot with r1
+    "mov.l @(14*4, r0), r14\n"       // restore r14 from g_slave_ctx.r[14]
+    "mov.l @(13*4, r0), r13\n"       // restore r13
+    "mov.l @(12*4, r0), r12\n"       // restore r12
+    "mov.l @(11*4, r0), r11\n"       // restore r11
+    "mov.l @(10*4, r0), r10\n"       // restore r10
+    "mov.l @(9*4,  r0), r9\n"        // restore r9
+    "mov.l @(8*4,  r0), r8\n"        // restore r8
+    "mov.l @(7*4,  r0), r7\n"        // restore r7
+    "mov.l @(6*4,  r0), r6\n"        // restore r6
+    "mov.l @(5*4,  r0), r5\n"        // restore r5
+    "mov.l @(4*4,  r0), r4\n"        // restore r4
+    "mov.l @(3*4,  r0), r3\n"        // restore r3
+    "mov.l @(2*4,  r0), r2\n"        // restore r2
+    "mov.l @(1*4,  r0), r1\n"        // restore r1
     // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
     // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n"
-    "rte\n"
-    "nop\n"
+    "mov.l @r0, r0\n"                // restore r0 itself, last, from g_slave_ctx.r[0]
+    "rte\n"                          // return from exception: resumes at the (possibly slave_ipi_handler-redirected) PC/SR just written to the stack
+    "nop\n"                          // rte's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_slave_ctx\n"
-    "2: .long _slave_ipi_handler\n"
-    "3: .long srl_gdbstub_slave_ici_count\n"
+    "1: .long srl_gdbstub_slave_ctx\n"       // literal pool: address of g_slave_ctx
+    "2: .long _slave_ipi_handler\n"          // literal pool: address of slave_ipi_handler()
+    "3: .long srl_gdbstub_slave_ici_count\n" // literal pool: address of g_slave_ici_count
 );
 
 // Slave-side breakpoint thunk, installed by
@@ -3751,95 +3694,100 @@ __asm__(
 // calls slave_breakpoint_handler (the slave's own halt/spin-wait/resume
 // logic, not the master's RSP command processor -- the slave has no direct
 // link to the debugger), and counts into srl_gdbstub_slave_bp_count.
+// Same instruction-by-instruction commentary as _srl_gdbstub_exception_thunk
+// above (byte-for-byte the same save/call/restore sequence, retargeted at
+// g_slave_ctx / slave_breakpoint_handler / the slave breakpoint counter) --
+// see that thunk's comments for the full explanation; only the three
+// literal-pool symbols at the bottom differ from the ICI thunk above.
 __asm__(
     ".weak _srl_gdbstub_slave_illegal_thunk\n"
     ".global _srl_gdbstub_slave_illegal_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_slave_illegal_thunk:\n"
-    "mov.l r0, @-r15\n"
-    "stc.l gbr, @-r15\n"
-    "mov.l 1f, r0\n"
-    "mov.l r14, @(14*4, r0)\n"
-    "mov.l r13, @(13*4, r0)\n"
-    "mov.l r12, @(12*4, r0)\n"
-    "mov.l r11, @(11*4, r0)\n"
-    "mov.l r10, @(10*4, r0)\n"
-    "mov.l r9,  @(9*4,  r0)\n"
-    "mov.l r8,  @(8*4,  r0)\n"
-    "mov.l r7,  @(7*4,  r0)\n"
-    "mov.l r6,  @(6*4,  r0)\n"
-    "mov.l r5,  @(5*4,  r0)\n"
-    "mov.l r4,  @(4*4,  r0)\n"
-    "mov.l r3,  @(3*4,  r0)\n"
-    "mov.l r2,  @(2*4,  r0)\n"
-    "mov.l r1,  @(1*4,  r0)\n"
-    "mov r15, r1\n"
-    "add #16, r1\n"
-    "mov.l r1, @(15*4, r0)\n"
-    "mov.l @r15+, r1\n"
-    "mov.l @r15+, r2\n"
-    "mov.l r2, @r0\n"
-    "mov r0, r2\n"
-    "add #64, r2\n"
-    "mov.l r1, @(2*4, r2)\n"
-    "mov.l @r15, r1\n"
-    "mov.l r1, @r2\n"
-    "mov.l @(4, r15), r1\n"
-    "mov.l r1, @(24, r2)\n"
-    "sts pr, r1\n"
-    "mov.l r1, @(1*4, r2)\n"
-    "stc vbr, r1\n"
-    "mov.l r1, @(3*4, r2)\n"
-    "sts mach, r1\n"
-    "mov.l r1, @(4*4, r2)\n"
-    "sts macl, r1\n"
-    "mov.l r1, @(5*4, r2)\n"
-    "mov.l 3f, r1\n"
-    "mov.l @r1, r2\n"
-    "add #1, r2\n"
-    "mov.l r2, @r1\n"
-    "mov.l 2f, r1\n"
-    "jsr @r1\n"
-    "nop\n"
-    "mov.l 1f, r0\n"
-    "mov r0, r2\n"
-    "add #64, r2\n"
-    "mov.l @(1*4, r2), r1\n"
-    "lds r1, pr\n"
-    "mov.l @(3*4, r2), r1\n"
-    "ldc r1, vbr\n"
-    "mov.l @(4*4, r2), r1\n"
-    "lds r1, mach\n"
-    "mov.l @(5*4, r2), r1\n"
-    "lds r1, macl\n"
-    "mov.l @(2*4, r2), r1\n"
-    "ldc r1, gbr\n"
-    "mov.l @(24, r2), r1\n"
-    "mov.l r1, @(4, r15)\n"
-    "mov.l @r2, r1\n"
-    "mov.l r1, @r15\n"
-    "mov.l @(14*4, r0), r14\n"
-    "mov.l @(13*4, r0), r13\n"
-    "mov.l @(12*4, r0), r12\n"
-    "mov.l @(11*4, r0), r11\n"
-    "mov.l @(10*4, r0), r10\n"
-    "mov.l @(9*4,  r0), r9\n"
-    "mov.l @(8*4,  r0), r8\n"
-    "mov.l @(7*4,  r0), r7\n"
-    "mov.l @(6*4,  r0), r6\n"
-    "mov.l @(5*4,  r0), r5\n"
-    "mov.l @(4*4,  r0), r4\n"
-    "mov.l @(3*4,  r0), r3\n"
-    "mov.l @(2*4,  r0), r2\n"
-    "mov.l @(1*4,  r0), r1\n"
+    "mov.l r0, @-r15\n"              // push r0 -- stash the slave's true pre-exception r0
+    "stc.l gbr, @-r15\n"             // push gbr
+    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx (literal pool label 1)
+    "mov.l r14, @(14*4, r0)\n"       // g_slave_ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n"       // g_slave_ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n"       // g_slave_ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n"       // g_slave_ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n"       // g_slave_ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n"       // g_slave_ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n"       // g_slave_ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n"       // g_slave_ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n"       // g_slave_ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n"       // g_slave_ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n"       // g_slave_ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n"       // g_slave_ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n"       // g_slave_ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n"       // g_slave_ctx.r[1] = r1
+    "mov r15, r1\n"                  // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
+    "add #16, r1\n"                  // r1 = pre-exception SP exactly
+    "mov.l r1, @(15*4, r0)\n"        // g_slave_ctx.r[15] = r1
+    "mov.l @r15+, r1\n"              // pop our gbr push back into r1
+    "mov.l @r15+, r2\n"              // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
+    "mov.l r2, @r0\n"                // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
+    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
+    "mov.l r1, @(2*4, r2)\n"         // g_slave_ctx.gbr = r1
+    "mov.l @r15, r1\n"               // r1 = hardware-pushed PC (peek) -- this is the address of the 0xFFFF breakpoint opcode itself, since Illegal Instruction pushes the faulting instruction's own address
+    "mov.l r1, @r2\n"                // g_slave_ctx.pc = r1
+    "mov.l @(4, r15), r1\n"          // r1 = hardware-pushed SR (peek)
+    "mov.l r1, @(24, r2)\n"          // g_slave_ctx.sr = r1
+    "sts pr, r1\n"                   // r1 = current PR (the interrupted code's own return address)
+    "mov.l r1, @(1*4, r2)\n"         // g_slave_ctx.pr = r1
+    "stc vbr, r1\n"                  // r1 = current VBR
+    "mov.l r1, @(3*4, r2)\n"         // g_slave_ctx.vbr = r1
+    "sts mach, r1\n"                 // r1 = MACH
+    "mov.l r1, @(4*4, r2)\n"         // g_slave_ctx.mach = r1
+    "sts macl, r1\n"                 // r1 = MACL
+    "mov.l r1, @(5*4, r2)\n"         // g_slave_ctx.macl = r1 -- snapshot complete
+    "mov.l 3f, r1\n"                 // r1 = &g_slave_bp_count (literal pool label 3)
+    "mov.l @r1, r2\n"                // r2 = current slave-breakpoint-hit counter value
+    "add #1, r2\n"                   // r2 += 1
+    "mov.l r2, @r1\n"                // g_slave_bp_count = r2 -- diagnostic: every slave breakpoint hit bumps this
+    "mov.l 2f, r1\n"                 // r1 = &slave_breakpoint_handler (literal pool label 2)
+    "jsr @r1\n"                      // call slave_breakpoint_handler() -- the slave's own halt/spin-wait/one-shot-remove/resume logic; the slave has no direct link to the debugger, so this does NOT process RSP commands itself
+    "nop\n"                          // jsr's mandatory delay slot
+    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
+    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"         // r1 = g_slave_ctx.pr
+    "lds r1, pr\n"                   // PR = r1
+    "mov.l @(3*4, r2), r1\n"         // r1 = g_slave_ctx.vbr
+    "ldc r1, vbr\n"                  // VBR = r1
+    "mov.l @(4*4, r2), r1\n"         // r1 = g_slave_ctx.mach
+    "lds r1, mach\n"                 // MACH = r1
+    "mov.l @(5*4, r2), r1\n"         // r1 = g_slave_ctx.macl
+    "lds r1, macl\n"                 // MACL = r1
+    "mov.l @(2*4, r2), r1\n"         // r1 = g_slave_ctx.gbr
+    "ldc r1, gbr\n"                  // GBR = r1
+    "mov.l @(24, r2), r1\n"          // r1 = g_slave_ctx.sr
+    "mov.l r1, @(4, r15)\n"          // overwrite the hardware's pushed SR slot on the stack with r1
+    "mov.l @r2, r1\n"                // r1 = g_slave_ctx.pc -- slave_breakpoint_handler() already advanced this past the 0xFFFF opcode (and restored the original instruction there) before returning, so this resumes just past the breakpoint, not back on top of it
+    "mov.l r1, @r15\n"               // overwrite the hardware's pushed PC slot with r1
+    "mov.l @(14*4, r0), r14\n"       // restore r14 from g_slave_ctx.r[14]
+    "mov.l @(13*4, r0), r13\n"       // restore r13
+    "mov.l @(12*4, r0), r12\n"       // restore r12
+    "mov.l @(11*4, r0), r11\n"       // restore r11
+    "mov.l @(10*4, r0), r10\n"       // restore r10
+    "mov.l @(9*4,  r0), r9\n"        // restore r9
+    "mov.l @(8*4,  r0), r8\n"        // restore r8
+    "mov.l @(7*4,  r0), r7\n"        // restore r7
+    "mov.l @(6*4,  r0), r6\n"        // restore r6
+    "mov.l @(5*4,  r0), r5\n"        // restore r5
+    "mov.l @(4*4,  r0), r4\n"        // restore r4
+    "mov.l @(3*4,  r0), r3\n"        // restore r3
+    "mov.l @(2*4,  r0), r2\n"        // restore r2
+    "mov.l @(1*4,  r0), r1\n"        // restore r1
     // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
     // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n"
-    "rte\n"
-    "nop\n"
+    "mov.l @r0, r0\n"                // restore r0 itself, last, from g_slave_ctx.r[0]
+    "rte\n"                          // return from exception: resumes just past the (now-restored) breakpoint instruction, per the PC written above
+    "nop\n"                          // rte's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_slave_ctx\n"
-    "2: .long _slave_breakpoint_handler\n"
-    "3: .long srl_gdbstub_slave_bp_count\n"
+    "1: .long srl_gdbstub_slave_ctx\n"        // literal pool: address of g_slave_ctx
+    "2: .long _slave_breakpoint_handler\n"    // literal pool: address of slave_breakpoint_handler()
+    "3: .long srl_gdbstub_slave_bp_count\n"   // literal pool: address of g_slave_bp_count
 );

@@ -57,6 +57,74 @@ The `.vscode/tasks.json` file provides these tasks:
 
 > Note: If using Docker, set `"miDebuggerServerAddress": "host.docker.internal:1234"`. Use `sh-elf-gdb` instead of `gdb-multiarch` if that is your installed SH-2 GDB executable.
 
+## 1.2 Debugging with VS Code: A Walkthrough
+
+This walks through an actual debug session using the VS Code UI, rather than
+the CLI `gdb-multiarch` flow in section 3 below (both talk to the exact same
+stub over the exact same `ftx` proxy -- pick whichever fits how you work).
+
+**Prerequisites:** the [C/C++ extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) (`ms-vscode.cpptools`) installed, and `gdb-multiarch` (or `sh-elf-gdb`) + `ftx` on `PATH` (see the host tool checks in section 2).
+
+1. **Power up and get the console ready.** Follow the hardware test flow in
+   section 2 below at least once manually (power cycle, `usbreset`, upload)
+   so you know the physical link is healthy before asking VS Code to manage
+   it for you.
+2. **Open the Run and Debug view** (`Ctrl+Shift+D` / `Cmd+Shift+D`, or the
+   icon in the Activity Bar).
+3. **Pick a configuration** from the dropdown at the top: `Debug - GDB Stub
+   (Debug - GDB Stub)` connects to whatever is already running on the
+   console; `Debug - GDB Stub (Upload + Debug)` builds, uploads, and
+   connects in one go (its `preLaunchTask` is `Upload and Start FTX`, which
+   is why it takes longer to hit the first breakpoint than the other
+   configuration).
+4. **Press F5** (or the green play arrow). VS Code runs the `preLaunchTask`
+   (starting `ftx -g 1234` if it isn't already listening, per
+   `tasks.json`), then connects. Because `stopAtEntry` is `true`, the
+   session immediately halts -- you'll land inside the stub's own
+   `snapshot_polling_context()`, not your own code (see section 3's note on
+   why that's expected: `Poll()` caught you between frames, not at a real
+   breakpoint).
+5. **Set a real breakpoint**: click in the gutter to the left of a line
+   number in `main.cxx` or `debug_triggers.cxx` (a red dot appears), then
+   press **Continue** (the play icon in the debug toolbar, or `F5` again).
+   Try the loop-counter print in `main.cxx`'s main loop for something that
+   hits every frame, or `SteppableFunction()` in `debug_triggers.cxx` for a
+   clean single-step target.
+6. **Step through code** with the toolbar's Step Over / Step Into / Step Out
+   (`F10` / `F11` / `Shift+F11`) -- these map directly to the stub's
+   `step`/`next` implementation described under *Useful GDB Commands* below.
+7. **Inspect variables**: hover over a variable in the editor while stopped,
+   or add it to the **Watch** panel (e.g. `g_testVariable`). Watch
+   expressions aren't limited to named variables -- `*(unsigned short*)0x25F80020`
+   works too, which is exactly how you read hardware registers VS Code can't
+   otherwise show (see the pseudo-register limitation and the VDP1/VDP2
+   register list further down this readme).
+8. **Run `monitor`/other raw GDB commands via the Debug Console**: open it
+   (it's the tab next to Terminal, or auto-opens with the session), and
+   prefix any GDB command with `-exec `. This is how you reach everything
+   under *Useful GDB Commands* below that isn't a toolbar button, e.g.:
+   ```
+   -exec monitor step
+   -exec monitor touch
+   -exec monitor crash illegal
+   -exec monitor regs slave
+   -exec monitor regs vdp
+   -exec monitor trace
+   -exec watch g_testVariable
+   ```
+9. **End the session** with the Stop button (`Shift+F5`) -- this sends a
+   clean `D` (detach), which the stub is guaranteed to recover from (see the
+   `SlaveReleaseGuard` note below) as long as nothing else about the target
+   has wedged first.
+
+> [!TIP]
+> If a session won't connect or breakpoints silently never hit, don't just
+> keep retrying inside VS Code -- fall back to the manual CLI flow in
+> section 3 first. A raw `gdb-multiarch` session gives you the actual wire
+> log and error text VS Code's UI hides, which is usually the fastest way to
+> tell "the stub/hardware is in a bad state, power-cycle" apart from "this
+> specific launch.json setting is wrong."
+
 ## 2. Running on the Saturn (Hardware Test Flow)
 
 To ensure a stable upload and execution environment on real hardware, it is highly recommended to follow the clean hardware state sequence before uploading your payload:

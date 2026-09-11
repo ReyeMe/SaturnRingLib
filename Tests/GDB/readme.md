@@ -189,6 +189,46 @@ a hit noticeably more often than not, including cases where:
   `install_hardware_watchpoint()` and its exception-reporting path is the
   more useful next step.
 
+**3. A slave breakpoint permanently stops further slave dispatch after its
+first hit, for the rest of the boot session -- confirmed, root-caused, and
+NOT YET FIXED (distinct from, and found while investigating, a related
+cache bug that IS fixed).** Two separate things were going on here:
+
+- **Fixed**: a software breakpoint on slave-executed code could silently
+  never fire at all, because the master's cache-purge after patching the
+  0xFFFF opcode only purges its OWN instruction cache -- the SH-2's Cache
+  Control Register is private per-CPU hardware with no bus path between the
+  two CPUs, so the slave kept executing its own stale, cached copy of the
+  original code indefinitely. Fixed in `srl_slave.hpp`'s `SlaveTask()`
+  (the universal per-dispatch wrapper for every `SRL::Slave::ExecuteOnSlave()`
+  call): it now purges the slave's own cache, inline, before running any
+  task -- no cross-CPU dispatch needed since it's already running there.
+  An earlier attempt fixed this from `srl_gdbstub.hpp` instead (dispatching
+  a dedicated purge task at breakpoint-install time); that only worked when
+  the slave happened to be idle at that exact instant, and silently failed
+  the rest of the time when it collided with an already-in-flight dispatch
+  -- see `srl_slave.hpp`'s comment on `SlaveTask()` for the full story.
+- **Confirmed, not fixed**: even with that cache fix, a slave breakpoint
+  reliably fires exactly ONCE per boot. After it's released (the master-side
+  `g_slave_stopped`/`g_slave_resume` handshake verified working correctly),
+  the interrupted `ITask`'s `running` flag never clears back to false --
+  confirmed by directly instrumenting `SlaveTask()` with a dispatch counter:
+  it climbs steadily before the breakpoint fires, then goes completely flat
+  (zero further dispatches over 4+ seconds) right after. Since
+  `SRL::Slave::ExecuteOnSlave()`'s documented, correct usage pattern gates on
+  `!task.IsRunning()` before redispatching (see `main.cxx`), the task that
+  was breakpointed is never dispatched again for the rest of the boot
+  session -- only a power-cycle recovers it. Full root cause not isolated
+  (would need SH-2-assembly-level tracing of `srl_gdbstub_slave_illegal_thunk`'s
+  exact resume/RTE sequence, a separate undertaking from writing test
+  coverage); documented at `slave_breakpoint_handler()` in `srl_gdbstub.hpp`.
+  Practical effect on this suite: `slave breakpoint re-arms after detach`
+  now deterministically demonstrates this bug rather than confirming the
+  `SlaveReleaseGuard` fix it was originally written to regression-test --
+  the master-side release it checks for is confirmed still correct, but the
+  slave-side dispatch it also implicitly depends on is not currently
+  recovering, so this test is expected to fail until that's fixed.
+
 `g_testVariable` is also live, shared target state, not reset between
 tests: each test connects fresh, but the *target* keeps running continuously
 across the whole suite, so a `monitor touch`/`step` queued by one test that
