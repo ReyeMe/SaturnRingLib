@@ -151,12 +151,12 @@ void HandleMonitorCommand(const char* cmd)
     else if (StrEquals(cmd, "touch")) { g_testVariable = g_testVariable + 1; }
     else
     {
-        // "regs slave", "regs vdp", "nmi", and "trace" aren't handled here --
-        // they're intercepted directly in srl_gdbstub.hpp's qRcmd handler (see
-        // send_slave_regs_dump()/send_vdp_regs_dump()/send_nmi_diag_dump()/
-        // send_halt_trace_dump()) and never reach this dispatcher.
+        // "regs slave", "nmi", and "trace" aren't handled here -- they're
+        // intercepted directly in srl_gdbstub.hpp's qRcmd handler (see
+        // send_slave_regs_dump()/send_nmi_diag_dump()/send_halt_trace_dump())
+        // and never reach this dispatcher.
         Log::LogPrint("monitor: unknown command '%s' -- try crash illegal|addr|reserved|"
             "slotillegal|slotreserved|genillegal|dma|ubc|trapa3, step, touch, "
-            "regs slave, regs vdp, nmi, or trace", cmd);
+            "regs slave, nmi, or trace", cmd);
     }
 }

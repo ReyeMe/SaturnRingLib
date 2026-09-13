@@ -96,9 +96,10 @@ stub over the exact same `ftx` proxy -- pick whichever fits how you work).
 7. **Inspect variables**: hover over a variable in the editor while stopped,
    or add it to the **Watch** panel (e.g. `g_testVariable`). Watch
    expressions aren't limited to named variables -- `*(unsigned short*)0x25F80020`
-   works too, which is exactly how you read hardware registers VS Code can't
-   otherwise show (see the pseudo-register limitation and the VDP1/VDP2
-   register list further down this readme).
+   works too, which is exactly how you read VDP1/VDP2 hardware registers --
+   the stub doesn't expose those as named registers at all (see the slave
+   pseudo-register limitation further down this readme, which covers the
+   one register category the stub does try to expose by name).
 8. **Run `monitor`/other raw GDB commands via the Debug Console**: open it
    (it's the tab next to Terminal, or auto-opens with the session), and
    prefix any GDB command with `-exec `. This is how you reach everything
@@ -108,7 +109,6 @@ stub over the exact same `ftx` proxy -- pick whichever fits how you work).
    -exec monitor touch
    -exec monitor crash illegal
    -exec monitor regs slave
-   -exec monitor regs vdp
    -exec monitor trace
    -exec watch g_testVariable
    ```
@@ -234,12 +234,116 @@ That stop location (inside the stub's own `snapshot_polling_context()`) is expec
 - `watch <var>` / `rwatch` / `awatch`: Hardware watchpoints via the SH-2's UBC. Try `watch g_testVariable`, then `continue`, then press D-Pad Down (or `monitor touch`).
 - `set variable <var> = <value>`: Write memory. Try `set variable g_testVariable = 99` then `print g_testVariable`. This also works for arbitrary target addresses, e.g. `set *(unsigned short*)0x25F00042 = 0x1234` to poke a VDP2 CRAM color directly -- **fixed, but worth knowing about**: GDB's `M` packet (which both `set variable` and `set *(T*)addr = val` send) used to be decoded one byte at a time (`hex2mem()`), and VDP RAM (CRAM in particular) does not reliably latch single-byte bus writes -- a 16-bit color write would silently drop its high byte on real hardware (`0xEC63` read back as `0x0063`). The `M` handler now uses `hex2mem_aligned()`, which stores whole 32-/16-bit words where address and length allow, matching the bus cycle width VDP RAM actually needs. Confirmed fixed on real hardware.
 - `Ctrl-C`: Pause the running game (requires the game to periodically call `SRL::GDBStub::Poll()`, which this sample does via `SRL::Core::Synchronize()` every frame).
-- `x/10xh 0x25F80000`: Examine memory directly -- e.g. VDP2 registers (see caveat below).
+- `x/10xh 0x25F80000`: Examine memory directly -- e.g. VDP2 registers, which the stub doesn't expose as named registers at all (see the slave pseudo-register section below for the one register category it does try to expose by name, and why that still needs memory examination too).
 - `monitor <text>`: Sends the text to the target via `qRcmd`, decoded and dispatched by this sample's `HandleMonitorCommand()`. Lets you trigger any of the test paths below without a gamepad -- handy for scripted/headless testing over a raw `ftx -g` connection:
   - `monitor crash illegal|addr|reserved|slotillegal|slotreserved|genillegal|dma|ubc|trapa3` -- same as the B/A/C/X/Y/Z/L/START buttons.
   - `monitor step` -- same as D-Pad Up (`SteppableFunction()`).
   - `monitor touch` -- same as D-Pad Down (increments `g_testVariable`, useful with `watch`).
   - The dispatch only happens once the target resumes (`continue`/detach), and only the *last* `monitor` command sent while stopped takes effect -- send one, `continue`, then repeat, rather than queuing several while paused.
+
+### Tutorial: Changing a Background Tile's Color
+
+This sample's floor (`RBG0`) and ceiling (`NBG1`) are tile-based, paletted
+backgrounds (see `SetupSkyAndFloor()` in `vdp_demo.cxx`) -- each tile pixel
+is an index into a small VDP2 CRAM palette, not a direct color. So "change
+the tile color" means editing that palette entry in CRAM, the same
+mechanism as the CRAM caveat already noted above (`set variable` bullet),
+just walked through end-to-end with real addresses from this sample.
+
+> Both `FLOOR.TGA`/`CEIL.TGA` are loaded from CD if present, but real-hardware
+> testing (see `LoadTextureOrFallback()`'s doc comment in `vdp_demo.cxx`)
+> confirms this sample's usual `ftx -x` direct-RAM run has no disc mounted,
+> so what's actually on screen is the in-memory `CheckerBitmap` fallback --
+> a 2-color palette per plane: index 0 (`colorB`, always hardware-transparent
+> for these planes and therefore never actually seen on screen) and index 1
+> (`colorA`, the tile color you'll see and are changing below).
+
+**1. Find the palette's address.** Each scroll screen's CRAM palette is
+allocated at runtime (`SRL::CRAM::GetFreeBank()` inside `LoadTilemap()`, see
+`srl_vdp2.hpp`), not at a fixed compile-time address, so the reliable way to
+find it is to ask the live target rather than hardcode a guess:
+
+```gdb
+(gdb) print SRL::VDP2::RBG0::TilePalette
+$1 = {data = 0x25f00040 <...>, paletteMode = Paletted16, id = 2}
+(gdb) print SRL::VDP2::NBG1::TilePalette
+$2 = {data = 0x25f00060 <...>, paletteMode = Paletted16, id = 3}
+```
+
+`data` is the CRAM address of palette index 0 (`colorB`) for that screen;
+index 1 (`colorA`, the actual tile color) is 2 bytes further in, since each
+`Types::HighColor` entry is 2 bytes (`srl_cram.hpp`'s `Palette::data` is a
+`HighColor*`, so `data[1]` == `data + 0x2` in raw bytes).
+
+For this exact build, that resolves to two addresses -- hardware-confirmed
+by literally running the `print` commands above (an earlier draft of this
+section guessed `RBG0 -> bank 0, NBG1 -> bank 2` from reading
+`SetupSkyAndFloor()`'s own `SetBankUsedState(1, ...)` call in isolation;
+live readback caught that guess as wrong before it shipped -- see the
+*why* below):
+
+| Screen | `colorA` address (tile color) |
+|---|---|
+| `RBG0` (floor) | `0x25F00042` |
+| `NBG1` (ceiling) | `0x25F00062` |
+
+(`0x25F00042` is the exact address already used as the `M`-packet example
+in the *Useful GDB Commands* list above -- this is what it actually points
+at: the floor's own tile color.)
+
+*Why bank 0 and 1 are both already spoken for by the time RBG0 loads,
+landing it on bank 2 (not 0):* `SRL::VDP2::Initialize()` (`srl_vdp2.hpp`,
+runs during `SRL::Core::Initialize()`, well before `main()`'s own
+`SetupSkyAndFloor()` call) points `SRL::ASCII`'s debug-text font at bank 0
+via `ASCII::SetPalette(0)`, then legitimately claims that same bank through
+the tracked allocator (`GetFreeBank()` + `SetBankUsedState()`) -- so bank 0
+is correctly off-limits before this sample's own code ever runs.
+`SetupSkyAndFloor()` separately reserves bank 1 up front too (its own
+comment attributes this to the ASCII font as well, at its *default*
+`colorBank = 1 << 12`/bank-1 encoding -- true only before that
+`SetPalette(0)` call above overrides it to bank 0; harmless either way,
+since reserving an already-unneeded bank just costs one spare slot, not a
+collision). With 0 and 1 both unavailable, RBG0 gets the next free bank
+(2), then NBG1 gets the one after that (3).
+
+Re-run the `print` commands above after any change to this allocation
+order (`SetupSkyAndFloor()`, `VDP2::Initialize()`, or anything else that
+loads a Paletted16 tilemap before them) -- bank assignment is
+allocation-order-dependent, not a promise these two addresses will always
+hold. That's not a hypothetical caveat: it's exactly how the wrong
+addresses in an earlier draft of this section got caught.
+
+**2. Pick a color value.** CRAM colors here are `HighColor`
+(`srl_color.hpp`), Saturn's native ABGR1555 format: bit 15 = opaque, bits
+10-14 = blue (0-31), bits 5-9 = green (0-31), bits 0-4 = red (0-31) --
+`value = 0x8000 | (blue << 10) | (green << 5) | red`. The floor's default
+red (`HighColor(220, 30, 30)`, i.e. 220>>3=27 red, 30>>3=3 green, 30>>3=3
+blue) packs to `0x8C7B`. Full-saturation blue (`red=0, green=0, blue=31`)
+packs to `0x8000 | (31 << 10)` = `0xFC00`.
+
+**3. Write it.**
+
+```gdb
+(gdb) set *(unsigned short*)0x25F00042 = 0xFC00
+(gdb) x/1xh 0x25F00042
+0x25f00042:     0xfc00
+(gdb) continue
+```
+
+The floor tiles turn blue on the next VDP2 frame -- no reload of the
+tilemap or a re-upload is needed, since the tiles already reference this
+palette slot by index; only the color stored there changed. The same three
+steps apply to the ceiling at `0x25F00062`, or to any other CRAM-backed
+palette entry you locate via step 1's `print SRL::VDP2::<Screen>::TilePalette`
+pattern (`NBG0`/`NBG2`/`NBG3` if your own project uses them).
+
+> [!NOTE]
+> This writes through the same `M`-packet path as `set variable`, so it
+> needs the `hex2mem_aligned()` fix already covered above -- a single
+> 16-bit-aligned write, not two separate byte writes, or the high byte can
+> silently drop on real hardware. `set *(unsigned short*)addr = value` (as
+> used here) already produces one aligned 2-byte write; avoid `set
+> *(unsigned char*)addr = ...` twice in a row for the same color entry.
 
 ### Testing the Slave SH-2 (`SlaveCounterTask`) -- and why `InstallSlaveFreezeHandler()` isn't used here
 
@@ -267,16 +371,15 @@ How it surfaces to GDB: the slave's thunk saves full context into `g_slave_ctx` 
 - **Installing the handler itself is unreliable via the normal blocking dispatch pattern** -- hardware-confirmed: `InstallSlaveExceptionHandler()` completes correctly on the slave (verified via `g_slave_handlers_installed` reading `true`, and via the handler subsequently catching real breakpoints correctly -- see `InstallSlaveExceptionHandler()`'s own `@warning` for the full writeup), but `installExceptionTask.IsRunning()` was observed to never clear on the master side afterward. Root cause: the slave's VBR was found to already be relocated (~`0x06000400`, not `0`) by the time this runs -- presumably by SGL's own `slInitSystem()`/dual-CPU setup -- so the `if (vbr == 0)` guard (written assuming a boot-ROM-default VBR, same as the master's first run) is skipped, and the illegal-instruction vector gets patched directly into that already-live table instead of a fresh copy. That appears to be what disrupts `slSlaveFunc`'s own dispatch-completion signal back to the master. `main.cxx` bounds this specific wait too (`installWait`), for the same reason as the per-frame wait above -- an unconditional wait here would hang `main()` before it ever reaches its loop at all.
 - **Fixed, but worth knowing about**: any RSP exit path from `process_commands()` other than `continue`/`step` (`D` detach, `k` kill, a plain disconnect -- including GDB's own implicit detach at the end of a `-batch` session, which is how this project's own testing scripts often connect) used to leave a slave parked at a breakpoint permanently stuck: the master resumes fine regardless (so `Poll()`/the main loop look completely healthy), but `SlaveCounterTask::Do()` never actually returns, so no further slave jobs are ever dispatched again. `process_commands()` now has a `SlaveReleaseGuard` RAII member that releases a pending slave stop on every exit path, not just `handle_gdb_continue()`/`handle_gdb_step()`. If a slave breakpoint you set once stops firing on later hits, this is very likely why -- power-cycle to confirm, or check `SRL::GDBStub::GetSlaveBreakpointCount()` stays frozen despite further `continue`s.
 
-### Pseudo-registers (VDP1/VDP2/slave SH-2) -- known limitation
+### Slave pseudo-registers -- known limitation
 
-`srl_gdbstub.hpp` advertises VDP1, VDP2, and slave-CPU register state as named pseudo-registers (`$vdp2_bgon`, `$slave_pc`, ...) via `qXfer:features:read`. In practice, **neither `gdb-multiarch` nor `sh-elf-gdb` honor this for the SH architecture** -- both hard-code a fixed register layout and print `warning: Target-supplied registers are not supported by the current architecture`, ignoring the extra names entirely. This isn't fixable from the target side; it's a limitation of GDB's (largely unmaintained) SH port.
+`srl_gdbstub.hpp` advertises slave-CPU register state as named pseudo-registers (`$slave_pc`, `$slave_r0`, ...) via `qXfer:features:read`. In practice, **neither `gdb-multiarch` nor `sh-elf-gdb` honor this for the SH architecture** -- both hard-code a fixed register layout and print `warning: Target-supplied registers are not supported by the current architecture`, ignoring the extra names entirely. This isn't fixable from the target side; it's a limitation of GDB's (largely unmaintained) SH port. `monitor regs slave` is the practical, cross-client way to see this state instead.
 
-The reliable, cross-client way to inspect this state is **ordinary memory examination** at the real hardware address, e.g.:
+VDP1/VDP2 hardware registers are **not** exposed by the stub at all (no pseudo-registers, no `monitor` command) -- **ordinary memory examination** at the real hardware address is the only way to inspect them, e.g.:
 ```gdb
 (gdb) x/1xh 0x25F80020    # VDP2 BGON
 (gdb) x/1xh 0x25D00000    # VDP1 TVMR
 ```
-See the `ExtraRegs[]` array in `srl_gdbstub.hpp` for the full address list.
 
 ### Reset button (NMI) landing inside a VDP1 busy-wait -- known limitation, requires power cycle
 

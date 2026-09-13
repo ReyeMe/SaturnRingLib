@@ -101,7 +101,7 @@ int main()
     SRL::Debug::Print(22, 10, "DOWN: Touch var");
     Log::LogPrint("GDB Stub active, waiting for GDB connection via Poll()");
     Log::LogPrint("monitor commands: crash illegal|addr|reserved|slotillegal|"
-        "slotreserved|genillegal|dma|ubc|trapa3, step, touch, regs slave, regs vdp, nmi, trace");
+        "slotreserved|genillegal|dma|ubc|trapa3, step, touch, regs slave, nmi, trace");
 
     SRL::Core::Synchronize();
     // NOTE: Break() issues trapa #32 which blocks the Saturn in the RSP command loop
@@ -190,7 +190,7 @@ int main()
         SRL::Debug::Print(1, 15, "GDB handlers: %s", SRL::GDBStub::IsHandlersInstalled() ? "installed" : "pending");
         SRL::Debug::Print(1, 16, "GDB thunk count: %u", static_cast<unsigned int>(SRL::GDBStub::GetExceptionThunkCount()));
         SRL::Debug::Print(1, 17, "GDB RX bytes:    %u", static_cast<unsigned int>(SRL::GDBStub::GetRxDetectCount()));
-        SRL::Debug::Print(1, 18, "GDB RX ready:    %u", static_cast<unsigned int>(SRL::GDBStub::GetRxReadyCount()));
+        SRL::Debug::Print(1, 18, "GDB TX bytes:    %u", static_cast<unsigned int>(SRL::GDBStub::GetTxByteCount()));
         SRL::Debug::Print(1, 19, "GDB cmd count:   %u", static_cast<unsigned int>(SRL::GDBStub::g_command_count));
         char lastGdbCmd[26];
         TruncateForDisplay(lastGdbCmd, sizeof(lastGdbCmd),
@@ -198,7 +198,7 @@ int main()
         SRL::Debug::Print(1, 20, "Last GDB cmd: %s", lastGdbCmd);
         SRL::Debug::Print(1, 21, "DevCart probe:   %s", SRL::GDBStub::IsDevCartReady() ? "ok" : "failed");
         SRL::Debug::Print(1, 22, "Port avail:      %s", SRL::GDBStub::IsDevCartPortAvailable() ? "yes" : "no");
-        SRL::Debug::Print(1, 23, "USB_FLAGS:       0x%x", static_cast<unsigned int>(SRL::GDBStub::GetLastUsbFlags()));
+        // Row 23 is intentionally unused (USB_FLAGS removed from the display).
         SRL::Debug::Print(1, 24, "Poll fallback:   %u", static_cast<unsigned int>(SRL::GDBStub::GetPollFallbackCount()));
         SRL::Debug::Print(1, 25, "TestVar (watch me): %d", static_cast<int>(g_testVariable));
         char lastMonitorCmd[22];

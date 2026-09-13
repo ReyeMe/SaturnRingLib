@@ -60,7 +60,7 @@ connects fresh and detaches/closes on its own, so failures don't cascade):
   parked and it would never fire again.
 - **Detach (`D`) / kill (`k`)**: both leave the stub healthy for an
   immediate, independent reconnect.
-- **`monitor` diagnostics**: `regs vdp`, `trace`, `nmi`.
+- **`monitor` diagnostics**: `trace`, `nmi`.
 - **Timeouts**: an idle-but-connected client (several seconds of silence)
   is still served normally afterward; a `continue` left free-running for
   several seconds unattended can still be reclaimed with Ctrl-C.
@@ -142,7 +142,7 @@ Two different things cause the remaining flakiness, and they should not be
 conflated:
 
 **1. The rig itself degrades under this suite's reconnect rate.** Each test
-opens a brand-new `target remote` session (50 of them per run) -- far
+opens a brand-new `target remote` session (49 of them per run) -- far
 heavier, faster churn than this project's normal one-connection-at-a-time
 hardware testing. The `ftx` proxy/USB link has repeatedly been observed to
 degrade partway through a full run the same way it's documented to degrade

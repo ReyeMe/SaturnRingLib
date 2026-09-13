@@ -328,7 +328,7 @@ def test_raw_qsupported(s):
     assert "hwbreak" in reply, reply
 
 
-@test("raw qXfer:features:read returns target.xml describing the SH-2/VDP/slave regs")
+@test("raw qXfer:features:read returns target.xml describing the SH-2/slave regs")
 def test_raw_qxfer(s):
     reply = s.packet("qXfer:features:read:target.xml:0,3fb")
     assert reply[:1] in ("m", "l"), reply
@@ -709,12 +709,6 @@ def test_kill_then_reconnect(s):
 # --------------------------------------------------------------------------
 # Phase 10: monitor diagnostics
 # --------------------------------------------------------------------------
-
-@test("monitor regs vdp reports a VDP1/VDP2 register dump")
-def test_monitor_regs_vdp(s):
-    out = s.cmd("monitor regs vdp", timeout=5)
-    assert re.search(r"[0-9a-fA-F]{4}", out), out
-
 
 @test("monitor trace reports the halt-context snapshot")
 def test_monitor_trace(s):

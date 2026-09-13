@@ -110,6 +110,7 @@ namespace SRL
         inline bool g_handlers_installed = false;
         inline volatile uint32_t g_rx_detect_count = 0;  // incremented each time the stub reads a byte from DevCart RX
         inline volatile uint32_t g_rx_ready_count = 0;   // incremented each time Poll() sees RX data pending
+        inline volatile uint32_t g_tx_byte_count = 0;    // incremented each time the stub writes a byte to DevCart TX
         inline volatile uint32_t g_poll_fallback_count = 0; // incremented when Poll() handles RX without Trap3
         inline bool g_devcart_ready = false;
         inline bool g_devcart_port_available = false;
@@ -1061,6 +1062,7 @@ namespace SRL
                 return false; // disconnected
             }
             *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo) = value;
+            g_tx_byte_count = g_tx_byte_count + 1;
             return true;
         }
 
@@ -1253,315 +1255,7 @@ namespace SRL
 
         // --- Core Handler ---
 
-        enum class ExtraReg : uint32_t {
-            // VDP1 (11 registers, indices 23..33)
-            VDP1_TVMR = 0x25D00000,
-            VDP1_FBCR = 0x25D00002,
-            VDP1_PTMR = 0x25D00004,
-            VDP1_EWDR = 0x25D00006,
-            VDP1_EWLR = 0x25D00008,
-            VDP1_EWRR = 0x25D0000A,
-            VDP1_ENDR = 0x25D0000C,
-            VDP1_RESERVED_0E = 0x25D0000E,
-            VDP1_EDSR = 0x25D00010,
-            VDP1_LOPR = 0x25D00012,
-            VDP1_COPR = 0x25D00014,
-
-            // VDP2 (142 registers, indices 34..175) -- full register set, TVMD..COBB
-            VDP2_TVMD = 0x25F80000,
-            VDP2_EXTEN = 0x25F80002,
-            VDP2_TVSTAT = 0x25F80004,
-            VDP2_VRSIZE = 0x25F80006,
-            VDP2_HCNT = 0x25F80008,
-            VDP2_VCNT = 0x25F8000A,
-            VDP2_RAMCTL = 0x25F8000E,
-            VDP2_CYCA0L = 0x25F80010,
-            VDP2_CYCA0U = 0x25F80012,
-            VDP2_CYCA1L = 0x25F80014,
-            VDP2_CYCA1U = 0x25F80016,
-            VDP2_CYCB0L = 0x25F80018,
-            VDP2_CYCB0U = 0x25F8001A,
-            VDP2_CYCB1L = 0x25F8001C,
-            VDP2_CYCB1U = 0x25F8001E,
-            VDP2_BGON = 0x25F80020,
-            VDP2_MZCTL = 0x25F80022,
-            VDP2_SFSEL = 0x25F80024,
-            VDP2_SFCODE = 0x25F80026,
-            VDP2_CHCTLA = 0x25F80028,
-            VDP2_CHCTLB = 0x25F8002A,
-            VDP2_BMPNA = 0x25F8002C,
-            VDP2_BMPNB = 0x25F8002E,
-            VDP2_PNCN0 = 0x25F80030,
-            VDP2_PNCN1 = 0x25F80032,
-            VDP2_PNCN2 = 0x25F80034,
-            VDP2_PNCN3 = 0x25F80036,
-            VDP2_PNCR = 0x25F80038,
-            VDP2_PLSZ = 0x25F8003A,
-            VDP2_MPOFN = 0x25F8003C,
-            VDP2_MPOFR = 0x25F8003E,
-            VDP2_MPABN0 = 0x25F80040,
-            VDP2_MPCDN0 = 0x25F80042,
-            VDP2_MPABN1 = 0x25F80044,
-            VDP2_MPCDN1 = 0x25F80046,
-            VDP2_MPABN2 = 0x25F80048,
-            VDP2_MPCDN2 = 0x25F8004A,
-            VDP2_MPABN3 = 0x25F8004C,
-            VDP2_MPCDN3 = 0x25F8004E,
-            VDP2_MPABRA = 0x25F80050,
-            VDP2_MPCDRA = 0x25F80052,
-            VDP2_MPEFRA = 0x25F80054,
-            VDP2_MPGHRA = 0x25F80056,
-            VDP2_MPIJRA = 0x25F80058,
-            VDP2_MPKLRA = 0x25F8005A,
-            VDP2_MPMNRA = 0x25F8005C,
-            VDP2_MPOPRA = 0x25F8005E,
-            VDP2_MPABRB = 0x25F80060,
-            VDP2_MPCDRB = 0x25F80062,
-            VDP2_MPEFRB = 0x25F80064,
-            VDP2_MPGHRB = 0x25F80066,
-            VDP2_MPIJRB = 0x25F80068,
-            VDP2_MPKLRB = 0x25F8006A,
-            VDP2_MPMNRB = 0x25F8006C,
-            VDP2_MPOPRB = 0x25F8006E,
-            VDP2_SCXIN0 = 0x25F80070,
-            VDP2_SCXDN0 = 0x25F80072,
-            VDP2_SCYIN0 = 0x25F80074,
-            VDP2_SCYDN0 = 0x25F80076,
-            VDP2_ZMXIN0 = 0x25F80078,
-            VDP2_ZMXDN0 = 0x25F8007A,
-            VDP2_ZMYIN0 = 0x25F8007C,
-            VDP2_ZMYDN0 = 0x25F8007E,
-            VDP2_SCXIN1 = 0x25F80080,
-            VDP2_SCXDN1 = 0x25F80082,
-            VDP2_SCYIN1 = 0x25F80084,
-            VDP2_SCYDN1 = 0x25F80086,
-            VDP2_ZMXIN1 = 0x25F80088,
-            VDP2_ZMXDN1 = 0x25F8008A,
-            VDP2_ZMYIN1 = 0x25F8008C,
-            VDP2_ZMYDN1 = 0x25F8008E,
-            VDP2_SCXN2 = 0x25F80090,
-            VDP2_SCYN2 = 0x25F80092,
-            VDP2_SCXN3 = 0x25F80094,
-            VDP2_SCYN3 = 0x25F80096,
-            VDP2_ZMCTL = 0x25F80098,
-            VDP2_SCRCTL = 0x25F8009A,
-            VDP2_VCSTAU = 0x25F8009C,
-            VDP2_VCSTAL = 0x25F8009E,
-            VDP2_LSTA0U = 0x25F800A0,
-            VDP2_LSTA0L = 0x25F800A2,
-            VDP2_LSTA1U = 0x25F800A4,
-            VDP2_LSTA1L = 0x25F800A6,
-            VDP2_LCTAU = 0x25F800A8,
-            VDP2_LCTAL = 0x25F800AA,
-            VDP2_BKTAU = 0x25F800AC,
-            VDP2_BKTAL = 0x25F800AE,
-            VDP2_RPMD = 0x25F800B0,
-            VDP2_RPRCTL = 0x25F800B2,
-            VDP2_KTCTL = 0x25F800B4,
-            VDP2_KTAOF = 0x25F800B6,
-            VDP2_OVPNRA = 0x25F800B8,
-            VDP2_OVPNRB = 0x25F800BA,
-            VDP2_RPTAU = 0x25F800BC,
-            VDP2_RPTAL = 0x25F800BE,
-            VDP2_WPSX0 = 0x25F800C0,
-            VDP2_WPSY0 = 0x25F800C2,
-            VDP2_WPEX0 = 0x25F800C4,
-            VDP2_WPEY0 = 0x25F800C6,
-            VDP2_WPSX1 = 0x25F800C8,
-            VDP2_WPSY1 = 0x25F800CA,
-            VDP2_WPEX1 = 0x25F800CC,
-            VDP2_WPEY1 = 0x25F800CE,
-            VDP2_WCTLA = 0x25F800D0,
-            VDP2_WCTLB = 0x25F800D2,
-            VDP2_WCTLC = 0x25F800D4,
-            VDP2_WCTLD = 0x25F800D6,
-            VDP2_LWTA0U = 0x25F800D8,
-            VDP2_LWTA0L = 0x25F800DA,
-            VDP2_LWTA1U = 0x25F800DC,
-            VDP2_LWTA1L = 0x25F800DE,
-            VDP2_SPCTL = 0x25F800E0,
-            VDP2_SDCTL = 0x25F800E2,
-            VDP2_CRAOFA = 0x25F800E4,
-            VDP2_CRAOFB = 0x25F800E6,
-            VDP2_LNCLEN = 0x25F800E8,
-            VDP2_SFPRMD = 0x25F800EA,
-            VDP2_CCCTL = 0x25F800EC,
-            VDP2_SFCCMD = 0x25F800EE,
-            VDP2_PRISA = 0x25F800F0,
-            VDP2_PRISB = 0x25F800F2,
-            VDP2_PRISC = 0x25F800F4,
-            VDP2_PRISD = 0x25F800F6,
-            VDP2_PRINA = 0x25F800F8,
-            VDP2_PRINB = 0x25F800FA,
-            VDP2_PRIR = 0x25F800FC,
-            VDP2_CCRSA = 0x25F80100,
-            VDP2_CCRSB = 0x25F80102,
-            VDP2_CCRSC = 0x25F80104,
-            VDP2_CCRSD = 0x25F80106,
-            VDP2_CCRNA = 0x25F80108,
-            VDP2_CCRNB = 0x25F8010A,
-            VDP2_CCRR = 0x25F8010C,
-            VDP2_CCRLB = 0x25F8010E,
-            VDP2_CLOFEN = 0x25F80110,
-            VDP2_CLOFSL = 0x25F80112,
-            VDP2_COAR = 0x25F80114,
-            VDP2_COAG = 0x25F80116,
-            VDP2_COAB = 0x25F80118,
-            VDP2_COBR = 0x25F8011A,
-            VDP2_COBG = 0x25F8011C,
-            VDP2_COBB = 0x25F8011E,
-        };
-
-        static constexpr ExtraReg ExtraRegs[] = {
-            ExtraReg::VDP1_TVMR, ExtraReg::VDP1_FBCR, ExtraReg::VDP1_PTMR, ExtraReg::VDP1_EWDR,
-            ExtraReg::VDP1_EWLR, ExtraReg::VDP1_EWRR, ExtraReg::VDP1_ENDR, ExtraReg::VDP1_RESERVED_0E,
-            ExtraReg::VDP1_EDSR, ExtraReg::VDP1_LOPR, ExtraReg::VDP1_COPR,
-            ExtraReg::VDP2_TVMD,
-            ExtraReg::VDP2_EXTEN,
-            ExtraReg::VDP2_TVSTAT,
-            ExtraReg::VDP2_VRSIZE,
-            ExtraReg::VDP2_HCNT,
-            ExtraReg::VDP2_VCNT,
-            ExtraReg::VDP2_RAMCTL,
-            ExtraReg::VDP2_CYCA0L,
-            ExtraReg::VDP2_CYCA0U,
-            ExtraReg::VDP2_CYCA1L,
-            ExtraReg::VDP2_CYCA1U,
-            ExtraReg::VDP2_CYCB0L,
-            ExtraReg::VDP2_CYCB0U,
-            ExtraReg::VDP2_CYCB1L,
-            ExtraReg::VDP2_CYCB1U,
-            ExtraReg::VDP2_BGON,
-            ExtraReg::VDP2_MZCTL,
-            ExtraReg::VDP2_SFSEL,
-            ExtraReg::VDP2_SFCODE,
-            ExtraReg::VDP2_CHCTLA,
-            ExtraReg::VDP2_CHCTLB,
-            ExtraReg::VDP2_BMPNA,
-            ExtraReg::VDP2_BMPNB,
-            ExtraReg::VDP2_PNCN0,
-            ExtraReg::VDP2_PNCN1,
-            ExtraReg::VDP2_PNCN2,
-            ExtraReg::VDP2_PNCN3,
-            ExtraReg::VDP2_PNCR,
-            ExtraReg::VDP2_PLSZ,
-            ExtraReg::VDP2_MPOFN,
-            ExtraReg::VDP2_MPOFR,
-            ExtraReg::VDP2_MPABN0,
-            ExtraReg::VDP2_MPCDN0,
-            ExtraReg::VDP2_MPABN1,
-            ExtraReg::VDP2_MPCDN1,
-            ExtraReg::VDP2_MPABN2,
-            ExtraReg::VDP2_MPCDN2,
-            ExtraReg::VDP2_MPABN3,
-            ExtraReg::VDP2_MPCDN3,
-            ExtraReg::VDP2_MPABRA,
-            ExtraReg::VDP2_MPCDRA,
-            ExtraReg::VDP2_MPEFRA,
-            ExtraReg::VDP2_MPGHRA,
-            ExtraReg::VDP2_MPIJRA,
-            ExtraReg::VDP2_MPKLRA,
-            ExtraReg::VDP2_MPMNRA,
-            ExtraReg::VDP2_MPOPRA,
-            ExtraReg::VDP2_MPABRB,
-            ExtraReg::VDP2_MPCDRB,
-            ExtraReg::VDP2_MPEFRB,
-            ExtraReg::VDP2_MPGHRB,
-            ExtraReg::VDP2_MPIJRB,
-            ExtraReg::VDP2_MPKLRB,
-            ExtraReg::VDP2_MPMNRB,
-            ExtraReg::VDP2_MPOPRB,
-            ExtraReg::VDP2_SCXIN0,
-            ExtraReg::VDP2_SCXDN0,
-            ExtraReg::VDP2_SCYIN0,
-            ExtraReg::VDP2_SCYDN0,
-            ExtraReg::VDP2_ZMXIN0,
-            ExtraReg::VDP2_ZMXDN0,
-            ExtraReg::VDP2_ZMYIN0,
-            ExtraReg::VDP2_ZMYDN0,
-            ExtraReg::VDP2_SCXIN1,
-            ExtraReg::VDP2_SCXDN1,
-            ExtraReg::VDP2_SCYIN1,
-            ExtraReg::VDP2_SCYDN1,
-            ExtraReg::VDP2_ZMXIN1,
-            ExtraReg::VDP2_ZMXDN1,
-            ExtraReg::VDP2_ZMYIN1,
-            ExtraReg::VDP2_ZMYDN1,
-            ExtraReg::VDP2_SCXN2,
-            ExtraReg::VDP2_SCYN2,
-            ExtraReg::VDP2_SCXN3,
-            ExtraReg::VDP2_SCYN3,
-            ExtraReg::VDP2_ZMCTL,
-            ExtraReg::VDP2_SCRCTL,
-            ExtraReg::VDP2_VCSTAU,
-            ExtraReg::VDP2_VCSTAL,
-            ExtraReg::VDP2_LSTA0U,
-            ExtraReg::VDP2_LSTA0L,
-            ExtraReg::VDP2_LSTA1U,
-            ExtraReg::VDP2_LSTA1L,
-            ExtraReg::VDP2_LCTAU,
-            ExtraReg::VDP2_LCTAL,
-            ExtraReg::VDP2_BKTAU,
-            ExtraReg::VDP2_BKTAL,
-            ExtraReg::VDP2_RPMD,
-            ExtraReg::VDP2_RPRCTL,
-            ExtraReg::VDP2_KTCTL,
-            ExtraReg::VDP2_KTAOF,
-            ExtraReg::VDP2_OVPNRA,
-            ExtraReg::VDP2_OVPNRB,
-            ExtraReg::VDP2_RPTAU,
-            ExtraReg::VDP2_RPTAL,
-            ExtraReg::VDP2_WPSX0,
-            ExtraReg::VDP2_WPSY0,
-            ExtraReg::VDP2_WPEX0,
-            ExtraReg::VDP2_WPEY0,
-            ExtraReg::VDP2_WPSX1,
-            ExtraReg::VDP2_WPSY1,
-            ExtraReg::VDP2_WPEX1,
-            ExtraReg::VDP2_WPEY1,
-            ExtraReg::VDP2_WCTLA,
-            ExtraReg::VDP2_WCTLB,
-            ExtraReg::VDP2_WCTLC,
-            ExtraReg::VDP2_WCTLD,
-            ExtraReg::VDP2_LWTA0U,
-            ExtraReg::VDP2_LWTA0L,
-            ExtraReg::VDP2_LWTA1U,
-            ExtraReg::VDP2_LWTA1L,
-            ExtraReg::VDP2_SPCTL,
-            ExtraReg::VDP2_SDCTL,
-            ExtraReg::VDP2_CRAOFA,
-            ExtraReg::VDP2_CRAOFB,
-            ExtraReg::VDP2_LNCLEN,
-            ExtraReg::VDP2_SFPRMD,
-            ExtraReg::VDP2_CCCTL,
-            ExtraReg::VDP2_SFCCMD,
-            ExtraReg::VDP2_PRISA,
-            ExtraReg::VDP2_PRISB,
-            ExtraReg::VDP2_PRISC,
-            ExtraReg::VDP2_PRISD,
-            ExtraReg::VDP2_PRINA,
-            ExtraReg::VDP2_PRINB,
-            ExtraReg::VDP2_PRIR,
-            ExtraReg::VDP2_CCRSA,
-            ExtraReg::VDP2_CCRSB,
-            ExtraReg::VDP2_CCRSC,
-            ExtraReg::VDP2_CCRSD,
-            ExtraReg::VDP2_CCRNA,
-            ExtraReg::VDP2_CCRNB,
-            ExtraReg::VDP2_CCRR,
-            ExtraReg::VDP2_CCRLB,
-            ExtraReg::VDP2_CLOFEN,
-            ExtraReg::VDP2_CLOFSL,
-            ExtraReg::VDP2_COAR,
-            ExtraReg::VDP2_COAG,
-            ExtraReg::VDP2_COAB,
-            ExtraReg::VDP2_COBR,
-            ExtraReg::VDP2_COBG,
-            ExtraReg::VDP2_COBB,
-        };
-        static constexpr size_t NumExtraRegs = sizeof(ExtraRegs) / sizeof(ExtraRegs[0]);
         static constexpr size_t NumSlaveRegs = 24U;
-        static constexpr size_t TotalPseudoRegs = NumExtraRegs + NumSlaveRegs;
 
         // Empirically confirmed on real hardware (gdb-multiarch 15.1 and this repo's
         // bundled sh-elf-gdb 14.2): both have a HARD-CODED, non-negotiable 268-byte
@@ -1573,11 +1267,10 @@ namespace SRL
         // registers are not supported by the current architecture" and then rejects
         // any 'g' reply whose length does not match its own fixed count exactly --
         // not just longer ones). The default 'g'/'G' packet below therefore pads out
-        // to this fixed size instead of appending the VDP1/VDP2/slave pseudo-registers,
-        // so basic sessions (breakpoints, stepping, core registers, memory) work with
-        // stock GDB. Those pseudo-registers remain reachable via 'p'/'P' with the same
-        // indices (23..), and VDP1/VDP2 registers are always readable as ordinary
-        // memory via 'm' at their real addresses regardless of this limitation.
+        // to this fixed size instead of appending the slave pseudo-registers, so
+        // basic sessions (breakpoints, stepping, core registers, memory) work with
+        // stock GDB. Those pseudo-registers remain reachable via 'p'/'P' with the
+        // same indices (23..) despite this limitation.
         static constexpr size_t GdbFixedShRegisterCount = 67U;
         static constexpr size_t GdbFixedShPaddingRegisters = GdbFixedShRegisterCount - 23U;
 
@@ -1622,59 +1315,6 @@ namespace SRL
 
             pos = append_str(text, pos, "mach="); pos = append_hex(text, pos, g_slave_ctx.mach, 8);
             pos = append_str(text, pos, " macl="); pos = append_hex(text, pos, g_slave_ctx.macl, 8);
-            text[pos++] = '\n';
-
-            send_monitor_text(text, pos);
-        }
-
-        /**
-         * @brief Built-in `monitor regs vdp` command: dumps a curated subset of the
-         * VDP1/VDP2 registers most relevant to sprite/NBG priority and status work
-         * (the same registers this sample's rasterbar/priority debugging touched) to
-         * the GDB console via $O packets. Not the full 153-register ExtraRegs set --
-         * that's far more than is useful in a console dump. Same rationale as
-         * send_slave_regs_dump(): GDB never learns these pseudo-register names, so a
-         * `monitor` command is the practical way to see them.
-         */
-        static inline void send_vdp_regs_dump() {
-            static constexpr const char* kVdp1Names[] = { "tvmr", "fbcr", "ptmr", "edsr", "lopr", "copr" };
-            static constexpr ExtraReg kVdp1Regs[] = {
-                ExtraReg::VDP1_TVMR, ExtraReg::VDP1_FBCR, ExtraReg::VDP1_PTMR,
-                ExtraReg::VDP1_EDSR, ExtraReg::VDP1_LOPR, ExtraReg::VDP1_COPR,
-            };
-            static constexpr const char* kVdp2Names[] = {
-                "tvmd", "exten", "tvstat", "spctl",
-                "prisa", "prisb", "prisc", "prisd", "prina", "prinb", "prir",
-            };
-            static constexpr ExtraReg kVdp2Regs[] = {
-                ExtraReg::VDP2_TVMD, ExtraReg::VDP2_EXTEN, ExtraReg::VDP2_TVSTAT, ExtraReg::VDP2_SPCTL,
-                ExtraReg::VDP2_PRISA, ExtraReg::VDP2_PRISB, ExtraReg::VDP2_PRISC, ExtraReg::VDP2_PRISD,
-                ExtraReg::VDP2_PRINA, ExtraReg::VDP2_PRINB, ExtraReg::VDP2_PRIR,
-            };
-            static constexpr size_t kNumVdp1 = sizeof(kVdp1Regs) / sizeof(kVdp1Regs[0]);
-            static constexpr size_t kNumVdp2 = sizeof(kVdp2Regs) / sizeof(kVdp2Regs[0]);
-
-            char text[320];
-            size_t pos = 0;
-
-            pos = append_str(text, pos, "vdp1: ");
-            for (size_t i = 0; i < kNumVdp1; ++i) {
-                pos = append_str(text, pos, kVdp1Names[i]);
-                text[pos++] = '=';
-                uint16_t val = *reinterpret_cast<volatile uint16_t*>(static_cast<uint32_t>(kVdp1Regs[i]));
-                pos = append_hex(text, pos, val, 4);
-                text[pos++] = ' ';
-            }
-            text[pos++] = '\n';
-
-            pos = append_str(text, pos, "vdp2: ");
-            for (size_t i = 0; i < kNumVdp2; ++i) {
-                pos = append_str(text, pos, kVdp2Names[i]);
-                text[pos++] = '=';
-                uint16_t val = *reinterpret_cast<volatile uint16_t*>(static_cast<uint32_t>(kVdp2Regs[i]));
-                pos = append_hex(text, pos, val, 4);
-                text[pos++] = ' ';
-            }
             text[pos++] = '\n';
 
             send_monitor_text(text, pos);
@@ -2014,185 +1654,30 @@ namespace SRL
                                 "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
                                 "  </feature>\n"
-                                "  <feature name=\"org.sega.saturn.vdp\">\n"
-                                "    <reg name=\"vdp1_tvmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"23\"/>\n"
-                                "    <reg name=\"vdp1_fbcr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"24\"/>\n"
-                                "    <reg name=\"vdp1_ptmr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"25\"/>\n"
-                                "    <reg name=\"vdp1_ewdr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"26\"/>\n"
-                                "    <reg name=\"vdp1_ewlr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"27\"/>\n"
-                                "    <reg name=\"vdp1_ewrr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"28\"/>\n"
-                                "    <reg name=\"vdp1_endr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"29\"/>\n"
-                                "    <reg name=\"vdp1_edsr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"30\"/>\n"
-                                "    <reg name=\"vdp1_lopr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"31\"/>\n"
-                                "    <reg name=\"vdp1_copr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"32\"/>\n"
-                                "    <reg name=\"vdp1_modr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"33\"/>\n"
-                                "    <reg name=\"vdp2_tvmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"34\"/>\n"
-                                "    <reg name=\"vdp2_exten\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"35\"/>\n"
-                                "    <reg name=\"vdp2_tvstat\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"36\"/>\n"
-                                "    <reg name=\"vdp2_vrsize\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"37\"/>\n"
-                                "    <reg name=\"vdp2_hcnt\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"38\"/>\n"
-                                "    <reg name=\"vdp2_vcnt\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"39\"/>\n"
-                                "    <reg name=\"vdp2_ramctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"40\"/>\n"
-                                "    <reg name=\"vdp2_cyca0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"41\"/>\n"
-                                "    <reg name=\"vdp2_cyca0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"42\"/>\n"
-                                "    <reg name=\"vdp2_cyca1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"43\"/>\n"
-                                "    <reg name=\"vdp2_cyca1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"44\"/>\n"
-                                "    <reg name=\"vdp2_cycb0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"45\"/>\n"
-                                "    <reg name=\"vdp2_cycb0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"46\"/>\n"
-                                "    <reg name=\"vdp2_cycb1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"47\"/>\n"
-                                "    <reg name=\"vdp2_cycb1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"48\"/>\n"
-                                "    <reg name=\"vdp2_bgon\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"49\"/>\n"
-                                "    <reg name=\"vdp2_mzctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"50\"/>\n"
-                                "    <reg name=\"vdp2_sfsel\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"51\"/>\n"
-                                "    <reg name=\"vdp2_sfcode\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"52\"/>\n"
-                                "    <reg name=\"vdp2_chctla\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"53\"/>\n"
-                                "    <reg name=\"vdp2_chctlb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"54\"/>\n"
-                                "    <reg name=\"vdp2_bmpna\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"55\"/>\n"
-                                "    <reg name=\"vdp2_bmpnb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"56\"/>\n"
-                                "    <reg name=\"vdp2_pncn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"57\"/>\n"
-                                "    <reg name=\"vdp2_pncn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"58\"/>\n"
-                                "    <reg name=\"vdp2_pncn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"59\"/>\n"
-                                "    <reg name=\"vdp2_pncn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"60\"/>\n"
-                                "    <reg name=\"vdp2_pncr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"61\"/>\n"
-                                "    <reg name=\"vdp2_plsz\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"62\"/>\n"
-                                "    <reg name=\"vdp2_mpofn\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"63\"/>\n"
-                                "    <reg name=\"vdp2_mpofr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"64\"/>\n"
-                                "    <reg name=\"vdp2_mpabn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"65\"/>\n"
-                                "    <reg name=\"vdp2_mpcdn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"66\"/>\n"
-                                "    <reg name=\"vdp2_mpabn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"67\"/>\n"
-                                "    <reg name=\"vdp2_mpcdn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"68\"/>\n"
-                                "    <reg name=\"vdp2_mpabn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"69\"/>\n"
-                                "    <reg name=\"vdp2_mpcdn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"70\"/>\n"
-                                "    <reg name=\"vdp2_mpabn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"71\"/>\n"
-                                "    <reg name=\"vdp2_mpcdn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"72\"/>\n"
-                                "    <reg name=\"vdp2_mpabra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"73\"/>\n"
-                                "    <reg name=\"vdp2_mpcdra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"74\"/>\n"
-                                "    <reg name=\"vdp2_mpefra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"75\"/>\n"
-                                "    <reg name=\"vdp2_mpghra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"76\"/>\n"
-                                "    <reg name=\"vdp2_mpijra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"77\"/>\n"
-                                "    <reg name=\"vdp2_mpklra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"78\"/>\n"
-                                "    <reg name=\"vdp2_mpmnra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"79\"/>\n"
-                                "    <reg name=\"vdp2_mpopra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"80\"/>\n"
-                                "    <reg name=\"vdp2_mpabrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"81\"/>\n"
-                                "    <reg name=\"vdp2_mpcdrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"82\"/>\n"
-                                "    <reg name=\"vdp2_mpefrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"83\"/>\n"
-                                "    <reg name=\"vdp2_mpghrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"84\"/>\n"
-                                "    <reg name=\"vdp2_mpijrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"85\"/>\n"
-                                "    <reg name=\"vdp2_mpklrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"86\"/>\n"
-                                "    <reg name=\"vdp2_mpmnrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"87\"/>\n"
-                                "    <reg name=\"vdp2_mpoprb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"88\"/>\n"
-                                "    <reg name=\"vdp2_scxin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"89\"/>\n"
-                                "    <reg name=\"vdp2_scxdn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"90\"/>\n"
-                                "    <reg name=\"vdp2_scyin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"91\"/>\n"
-                                "    <reg name=\"vdp2_scydn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"92\"/>\n"
-                                "    <reg name=\"vdp2_zmxin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"93\"/>\n"
-                                "    <reg name=\"vdp2_zmxdn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"94\"/>\n"
-                                "    <reg name=\"vdp2_zmyin0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"95\"/>\n"
-                                "    <reg name=\"vdp2_zmydn0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"96\"/>\n"
-                                "    <reg name=\"vdp2_scxin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"97\"/>\n"
-                                "    <reg name=\"vdp2_scxdn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"98\"/>\n"
-                                "    <reg name=\"vdp2_scyin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"99\"/>\n"
-                                "    <reg name=\"vdp2_scydn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"100\"/>\n"
-                                "    <reg name=\"vdp2_zmxin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"101\"/>\n"
-                                "    <reg name=\"vdp2_zmxdn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"102\"/>\n"
-                                "    <reg name=\"vdp2_zmyin1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"103\"/>\n"
-                                "    <reg name=\"vdp2_zmydn1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"104\"/>\n"
-                                "    <reg name=\"vdp2_scxn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"105\"/>\n"
-                                "    <reg name=\"vdp2_scyn2\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"106\"/>\n"
-                                "    <reg name=\"vdp2_scxn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"107\"/>\n"
-                                "    <reg name=\"vdp2_scyn3\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"108\"/>\n"
-                                "    <reg name=\"vdp2_zmctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"109\"/>\n"
-                                "    <reg name=\"vdp2_scrctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"110\"/>\n"
-                                "    <reg name=\"vdp2_vcstau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"111\"/>\n"
-                                "    <reg name=\"vdp2_vcstal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"112\"/>\n"
-                                "    <reg name=\"vdp2_lsta0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"113\"/>\n"
-                                "    <reg name=\"vdp2_lsta0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"114\"/>\n"
-                                "    <reg name=\"vdp2_lsta1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"115\"/>\n"
-                                "    <reg name=\"vdp2_lsta1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"116\"/>\n"
-                                "    <reg name=\"vdp2_lctau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"117\"/>\n"
-                                "    <reg name=\"vdp2_lctal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"118\"/>\n"
-                                "    <reg name=\"vdp2_bktau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"119\"/>\n"
-                                "    <reg name=\"vdp2_bktal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"120\"/>\n"
-                                "    <reg name=\"vdp2_rpmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"121\"/>\n"
-                                "    <reg name=\"vdp2_rprctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"122\"/>\n"
-                                "    <reg name=\"vdp2_ktctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"123\"/>\n"
-                                "    <reg name=\"vdp2_ktaof\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"124\"/>\n"
-                                "    <reg name=\"vdp2_ovpnra\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"125\"/>\n"
-                                "    <reg name=\"vdp2_ovpnrb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"126\"/>\n"
-                                "    <reg name=\"vdp2_rptau\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"127\"/>\n"
-                                "    <reg name=\"vdp2_rptal\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"128\"/>\n"
-                                "    <reg name=\"vdp2_wpsx0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"129\"/>\n"
-                                "    <reg name=\"vdp2_wpsy0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"130\"/>\n"
-                                "    <reg name=\"vdp2_wpex0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"131\"/>\n"
-                                "    <reg name=\"vdp2_wpey0\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"132\"/>\n"
-                                "    <reg name=\"vdp2_wpsx1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"133\"/>\n"
-                                "    <reg name=\"vdp2_wpsy1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"134\"/>\n"
-                                "    <reg name=\"vdp2_wpex1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"135\"/>\n"
-                                "    <reg name=\"vdp2_wpey1\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"136\"/>\n"
-                                "    <reg name=\"vdp2_wctla\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"137\"/>\n"
-                                "    <reg name=\"vdp2_wctlb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"138\"/>\n"
-                                "    <reg name=\"vdp2_wctlc\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"139\"/>\n"
-                                "    <reg name=\"vdp2_wctld\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"140\"/>\n"
-                                "    <reg name=\"vdp2_lwta0u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"141\"/>\n"
-                                "    <reg name=\"vdp2_lwta0l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"142\"/>\n"
-                                "    <reg name=\"vdp2_lwta1u\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"143\"/>\n"
-                                "    <reg name=\"vdp2_lwta1l\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"144\"/>\n"
-                                "    <reg name=\"vdp2_spctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"145\"/>\n"
-                                "    <reg name=\"vdp2_sdctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"146\"/>\n"
-                                "    <reg name=\"vdp2_craofa\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"147\"/>\n"
-                                "    <reg name=\"vdp2_craofb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"148\"/>\n"
-                                "    <reg name=\"vdp2_lnclen\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"149\"/>\n"
-                                "    <reg name=\"vdp2_sfprmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"150\"/>\n"
-                                "    <reg name=\"vdp2_ccctl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"151\"/>\n"
-                                "    <reg name=\"vdp2_sfccmd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"152\"/>\n"
-                                "    <reg name=\"vdp2_prisa\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"153\"/>\n"
-                                "    <reg name=\"vdp2_prisb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"154\"/>\n"
-                                "    <reg name=\"vdp2_prisc\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"155\"/>\n"
-                                "    <reg name=\"vdp2_prisd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"156\"/>\n"
-                                "    <reg name=\"vdp2_prina\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"157\"/>\n"
-                                "    <reg name=\"vdp2_prinb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"158\"/>\n"
-                                "    <reg name=\"vdp2_prir\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"159\"/>\n"
-                                "    <reg name=\"vdp2_ccrsa\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"160\"/>\n"
-                                "    <reg name=\"vdp2_ccrsb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"161\"/>\n"
-                                "    <reg name=\"vdp2_ccrsc\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"162\"/>\n"
-                                "    <reg name=\"vdp2_ccrsd\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"163\"/>\n"
-                                "    <reg name=\"vdp2_ccrna\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"164\"/>\n"
-                                "    <reg name=\"vdp2_ccrnb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"165\"/>\n"
-                                "    <reg name=\"vdp2_ccrr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"166\"/>\n"
-                                "    <reg name=\"vdp2_ccrlb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"167\"/>\n"
-                                "    <reg name=\"vdp2_clofen\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"168\"/>\n"
-                                "    <reg name=\"vdp2_clofsl\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"169\"/>\n"
-                                "    <reg name=\"vdp2_coar\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"170\"/>\n"
-                                "    <reg name=\"vdp2_coag\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"171\"/>\n"
-                                "    <reg name=\"vdp2_coab\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"172\"/>\n"
-                                "    <reg name=\"vdp2_cobr\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"173\"/>\n"
-                                "    <reg name=\"vdp2_cobg\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"174\"/>\n"
-                                "    <reg name=\"vdp2_cobb\" bitsize=\"16\" type=\"uint16\" format=\"hex\" group=\"system\" regnum=\"175\"/>\n"
-                                "  </feature>\n"
                                 "  <feature name=\"org.sega.saturn.slave_sh2\">\n"
-                                "    <reg name=\"slave_r0\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"176\"/>\n"
-                                "    <reg name=\"slave_r1\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"177\"/>\n"
-                                "    <reg name=\"slave_r2\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"178\"/>\n"
-                                "    <reg name=\"slave_r3\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"179\"/>\n"
-                                "    <reg name=\"slave_r4\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"180\"/>\n"
-                                "    <reg name=\"slave_r5\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"181\"/>\n"
-                                "    <reg name=\"slave_r6\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"182\"/>\n"
-                                "    <reg name=\"slave_r7\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"183\"/>\n"
-                                "    <reg name=\"slave_r8\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"184\"/>\n"
-                                "    <reg name=\"slave_r9\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"185\"/>\n"
-                                "    <reg name=\"slave_r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"186\"/>\n"
-                                "    <reg name=\"slave_r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"187\"/>\n"
-                                "    <reg name=\"slave_r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"188\"/>\n"
-                                "    <reg name=\"slave_r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"189\"/>\n"
-                                "    <reg name=\"slave_r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"190\"/>\n"
-                                "    <reg name=\"slave_r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\" regnum=\"191\"/>\n"
-                                "    <reg name=\"slave_pc\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"192\"/>\n"
-                                "    <reg name=\"slave_pr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"193\"/>\n"
-                                "    <reg name=\"slave_gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"194\"/>\n"
-                                "    <reg name=\"slave_vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"195\"/>\n"
-                                "    <reg name=\"slave_mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"196\"/>\n"
-                                "    <reg name=\"slave_macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"197\"/>\n"
-                                "    <reg name=\"slave_sr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"198\"/>\n"
+                                "    <reg name=\"slave_r0\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"23\"/>\n"
+                                "    <reg name=\"slave_r1\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"24\"/>\n"
+                                "    <reg name=\"slave_r2\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"25\"/>\n"
+                                "    <reg name=\"slave_r3\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"26\"/>\n"
+                                "    <reg name=\"slave_r4\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"27\"/>\n"
+                                "    <reg name=\"slave_r5\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"28\"/>\n"
+                                "    <reg name=\"slave_r6\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"29\"/>\n"
+                                "    <reg name=\"slave_r7\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"30\"/>\n"
+                                "    <reg name=\"slave_r8\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"31\"/>\n"
+                                "    <reg name=\"slave_r9\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"32\"/>\n"
+                                "    <reg name=\"slave_r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"33\"/>\n"
+                                "    <reg name=\"slave_r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"34\"/>\n"
+                                "    <reg name=\"slave_r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"35\"/>\n"
+                                "    <reg name=\"slave_r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"36\"/>\n"
+                                "    <reg name=\"slave_r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"37\"/>\n"
+                                "    <reg name=\"slave_r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\" regnum=\"38\"/>\n"
+                                "    <reg name=\"slave_pc\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"39\"/>\n"
+                                "    <reg name=\"slave_pr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"40\"/>\n"
+                                "    <reg name=\"slave_gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"41\"/>\n"
+                                "    <reg name=\"slave_vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"42\"/>\n"
+                                "    <reg name=\"slave_mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"43\"/>\n"
+                                "    <reg name=\"slave_macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"44\"/>\n"
+                                "    <reg name=\"slave_sr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"45\"/>\n"
                                 "  </feature>\n"
                                 "</target>\n";
                             // Send in chunks respecting the requested length from GDB.
@@ -2246,8 +1731,8 @@ namespace SRL
                             packet_put('\0', "QC1", 3);
                         } else if (starts_with(in_buf, "qRcmd,")) {
                             // GDB's `monitor <text>` command: qRcmd,<hex-encoded-ascii-text>.
-                            // Two built-in diagnostic commands ("regs slave", "regs vdp") are
-                            // handled synchronously right here, replying with $O console-output
+                            // A few built-in diagnostic commands ("regs slave", "nmi", "trace")
+                            // are handled synchronously right here, replying with $O console-output
                             // packets (see send_monitor_text) before the final OK, since their
                             // data already lives in memory the stub can read itself. Everything
                             // else is decoded into g_last_monitor_command and the counter is
@@ -2263,9 +1748,6 @@ namespace SRL
                                 g_last_monitor_command[cmd_len] = '\0';
                                 if (str_equals(g_last_monitor_command, "regs slave")) {
                                     send_slave_regs_dump();
-                                    packet_put('\0', "OK", 2);
-                                } else if (str_equals(g_last_monitor_command, "regs vdp")) {
-                                    send_vdp_regs_dump();
                                     packet_put('\0', "OK", 2);
                                 } else if (str_equals(g_last_monitor_command, "nmi")) {
                                     send_nmi_diag_dump();
@@ -2380,9 +1862,8 @@ namespace SRL
 
                             // Pad to the fixed size stock GDB's SH backend requires (see
                             // GdbFixedShPaddingRegisters above) instead of appending the
-                            // VDP1/VDP2/slave pseudo-registers -- those remain reachable via
-                            // 'p'/'P' with the same register indices, and VDP1/VDP2 are always
-                            // readable as ordinary memory via 'm' at their real addresses.
+                            // slave pseudo-registers -- those remain reachable via 'p'/'P'
+                            // with the same register indices despite this limitation.
                             for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i) {
                                 *p_out++ = '0';
                                 *p_out++ = '0';
@@ -2420,20 +1901,13 @@ namespace SRL
                                 break;
                             }
 
-                            if (reg_idx > 22 + TotalPseudoRegs) {
+                            if (reg_idx > 22 + NumSlaveRegs) {
                                 packet_put('\0', "E01", 3);
                                 break;
                             }
 
-                            if (reg_idx >= 23 && reg_idx < 23 + NumExtraRegs) {
-                                uint16_t val = *(volatile uint16_t*)ExtraRegs[reg_idx - 23];
-                                const int tx_len = static_cast<int>(mem2hex((uint8_t*)&val, out_buf, 2) - out_buf);
-                                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                                break;
-                            }
-
-                            if (reg_idx >= 23 + NumExtraRegs) {
-                                const uint32_t slave_reg_index = reg_idx - (23 + NumExtraRegs);
+                            if (reg_idx >= 23) {
+                                const uint32_t slave_reg_index = reg_idx - 23;
                                 uint32_t* reg_ptr = &g_slave_ctx.r[0];
                                 if (slave_reg_index < 16U) reg_ptr = &g_slave_ctx.r[slave_reg_index];
                                 else if (slave_reg_index == 16U) reg_ptr = &g_slave_ctx.pc;
@@ -2476,24 +1950,13 @@ namespace SRL
                             }
                             ptr++; // skip '='
 
-                            if (reg_idx > 22 + TotalPseudoRegs) {
+                            if (reg_idx > 22 + NumSlaveRegs) {
                                 packet_put('\0', "E01", 3);
                                 break;
                             }
 
-                            if (reg_idx >= 23 && reg_idx < 23 + NumExtraRegs) {
-                                uint16_t val = 0;
-                                if (hex2mem(ptr, (uint8_t*)&val, 2)) {
-                                    *(volatile uint16_t*)ExtraRegs[reg_idx - 23] = val;
-                                    packet_put('\0', "OK", 2);
-                                } else {
-                                    packet_put('\0', "E01", 3);
-                                }
-                                break;
-                            }
-
-                            if (reg_idx >= 23 + NumExtraRegs) {
-                                const uint32_t slave_reg_index = reg_idx - (23 + NumExtraRegs);
+                            if (reg_idx >= 23) {
+                                const uint32_t slave_reg_index = reg_idx - 23;
                                 uint32_t* reg_ptr = &g_slave_ctx.r[0];
                                 if (slave_reg_index < 16U) reg_ptr = &g_slave_ctx.r[slave_reg_index];
                                 else if (slave_reg_index == 16U) reg_ptr = &g_slave_ctx.pc;
@@ -2812,6 +2275,7 @@ namespace SRL
             g_exception_thunk_count = 0;
             g_rx_detect_count = 0;
             g_rx_ready_count = 0;
+            g_tx_byte_count = 0;
             g_poll_fallback_count = 0;
             g_last_command[0] = '\0';
             g_unget_char = -1;
@@ -2874,6 +2338,13 @@ namespace SRL
          */
         inline uint32_t GetRxReadyCount() {
             return g_rx_ready_count;
+        }
+
+        /**
+         * @brief Returns how many TX bytes were written by the stub to DevCart.
+         */
+        inline uint32_t GetTxByteCount() {
+            return g_tx_byte_count;
         }
 
         /**
