@@ -4,11 +4,7 @@
         {
             "label": "Compile [DEBUG]",
             "type": "shell",
-            "command": "../../tools/scripts/make.sh",
-            "args": [],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
+            "command": "./compile.bat debug",
             "problemMatcher": [],
             "presentation": {
                 "showReuseMessage": false,
