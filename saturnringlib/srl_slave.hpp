@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 extern "C" {
     #include <sgl.h>  // For slSlaveFunc
 }
@@ -92,6 +94,33 @@ namespace SRL
         */
         inline static void SlaveTask(void * pTask)
         {
+            // Purge this CPU's (the slave's) own instruction cache before
+            // running the task. The SH-2 Cache Control Register at
+            // 0xFFFFFE92 is private on-chip hardware -- there's no bus
+            // path for the OTHER CPU to reach it -- so if the master has
+            // patched this task's code in shared RAM since the slave last
+            // cached it (most commonly: a GDB software breakpoint
+            // installed via srl_gdbstub.hpp's Z0 handler, e.g. `break` on
+            // a function meant to run here), the slave would otherwise
+            // keep executing its own stale, unpatched copy indefinitely.
+            // Hardware-confirmed: a breakpoint's own hit counter never
+            // incremented across a 15-second wait despite the task being
+            // dispatched roughly every 0.25s, until this purge was added.
+            // An earlier attempt fixed this from srl_gdbstub.hpp instead,
+            // dispatching a dedicated purge task via ExecuteOnSlave() at
+            // breakpoint install time -- that only works when the slave
+            // happens to be idle at that exact instant; a purge task
+            // dispatched while the slave is mid-execution of a DIFFERENT
+            // task collides with it and silently never runs (confirmed via
+            // a diagnostic counter that stayed flat across "failed"
+            // attempts). Doing it HERE instead -- inline, at the top of
+            // every dispatch, unconditionally -- needs no cross-CPU
+            // dispatch at all (it's already running on the slave) and is
+            // reached exactly once per task, always before that task's own
+            // code executes, with no timing window to collide with.
+            *reinterpret_cast<volatile uint8_t*>(0xFFFFFE92) |= 0x10;
+            asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory");
+
             Types::ITask * task = static_cast<Types::ITask *>(pTask);
             task->Start();
         }
