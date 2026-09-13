@@ -20,6 +20,7 @@
 
 /[Ss]amples/**/imgui.ini
 /[Ss]amples/**/*.o
+/[Ss]amples/**/*.a
 /[Ss]amples/**/[Bb]uild[Dd]rop/**
 /[Cc]ompiler/msys2/tmp/*
 !/[Cc]ompiler/msys2/tmp/.gitkeep
