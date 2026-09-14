@@ -5,6 +5,12 @@ This sample demonstrates how to use the Sega Saturn GDB stub (`srl_gdbstub.hpp`)
 > [!WARNING]
 > **Real Hardware Required:** This sample utilizes the USB interface on a DevCart with USB support. It **cannot** be run in emulators like Mednafen, Kronos, or Yabause, because they do not emulate this custom USB hardware. Attempting to run this in an emulator will likely cause it to hang or crash.
 
+
+## 0. Get GDB Multiarch
+
+https://static.grumpycoder.net/pixel/gdb-multiarch-windows/
+
+
 ## 1. Building the Sample
 
 To build the sample, open a terminal in this directory and run the provided make script. The `makefile` is already configured to include the `-g` flag (for debug symbols).

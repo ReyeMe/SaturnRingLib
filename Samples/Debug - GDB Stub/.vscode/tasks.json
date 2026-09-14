@@ -4,7 +4,8 @@
         {
             "label": "Compile [DEBUG]",
             "type": "shell",
-            "command": "./compile.bat debug",
+            "command": "./compile.bat",
+            "args": ["debug"],
             "problemMatcher": [],
             "presentation": {
                 "showReuseMessage": false,
@@ -18,8 +19,7 @@
         {
             "label": "Run on Saturn",
             "type": "shell",
-            "command": "../../tools/scripts/run.sh",
-            "args": ["USBGamers"],
+            "command": "./run_on_saturn.bat",
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -37,6 +37,14 @@
             "label": "Upload to Saturn",
             "type": "shell",
             "command": "usbreset \"FT245R USB FIFO\" && sleep 2 && ftx -x ./cd/data/0.bin 0x06004000 && sleep 1",
+            "windows": {
+                "command": "powershell",
+                "args": [
+                    "-NoProfile",
+                    "-Command",
+                    "usbreset.exe 'FT245R USB FIFO'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 2; & ftx.exe '-x' './cd/data/0.bin' '0x06004000'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 1"
+                ]
+            },
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -56,6 +64,14 @@
             "label": "Start FTX",
             "type": "shell",
             "command": "if pgrep -f \"^ftx -g\" > /dev/null && ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" > /dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; timeout 8 gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1; fi",
+            "windows": {
+                "command": "powershell",
+                "args": [
+                    "-NoProfile",
+                    "-Command",
+                    "$listener = Get-NetTCPConnection -LocalPort 1234 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Start-Process -FilePath 'ftx.exe' -ArgumentList '-g','1234','-v' -WindowStyle Hidden; Start-Sleep -Seconds 1; & gdb-multiarch.exe '-batch' '-ex' 'target remote localhost:1234' '-ex' 'detach' '-ex' 'quit' './BuildDrop/Debug_GDBStub.elf'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }"
+                ]
+            },
             "options": {
                 "cwd": "${workspaceFolder}"
             },
@@ -69,6 +85,14 @@
             "label": "Connect to GDB",
             "type": "shell",
             "command": "if pgrep -f \"^ftx -g\" > /dev/null && ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" > /dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; timeout 8 gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1; fi && gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
+            "windows": {
+                "command": "powershell",
+                "args": [
+                    "-NoProfile",
+                    "-Command",
+                    "$listener = Get-NetTCPConnection -LocalPort 1234 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Start-Process -FilePath 'ftx.exe' -ArgumentList '-g','1234','-v' -WindowStyle Hidden; Start-Sleep -Seconds 1; & gdb-multiarch.exe '-batch' '-ex' 'target remote localhost:1234' '-ex' 'detach' '-ex' 'quit' './BuildDrop/Debug_GDBStub.elf'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }; & gdb-multiarch.exe './BuildDrop/Debug_GDBStub.elf' '-ex' 'target remote localhost:1234'"
+                ]
+            },
             "options": {
                 "cwd": "${workspaceFolder}"
             },

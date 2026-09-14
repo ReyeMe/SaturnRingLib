@@ -13,6 +13,12 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "gdb-multiarch",
+            "linux": {
+                "miDebuggerPath": "gdb-multiarch"
+            },
+            "windows": {
+                "miDebuggerPath": "${workspaceFolder}/../../tools/bin/win/gdb-multiarch.exe"
+            },
             "miDebuggerServerAddress": "localhost:1234",
             "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
             "preLaunchTask": "Start FTX",
@@ -49,6 +55,12 @@
             "externalConsole": false,
             "MIMode": "gdb",
             "miDebuggerPath": "gdb-multiarch",
+            "linux": {
+                "miDebuggerPath": "gdb-multiarch"
+            },
+            "windows": {
+                "miDebuggerPath": "${workspaceFolder}/../../tools/bin/win/gdb-multiarch.exe"
+            },
             "miDebuggerServerAddress": "localhost:1234",
             "miDebuggerArgs": "-q -ex \"set architecture sh2\" -ex \"set endian big\"",
             "preLaunchTask": "Upload and Start FTX",
