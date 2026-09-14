@@ -17,7 +17,7 @@ USER_FLAGS = -g -O0
 # built separately there into libslavetask.a, see slavelib/Makefile), so
 # main.cxx's unchanged `#include "slave_counter_task.hpp"` needs this to
 # still resolve.
-SRL_CUSTOM_CCFLAGS = $(USER_FLAGS) -Islavelib
+SRL_CUSTOM_CCFLAGS = $(USER_FLAGS)
 
 # Sound driver specific configuration
 SRL_USE_SGL_SOUND_DRIVER = 0    # Disabled: GDB stub doesn't need audio
@@ -37,20 +37,6 @@ BUILD_DROP = ./BuildDrop
 
 # SRL installation directory
 SRL_INSTALL_ROOT ?= ../..
-
-# Link in slavelib/libslavetask.a (built by pre.makefile's pre_build hook,
-# before this makefile's own compile/link step runs -- see slavelib/Makefile).
-# --whole-archive is required, not optional: SRL_CUSTOM_LDFLAGS is placed
-# ahead of this sample's own .o files on the final link command line (see
-# shared.mk's compile_objects recipe), so at the point the linker reads this
-# .a nothing has referenced SlaveCounterTask's symbols yet -- a plain static
-# archive only pulls in members needed to satisfy *already-pending* undefined
-# symbols, so without --whole-archive the linker would skip it entirely and
-# main.o's later reference to SlaveCounterTask would fail with an undefined
-# reference. --whole-archive forces every member in unconditionally,
-# regardless of ordering; --no-whole-archive scopes that back down so it
-# doesn't also apply to the SGL/system .A libraries linked in afterward.
-SRL_CUSTOM_LDFLAGS = -Wl,--whole-archive ./slavelib/libslavetask.a -Wl,--no-whole-archive
 
 # Find all .c and .cxx files
 SOURCES = $(patsubst ./%,%,$(shell find src/ -name '*.c')) 
