@@ -52,3 +52,18 @@ cd ..
 
 printf "\nSetting permissions\n";
 chmod -R +x $compilerDir
+
+# macOS Apple Silicon: no prebuilt gdb-multiarch is published, so install the
+# Homebrew tap (it compiles GDB from source with --enable-targets=all, which
+# takes a while). The formula installs the binary as `gdb-multiarch` on PATH.
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+  if command -v gdb-multiarch >/dev/null 2>&1; then
+    printf "\ngdb-multiarch already installed, skipping\n"
+  elif ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew not found: install it from https://brew.sh, then run:"
+    echo "  brew tap RetroReversing/gdb-multiarch && brew install gdb-multiarch"
+  else
+    printf "\nInstalling gdb-multiarch (builds from source, this can take a long time)\n"
+    brew tap RetroReversing/gdb-multiarch && brew install gdb-multiarch || echo "gdb-multiarch installation failed!"
+  fi
+fi

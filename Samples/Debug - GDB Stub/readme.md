@@ -8,7 +8,11 @@ This sample demonstrates how to use the Sega Saturn GDB stub (`srl_gdbstub.hpp`)
 
 ## 0. Get GDB Multiarch
 
-https://static.grumpycoder.net/pixel/gdb-multiarch-windows/
+You need a GDB build that supports the SH-2 (`gdb-multiarch`). Running `tools/scripts/getcompiler.sh` (Linux/macOS) or `tools/scripts/getcompiler.ps1` (Windows) from the repo root sets it up where applicable:
+
+- **Windows:** `getcompiler.ps1` downloads gdb-multiarch 15.1 from https://static.grumpycoder.net/pixel/gdb-multiarch-windows/ and installs it to `Compiler/gdb-multiarch/bin/gdb-multiarch.exe`, which is where `launch.json` looks for it.
+- **macOS (Apple Silicon):** no prebuilt binary is published, so `getcompiler.sh` runs `brew tap RetroReversing/gdb-multiarch && brew install gdb-multiarch`. This compiles GDB from source and takes a while. The binary ends up on `PATH` as `gdb-multiarch`.
+- **Linux:** install it from your package manager (e.g. `apt install gdb-multiarch`); `getcompiler.sh` does not install it.
 
 
 ## 1. Building the Sample
@@ -26,7 +30,7 @@ This will produce `./BuildDrop/Debug_GDBStub.elf` (which contains your debug sym
 
 This sample includes a `.vscode` folder with `launch.json` and `tasks.json` for debugging in VS Code.
 
-- `launch.json` connects to the remote GDB stub on `localhost:1234` using `gdb-multiarch`.
+- `launch.json` connects to the remote GDB stub on `localhost:1234` using `gdb-multiarch`. `launch.json` has per-OS `miDebuggerPath` entries (Windows uses the copy under `Compiler/gdb-multiarch/`; Linux uses `gdb-multiarch` from `PATH`; macOS uses `/opt/homebrew/bin/gdb-multiarch`, since VS Code launched from the Dock does not inherit the shell `PATH`). The `tasks.json` tasks also have Linux, Windows and macOS variants.
 - It configures `preLaunchTask` (`Start FTX`) to automatically launch the `ftx` GDB proxy in the background on port 1234 if it is not already running.
 - It loads `./BuildDrop/Debug_GDBStub.elf` and configures SH-2 architecture and big-endian mode before starting the debug session.
 - `sourceFileMap` maps `src` to `${workspaceFolder}/src` so breakpoints resolve correctly.

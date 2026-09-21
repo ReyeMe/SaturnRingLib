@@ -124,7 +124,7 @@ else {
     }
 }
 
-Write-Progress "Installing" -Id 3 -status "Step 1/3: Downloading compiler..." -PercentComplete 0
+Write-Progress "Installing" -Id 3 -status "Step 1/4: Downloading compiler..." -PercentComplete 0
 $tag="gcc_$($args[0])"
 
 if ($args[0].equals("14.2.0")) {
@@ -134,12 +134,29 @@ if ($args[0].equals("14.2.0")) {
 DownloadFile "https://github.com/willll/Saturn-SDK-GCC-SH2/releases/download/$($tag)/sh-gcc-$($args[0]).zip" "$($folderPath)/sh-gcc-$($args[0]).zip"
 
 if ([System.IO.File]::Exists("$($folderPath)/sh-gcc-$($args[0]).zip")) {
-    Write-Progress "Installing" -Id 3 -status "Step 2/3: Extracting compiler..." -PercentComplete 33
+    Write-Progress "Installing" -Id 3 -status "Step 2/4: Extracting compiler..." -PercentComplete 25
     Expand-Archive "$($folderPath)/sh-gcc-$($args[0]).zip" -DestinationPath "$($folderPath)"
-    
-    Write-Progress "Installing" -Id 3 -status "Step 3/3: Cleaning up..." -PercentComplete 66
+
     Remove-Item "$($folderPath)/sh-gcc-$($args[0]).zip" -Force
-    
+
+    # gdb-multiarch (SH-2 capable GDB, used by the VS Code debug configs).
+    # Installed next to the compiler; its DLLs must stay beside gdb-multiarch.exe,
+    # so the whole archive (bin/ + share/) goes into its own folder:
+    # ./Compiler/gdb-multiarch/bin/gdb-multiarch.exe
+    $gdbVersion = "15.1"
+    $gdbZip = "$($folderPath)/gdb-multiarch-$($gdbVersion).zip"
+    Write-Progress "Installing" -Id 3 -status "Step 3/4: Downloading gdb-multiarch $($gdbVersion)..." -PercentComplete 50
+    DownloadFile "https://static.grumpycoder.net/pixel/gdb-multiarch-windows/gdb-multiarch-$($gdbVersion).zip" $gdbZip
+
+    if ([System.IO.File]::Exists($gdbZip)) {
+        Write-Progress "Installing" -Id 3 -status "Step 4/4: Extracting gdb-multiarch..." -PercentComplete 75
+        Expand-Archive $gdbZip -DestinationPath "$($folderPath)/gdb-multiarch"
+        Remove-Item $gdbZip -Force
+    }
+    else {
+        Write-Host "gdb-multiarch download failed! Compiler was installed, but gdb-multiarch was not."
+    }
+
     Write-Progress "Installing" -Id 3 -status "Installation successful!" -Completed
     Write-Host "Installation successful!";
 }
