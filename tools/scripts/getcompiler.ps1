@@ -140,17 +140,22 @@ if ([System.IO.File]::Exists("$($folderPath)/sh-gcc-$($args[0]).zip")) {
     Remove-Item "$($folderPath)/sh-gcc-$($args[0]).zip" -Force
 
     # gdb-multiarch (SH-2 capable GDB, used by the VS Code debug configs).
-    # Installed next to the compiler; its DLLs must stay beside gdb-multiarch.exe,
-    # so the whole archive (bin/ + share/) goes into its own folder:
-    # ./Compiler/gdb-multiarch/bin/gdb-multiarch.exe
+    # Installed with the other host executables (ftx lives in ./tools/bin/win/ftx),
+    # as ./tools/bin/win/gdb-multiarch.exe. The archive's bin/ folder is flattened
+    # into that directory because the DLLs must sit beside gdb-multiarch.exe.
     $gdbVersion = "15.1"
     $gdbZip = "$($folderPath)/gdb-multiarch-$($gdbVersion).zip"
+    $gdbTmp = "$($folderPath)/gdb-multiarch-tmp"
+    $gdbDir = "./tools/bin/win"
     Write-Progress "Installing" -Id 3 -status "Step 3/4: Downloading gdb-multiarch $($gdbVersion)..." -PercentComplete 50
     DownloadFile "https://static.grumpycoder.net/pixel/gdb-multiarch-windows/gdb-multiarch-$($gdbVersion).zip" $gdbZip
 
     if ([System.IO.File]::Exists($gdbZip)) {
         Write-Progress "Installing" -Id 3 -status "Step 4/4: Extracting gdb-multiarch..." -PercentComplete 75
-        Expand-Archive $gdbZip -DestinationPath "$($folderPath)/gdb-multiarch"
+        Expand-Archive $gdbZip -DestinationPath $gdbTmp
+        New-Item -Path $gdbDir -ItemType Directory -Force | Out-Null
+        Copy-Item -Path "$($gdbTmp)/bin/*" -Destination $gdbDir -Force
+        Remove-Item $gdbTmp -Recurse -Force
         Remove-Item $gdbZip -Force
     }
     else {

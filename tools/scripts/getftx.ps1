@@ -151,6 +151,14 @@ if ([System.IO.File]::Exists("$($folderPath)/$($file)")) {
     Copy-Item -Path "$PSScriptRoot/usbreset.ps1" -Destination "$folderPath/usbreset.ps1" -Force
     Set-Content -Path "$folderPath/usbreset.cmd" -Value '@powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0usbreset.ps1" %*'
 
+    # Windows has no stock usbreset.exe: install usbreset.ps1 (see that file) into
+    # ./tools/bin/win/usbreset, plus a usbreset.cmd shim so plain `usbreset` works
+    # from any shell that has that folder on PATH.
+    $usbresetPath = "./tools/bin/win/usbreset"
+    New-Item -Path $usbresetPath -ItemType Directory -Force | Out-Null
+    Copy-Item -Path "$PSScriptRoot/usbreset.ps1" -Destination "$usbresetPath/usbreset.ps1" -Force
+    Set-Content -Path "$usbresetPath/usbreset.cmd" -Value '@powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0usbreset.ps1" %*'
+
     Write-Progress "Installing ftx" -Id 3 -status "Installation successful!" -Completed
     Write-Host "ftx installation successful!";
 }

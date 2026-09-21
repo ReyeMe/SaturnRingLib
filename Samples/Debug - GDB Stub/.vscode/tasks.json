@@ -5,7 +5,9 @@
             "label": "Compile [DEBUG]",
             "type": "shell",
             "command": "./compile.bat",
-            "args": ["debug"],
+            "args": [
+                "debug"
+            ],
             "problemMatcher": [],
             "presentation": {
                 "showReuseMessage": false,
@@ -42,8 +44,23 @@
                 "args": [
                     "-NoProfile",
                     "-Command",
-                    "usbreset.exe 'FT245R USB FIFO'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 2; & ftx.exe '-x' './cd/data/0.bin' '0x06004000'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 1"
-                ]
+                    "usbreset.cmd 'FT245R USB FIFO'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 2; & ftx.exe '-x' './cd/data/0.bin' '0x06004000'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 1"
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "${workspaceFolder}/../../tools/bin/win/ftx;${workspaceFolder}/../../tools/bin/win/usbreset;${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "command": "usbreset 0x0403:0x6001 || echo 'usbreset failed (may need sudo); continuing'; sleep 2; ftx -x ./cd/data/0.bin 0x06004000 && sleep 1",
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "/opt/homebrew/bin:/usr/local/bin:${workspaceFolder}/../../tools/bin/mac/ftx:${workspaceFolder}/../../tools/bin/mac/usbreset:${env:PATH}"
+                    }
+                }
             },
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -52,12 +69,23 @@
             "presentation": {
                 "showReuseMessage": false,
                 "clear": true
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "${workspaceFolder}/../../tools/bin/lin/ftx:${env:PATH}"
+                    }
+                }
             }
         },
         {
             "label": "Upload and Start FTX",
             "dependsOrder": "sequence",
-            "dependsOn": ["Upload to Saturn", "Start FTX"],
+            "dependsOn": [
+                "Upload to Saturn",
+                "Start FTX"
+            ],
             "problemMatcher": []
         },
         {
@@ -70,7 +98,22 @@
                     "-NoProfile",
                     "-Command",
                     "$listener = Get-NetTCPConnection -LocalPort 1234 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Start-Process -FilePath 'ftx.exe' -ArgumentList '-g','1234','-v' -WindowStyle Hidden; Start-Sleep -Seconds 1; & gdb-multiarch.exe '-batch' '-ex' 'target remote localhost:1234' '-ex' 'detach' '-ex' 'quit' './BuildDrop/Debug_GDBStub.elf'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }"
-                ]
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "${workspaceFolder}/../../tools/bin/win/ftx;${workspaceFolder}/../../tools/bin/win/usbreset;${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "command": "if pgrep -f \"^ftx -g\" >/dev/null && ! nc -z localhost 1234 >/dev/null 2>&1; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" >/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; perl -e 'alarm 8; exec @ARGV' gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf >/dev/null 2>&1; fi",
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "/opt/homebrew/bin:/usr/local/bin:${workspaceFolder}/../../tools/bin/mac/ftx:${workspaceFolder}/../../tools/bin/mac/usbreset:${env:PATH}"
+                    }
+                }
             },
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -79,6 +122,20 @@
             "presentation": {
                 "showReuseMessage": false,
                 "clear": true
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "${workspaceFolder}/../../tools/bin/lin/ftx:${env:PATH}"
+                    },
+                    "shell": {
+                        "executable": "bash",
+                        "args": [
+                            "-c"
+                        ]
+                    }
+                }
             }
         },
         {
@@ -91,7 +148,22 @@
                     "-NoProfile",
                     "-Command",
                     "$listener = Get-NetTCPConnection -LocalPort 1234 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Start-Process -FilePath 'ftx.exe' -ArgumentList '-g','1234','-v' -WindowStyle Hidden; Start-Sleep -Seconds 1; & gdb-multiarch.exe '-batch' '-ex' 'target remote localhost:1234' '-ex' 'detach' '-ex' 'quit' './BuildDrop/Debug_GDBStub.elf'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }; & gdb-multiarch.exe './BuildDrop/Debug_GDBStub.elf' '-ex' 'target remote localhost:1234'"
-                ]
+                ],
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "${workspaceFolder}/../../tools/bin/win/ftx;${workspaceFolder}/../../tools/bin/win/usbreset;${env:PATH}"
+                    }
+                }
+            },
+            "osx": {
+                "command": "if pgrep -f \"^ftx -g\" >/dev/null && ! nc -z localhost 1234 >/dev/null 2>&1; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" >/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; perl -e 'alarm 8; exec @ARGV' gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf >/dev/null 2>&1; fi ; gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "/opt/homebrew/bin:/usr/local/bin:${workspaceFolder}/../../tools/bin/mac/ftx:${workspaceFolder}/../../tools/bin/mac/usbreset:${env:PATH}"
+                    }
+                }
             },
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -102,6 +174,20 @@
                 "clear": true,
                 "focus": true,
                 "panel": "shared"
+            },
+            "linux": {
+                "options": {
+                    "cwd": "${workspaceFolder}",
+                    "env": {
+                        "PATH": "${workspaceFolder}/../../tools/bin/lin/ftx:${env:PATH}"
+                    },
+                    "shell": {
+                        "executable": "bash",
+                        "args": [
+                            "-c"
+                        ]
+                    }
+                }
             }
         }
     ]

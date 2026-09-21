@@ -59,7 +59,7 @@ fi
 mv $file ftx
 
 # macOS has no built-in usbreset (it is a Linux usbutils tool), so also install
-# dzatona/usbreset-mac next to ftx. It resets by VID:PID (FT245R = 0x0403:0x6001)
+# dzatona/usbreset-mac into tools/bin/mac/usbreset. It resets by VID:PID (FT245R = 0x0403:0x6001)
 # and usually needs sudo.
 if [ "$OS" = "Darwin" ]; then
     usbresetVersion="2.0.0"
@@ -75,17 +75,20 @@ if [ "$OS" = "Darwin" ]; then
         usbresetTar="usbreset-${usbresetVersion}-${usbresetArch}.tar.gz"
         usbresetUrl="https://github.com/dzatona/usbreset-mac/releases/download/v${usbresetVersion}/${usbresetTar}"
         printf "\nInstalling usbreset ${usbresetVersion} (${usbresetArch})\n"
+        usbresetDir="$(pwd)/../usbreset"
+        mkdir -p "$usbresetDir" && pushd "$usbresetDir" >/dev/null
         curl -fsSL -O "$usbresetUrl" && curl -fsSL -O "$usbresetUrl.sha256"
         expected=$(awk '{print $1}' "$usbresetTar.sha256" 2>/dev/null)
         actual=$(shasum -a 256 "$usbresetTar" 2>/dev/null | awk '{print $1}')
         if [ -n "$expected" ] && [ "$expected" = "$actual" ]; then
             usbresetTmp=$(mktemp -d)
-            tar xzf "$usbresetTar" -C "$usbresetTmp" && mv "$usbresetTmp/usbreset" ./usbreset
+            tar xzf "$usbresetTar" -C "$usbresetTmp" && mv "$usbresetTmp/usbreset" "$usbresetDir/usbreset" && chmod +x "$usbresetDir/usbreset"
             rm -rf "$usbresetTmp"
         else
             echo "usbreset download or checksum verification failed!"
         fi
         rm -f "$usbresetTar" "$usbresetTar.sha256"
+        popd >/dev/null
     fi
 fi
 
