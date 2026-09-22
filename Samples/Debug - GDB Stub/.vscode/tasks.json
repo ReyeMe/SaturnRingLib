@@ -38,20 +38,20 @@
         {
             "label": "Upload to Saturn",
             "type": "shell",
-            "command": "usbreset \"FT245R USB FIFO\" && sleep 2 && ftx -x ./cd/data/0.bin 0x06004000 && sleep 1",
+            "command": "bash ./../../tools/scripts/upload_to_saturn.sh",
             "windows": {
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
-                    "-Command",
-                    "& './../../tools/bin/win/ftx/usbreset.cmd' 'FT245R USB FIFO'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 2; & './../../tools/bin/win/ftx/ftx.exe' '-x' './cd/data/0.bin' '0x06004000'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Start-Sleep -Seconds 1"
+                    "-File",
+                    "./../../tools/scripts/upload_to_saturn.ps1"
                 ],
                 "options": {
                     "cwd": "${workspaceFolder}"
                 }
             },
             "osx": {
-                "command": "usbreset 0x0403:0x6001 || echo 'usbreset failed (may need sudo); continuing'; sleep 2; ftx -x ./cd/data/0.bin 0x06004000 && sleep 1",
+                "command": "bash ./../../tools/scripts/upload_to_saturn.sh",
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "env": {
@@ -88,20 +88,20 @@
         {
             "label": "Start FTX",
             "type": "shell",
-            "command": "if pgrep -f \"^ftx -g\" > /dev/null && ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" > /dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; timeout 8 gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1 || true; fi",
+            "command": "bash ./../../tools/scripts/start_ftx.sh",
             "windows": {
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
-                    "-Command",
-                    "$listener = Get-NetTCPConnection -LocalPort 1234 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Start-Process -FilePath './../../tools/bin/win/ftx/ftx.exe' -ArgumentList '-g','1234','-v' -WindowStyle Hidden; Start-Sleep -Seconds 1; & './../../tools/bin/win/gdb-multiarch.exe' '-batch' '-ex' 'target remote localhost:1234' '-ex' 'detach' '-ex' 'quit' './BuildDrop/Debug_GDBStub.elf'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }"
+                    "-File",
+                    "./../../tools/scripts/start_ftx.ps1"
                 ],
                 "options": {
                     "cwd": "${workspaceFolder}"
                 }
             },
             "osx": {
-                "command": "if pgrep -f \"^ftx -g\" >/dev/null && ! nc -z localhost 1234 >/dev/null 2>&1; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" >/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; perl -e 'alarm 8; exec @ARGV' gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf >/dev/null 2>&1 || true; fi",
+                "command": "bash ./../../tools/scripts/start_ftx.sh",
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "env": {
@@ -122,12 +122,6 @@
                     "cwd": "${workspaceFolder}",
                     "env": {
                         "PATH": "${workspaceFolder}/../../tools/bin/lin/ftx:${env:PATH}"
-                    },
-                    "shell": {
-                        "executable": "bash",
-                        "args": [
-                            "-c"
-                        ]
                     }
                 }
             }
@@ -135,20 +129,20 @@
         {
             "label": "Connect to GDB",
             "type": "shell",
-            "command": "if pgrep -f \"^ftx -g\" > /dev/null && ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" > /dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; timeout 8 gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1 || true; fi; gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
+            "command": "bash ./../../tools/scripts/connect_gdb.sh",
             "windows": {
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
-                    "-Command",
-                    "$listener = Get-NetTCPConnection -LocalPort 1234 -State Listen -ErrorAction SilentlyContinue; if (-not $listener) { Start-Process -FilePath './../../tools/bin/win/ftx/ftx.exe' -ArgumentList '-g','1234','-v' -WindowStyle Hidden; Start-Sleep -Seconds 1; & './../../tools/bin/win/gdb-multiarch.exe' '-batch' '-ex' 'target remote localhost:1234' '-ex' 'detach' '-ex' 'quit' './BuildDrop/Debug_GDBStub.elf'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }; & './../../tools/bin/win/gdb-multiarch.exe' './BuildDrop/Debug_GDBStub.elf' '-ex' 'target remote localhost:1234'"
+                    "-File",
+                    "./../../tools/scripts/connect_gdb.ps1"
                 ],
                 "options": {
                     "cwd": "${workspaceFolder}"
                 }
             },
             "osx": {
-                "command": "if pgrep -f \"^ftx -g\" >/dev/null && ! nc -z localhost 1234 >/dev/null 2>&1; then pkill -9 -f \"^ftx -g\"; sleep 0.5; fi; if ! pgrep -f \"^ftx -g\" >/dev/null; then nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 & sleep 1; perl -e 'alarm 8; exec @ARGV' gdb-multiarch -batch -ex \"target remote localhost:1234\" -ex \"detach\" -ex \"quit\" ./BuildDrop/Debug_GDBStub.elf >/dev/null 2>&1 || true; fi ; gdb-multiarch ./BuildDrop/Debug_GDBStub.elf -ex \"target remote localhost:1234\"",
+                "command": "bash ./../../tools/scripts/connect_gdb.sh",
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "env": {
@@ -171,12 +165,6 @@
                     "cwd": "${workspaceFolder}",
                     "env": {
                         "PATH": "${workspaceFolder}/../../tools/bin/lin/ftx:${env:PATH}"
-                    },
-                    "shell": {
-                        "executable": "bash",
-                        "args": [
-                            "-c"
-                        ]
                     }
                 }
             }
