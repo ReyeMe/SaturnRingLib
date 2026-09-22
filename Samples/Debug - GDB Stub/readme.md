@@ -143,7 +143,7 @@ To ensure a stable upload and execution environment on real hardware, it is high
 
 Make sure these tools are installed and available in `PATH` before starting:
 
-- [`usbreset`](https://man7.org/linux/man-pages/man1/usbreset.1.html) (reset FT245R endpoint)
+- [`usbreset`](https://man7.org/linux/man-pages/man1/usbreset.1.html) (reset FT245R endpoint). On Windows, `getftx.ps1` installs a `usbreset` equivalent to `tools/bin/win/usbreset/` -- resetting a USB device needs Administrator rights, so an unelevated call to it triggers one UAC prompt rather than requiring the whole shell/VS Code to run elevated.
 
 ### Required Host Tools
 
