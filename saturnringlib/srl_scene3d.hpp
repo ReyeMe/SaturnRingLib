@@ -44,10 +44,10 @@ namespace SRL
             {
                 return slPutPolygonS(mesh.SglPtr());
             }
-            
+
             return slPutPolygon(mesh.SglPtr());
         }
-        
+
         /** @brief Draw SRL::Types::Mesh with orthographic projection
          * @note Light source calculations and clipping cannot be performed with this function.
          * @param mesh SRL::Types::Mesh to draw
@@ -75,7 +75,7 @@ namespace SRL
          * #define MAX_MODEL_VERT 100
          * SRL::Types::HighColor workTable[MAX_POLYGON << 2];
          * uint8 vertWork[MAX_MODEL_VERT];
-         * 
+         *
          * SRL::Scene3D::LightInitGouraudTable(0, vertWork, workTable, MAX_POLYGON);
          * @endcode
          * @param gouraudRamOffset Relative address to the first entry from which to write light gouraud data in SRL::VDP1::GetGouraudTable(). Using 0 here would mean first entry, 2 is second entry in the table, where each entry is 4 color long.
@@ -85,7 +85,7 @@ namespace SRL
          */
         static void LightInitGouraudTable(uint32_t gouraudRamOffset, uint8_t* vertexCalculationBuffer, Types::HighColor* tableStorage, uint32_t maxPolygons)
         {
-            slInitGouraud((GOURAUDTBL*)tableStorage, maxPolygons, 0xe000 + (gouraudRamOffset << 2), vertexCalculationBuffer);
+            slInitGouraud((GOURAUDTBL*)tableStorage, maxPolygons, 0xe000 + (gouraudRamOffset << 2) , vertexCalculationBuffer);
         }
 
         /** @brief Set custom light gouraud table. Affects quads with SRL::Types::Attribute::DisplayOption::EnableGouraud option set
@@ -145,7 +145,7 @@ namespace SRL
         }
 
         /** @brief Set directional light source
-         * @note If scaling operation is being performed on current matrix, normal vector of the polygon is also being affected,thus brightness will change accordingly.  
+         * @note If scaling operation is being performed on current matrix, normal vector of the polygon is also being affected,thus brightness will change accordingly.
          * @param direction Light direction unit vector
          */
         static void SetDirectionalLight(const SRL::Math::Types::Vector3D& direction)
@@ -169,7 +169,7 @@ namespace SRL
         {
             slSetDepthTbl((uint16_t*)table, 0xe000 + (gouraudRamOffset << 2), 32);
         }
-        
+
         /** @brief Set the range from the near distance to the depth in steps
          * @param near Near distance
          * @param depth Depth value as power of two (eg: setting it to 5 will result in 32)
@@ -299,7 +299,7 @@ namespace SRL
             slPushUnitMatrix();
         }
 
-        /** @brief Pop matrix from top of the stack and set it as current 
+        /** @brief Pop matrix from top of the stack and set it as current
          */
         inline static void PopMatrix()
         {
@@ -391,7 +391,7 @@ namespace SRL
         {
             slRotXSC(sin.RawValue(), cos.RawValue());
         }
-        
+
         /** @brief Rotate current matrix around Y axis by specific angle
          * @param angle Rotation angle
          */
@@ -408,7 +408,7 @@ namespace SRL
         {
             slRotYSC(sin.RawValue(), cos.RawValue());
         }
-        
+
         /** @brief Rotate current matrix around Z axis by specific angle
          * @param angle Rotation angle
          */
@@ -425,7 +425,7 @@ namespace SRL
         {
             slRotZSC(sin.RawValue(), cos.RawValue());
         }
-        
+
         /** @brief Scale current transformation matrix
          * @param x Scale factor on X axis
          * @param y Scale factor on Y axis
@@ -453,7 +453,7 @@ namespace SRL
         }
 
         /** @brief Translate current transformation matrix
-         * @param x Translation delta on X axis 
+         * @param x Translation delta on X axis
          * @param y Translation delta on Y axis
          * @param z Translation delta on Z axis
          */

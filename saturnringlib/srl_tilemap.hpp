@@ -115,10 +115,10 @@ namespace SRL::Tilemap
         }
     };
 
-    /** @brief Unsigned 8 bit coordinates for tiles withing a page of a tilemap
+    /** @brief Unsigned 16 bit coordinates for tiles withing a page of a tilemap
      * @note Coordinates [0,0] represent top left corner of a page (same as Print coordinates)
      * @note Coordinates are in tile units, which can be either 8x8 or 16x16 pixels.
-     * Max allowed coordinates in a page vary by Tile Size (64 for 8x8 tiles, 32 for 16x16)
+     * Max coordinates in a page vary by Tile Size (64 for 8x8 tiles, 32 for 16x16)
      */
     struct Coord
     {

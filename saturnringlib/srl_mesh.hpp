@@ -39,7 +39,7 @@ namespace SRL::Types
 
             /** @brief Use the average position of 4 points
              */
-            Center = SORT_CEN
+            Center = SORT_CEN  
         };
 
         /** @brief Quad display mode

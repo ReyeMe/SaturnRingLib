@@ -69,3 +69,5 @@ Compiler/
 **/__pycache__/
 **/*.pyc
 
+# MAC Related garbage
+**/.DS_Store

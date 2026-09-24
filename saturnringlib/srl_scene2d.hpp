@@ -11,7 +11,7 @@ namespace SRL
     class Scene2D
     {
     public:
-    
+
         /** @brief Clipping effect mode
          */
         enum ClippingEffect : uint8_t
@@ -149,7 +149,7 @@ namespace SRL
              * @note Applies only to textured polygons
              */
             EnableHSS = 6,
-            
+
             /** @brief Enables end code character for textured sprites
              * @details Drawing in horizontal direction is terminated, when an end code is read twice.
              *  Color mode | EndCode
@@ -264,11 +264,11 @@ namespace SRL
             /** @brief Standard sprite command
              */
             StandardSprite = 0x0,
-            
+
             /** @brief Rectangle sprite command
              */
             RectangleSprite = 0x1,
-            
+
             /** @brief Textured sprite sprite command
              */
             Texture = 0x2,
@@ -276,7 +276,7 @@ namespace SRL
             /** @brief Filled polygon command
              */
             Polygon = 0x4,
-            
+
             /** @brief Polyline command
              */
             PolyLine = 0x5,
@@ -284,15 +284,15 @@ namespace SRL
             /** @brief Simple line segment command
              */
             LineSegment = 0x6,
-            
+
             /** @brief System clip change command
              */
             SystemClip = 0x9,
-            
+
             /** @brief User clip change command
              */
             UserClip = 0x8,
-            
+
             /** @brief Change relative coordinates for VDP1 command table
              */
             BasePosition = 0xA,
@@ -625,7 +625,7 @@ namespace SRL
                         offsetLocation.X -= halfSize.X;
                         offsetLocation.Y -= halfSize.Y;
                         break;
-                
+
                     case Scene2D::ZoomPoint::UpperRight:
                         offsetLocation.X += halfSize.X;
                         offsetLocation.Y -= halfSize.Y;
@@ -645,7 +645,7 @@ namespace SRL
                     case Scene2D::ZoomPoint::CenterLeft:
                         offsetLocation.X -= halfSize.X;
                         break;
-                
+
                     case Scene2D::ZoomPoint::TopCenter:
                         offsetLocation.Y -= halfSize.Y;
                         break;

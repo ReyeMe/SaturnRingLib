@@ -58,7 +58,7 @@ namespace SRL::Tilemap::Interfaces
             {
                 for (int j = 0; j < dataWidth; ++j)
                 {
-                    this->dataAccumulator |= *start;// track if non zero data is written 
+                    this->dataAccumulator |= *start;// track if non zero data is written
                     *bitmapCell++ = *start++;
                 }
 
@@ -114,7 +114,7 @@ namespace SRL::Tilemap::Interfaces
             case CRAM::TextureColorMode::RGB555:
                 byteWidth = bitmapInfo.Width << 1;
                 byteCell = 16;
-                break;  
+                break;
             default:
                 byteWidth = bitmapInfo.Width;
                 byteCell = 8;
@@ -146,7 +146,7 @@ namespace SRL::Tilemap::Interfaces
                 this->numCells = (byteCell >> 2);
             }
             else this->numCells = 0;
-       
+
             if (config.CharSize == CHAR_SIZE_1x1) // Convert to 8x8 characters
             {
                 for (int32_t i = 0;i < yCells; ++i)
@@ -250,7 +250,7 @@ namespace SRL::Tilemap::Interfaces
                 SRL::Debug::Assert("Bmp Size %x bytes exceeds 0x20000 maximum",this->info.CellByteSize);
                 return;
             }
-           
+
             if (bmp.GetInfo().Palette != nullptr)
             {
                 uint16_t sz = (this->info.ColorMode == CRAM::TextureColorMode::Paletted16) ? 16 : 256;
@@ -263,10 +263,10 @@ namespace SRL::Tilemap::Interfaces
             {
                 this->palData = nullptr;
             }
-            
+
             this->mapData = autonew uint16_t[this->info.MapWidth * this->info.MapHeight];
             for (int i = 0; i < numPages; ++i) this->ClearPage(i);
-            
+
             //see if there is room for empty tile and add enough space at start of set
             if (this->info.CellByteSize + tileSize <= 0x20000)
             {
@@ -322,7 +322,7 @@ namespace SRL::Tilemap::Interfaces
             return this->info;
         }
 
-        /** @brief Copies a rectangular selection of Tilemap data between  2 pages in the tilemap
+        /** @brief Copies a rectangular selection of Tilemap data between 2 pages in the tilemap
         * @param sourcePage Index of the Tilemap Page to copy from
         * @param topLeft Page Coordinates of Top left of region to Copy
         * @param botRight Page Coordinates of Bottom Right of region Copy
@@ -488,7 +488,9 @@ namespace SRL::Tilemap::Interfaces
                 // Load file
                 uint8_t* imageData = (uint8_t*)(stream + 32);
                 uint32_t* headerData = (uint32_t*)stream;
+
                 this->info.CellByteSize = headerData[1];
+
                 uint32_t celSize = this->info.CellByteSize;
                 uint32_t mapSize = headerData[2];
 
