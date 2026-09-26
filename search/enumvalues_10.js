@@ -1,0 +1,22 @@
+var searchData=
+[
+  ['r_0',['R',['../structSRL_1_1Input_1_1Digital_ae4d3d8e7eee9b2b63616ce6af46070e1.html#ae4d3d8e7eee9b2b63616ce6af46070e1ae1e1d3d40573127e9ee0480caf1283d6',1,'SRL::Input::Digital']]],
+  ['racing_1',['Racing',['../namespaceSRL_1_1Input_a1c6580a36168efa31c5c9402ba5b2103.html#a1c6580a36168efa31c5c9402ba5b2103acccb415e6e81d3303a19fdf10e6c68b8',1,'SRL::Input']]],
+  ['rectanglesprite_2',['RectangleSprite',['../classSRL_1_1Scene2D_ac3c64b54a2e2d9a4cae555add0f5dc6d.html#ac3c64b54a2e2d9a4cae555add0f5dc6dadc90894f399784c1387f7efd8c84c5d0',1,'SRL::Scene2D']]],
+  ['regsdio0_3',['RegSdIo0',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442eaa89d9628d22e581f1651a8afd89a8c64',1,'SRL::DevCart::CS1']]],
+  ['regsdio1_4',['RegSdIo1',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442ea8056e00ab09aa06ac6efb48554ef9bda',1,'SRL::DevCart::CS1']]],
+  ['regsdio2_5',['RegSdIo2',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442eac98c346e6935da32f9c76648173670f1',1,'SRL::DevCart::CS1']]],
+  ['regsdio3_6',['RegSdIo3',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442eab8d898d094d27f18f5d272491312011f',1,'SRL::DevCart::CS1']]],
+  ['regsdreinsert_7',['RegSdReinsert',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442ea3bc612f74c294f8f3e60ac6936adae60',1,'SRL::DevCart::CS1']]],
+  ['regsdwriteprotect_8',['RegSdWriteProtect',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442ea384b1f0ddf5ae54ef1336b890f09092e',1,'SRL::DevCart::CS1']]],
+  ['regstdoutbit_9',['RegStdoutBit',['../namespaceSRL_1_1DevCart_1_1CS1_af8382d0a17313bea9a65163116d8442e.html#af8382d0a17313bea9a65163116d8442ea4b29e59d5a18369c8ee57b537b1ece17',1,'SRL::DevCart::CS1']]],
+  ['relative_10',['Relative',['../classSRL_1_1Cd_ad27f09893e944e4b22ff4dd02e646564.html#ad27f09893e944e4b22ff4dd02e646564a969609b78e919f91efcaa66d3cdebac6',1,'SRL::Cd']]],
+  ['repeatmap_11',['RepeatMap',['../classSRL_1_1VDP2_a36f953a56d15c62017b45541aaa9d316.html#a36f953a56d15c62017b45541aaa9d316aad2bd9adc0956813868f496392609f60',1,'SRL::VDP2']]],
+  ['repeattile_12',['RepeatTile',['../classSRL_1_1VDP2_a36f953a56d15c62017b45541aaa9d316.html#a36f953a56d15c62017b45541aaa9d316a7b9ce0f61630b055ebf9f02e113228c8',1,'SRL::VDP2']]],
+  ['reset_13',['Reset',['../classSRL_1_1Interrupt_a67eb745457ddeda71640c87cae766d7b.html#a67eb745457ddeda71640c87cae766d7ba526d688f37a86d3c3f27d0c5016eb71d',1,'SRL::Interrupt']]],
+  ['rgb15_14',['RGB15',['../classSRL_1_1CinepakPlayer_a3dea901717924f48f0e492288935ea3a.html#a3dea901717924f48f0e492288935ea3aa40d7efdbb8d3dc631ce25312882a7600',1,'SRL::CinepakPlayer']]],
+  ['rgb24_15',['RGB24',['../classSRL_1_1CinepakPlayer_a3dea901717924f48f0e492288935ea3a.html#a3dea901717924f48f0e492288935ea3aa08415b81fed4feed7d982c9919ac08ee',1,'SRL::CinepakPlayer']]],
+  ['rgb555_16',['RGB555',['../classSRL_1_1CRAM_a431f377b7e582ff3e42be7fd837d83b0.html#a431f377b7e582ff3e42be7fd837d83b0abedcd496d16341d0460848d75577dc80',1,'SRL::CRAM']]],
+  ['right_17',['Right',['../structSRL_1_1Input_1_1Pointer_a982eee6d13e5237953065cac5bbcc38d.html#a982eee6d13e5237953065cac5bbcc38daa5ae31724fdb3021ba4c6b8d2c309ca3',1,'SRL::Input::Pointer::Right'],['../structSRL_1_1Input_1_1Digital_ae4d3d8e7eee9b2b63616ce6af46070e1.html#ae4d3d8e7eee9b2b63616ce6af46070e1a92b09c7c48c520c3c55e497875da437c',1,'SRL::Input::Digital::Right']]],
+  ['rxf_18',['Rxf',['../structSRL_1_1DevCart_1_1CS0_1_1USBFlags_aab9a5524236c491122e218a0811c0607.html#aab9a5524236c491122e218a0811c0607aea78745f0a093ba9a141a316790e6999',1,'SRL::DevCart::CS0::USBFlags']]]
+];
