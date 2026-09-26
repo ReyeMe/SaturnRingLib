@@ -110,11 +110,11 @@ namespace SRL::Input
 
         /** @brief Connected devices from previous update
          */
-        inline static PerDigital PeripheralsPreviousState[Management::MaxPeripherals] = { 0xff, 0, 0, 0, 0, 0 };
+        inline static PerDigital PeripheralsPreviousState[Management::MaxPeripherals] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
         /** @brief Connected devices in current frame
          */
-        inline static PerDigital Peripherals[Management::MaxPeripherals] = { 0xff, 0, 0, 0, 0, 0 };
+        inline static PerDigital Peripherals[Management::MaxPeripherals] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
         /** @brief Disabled constructor
          */
