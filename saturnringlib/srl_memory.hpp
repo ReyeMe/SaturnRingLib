@@ -510,6 +510,48 @@ namespace SRL
                 #endif
             }
 
+            /** @brief Allocate memory aligned to a power-of-two boundary
+             * @param alignment Power-of-two alignment (must be >= 4)
+             * @param size Number of bytes to allocate
+             * @return Pointer to the aligned space, or nullptr on failure
+             * @note With SimpleMalloc this burns a padding block so the next
+             *       payload lands on the boundary — only usable for early
+             *       boot-time allocations.
+             */
+            static void* Memalign(size_t alignment, size_t size)
+            {
+                #if defined(USE_TLSF_ALLOCATOR)
+                return tlsf_memalign(Memory::HighWorkRam::zone.Address, alignment, size);
+                #else
+                if (alignment <= 4)
+                {
+                    return Malloc(size);
+                }
+
+                void* probe = Malloc(4);
+                if (probe == nullptr)
+                {
+                    return nullptr;
+                }
+
+                // SimpleMalloc layout: Header(4B)+payload, payloads 4-aligned.
+                // A pad block of `pad` bytes makes the following payload
+                // land on `alignment`.
+                const size_t nextPayload = reinterpret_cast<size_t>(probe) + 12;
+                const size_t pad = (alignment - (nextPayload & (alignment - 1))) & (alignment - 1);
+
+                if (pad != 0 && Malloc(pad) == nullptr)
+                {
+                    Free(probe);
+                    return nullptr;
+                }
+
+                void* result = Malloc(size);
+                Free(probe);
+                return result;
+                #endif
+            }
+
             /** @brief Reallocate existing memory
              * @param ptr Pointer to the existing allocated memory
              * @param size New size in number of bytes that should be allocated

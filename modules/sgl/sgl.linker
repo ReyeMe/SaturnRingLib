@@ -66,33 +66,12 @@ SECTIONS {
 		__heap_start = .;
 	}
 
-	COMMAND_BUF_DUMMY 0x0000000 (NOLOAD): ALIGN(0x20)
-	{
-		*(COMMAND_BUF_DUMMY)
-        . = ALIGN(0x20);
-	}
-
-	WORK_AREA_DUMMY 0x0000000 (NOLOAD): ALIGN(0x20)
-	{
-		*(WORK_AREA_DUMMY)
-        . = ALIGN(0x1000);
-	}
-
-	command_buf_start = ALIGN(0x060FB800 - SIZEOF(COMMAND_BUF_DUMMY), 0x20);
-	work_area_start = ALIGN(command_buf_start - SIZEOF(WORK_AREA_DUMMY), 0x1000);
-
-	WORK_AREA work_area_start : {
-		__heap_end = .;
-		__work_area_start = .;
-		*(WORK_AREA)
-		__work_area_end = .;
-	}
-
-    COMMAND_BUF command_buf_start : {
-		__command_buffer_start = .;
-        *(COMMAND_BUF)
-		__command_buffer_end = .;
-    }
+	/* The heap spans up to the reserved system area: TransList (DMA
+	 * transfer table) at 0x060FB800, master stack at 0x060FFC00.
+	 * The SGL work area is allocated from the heap at boot by
+	 * SRL::SglWorkArea::Install() — see srl_sgl_workarea.hpp.
+	 */
+	__heap_end = 0x060FB800;
 
     SYSTEM_START 0x060FB800 : {
         __systemStart = .;
@@ -110,5 +89,9 @@ SECTIONS {
         *(.rela.text .rela.data .rela.rodata)
         *(.rela.text.* .rela.data.*)
         *(.eh_frame)
+		/* No longer produced — discard in case a stale object still
+		 * carries them. */
+		*(WORK_AREA*)
+		*(COMMAND_BUF*)
     }
 }
