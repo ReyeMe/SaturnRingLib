@@ -1,4 +1,14 @@
 OUTPUT_FORMAT(elf32-sh)
+
+/* Fixed HWRAM map (SGL): user program must stay below the DMA transfer list */
+__hwram_prog_start = 0x06004000;
+__hwram_user_end   = 0x060FB800;   /* TransList */
+
+/* Minimum heap left between .bss and WORK_AREA.
+ * Override per project makefile with SRL_MIN_HEAP_SIZE = 0x20000
+ * (the --defsym must precede this script, otherwise the ASSERT sees the default) */
+__min_heap_size = DEFINED(__min_heap_size) ? __min_heap_size : 0x1000;
+
 SECTIONS {
 
 	PRELOADER 0x06004000 : {
@@ -75,11 +85,13 @@ SECTIONS {
 	WORK_AREA_DUMMY 0x0000000 (NOLOAD): ALIGN(0x20)
 	{
 		*(WORK_AREA_DUMMY)
-        . = ALIGN(0x1000);
 	}
 
-	command_buf_start = ALIGN(0x060FB800 - SIZEOF(COMMAND_BUF_DUMMY), 0x20);
-	work_area_start = ALIGN(command_buf_start - SIZEOF(WORK_AREA_DUMMY), 0x1000);
+	/* Place top-down from the TransList, rounding DOWN so each area never ends above the next one.
+	 * WORK_AREA takes the alignment of WorkArea (workarea.c): SGL's SortList, the SCU indirect DMA table,
+	 * must start on a power-of-two boundary >= its size or the SCU locks up on real hardware */
+	command_buf_start = (__hwram_user_end - SIZEOF(COMMAND_BUF_DUMMY)) & ~0x1F;
+	work_area_start = (command_buf_start - SIZEOF(WORK_AREA_DUMMY)) & ~(ALIGNOF(WORK_AREA) - 1);
 
 	WORK_AREA work_area_start : {
 		__heap_end = .;
@@ -112,3 +124,15 @@ SECTIONS {
         *(.eh_frame)
     }
 }
+
+/* ---- Layout guards: fail the link instead of overlapping memory zones ---- */
+ASSERT(_PreLoader == __hwram_prog_start,                 "sgl.linker: PreLoader is not at 0x06004000")
+ASSERT(__heap_start <= __heap_end,                       "sgl.linker: program (.bss) runs into WORK_AREA")
+ASSERT(__heap_end - __heap_start >= __min_heap_size,     "sgl.linker: heap smaller than __min_heap_size")
+ASSERT(_WorkArea == __work_area_start,                   "sgl.linker: WorkArea (SortList) is not at the start of WORK_AREA")
+ASSERT(ABSOLUTE(__work_area_start) % ALIGNOF(WORK_AREA) == 0, "sgl.linker: SortList not aligned for SCU indirect DMA (would lock up on hardware)")
+ASSERT(SIZEOF(WORK_AREA) <= SIZEOF(WORK_AREA_DUMMY),     "sgl.linker: WORK_AREA larger than WORK_AREA_DUMMY")
+ASSERT(__work_area_end <= __command_buffer_start,        "sgl.linker: WORK_AREA overlaps COMMAND_BUF")
+ASSERT(ABSOLUTE(__command_buffer_start) % 0x20 == 0,     "sgl.linker: COMMAND_BUF is not 32-byte aligned")
+ASSERT(SIZEOF(COMMAND_BUF) <= SIZEOF(COMMAND_BUF_DUMMY), "sgl.linker: COMMAND_BUF larger than COMMAND_BUF_DUMMY")
+ASSERT(__command_buffer_end <= __hwram_user_end,         "sgl.linker: COMMAND_BUF overlaps SGL TransList (0x060FB800)")

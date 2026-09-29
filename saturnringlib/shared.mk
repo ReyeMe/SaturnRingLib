@@ -180,6 +180,12 @@ else
 	SYSFLAGS += -DSGL_SLAVE_BUF_SIZE=71680
 endif
 
+# Minimum heap size (bytes) between .bss and SGL work area, link fails if smaller (sgl.linker defaults to 4k)
+# Must come before the linker script on the command line, so it cannot go through SRL_CUSTOM_LDFLAGS
+ifneq ($(strip ${SRL_MIN_HEAP_SIZE}),)
+	LDSCRIPTFLAGS += -Xlinker --defsym=__min_heap_size=$(strip ${SRL_MIN_HEAP_SIZE})
+endif
+
 # Add custom FLAGS
 ifneq ($(strip ${SRL_CUSTOM_CCFLAGS}),)
 	CCFLAGS += $(strip ${SRL_CUSTOM_CCFLAGS})
@@ -210,7 +216,7 @@ SYSOBJECTS = $(SYSSOURCES:.c=.o)
 # General compilation flags
 CCFLAGS += $(SYSFLAGS) -W -m2 -c $(OPT_FLAGS) -Wno-strict-aliasing \
 					-I$(DUMMYIDIR) -I$(SATURNMATHPPDIR) -I$(SGLIDIR) -I$(STDDIR) -I$(SDK_ROOT) $(MODULE_EXTRA_INC)
-LDFLAGS = -m2 -L$(SGLLDIR) -Xlinker -T$(LDFILE) -Xlinker -Map \
+LDFLAGS = -m2 -L$(SGLLDIR) $(LDSCRIPTFLAGS) -Xlinker -T$(LDFILE) -Xlinker -Map \
 					-Xlinker "$(BUILD_MAP)" -Xlinker -e -Xlinker ___Start -nostartfiles
 
 ifeq "$(GCCMAJORVERSION)" "14"
