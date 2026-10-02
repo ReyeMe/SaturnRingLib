@@ -5,6 +5,7 @@
   <navindex>
     <tab type="mainpage" visible="yes" title=""/>
     <tab type="pages" visible="yes" title="" intro=""/>
+    <tab type="user" visible="yes" url="https://github.com/jae686/srl-tutorials/blob/main/README.md" title="Tutorial Series ↗"/>
     <tab type="topics" visible="yes" title="" intro=""/>
     <tab type="modules" visible="yes" title="" intro="">
       <tab type="modulelist" visible="yes" title="" intro=""/>
