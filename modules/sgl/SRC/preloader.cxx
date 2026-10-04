@@ -1,4 +1,5 @@
 #include <srl_memory.hpp>
+#include "srl_workarea.hpp"
 
 /** @brief Application initialization
  */
@@ -11,14 +12,6 @@ extern "C" {
     /** @brief End of a .bss section
      */
     extern uint32_t _bend;
-
-    /** @brief Start of a workarea area section
-     */
-    extern uint32_t _work_area_start;
-
-    /** @brief End of a command buffer section
-     */
-    extern uint32_t _command_buffer_end;
 
     /** @brief Start address of constructor array
      */
@@ -36,7 +29,7 @@ extern "C" {
     /** @brief Define PreLoader() in the "PRELOADER" section defined within linker script
      */
     void PreLoader()  __attribute__ ((section ("PRELOADER")));
-    
+
     /** @brief Function run before main()
      */
     void PreLoader()
@@ -47,14 +40,13 @@ extern "C" {
             *bssBlock = 0;
         }
 
-        // Zero stuff inside workarea and command buffer section
-        for (uint32_t* workareaBlock = &_work_area_start; workareaBlock < &_command_buffer_end; workareaBlock++)
-        {
-            *workareaBlock = 0;
-        }
-
         // Initialize memory management (malloc stuff)
         SRL::Memory::Initialize();
+
+        // Allocate the SGL work area from the heap and install the pointer
+        // globals LIBSGL.A consumes. Must run before global constructors
+        // and before __Start() touches SGL.
+        SRL::SglWorkArea<>::Install();
 
         // Call all constructors
         void(**constructor)() = &__ctors;
