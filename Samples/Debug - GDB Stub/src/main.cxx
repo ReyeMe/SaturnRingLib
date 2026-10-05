@@ -191,10 +191,10 @@ int main()
         SRL::Debug::Print(1, 16, "GDB thunk count: %u", static_cast<unsigned int>(SRL::GDBStub::GetExceptionThunkCount()));
         SRL::Debug::Print(1, 17, "GDB RX bytes:    %u", static_cast<unsigned int>(SRL::GDBStub::GetRxDetectCount()));
         SRL::Debug::Print(1, 18, "GDB TX bytes:    %u", static_cast<unsigned int>(SRL::GDBStub::GetTxByteCount()));
-        SRL::Debug::Print(1, 19, "GDB cmd count:   %u", static_cast<unsigned int>(SRL::GDBStub::g_command_count));
+        SRL::Debug::Print(1, 19, "GDB cmd count:   %u", static_cast<unsigned int>(SRL::GDBStub::GetCommandCount()));
         char lastGdbCmd[26];
         TruncateForDisplay(lastGdbCmd, sizeof(lastGdbCmd),
-            SRL::GDBStub::g_last_command[0] ? SRL::GDBStub::g_last_command : "<none>");
+            SRL::GDBStub::GetLastCommand()[0] ? SRL::GDBStub::GetLastCommand() : "<none>");
         SRL::Debug::Print(1, 20, "Last GDB cmd: %s", lastGdbCmd);
         SRL::Debug::Print(1, 21, "DevCart probe:   %s", SRL::GDBStub::IsDevCartReady() ? "ok" : "failed");
         SRL::Debug::Print(1, 22, "Port avail:      %s", SRL::GDBStub::IsDevCartPortAvailable() ? "yes" : "no");
