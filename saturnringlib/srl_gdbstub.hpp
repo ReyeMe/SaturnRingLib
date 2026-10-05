@@ -8,27 +8,52 @@
 #include <cstdint>
 #include <cstddef>
 
-extern "C" {
+extern "C"
+{
+    // Entry points shared between SRL::GDBStub and the hand-written __asm__
+    // thunks at the bottom of this file. They are free extern "C" functions
+    // (not class members) because the thunks reference them by fixed,
+    // unmangled symbol name; each one is a friend of SRL::GDBStub.
     void slave_ipi_handler(void);
+    void slave_breakpoint_handler(void);
+    void srl_gdbstub_process_commands(void);
+
+    void srl_gdbstub_exception_thunk();
+    // Tiny trampolines that tag g_last_stop_signal with the right POSIX
+    // signal for their exception family before falling into the shared
+    // thunk above -- see their definition (right after
+    // srl_gdbstub_exception_thunk's __asm__ block) for why this needs to
+    // be a jump into the SAME shared body rather than a full duplicate:
+    // every SH-2 exception vector lands at a fixed address with no
+    // argument-passing convention and no on-chip "cause" register (unlike
+    // e.g. SH-3/4's EXPEVT), so the only way to tell GDB which exception
+    // family fired is to give each family its own tiny entry stub.
+    void srl_gdbstub_illegal_thunk();
+    void srl_gdbstub_addrerr_thunk();
+    void srl_gdbstub_nmi_thunk();
+    void srl_gdbstub_slave_ici_thunk();
+    void srl_gdbstub_slave_illegal_thunk();
 }
 
 namespace SRL
 {
     /**
      * @brief A basic GDB Remote Serial Protocol stub for the Sega Saturn using the DevCart.
-     * 
+     *
      * Uses Interrupt::Vector::Trap3 (trapa #3) for software breakpoints.
      */
-    namespace GDBStub
+    class GDBStub
     {
+    public:
         // GDB Remote protocol expects registers for SH in this exact order:
         // R0-R15, PC, PR, GBR, VBR, MACH, MACL, SR
         /**
          * @brief Represents the SH-2 CPU register state.
-         * 
+         *
          * This exactly matches the register layout expected by GDB's SH architecture.
          */
-        struct SH2Context {
+        struct SH2Context
+        {
             uint32_t r[16];
             uint32_t pc;
             uint32_t pr;
@@ -39,45 +64,16 @@ namespace SRL
             uint32_t sr;
         };
 
-        // SRL break vector — using TRAPA #3 (Vector 35, safe from SCU interrupts)
-        static constexpr uint32_t BreakTrapNumber = 3;
-
-        // Upstream libyaul-gdbstub compatibility surface.
-        static constexpr uint32_t GDBSTUB_LOAD_ADDRESS = 0x202FE000;
-        // NOTE: libyaul uses TRAP #32 for their standalone binary; SRL uses TRAP #3 (BreakTrapNumber).
-        static constexpr uint32_t GDBSTUB_TRAPA_VECTOR_NUMBER = 32;
-
-        using gdb_device_init_t = void (*)(void);
-        using gdb_device_byte_read_t = uint8_t (*)(void);
-        using gdb_device_byte_write_t = void (*)(uint8_t value);
-
-        struct __attribute__((aligned(16))) gdb_device_t {
-            gdb_device_init_t init;
-            gdb_device_byte_read_t byte_read;
-            gdb_device_byte_write_t byte_write;
-        };
-
-        struct __attribute__((packed)) gdb_version_t {
-            unsigned int :8;
-            unsigned int major:8;
-            unsigned int minor:8;
-            unsigned int patch:8;
-        };
-
-        struct __attribute__((aligned(16))) gdbstub_t {
-            gdb_version_t version;
-            void (*init)(void);
-            gdb_device_t *device;
-        };
+    private:
+        friend void ::slave_ipi_handler(void);
+        friend void ::slave_breakpoint_handler(void);
+        friend void ::srl_gdbstub_process_commands(void);
 
         // Globals — inline so they are defined exactly once across all TUs.
-        __attribute__((used)) inline SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
+        __attribute__((used)) inline static SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
+
         // Second SH-2 context for the slave CPU. Exported in the GDB register map
-        // (see the 'g'/'G'/'p'/'P' handlers) and made live by the FRT Input Capture
-        // Interrupt mechanism below: once InstallSlaveFreezeHandler() has been run on
-        // the slave, its own exception thunk snapshots full register state here before
-        // spinning, and restores it from here on resume.
-        __attribute__((used)) inline SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
+        __attribute__((used)) inline static SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
 
         // Set true by snapshot_polling_context() immediately before it calls
         // process_commands() from Poll()'s out-of-band packet path (initial
@@ -91,63 +87,65 @@ namespace SRL
         // garbage addresses/register values. Read-and-cleared by
         // handle_gdb_continue()/handle_gdb_step() so it never leaks into a
         // later, real exception-driven invocation.
-        inline volatile bool g_ctx_is_fake = false;
+        __attribute__((used)) inline static volatile bool g_ctx_is_fake = false;
 
-        inline volatile bool g_has_connection = false;    // set on any valid RSP packet received
-        inline volatile bool g_handshake_done = false;    // set only after qSupported exchange
-        inline volatile bool g_is_ctrl_c_stop __asm__("srl_gdbstub_is_ctrl_c_stop") = false;    // set when stopped via Ctrl-C (or the Saturn's physical Reset button, via NMI), cleared on continue
-        inline volatile uint32_t g_command_count = 0;
-        __attribute__((used)) inline volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
-        inline char g_last_command[64] = {};
+        __attribute__((used)) inline static volatile bool g_has_connection = false;                                       // set on any valid RSP packet received
+        __attribute__((used)) inline static volatile bool g_handshake_done = false;                                       // set only after qSupported exchange
+        __attribute__((used)) inline static volatile bool g_is_ctrl_c_stop __asm__("srl_gdbstub_is_ctrl_c_stop") = false; // set when stopped via Ctrl-C (or the Saturn's physical Reset button, via NMI), cleared on continue
+        __attribute__((used)) inline static volatile uint32_t g_command_count = 0;
+        __attribute__((used)) inline static volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
+        __attribute__((used)) inline static char g_last_command[64] = {};
         // Last "monitor <text>" command received via qRcmd, and how many have
         // arrived. User code can poll GetMonitorCommandCount() to detect a new
         // one and dispatch on GetLastMonitorCommand() -- this gives host-side
         // tooling (or a script) a way to trigger sample behavior without a
         // physical gamepad, e.g. `(gdb) monitor crash illegal`.
-        inline char g_last_monitor_command[64] = {};
-        inline volatile uint32_t g_monitor_command_count = 0;
-        inline int g_unget_char = -1;
-        inline bool g_handlers_installed = false;
-        inline volatile uint32_t g_rx_detect_count = 0;  // incremented each time the stub reads a byte from DevCart RX
-        inline volatile uint32_t g_rx_ready_count = 0;   // incremented each time Poll() sees RX data pending
-        inline volatile uint32_t g_tx_byte_count = 0;    // incremented each time the stub writes a byte to DevCart TX
-        inline volatile uint32_t g_poll_fallback_count = 0; // incremented when Poll() handles RX without Trap3
-        inline bool g_devcart_ready = false;
-        inline bool g_devcart_port_available = false;
-        inline bool g_devcart_usb_datapath_enabled = true;
-        inline uint8_t g_last_usb_flags = 0xFF;
+        inline static char g_last_monitor_command[64] = {};
+        inline static volatile uint32_t g_monitor_command_count = 0;
+        inline static int g_unget_char = -1;
+        inline static bool g_handlers_installed = false;
+        inline static volatile uint32_t g_rx_detect_count = 0;     // incremented each time the stub reads a byte from DevCart RX
+        inline static volatile uint32_t g_rx_ready_count = 0;      // incremented each time Poll() sees RX data pending
+        inline static volatile uint32_t g_tx_byte_count = 0;       // incremented each time the stub writes a byte to DevCart TX
+        inline static volatile uint32_t g_poll_fallback_count = 0; // incremented when Poll() handles RX without Trap3
+
+
+        inline static bool g_devcart_ready = false;
+        inline static bool g_devcart_port_available = false;
+        inline static bool g_devcart_usb_datapath_enabled = true;
+        inline static uint8_t g_last_usb_flags = 0xFF;
         // __asm__-named (like g_ctx above) so the per-exception-type trampolines
         // below (srl_gdbstub_illegal_thunk / srl_gdbstub_addrerr_thunk) can write
         // to it directly by a fixed symbol, without needing a C++-mangled name.
-        __attribute__((used)) inline volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5; // 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS
-        inline bool g_was_swbreak = false; // Set during PC adjustment if we hit a GDB swbreak
+        __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5; // 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS
+        inline static bool g_was_swbreak = false;                                                                            // Set during PC adjustment if we hit a GDB swbreak
         // Set when $c stepped over a software breakpoint; cleared after re-insertion.
         // When set, the next process_commands() entry is silent (re-inserts BP, continues).
-        inline bool g_resuming_from_breakpoint = false;
+        inline static bool g_resuming_from_breakpoint = false;
         // Constraint: If Poll() is called from user code and handles a 'z0' packet that deallocates
         // this specific breakpoint slot before the step-over trap fires, the slot's active flag is cleared.
         // However, the re-insertion handler will silently re-patch the freed address and set active=true
         // on what should be a dead slot. Since process_commands is single-threaded, this race only
         // occurs if user code calls Poll() between the continue and the trap.
-        inline int  g_resume_bp_slot = -1; // slot index of the BP that was stepped over
+        inline static int g_resume_bp_slot = -1; // slot index of the BP that was stepped over
         // Global pause flag used to freeze the slave SH-2 while the master is in GDB.
-        inline volatile uint32_t g_debug_pause = 0;
+        inline static volatile uint32_t g_debug_pause = 0;
 
         // Debounce generation counter for the Reset-button/NMI path (see
         // srl_gdbstub_nmi_thunk's doc comment). Incremented by every NMI edge;
         // read back by that same edge's thunk after its debounce wait to detect
         // whether a newer edge (mechanical switch bounce) arrived in the
         // meantime.
-        inline volatile uint32_t g_nmi_generation __asm__("srl_gdbstub_nmi_generation") = 0;
+        inline static volatile uint32_t g_nmi_generation __asm__("srl_gdbstub_nmi_generation") = 0;
 
         // TEMP DIAGNOSTIC: NMI/Reset-button instrumentation. fire_count increments
         // on every single NMI edge (bounce or genuine). report_count increments
         // only when an edge actually notifies GDB. swallow_count increments when
         // an edge is debounced away. In a working debounce, fire_count may be > 1
         // per press but report_count should always land on exactly 1.
-        inline volatile uint32_t g_nmi_fire_count __asm__("srl_gdbstub_nmi_fire_count") = 0;
-        inline volatile uint32_t g_nmi_report_count __asm__("srl_gdbstub_nmi_report_count") = 0;
-        inline volatile uint32_t g_nmi_swallow_count __asm__("srl_gdbstub_nmi_swallow_count") = 0;
+        inline static volatile uint32_t g_nmi_fire_count __asm__("srl_gdbstub_nmi_fire_count") = 0;
+        inline static volatile uint32_t g_nmi_report_count __asm__("srl_gdbstub_nmi_report_count") = 0;
+        inline static volatile uint32_t g_nmi_swallow_count __asm__("srl_gdbstub_nmi_swallow_count") = 0;
 
         // --- Slave freeze via SH-2 on-chip FRT Input Capture Interrupt (ICI) ---
         //
@@ -175,10 +173,10 @@ namespace SRL
         // same conflict. Do not rely on slave-freeze in any project that also uses
         // SRL::Slave; it has not been tested in a project that avoids SRL::Slave
         // entirely.
-        static constexpr uint32_t FRT_TIER  = 0xFFFFFE10U; // Timer Interrupt Enable Register
+        static constexpr uint32_t FRT_TIER = 0xFFFFFE10U;  // Timer Interrupt Enable Register
         static constexpr uint32_t FRT_FTCSR = 0xFFFFFE11U; // FRT Control/Status Register
-        static constexpr uint32_t FRT_IPRB  = 0xFFFFFE60U; // Interrupt Priority Register B (FRT: bits 11-8)
-        static constexpr uint8_t  FRT_ICF   = 0x80U;       // FTCSR.ICF / TIER.ICIE share this bit position
+        static constexpr uint32_t FRT_IPRB = 0xFFFFFE60U;  // Interrupt Priority Register B (FRT: bits 11-8)
+        static constexpr uint8_t FRT_ICF = 0x80U;          // FTCSR.ICF / TIER.ICIE share this bit position
         static constexpr uint32_t FRT_ICI_VECTOR = 0x64U;  // FRT Input Capture Interrupt vector, own VBR
 
         // Cross-CPU "doorbell" addresses (SCU A-bus mapped). A 16-bit write to one
@@ -191,7 +189,7 @@ namespace SRL
         // Diagnostic: incremented by the slave-side ICI thunk every time it fires,
         // so the master can confirm (via g_slave_ctx / this counter, both in
         // shared Work RAM) whether the interrupt is actually reaching the slave.
-        __attribute__((used)) inline volatile uint32_t g_slave_ici_count __asm__("srl_gdbstub_slave_ici_count") = 0;
+        __attribute__((used)) inline static volatile uint32_t g_slave_ici_count __asm__("srl_gdbstub_slave_ici_count") = 0;
 
         // --- Slave-side breakpoint support (illegal-instruction vector, NOT
         // FRT-ICI -- see InstallSlaveExceptionHandler()'s doc comment for why
@@ -205,14 +203,14 @@ namespace SRL
         // normal master-side debug stop by calling Break() -- the same way a
         // Ctrl-C byte already does from that exact call site. The slave itself
         // just spins on g_slave_resume in the meantime.
-        inline volatile bool g_slave_stopped = false;
+        inline static volatile bool g_slave_stopped = false;
         // Master sets this (via handle_gdb_continue()/handle_gdb_step(), same
         // as any other resume) to release a slave halted in g_slave_stopped.
-        inline volatile bool g_slave_resume = false;
-        inline volatile bool g_slave_handlers_installed = false;
+        inline static volatile bool g_slave_resume = false;
+        inline static volatile bool g_slave_handlers_installed = false;
         // Diagnostic: incremented by the slave's illegal-instruction thunk every
         // time it fires, mirroring g_slave_ici_count's role for the freeze handler.
-        __attribute__((used)) inline volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
+        __attribute__((used)) inline static volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
 
         /**
          * @brief Requests that the slave SH-2 freeze (spin) for the duration of a debug stop.
@@ -220,15 +218,17 @@ namespace SRL
          * pin. If InstallSlaveFreezeHandler() was never run on the slave, this is a
          * harmless no-op from the slave's point of view.
          */
-        static inline void SlaveIPISet() {
+        inline static void SlaveIPISet()
+        {
             g_debug_pause = 1;
-            *reinterpret_cast<volatile uint16_t*>(MasterNotifiesSlave) = 0xFFFFU;
+            *reinterpret_cast<volatile uint16_t *>(MasterNotifiesSlave) = 0xFFFFU;
         }
 
         /**
          * @brief Releases a slave previously frozen via SlaveIPISet().
          */
-        static inline void SlaveIPIClear() {
+        inline static void SlaveIPIClear()
+        {
             g_debug_pause = 0;
         }
 
@@ -242,31 +242,36 @@ namespace SRL
         /**
          * @brief Tracks the state of a single software breakpoint.
          */
-        struct SoftwareBreakpoint {
+        struct SoftwareBreakpoint
+        {
             uint32_t address;
             uint16_t original_instruction;
             bool active;
         };
 
-        inline SoftwareBreakpoint g_software_breakpoints[MaxSoftwareBreakpoints] = {};
-
+        inline static SoftwareBreakpoint g_software_breakpoints[MaxSoftwareBreakpoints] = {};
 
         // --- Utility Functions ---
 
         /**
          * @brief Converts a hex character to its integer value.
          */
-        static inline int hex(char ch) {
-            if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
-            if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
-            if (ch >= '0' && ch <= '9') return ch - '0';
+        inline static int hex(char ch)
+        {
+            if (ch >= 'a' && ch <= 'f')
+                return ch - 'a' + 10;
+            if (ch >= 'A' && ch <= 'F')
+                return ch - 'A' + 10;
+            if (ch >= '0' && ch <= '9')
+                return ch - '0';
             return -1;
         }
 
         /**
          * @brief Converts a 4-bit integer to its hex character equivalent.
          */
-        static inline char hexchar(int v) {
+        inline static char hexchar(int v)
+        {
             v &= 0xf;
             return v < 10 ? '0' + v : 'a' + v - 10;
         }
@@ -278,13 +283,17 @@ namespace SRL
          * @brief Decodes a hex string into memory.
          * @return Pointer to the character following the decoded hex string, or nullptr on failure.
          */
-        static inline const char* hex2mem(const char* buf, uint8_t* mem, int count) {
+        inline static const char *hex2mem(const char *buf, uint8_t *mem, int count)
+        {
             // Validate all characters first to prevent partial memory corruption
-            for (int i = 0; i < count * 2; i++) {
-                if (hex(buf[i]) < 0) return nullptr;
+            for (int i = 0; i < count * 2; i++)
+            {
+                if (hex(buf[i]) < 0)
+                    return nullptr;
             }
-            
-            for (int i = 0; i < count; i++) {
+
+            for (int i = 0; i < count; i++)
+            {
                 int h1 = hex(*buf++);
                 int h2 = hex(*buf++);
                 *mem++ = (h1 << 4) | h2;
@@ -310,38 +319,49 @@ namespace SRL
          * matches the bus cycle width VDP RAM actually requires.
          * @return Pointer to the character following the decoded hex string, or nullptr on failure.
          */
-        static inline const char* hex2mem_aligned(const char* buf, uint32_t addr, int count) {
+        inline static const char *hex2mem_aligned(const char *buf, uint32_t addr, int count)
+        {
             // Validate all characters first to prevent partial memory corruption
-            for (int i = 0; i < count * 2; i++) {
-                if (hex(buf[i]) < 0) return nullptr;
+            for (int i = 0; i < count * 2; i++)
+            {
+                if (hex(buf[i]) < 0)
+                    return nullptr;
             }
 
             int i = 0;
-            while (i < count) {
+            while (i < count)
+            {
                 const int remaining = count - i;
                 const uint32_t cur = addr + static_cast<uint32_t>(i);
-                if (remaining >= 4 && (cur & 3U) == 0U) {
+                if (remaining >= 4 && (cur & 3U) == 0U)
+                {
                     uint32_t v = 0;
-                    for (int b = 0; b < 4; b++) {
+                    for (int b = 0; b < 4; b++)
+                    {
                         const int h1 = hex(*buf++);
                         const int h2 = hex(*buf++);
                         v = (v << 8) | static_cast<uint32_t>((h1 << 4) | h2);
                     }
-                    *reinterpret_cast<volatile uint32_t*>(cur) = v;
+                    *reinterpret_cast<volatile uint32_t *>(cur) = v;
                     i += 4;
-                } else if (remaining >= 2 && (cur & 1U) == 0U) {
+                }
+                else if (remaining >= 2 && (cur & 1U) == 0U)
+                {
                     uint16_t v = 0;
-                    for (int b = 0; b < 2; b++) {
+                    for (int b = 0; b < 2; b++)
+                    {
                         const int h1 = hex(*buf++);
                         const int h2 = hex(*buf++);
                         v = static_cast<uint16_t>((v << 8) | static_cast<uint16_t>((h1 << 4) | h2));
                     }
-                    *reinterpret_cast<volatile uint16_t*>(cur) = v;
+                    *reinterpret_cast<volatile uint16_t *>(cur) = v;
                     i += 2;
-                } else {
+                }
+                else
+                {
                     const int h1 = hex(*buf++);
                     const int h2 = hex(*buf++);
-                    *reinterpret_cast<volatile uint8_t*>(cur) = static_cast<uint8_t>((h1 << 4) | h2);
+                    *reinterpret_cast<volatile uint8_t *>(cur) = static_cast<uint8_t>((h1 << 4) | h2);
                     i += 1;
                 }
             }
@@ -352,8 +372,10 @@ namespace SRL
          * @brief Encodes memory into a hex string.
          * @return Pointer to the null terminator of the resulting string.
          */
-        static inline char* mem2hex(const uint8_t* mem, char* buf, int count) {
-            for (int i = 0; i < count; i++) {
+        inline static char *mem2hex(const uint8_t *mem, char *buf, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
                 *buf++ = hexchar(*mem >> 4);
                 *buf++ = hexchar(*mem & 0xF);
                 mem++;
@@ -362,9 +384,11 @@ namespace SRL
             return buf;
         }
 
-        static inline void record_command(const char* cmd) {
+        inline static void record_command(const char *cmd)
+        {
             size_t i = 0;
-            while (i < 63 && cmd[i] != '\0') {
+            while (i < 63 && cmd[i] != '\0')
+            {
                 g_last_command[i] = cmd[i];
                 ++i;
             }
@@ -373,10 +397,13 @@ namespace SRL
             g_has_connection = true;
         }
 
-        static inline bool starts_with(const char* s, const char* prefix) {
+        inline static bool starts_with(const char *s, const char *prefix)
+        {
             size_t i = 0;
-            while (prefix[i] != '\0') {
-                if (s[i] != prefix[i]) {
+            while (prefix[i] != '\0')
+            {
+                if (s[i] != prefix[i])
+                {
                     return false;
                 }
                 ++i;
@@ -384,10 +411,13 @@ namespace SRL
             return true;
         }
 
-        static inline bool str_equals(const char* a, const char* b) {
+        inline static bool str_equals(const char *a, const char *b)
+        {
             size_t i = 0;
-            while (a[i] != '\0' && b[i] != '\0') {
-                if (a[i] != b[i]) return false;
+            while (a[i] != '\0' && b[i] != '\0')
+            {
+                if (a[i] != b[i])
+                    return false;
                 ++i;
             }
             return a[i] == b[i];
@@ -396,34 +426,41 @@ namespace SRL
         /**
          * @brief Checks if a memory range is valid for access, preventing bus errors.
          */
-        static inline bool is_valid_memory_range(uint32_t addr, uint32_t length) {
-            if (length == 0) {
+        inline static bool is_valid_memory_range(uint32_t addr, uint32_t length)
+        {
+            if (length == 0)
+            {
                 return true;
             }
 
             // Detect wrap-around in address arithmetic.
             const uint32_t end = addr + length - 1;
-            if (end < addr) {
+            if (end < addr)
+            {
                 return false;
             }
 
             // Prevent accesses to the invalid high address space and peripheral space.
             // Reading peripheral space (0xFFFF8000 - 0xFFFFFFFF) via byte-wise access (mov.b)
             // causes bus errors on many SH-2 registers, which crashes the stub.
-            if (end >= 0xF0000000U) {
+            if (end >= 0xF0000000U)
+            {
                 return false;
             }
 
             return true;
         }
 
-        static inline bool parse_hex_u32_until(const char* p, char delimiter, uint32_t& out_value, const char*& out_end) {
+        inline static bool parse_hex_u32_until(const char *p, char delimiter, uint32_t &out_value, const char *&out_end)
+        {
             uint32_t value = 0;
             bool saw_digit = false;
 
-            while (*p != '\0' && *p != delimiter) {
+            while (*p != '\0' && *p != delimiter)
+            {
                 const int d = hex(*p);
-                if (d < 0) {
+                if (d < 0)
+                {
                     return false;
                 }
                 value = (value << 4) | static_cast<uint32_t>(d);
@@ -431,7 +468,8 @@ namespace SRL
                 ++p;
             }
 
-            if (!saw_digit) {
+            if (!saw_digit)
+            {
                 return false;
             }
 
@@ -444,18 +482,24 @@ namespace SRL
          * @brief Finds the software breakpoint slot for a given address.
          * @return The slot index, or -1 if not found.
          */
-        static inline int find_breakpoint_slot(uint32_t address) {
-            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
-                if (g_software_breakpoints[i].active && g_software_breakpoints[i].address == address) {
+        inline static int find_breakpoint_slot(uint32_t address)
+        {
+            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
+            {
+                if (g_software_breakpoints[i].active && g_software_breakpoints[i].address == address)
+                {
                     return static_cast<int>(i);
                 }
             }
             return -1;
         }
 
-        static inline int find_free_breakpoint_slot() {
-            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
-                if (!g_software_breakpoints[i].active) {
+        inline static int find_free_breakpoint_slot()
+        {
+            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
+            {
+                if (!g_software_breakpoints[i].active)
+                {
                     return static_cast<int>(i);
                 }
             }
@@ -464,21 +508,25 @@ namespace SRL
 
         inline static bool g_cache_dirty = false;
 
-        static inline void ForcePurgeCache() {
-            *reinterpret_cast<volatile uint8_t*>(0xFFFFFE92) |= 0x10;
+        inline static void ForcePurgeCache()
+        {
+            *reinterpret_cast<volatile uint8_t *>(0xFFFFFE92) |= 0x10;
             // The SH-2 hardware manual requires waiting at least two instructions
             // before accessing the cache after a purge. We add several NOPs to be safe.
             asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory"); // 8 nops -- pure delay, no register/memory effect
         }
 
-        static inline void FlushCacheIfDirty() {
-            if (g_cache_dirty) {
+        inline static void FlushCacheIfDirty()
+        {
+            if (g_cache_dirty)
+            {
                 ForcePurgeCache();
                 g_cache_dirty = false;
             }
         }
 
-        struct CacheFlusher {
+        struct CacheFlusher
+        {
             ~CacheFlusher() { FlushCacheIfDirty(); }
         };
 
@@ -501,41 +549,54 @@ namespace SRL
         // again -- confirmed by re-arming the exact same breakpoint address
         // in a fresh session afterward and it never firing again, because
         // the slave was never actually re-entering that code at all.
-        struct SlaveReleaseGuard {
-            ~SlaveReleaseGuard() {
-                if (g_slave_stopped) {
+        struct SlaveReleaseGuard
+        {
+            ~SlaveReleaseGuard()
+            {
+                if (g_slave_stopped)
+                {
                     g_slave_stopped = false;
                     g_slave_resume = true;
                 }
             }
         };
 
-        // Set for the entire duration of process_commands() (see its RAII guard).
-        // Poll() checks this at entry and returns immediately if set -- see the
-        // comment there for why this exists and why blanket-masking interrupts
-        // (an earlier, now-reverted fix) was the wrong approach.
-        inline volatile bool g_in_process_commands = false;
 
-        struct ReentrancyGuard {
+        struct ReentrancyGuard
+        {
+            // Set for the entire duration of process_commands() (see its RAII guard).
+            // Poll() checks this at entry and returns immediately if set -- see the
+            // comment there for why this exists and why blanket-masking interrupts
+            // (an earlier, now-reverted fix) was the wrong approach.
+            inline static volatile bool g_in_process_commands = false;
+
+
             ReentrancyGuard() { g_in_process_commands = true; }
             ~ReentrancyGuard() { g_in_process_commands = false; }
+
+            inline static bool IsInProcessCommands() { return g_in_process_commands; }
         };
 
-        static inline void PurgeCache() {
+        inline static void PurgeCache()
+        {
             g_cache_dirty = true;
         }
 
         /**
          * @brief Clears all active software breakpoints.
          */
-        static inline void clear_breakpoints(bool restore_memory) {
-            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i) {
-                if (!g_software_breakpoints[i].active) {
+        inline static void clear_breakpoints(bool restore_memory)
+        {
+            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
+            {
+                if (!g_software_breakpoints[i].active)
+                {
                     continue;
                 }
 
-                if (restore_memory) {
-                    volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_software_breakpoints[i].address | 0x20000000U);
+                if (restore_memory)
+                {
+                    volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_software_breakpoints[i].address | 0x20000000U);
                     *code = g_software_breakpoints[i].original_instruction;
                 }
 
@@ -543,7 +604,8 @@ namespace SRL
                 g_software_breakpoints[i].address = 0;
                 g_software_breakpoints[i].original_instruction = 0;
             }
-            if (restore_memory) {
+            if (restore_memory)
+            {
                 PurgeCache();
             }
         }
@@ -551,21 +613,25 @@ namespace SRL
         /**
          * @brief Installs a software breakpoint (0xFFFF) at the specified address.
          */
-        static inline bool install_software_breakpoint(uint32_t address) {
-            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
+        inline static bool install_software_breakpoint(uint32_t address)
+        {
+            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U))
+            {
                 return false;
             }
 
-            if (find_breakpoint_slot(address) >= 0) {
+            if (find_breakpoint_slot(address) >= 0)
+            {
                 return true;
             }
 
             const int slot = find_free_breakpoint_slot();
-            if (slot < 0) {
+            if (slot < 0)
+            {
                 return false;
             }
 
-            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address | 0x20000000U);
+            volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
             g_software_breakpoints[slot].address = address;
             g_software_breakpoints[slot].original_instruction = *code;
             *code = SoftwareBreakInstruction;
@@ -577,17 +643,20 @@ namespace SRL
         /**
          * @brief Removes a software breakpoint and restores the original instruction.
          */
-        static inline bool remove_software_breakpoint(uint32_t address) {
-            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U)) {
+        inline static bool remove_software_breakpoint(uint32_t address)
+        {
+            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U))
+            {
                 return false;
             }
 
             const int slot = find_breakpoint_slot(address);
-            if (slot < 0) {
+            if (slot < 0)
+            {
                 return true;
             }
 
-            volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(address | 0x20000000U);
+            volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
             *code = g_software_breakpoints[slot].original_instruction;
             g_software_breakpoints[slot].active = false;
             g_software_breakpoints[slot].address = 0;
@@ -604,13 +673,15 @@ namespace SRL
         // GDB is left believing its watchpoint is still armed after the hardware has
         // silently been repointed elsewhere. Project code that also needs the UBC should
         // route through these two functions rather than programming the registers itself.
-        inline bool g_ubc_channel_a_active = false;
+        inline static bool g_ubc_channel_a_active = false;
 
         /**
          * @brief Configures the User Break Controller (UBC) for a hardware watchpoint.
          */
-        static inline bool install_hardware_watchpoint(uint32_t address, uint32_t type) {
-            if (g_ubc_channel_a_active) {
+        inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type)
+        {
+            if (g_ubc_channel_a_active)
+            {
                 return false; // Only one channel supported currently
             }
 
@@ -621,20 +692,30 @@ namespace SRL
 
             *BARA = address;
             *BAMRA = 0x0000U; // exact match
-            
+
             uint16_t bbra_val = 0;
-            switch(type) {
-                case 1: bbra_val = 0x0010U; break; // HW breakpoint (Instruction fetch)
-                case 2: bbra_val = 0x0028U; break; // Write watchpoint
-                case 3: bbra_val = 0x0024U; break; // Read watchpoint
-                case 4: bbra_val = 0x002CU; break; // Access watchpoint (Read/Write)
-                default: return false;
+            switch (type)
+            {
+            case 1:
+                bbra_val = 0x0010U;
+                break; // HW breakpoint (Instruction fetch)
+            case 2:
+                bbra_val = 0x0028U;
+                break; // Write watchpoint
+            case 3:
+                bbra_val = 0x0024U;
+                break; // Read watchpoint
+            case 4:
+                bbra_val = 0x002CU;
+                break; // Access watchpoint (Read/Write)
+            default:
+                return false;
             }
-            
+
             *BBRA = bbra_val;
-            *BRCR = 0x0001U; // Enable UBC Channel A
+            *BRCR = 0x0001U;                  // Enable UBC Channel A
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
-            
+
             g_ubc_channel_a_active = true;
             return true;
         }
@@ -642,10 +723,12 @@ namespace SRL
         /**
          * @brief Disables the User Break Controller (UBC) hardware watchpoint.
          */
-        static inline bool remove_hardware_watchpoint(uint32_t address, uint32_t type) {
+        inline static bool remove_hardware_watchpoint(uint32_t address, uint32_t type)
+        {
             (void)address;
             (void)type;
-            if (!g_ubc_channel_a_active) {
+            if (!g_ubc_channel_a_active)
+            {
                 return false;
             }
             volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
@@ -657,7 +740,8 @@ namespace SRL
         /**
          * @brief Tracks the state of a single-step operation, including delay slot mechanics.
          */
-        struct StepData {
+        struct StepData
+        {
             uint32_t address;
             uint16_t original_instruction;
             bool active;
@@ -670,15 +754,18 @@ namespace SRL
             bool delayed_is_rte;
             uint32_t delayed_sr;
         };
-        inline StepData g_step_data = {0, 0, false, false, 0, 0, false, 0, false, 0};
+        inline static StepData g_step_data = {0, 0, false, false, 0, 0, false, 0, false, 0};
 
         /**
          * @brief Removes the temporary software step trap and restores the original instruction.
          */
-        static inline void undo_software_step() {
-            if (g_step_data.active) {
-                if (is_valid_memory_range(g_step_data.address, 2U)) {
-                    volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_step_data.address | 0x20000000U);
+        inline static void undo_software_step()
+        {
+            if (g_step_data.active)
+            {
+                if (is_valid_memory_range(g_step_data.address, 2U))
+                {
+                    volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_step_data.address | 0x20000000U);
                     *code = g_step_data.original_instruction;
                     PurgeCache();
                 }
@@ -689,19 +776,22 @@ namespace SRL
         /**
          * @brief Places a temporary software step trap to catch execution after one instruction.
          */
-        static inline void do_software_step() {
+        inline static void do_software_step()
+        {
             undo_software_step();
 
-            uint32_t pc = g_ctx.pc;
-            if ((pc & 1U) != 0U || !is_valid_memory_range(pc, 2U)) {
+            uint32_t pc = GDBStub::MasterSH2().pc;
+            if ((pc & 1U) != 0U || !is_valid_memory_range(pc, 2U))
+            {
                 return;
             }
 
-            volatile uint16_t* code_ptr = reinterpret_cast<volatile uint16_t*>(pc | 0x20000000U);
+            volatile uint16_t *code_ptr = reinterpret_cast<volatile uint16_t *>(pc | 0x20000000U);
             uint16_t opcode = *code_ptr;
             uint32_t target_pc = pc + 2U;
 
-            if (g_step_data.is_delayed) {
+            if (g_step_data.is_delayed)
+            {
                 // We are stepping the instruction inside a delay slot.
                 // The SH-2 architecture explicitly forbids branch instructions from being
                 // placed in delay slots. Thus, we safely ignore the decoded opcode here
@@ -709,101 +799,140 @@ namespace SRL
                 // If a buggy program violates this rule, the trap will be placed at PC + 2
                 // rather than aborting or following the nested branch.
                 target_pc = pc + 2U;
-            } else {
+            }
+            else
+            {
                 bool is_branch = false;
                 bool has_delay_slot = false;
                 uint32_t branch_target = pc + 2U;
 
-                if ((opcode & 0xfb00U) == 0x8900U) { // BT label, BT/S label
+                if ((opcode & 0xfb00U) == 0x8900U)
+                { // BT label, BT/S label
                     is_branch = true;
                     has_delay_slot = ((opcode & 0xff00U) == 0x8d00U);
-                    if ((g_ctx.sr & 1U) != 0U) {
+                    if ((GDBStub::MasterSH2().sr & 1U) != 0U)
+                    {
                         int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
                         branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
-                    } else {
+                    }
+                    else
+                    {
                         branch_target = pc + (has_delay_slot ? 4U : 2U);
                     }
-                } else if ((opcode & 0xfb00U) == 0x8b00U) { // BF label, BF/S label
+                }
+                else if ((opcode & 0xfb00U) == 0x8b00U)
+                { // BF label, BF/S label
                     is_branch = true;
                     has_delay_slot = ((opcode & 0xff00U) == 0x8f00U);
-                    if ((g_ctx.sr & 1U) == 0U) {
+                    if ((GDBStub::MasterSH2().sr & 1U) == 0U)
+                    {
                         int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
                         branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
-                    } else {
+                    }
+                    else
+                    {
                         branch_target = pc + (has_delay_slot ? 4U : 2U);
                     }
-                } else if ((opcode & 0xe000U) == 0xa000U) { // BRA label, BSR label
+                }
+                else if ((opcode & 0xe000U) == 0xa000U)
+                { // BRA label, BSR label
                     is_branch = true;
                     has_delay_slot = true;
                     int16_t disp12 = static_cast<int16_t>((opcode & 0x0fffU) << 4) >> 4;
                     branch_target = pc + (static_cast<int>(disp12) << 1) + 4U;
-                    if ((opcode & 0xf000U) == 0xb000U) { // BSR label
+                    if ((opcode & 0xf000U) == 0xb000U)
+                    { // BSR label
                         g_step_data.delayed_updates_pr = true;
                         g_step_data.delayed_pr = pc + 4U;
                     }
-                } else if ((opcode & 0xf0dfU) == 0x400bU) { // JMP @Rm, JSR @Rm
+                }
+                else if ((opcode & 0xf0dfU) == 0x400bU)
+                { // JMP @Rm, JSR @Rm
                     is_branch = true;
                     has_delay_slot = true;
                     uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                    branch_target = g_ctx.r[reg_idx];
-                    if ((opcode & 0xf0ffU) == 0x400bU) { // JSR @Rm
+                    branch_target = GDBStub::MasterSH2().r[reg_idx];
+                    if ((opcode & 0xf0ffU) == 0x400bU)
+                    { // JSR @Rm
                         g_step_data.delayed_updates_pr = true;
                         g_step_data.delayed_pr = pc + 4U;
                     }
-                } else if ((opcode & 0xf0ffU) == 0x0023U) { // BRAF Rm
+                }
+                else if ((opcode & 0xf0ffU) == 0x0023U)
+                { // BRAF Rm
                     is_branch = true;
                     has_delay_slot = true;
                     uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                    branch_target = pc + 4U + g_ctx.r[reg_idx];
-                } else if ((opcode & 0xf0ffU) == 0x0003U) { // BSRF Rm
+                    branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
+                }
+                else if ((opcode & 0xf0ffU) == 0x0003U)
+                { // BSRF Rm
                     is_branch = true;
                     has_delay_slot = true;
                     uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                    branch_target = pc + 4U + g_ctx.r[reg_idx];
+                    branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
                     g_step_data.delayed_updates_pr = true;
                     g_step_data.delayed_pr = pc + 4U;
-                } else if (opcode == 0x000bU) { // RTS
+                }
+                else if (opcode == 0x000bU)
+                { // RTS
                     is_branch = true;
                     has_delay_slot = true;
-                    branch_target = g_ctx.pr;
-                } else if (opcode == 0x002bU) { // RTE
+                    branch_target = GDBStub::MasterSH2().pr;
+                }
+                else if (opcode == 0x002bU)
+                { // RTE
                     is_branch = true;
                     has_delay_slot = true;
-                    uint32_t sp = g_ctx.r[15];
-                    if (is_valid_memory_range(sp, 8U)) {
-                        branch_target = *reinterpret_cast<volatile uint32_t*>(sp | 0x20000000U);
+                    uint32_t sp = GDBStub::MasterSH2().r[15];
+                    if (is_valid_memory_range(sp, 8U))
+                    {
+                        branch_target = *reinterpret_cast<volatile uint32_t *>(sp | 0x20000000U);
                         g_step_data.delayed_is_rte = true;
-                        g_step_data.delayed_sr = *reinterpret_cast<volatile uint32_t*>((sp + 4U) | 0x20000000U);
+                        g_step_data.delayed_sr = *reinterpret_cast<volatile uint32_t *>((sp + 4U) | 0x20000000U);
                     }
-                } else if ((opcode & 0xff00U) == 0xc300U) { // TRAPA #imm
+                }
+                else if ((opcode & 0xff00U) == 0xc300U)
+                { // TRAPA #imm
                     uint32_t vec_num = opcode & 0xffU;
-                    if (vec_num <= 31U) {
-                        uint32_t vec_addr = g_ctx.vbr + ((32U + vec_num) * 4U);
-                        if (is_valid_memory_range(vec_addr, 4U)) {
-                            target_pc = *reinterpret_cast<volatile uint32_t*>(vec_addr | 0x20000000U);
+                    if (vec_num <= 31U)
+                    {
+                        uint32_t vec_addr = GDBStub::MasterSH2().vbr + ((32U + vec_num) * 4U);
+                        if (is_valid_memory_range(vec_addr, 4U))
+                        {
+                            target_pc = *reinterpret_cast<volatile uint32_t *>(vec_addr | 0x20000000U);
                         }
                     }
-                } else if (opcode == 0xFFFFU) { // Illegal Instruction (our breakpoint)
-                    if (find_breakpoint_slot(pc) >= 0) {
+                }
+                else if (opcode == 0xFFFFU)
+                { // Illegal Instruction (our breakpoint)
+                    if (find_breakpoint_slot(pc) >= 0)
+                    {
                         target_pc = pc + 2U;
-                    } else {
+                    }
+                    else
+                    {
                         target_pc = pc;
                     }
                 }
 
-                if (is_branch && has_delay_slot) {
+                if (is_branch && has_delay_slot)
+                {
                     g_step_data.is_delayed = true;
                     g_step_data.delayed_branch_pc = pc;
                     g_step_data.delayed_target = branch_target;
                     target_pc = pc + 2U;
-                } else if (is_branch) {
+                }
+                else if (is_branch)
+                {
                     target_pc = branch_target;
                 }
             }
 
             // Put a single-step trap at the target address.
-            if ((target_pc & 1U) == 0U && is_valid_memory_range(target_pc, 2U)) {
-                volatile uint16_t* target_code = reinterpret_cast<volatile uint16_t*>(target_pc | 0x20000000U);
+            if ((target_pc & 1U) == 0U && is_valid_memory_range(target_pc, 2U))
+            {
+                volatile uint16_t *target_code = reinterpret_cast<volatile uint16_t *>(target_pc | 0x20000000U);
                 g_step_data.address = target_pc;
                 g_step_data.original_instruction = *target_code;
                 *target_code = SoftwareBreakInstruction;
@@ -815,7 +944,8 @@ namespace SRL
         /**
          * @brief Adjusts the program counter (PC) following a breakpoint or step trap.
          */
-        static inline void adjust_pc_for_software_breakpoint() {
+        inline static void adjust_pc_for_software_breakpoint()
+        {
             g_was_swbreak = false;
             // SoftwareBreakInstruction (0xFFFF) is the SAME opcode CrashProgram() uses to
             // deliberately trigger a real Illegal Instruction crash, so vector 4's thunk
@@ -835,21 +965,24 @@ namespace SRL
             //
             // Phase 1 of delay-slot stepping: we placed 0xFFFF at the delay slot
             // (g_step_data.address == branch_pc + 2). The hardware pushes that address.
-            // Detect this as g_ctx.pc == g_step_data.address (NOT delayed_branch_pc).
+            // Detect this as MasterSH2().pc == g_step_data.address (NOT delayed_branch_pc).
             // Correct PC to the branch target and apply side effects.
-            if (g_step_data.active && g_step_data.is_delayed && g_ctx.pc == g_step_data.address) {
+            if (g_step_data.active && g_step_data.is_delayed && GDBStub::MasterSH2().pc == g_step_data.address)
+            {
                 g_was_swbreak = true;
                 g_last_stop_signal = 5U; // SIGTRAP — our own step trap, not a real crash
                 // Delay slot trap fired — hardware gave us the delay slot's address.
                 // Present PC to GDB as the branch target (where execution will resume).
-                g_ctx.pc = g_step_data.delayed_target;
+                GDBStub::MasterSH2().pc = g_step_data.delayed_target;
 
-                if (g_step_data.delayed_updates_pr) {
-                    g_ctx.pr = g_step_data.delayed_pr;
+                if (g_step_data.delayed_updates_pr)
+                {
+                    GDBStub::MasterSH2().pr = g_step_data.delayed_pr;
                 }
-                if (g_step_data.delayed_is_rte) {
-                    g_ctx.sr = g_step_data.delayed_sr;
-                    g_ctx.r[15] += 8U;
+                if (g_step_data.delayed_is_rte)
+                {
+                    GDBStub::MasterSH2().sr = g_step_data.delayed_sr;
+                    GDBStub::MasterSH2().r[15] += 8U;
                 }
                 g_step_data.is_delayed = false;
                 g_step_data.delayed_updates_pr = false;
@@ -859,7 +992,7 @@ namespace SRL
 
             // Normal (non-delayed) step trap or software breakpoint:
             // PC pushed by hardware IS the faulting instruction address.
-            // 
+            //
             // EDGE CASE: If a user places a GDB software breakpoint exactly on a programmatic
             // Break() call, this check matches first and returns early (PC is NOT advanced).
             // When GDB removes the breakpoint, it restores the original instruction (0xFFFF).
@@ -867,48 +1000,55 @@ namespace SRL
             // find_breakpoint_slot() will fail, and the block below will correctly advance
             // the PC past the Break(). This is acceptable as the user will just see two
             // stops at the same address (one for their BP, one for the hardcoded Break).
-            if (find_breakpoint_slot(g_ctx.pc) >= 0 || (g_step_data.active && g_ctx.pc == g_step_data.address)) {
+            if (find_breakpoint_slot(GDBStub::MasterSH2().pc) >= 0 || (g_step_data.active && GDBStub::MasterSH2().pc == g_step_data.address))
+            {
                 g_was_swbreak = true;
                 g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
-                return; // PC is already exactly at the breakpoint.
+                return;                  // PC is already exactly at the breakpoint.
             }
 
             // If it is a programmatic Break() (0xFFFF) not inserted by GDB, we must advance the PC
             // past it so that execution can resume cleanly on continue/step. We do NOT set g_was_swbreak
             // to true, otherwise GDB will auto-continue over it because it isn't in its breakpoint list.
-            if (is_valid_memory_range(g_ctx.pc, 2U)) {
-                volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
-                if (*code == SoftwareBreakInstruction) {
-                    g_ctx.pc += 2U;
+            if (is_valid_memory_range(GDBStub::MasterSH2().pc, 2U))
+            {
+                volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(GDBStub::MasterSH2().pc | 0x20000000U);
+                if (*code == SoftwareBreakInstruction)
+                {
+                    GDBStub::MasterSH2().pc += 2U;
                     return;
                 }
             }
 
-            if (g_ctx.pc < 2U) {
+            if (GDBStub::MasterSH2().pc < 2U)
+            {
                 return;
             }
 
             // Fallback: If we ever used TRAPA, the PC pushed is PC + 2.
-            const uint32_t trap_address = g_ctx.pc - 2U;
-            if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address)) {
+            const uint32_t trap_address = GDBStub::MasterSH2().pc - 2U;
+            if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address))
+            {
                 g_was_swbreak = true;
                 g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
-                g_ctx.pc = trap_address;
+                GDBStub::MasterSH2().pc = trap_address;
             }
         }
 
         /**
          * @brief Captures a dummy context for asynchronous packet handling outside of exceptions.
          */
-        static inline void snapshot_polling_context() {
+        inline static void snapshot_polling_context()
+        {
             // Fallback context used when we service GDB packets outside ExceptionThunk.
             // It keeps PC/SP/special registers valid so GDB does not see a null frame.
             // We zero r0-r14 intentionally. The C++ compiler constantly clobbers these
             // during the Poll() execution itself, so capturing them via inline asm
             // would just yield meaningless compiler-generated garbage. Only the
             // structural frame (SP, PC, PR, etc) is accurate.
-            for (int i = 0; i < 16; ++i) {
-                g_ctx.r[i] = 0;
+            for (int i = 0; i < 16; ++i)
+            {
+                GDBStub::MasterSH2().r[i] = 0;
             }
 
             uint32_t sp = 0;
@@ -920,28 +1060,28 @@ namespace SRL
             uint32_t macl = 0;
             uint32_t sr = 0;
 
-            asm volatile("mov r15, %0" : "=r"(sp));                 // sp = current r15 (this function's own live stack pointer, not the real caller's -- see the doc comment below on why that's fine here)
-            asm volatile("mova 1f, r0\n\t"                          // r0 = address of local label "1" (a fixed point a few instructions below, inside this same function)
-                         "mov r0, %0\n\t"                           // pc = r0 -- captures that fixed address as the "current PC", since there's no direct "read PC" instruction on SH-2
-                         ".align 2\n\t"                              // realign after the mova/mov pair so label 1 lands on a valid instruction boundary
-                         "1:\n\t" : "=r"(pc) : : "r0");              // label 1 itself -- purely a marker for mova to compute the address of, emits no code
-            asm volatile("sts pr, %0" : "=r"(pr));                  // pr = current PR (procedure register / return address)
-            asm volatile("stc gbr, %0" : "=r"(gbr));                // gbr = current GBR
-            asm volatile("stc vbr, %0" : "=r"(vbr));                // vbr = current VBR
-            asm volatile("sts mach, %0" : "=r"(mach));              // mach = current MACH
-            asm volatile("sts macl, %0" : "=r"(macl));              // macl = current MACL
-            asm volatile("stc sr, %0" : "=r"(sr));                  // sr = current SR
+            asm volatile("mov r15, %0" : "=r"(sp));     // sp = current r15 (this function's own live stack pointer, not the real caller's -- see the doc comment below on why that's fine here)
+            asm volatile("mova 1f, r0\n\t"              // r0 = address of local label "1" (a fixed point a few instructions below, inside this same function)
+                         "mov r0, %0\n\t"               // pc = r0 -- captures that fixed address as the "current PC", since there's no direct "read PC" instruction on SH-2
+                         ".align 2\n\t"                 // realign after the mova/mov pair so label 1 lands on a valid instruction boundary
+                         "1:\n\t" : "=r"(pc) : : "r0"); // label 1 itself -- purely a marker for mova to compute the address of, emits no code
+            asm volatile("sts pr, %0" : "=r"(pr));      // pr = current PR (procedure register / return address)
+            asm volatile("stc gbr, %0" : "=r"(gbr));    // gbr = current GBR
+            asm volatile("stc vbr, %0" : "=r"(vbr));    // vbr = current VBR
+            asm volatile("sts mach, %0" : "=r"(mach));  // mach = current MACH
+            asm volatile("sts macl, %0" : "=r"(macl));  // macl = current MACL
+            asm volatile("stc sr, %0" : "=r"(sr));      // sr = current SR
 
-            g_ctx.r[15] = sp;
-            g_ctx.pc = pc;
-            g_ctx.pr = pr;
-            g_ctx.gbr = gbr;
-            g_ctx.vbr = vbr;
-            g_ctx.mach = mach;
-            g_ctx.macl = macl;
-            g_ctx.sr = sr;
+            GDBStub::MasterSH2().r[15] = sp;
+            GDBStub::MasterSH2().pc = pc;
+            GDBStub::MasterSH2().pr = pr;
+            GDBStub::MasterSH2().gbr = gbr;
+            GDBStub::MasterSH2().vbr = vbr;
+            GDBStub::MasterSH2().mach = mach;
+            GDBStub::MasterSH2().macl = macl;
+            GDBStub::MasterSH2().sr = sr;
 
-            // g_ctx.pc above is the address of a label inside THIS function
+            // MasterSH2().pc above is the address of a label inside THIS function
             // (captured via "mova 1f, r0") -- always the same fixed address
             // regardless of where Poll()'s real caller actually is. It is not a
             // valid resume point. Flag this so continue/step treat it as a no-op.
@@ -1000,18 +1140,23 @@ namespace SRL
         // - After connection established: also aborts on prolonged silence
         //   (GDB process killed without sending D).
         // Returns true if data is available, false if session should be abandoned.
-        static inline bool __gdb_wait_rx() {
+        inline static bool __gdb_wait_rx()
+        {
             uint32_t idle = 0;
-            while (SRL::DevCart::CS0::IsRxfEmpty()) {
+            while (SRL::DevCart::CS0::IsRxfEmpty())
+            {
                 // Abort immediately on cable unplug, connected or not.
-                if (!SRL::DevCart::CS0::IsConnected()) {
+                if (!SRL::DevCart::CS0::IsConnected())
+                {
                     g_has_connection = false;
                     g_handshake_done = false;
                     return false;
                 }
                 // After handshake, apply idle timeout for dead GDB processes.
-                if (g_has_connection && g_handshake_done) {
-                    if (++idle > GDB_RX_IDLE_TIMEOUT) {
+                if (g_has_connection && g_handshake_done)
+                {
+                    if (++idle > GDB_RX_IDLE_TIMEOUT)
+                    {
                         g_has_connection = false;
                         g_handshake_done = false;
                         return false;
@@ -1024,16 +1169,21 @@ namespace SRL
         // Waits for USB TX space. Same cable-unplug hazard/fix as __gdb_wait_rx()
         // above -- aborts on cable unplug regardless of connection state, and
         // on prolonged silence once a session is established.
-        static inline bool __gdb_wait_tx() {
+        inline static bool __gdb_wait_tx()
+        {
             uint32_t idle = 0;
-            while (SRL::DevCart::CS0::IsTxeFull()) {
-                if (!SRL::DevCart::CS0::IsConnected()) {
+            while (SRL::DevCart::CS0::IsTxeFull())
+            {
+                if (!SRL::DevCart::CS0::IsConnected())
+                {
                     g_has_connection = false;
                     g_handshake_done = false;
                     return false;
                 }
-                if (g_has_connection && g_handshake_done) {
-                    if (++idle > GDB_TX_IDLE_TIMEOUT) {
+                if (g_has_connection && g_handshake_done)
+                {
+                    if (++idle > GDB_TX_IDLE_TIMEOUT)
+                    {
                         g_has_connection = false;
                         g_handshake_done = false;
                         return false;
@@ -1043,13 +1193,16 @@ namespace SRL
             return true;
         }
 
-        static inline int __gdb_getc() {
-            if (g_unget_char != -1) {
+        inline static int __gdb_getc()
+        {
+            if (g_unget_char != -1)
+            {
                 int c = g_unget_char;
                 g_unget_char = -1;
                 return c;
             }
-            if (!__gdb_wait_rx()) {
+            if (!__gdb_wait_rx())
+            {
                 return -1; // disconnected
             }
             const uint8_t c = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
@@ -1057,8 +1210,10 @@ namespace SRL
             return static_cast<int>(c);
         }
 
-        static inline bool __gdb_putc(uint8_t value) {
-            if (!__gdb_wait_tx()) {
+        inline static bool __gdb_putc(uint8_t value)
+        {
+            if (!__gdb_wait_tx())
+            {
                 return false; // disconnected
             }
             *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo) = value;
@@ -1068,12 +1223,15 @@ namespace SRL
 
         // --- Packet I/O (minimal, libyaul-style) ---
 
-        static inline uint8_t packet_put_data(const char* buffer, size_t len) {
+        inline static uint8_t packet_put_data(const char *buffer, size_t len)
+        {
             uint8_t sum = 0;
-            for (size_t i = 0; i < len; i++) {
+            for (size_t i = 0; i < len; i++)
+            {
                 uint8_t ch = static_cast<uint8_t>(buffer[i]);
                 sum += ch;
-                if (!__gdb_putc(ch)) return sum; // disconnect
+                if (!__gdb_putc(ch))
+                    return sum; // disconnect
             }
             return sum;
         }
@@ -1084,39 +1242,56 @@ namespace SRL
          * @param payload The packet payload to send.
          * @param payload_len The length of the payload.
          */
-        static inline void packet_put(char type, const char* data, size_t len) {
-            do {
+        inline static void packet_put(char type, const char *data, size_t len)
+        {
+            do
+            {
                 uint8_t csum = 0;
                 uint8_t ch = '$';
-                if (!__gdb_putc(ch)) return;
+                if (!__gdb_putc(ch))
+                    return;
 
-                if (type != '\0') {
+                if (type != '\0')
+                {
                     ch = static_cast<uint8_t>(type);
-                    if (!__gdb_putc(ch)) return;
+                    if (!__gdb_putc(ch))
+                        return;
                     csum += ch;
                 }
 
-                if (data != nullptr && len > 0) {
+                if (data != nullptr && len > 0)
+                {
                     csum += packet_put_data(data, len);
-                    if (!g_has_connection) return; // disconnect mid-send
+                    if (!g_has_connection)
+                        return; // disconnect mid-send
                 }
 
                 ch = '#';
-                if (!__gdb_putc(ch)) return;
+                if (!__gdb_putc(ch))
+                    return;
                 ch = static_cast<uint8_t>(hexchar(csum >> 4));
-                if (!__gdb_putc(ch)) return;
+                if (!__gdb_putc(ch))
+                    return;
                 ch = static_cast<uint8_t>(hexchar(csum));
-                if (!__gdb_putc(ch)) return;
+                if (!__gdb_putc(ch))
+                    return;
 
-                while (true) {
+                while (true)
+                {
                     int raw = __gdb_getc();
-                    if (raw < 0) return; // disconnect
+                    if (raw < 0)
+                        return; // disconnect
                     ch = static_cast<uint8_t>(raw & 0x7F);
-                    if (ch == '+') {
+                    if (ch == '+')
+                    {
                         return;
-                    } else if (ch == '-') {
+                    }
+                    else if (ch == '-')
+                    {
                         break; // retransmit
-                    } else if (ch == '$') {
+                    }
+                    else if (ch == '$')
+                    {
                         g_unget_char = '$';
                         return;
                     }
@@ -1125,30 +1300,40 @@ namespace SRL
         }
 
         // Returns false if disconnected (buffer will contain empty/partial data).
-        static inline bool packet_get(char* buffer, size_t max_len) {
+        inline static bool packet_get(char *buffer, size_t max_len)
+        {
             buffer[0] = '\0';
-            while (true) {
+            while (true)
+            {
                 int raw;
 
                 // Wait for '$' packet start, abort on disconnect.
-                do {
+                do
+                {
                     raw = __gdb_getc();
-                    if (raw < 0) return false; // disconnect
+                    if (raw < 0)
+                        return false; // disconnect
                 } while ((raw & 0x7F) != '$');
 
                 uint8_t csum = 0;
                 size_t len = 0;
                 bool overflow = false;
 
-                while (true) {
+                while (true)
+                {
                     raw = __gdb_getc();
-                    if (raw < 0) return false;
+                    if (raw < 0)
+                        return false;
                     uint8_t ch = static_cast<uint8_t>(raw & 0x7F);
-                    if (ch == '#') break;
+                    if (ch == '#')
+                        break;
                     csum += ch;
-                    if (len + 1 < max_len) {
+                    if (len + 1 < max_len)
+                    {
                         buffer[len++] = static_cast<char>(ch);
-                    } else {
+                    }
+                    else
+                    {
                         overflow = true;
                     }
                 }
@@ -1156,17 +1341,20 @@ namespace SRL
 
                 const int hi_raw = __gdb_getc();
                 const int lo_raw = __gdb_getc();
-                if (hi_raw < 0 || lo_raw < 0) return false;
+                if (hi_raw < 0 || lo_raw < 0)
+                    return false;
                 const int hi = hex(static_cast<char>(hi_raw & 0x7F));
                 const int lo = hex(static_cast<char>(lo_raw & 0x7F));
-                if (hi < 0 || lo < 0) {
+                if (hi < 0 || lo < 0)
+                {
                     uint8_t nack = '-';
                     __gdb_putc(nack);
                     continue;
                 }
                 const uint8_t xmit_csum = static_cast<uint8_t>((hi << 4) | lo);
 
-                if (csum != xmit_csum || overflow) {
+                if (csum != xmit_csum || overflow)
+                {
                     uint8_t nack = '-';
                     __gdb_putc(nack);
                     continue;
@@ -1177,9 +1365,11 @@ namespace SRL
 
                 // Strip sequence id prefix (XX:payload → payload).
                 // Ensure XX are valid hex digits so we don't accidentally truncate valid packets (e.g. M<addr>:).
-                if (len >= 3 && buffer[2] == ':' && hex(buffer[0]) >= 0 && hex(buffer[1]) >= 0) {
+                if (len >= 3 && buffer[2] == ':' && hex(buffer[0]) >= 0 && hex(buffer[1]) >= 0)
+                {
                     size_t i = 0;
-                    while (buffer[3 + i] != '\0') {
+                    while (buffer[3 + i] != '\0')
+                    {
                         buffer[i] = buffer[3 + i];
                         ++i;
                     }
@@ -1191,40 +1381,52 @@ namespace SRL
             }
         }
 
-        static inline void send_stop_signal(uint8_t signal) {
+        inline static void send_stop_signal(uint8_t signal)
+        {
             char buf[64];
             buf[0] = hexchar(signal >> 4);
             buf[1] = hexchar(signal & 0xF);
             int len = 2;
-            
-            if (signal == 5) {
+
+            if (signal == 5)
+            {
                 // Only append "swbreak:;" if this was actually a GDB-managed software breakpoint
                 // or a single-step trap. If we append it for a programmatic Break() or a real crash
                 // using 0xFFFF, GDB will fail to find it in its list and auto-continue the target,
                 // resulting in an infinite loop.
-                if (g_was_swbreak) {
-                    const char* swb = "swbreak:;";
-                    for (int i = 0; i < 9; ++i) buf[len++] = swb[i];
-                } else {
-                    const char* rsn = "reason:signal;";
-                    for (int i = 0; i < 14; ++i) buf[len++] = rsn[i];
+                if (g_was_swbreak)
+                {
+                    const char *swb = "swbreak:;";
+                    for (int i = 0; i < 9; ++i)
+                        buf[len++] = swb[i];
+                }
+                else
+                {
+                    const char *rsn = "reason:signal;";
+                    for (int i = 0; i < 14; ++i)
+                        buf[len++] = rsn[i];
                 }
             }
-            
-            const char* thread = "thread:1;";
-            for (int i = 0; i < 9; ++i) buf[len++] = thread[i];
-            
+
+            const char *thread = "thread:1;";
+            for (int i = 0; i < 9; ++i)
+                buf[len++] = thread[i];
+
             g_last_stop_signal = signal;
             packet_put('T', buf, len);
         }
 
-        static inline size_t append_str(char* buf, size_t pos, const char* s) {
-            while (*s != '\0') buf[pos++] = *s++;
+        inline static size_t append_str(char *buf, size_t pos, const char *s)
+        {
+            while (*s != '\0')
+                buf[pos++] = *s++;
             return pos;
         }
 
-        static inline size_t append_hex(char* buf, size_t pos, uint32_t value, int digits) {
-            for (int shift = (digits - 1) * 4; shift >= 0; shift -= 4) {
+        inline static size_t append_hex(char *buf, size_t pos, uint32_t value, int digits)
+        {
+            for (int shift = (digits - 1) * 4; shift >= 0; shift -= 4)
+            {
                 buf[pos++] = hexchar(static_cast<int>(value >> shift));
             }
             return pos;
@@ -1240,14 +1442,17 @@ namespace SRL
          * packets after `monitor` until it sees a non-'O' reply, so any number of
          * $O packets sent here arrive before the final $OK.
          */
-        static inline void send_monitor_text(const char* text, size_t len) {
+        inline static void send_monitor_text(const char *text, size_t len)
+        {
             constexpr size_t kChunkRaw = kPacketDataMax / 2U;
             char hexbuf[kChunkRaw * 2U + 1U];
             size_t off = 0;
-            while (off < len) {
+            while (off < len)
+            {
                 size_t chunk = len - off;
-                if (chunk > kChunkRaw) chunk = kChunkRaw;
-                mem2hex(reinterpret_cast<const uint8_t*>(text + off), hexbuf, static_cast<int>(chunk));
+                if (chunk > kChunkRaw)
+                    chunk = kChunkRaw;
+                mem2hex(reinterpret_cast<const uint8_t *>(text + off), hexbuf, static_cast<int>(chunk));
                 packet_put('O', hexbuf, chunk * 2U);
                 off += chunk;
             }
@@ -1286,35 +1491,45 @@ namespace SRL
          * this stub's own samples generally don't call it (see SlaveCounterTask's
          * doc comment for why it's incompatible with SRL::Slave::ExecuteOnSlave()).
          */
-        static inline void send_slave_regs_dump() {
+        inline static void send_slave_regs_dump()
+        {
             char text[320];
             size_t pos = 0;
 
             pos = append_str(text, pos, "slave r0-r7 : ");
-            for (int i = 0; i < 8; ++i) {
-                pos = append_hex(text, pos, g_slave_ctx.r[i], 8);
+            for (int i = 0; i < 8; ++i)
+            {
+                pos = append_hex(text, pos, GDBStub::SlaveSH2().r[i], 8);
                 text[pos++] = ' ';
             }
             text[pos++] = '\n';
 
             pos = append_str(text, pos, "slave r8-r15: ");
-            for (int i = 8; i < 16; ++i) {
-                pos = append_hex(text, pos, g_slave_ctx.r[i], 8);
+            for (int i = 8; i < 16; ++i)
+            {
+                pos = append_hex(text, pos, GDBStub::SlaveSH2().r[i], 8);
                 text[pos++] = ' ';
             }
             text[pos++] = '\n';
 
-            pos = append_str(text, pos, "pc="); pos = append_hex(text, pos, g_slave_ctx.pc, 8);
-            pos = append_str(text, pos, " pr="); pos = append_hex(text, pos, g_slave_ctx.pr, 8);
-            pos = append_str(text, pos, " sr="); pos = append_hex(text, pos, g_slave_ctx.sr, 8);
+            pos = append_str(text, pos, "pc=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().pc, 8);
+            pos = append_str(text, pos, " pr=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().pr, 8);
+            pos = append_str(text, pos, " sr=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().sr, 8);
             text[pos++] = '\n';
 
-            pos = append_str(text, pos, "gbr="); pos = append_hex(text, pos, g_slave_ctx.gbr, 8);
-            pos = append_str(text, pos, " vbr="); pos = append_hex(text, pos, g_slave_ctx.vbr, 8);
+            pos = append_str(text, pos, "gbr=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().gbr, 8);
+            pos = append_str(text, pos, " vbr=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().vbr, 8);
             text[pos++] = '\n';
 
-            pos = append_str(text, pos, "mach="); pos = append_hex(text, pos, g_slave_ctx.mach, 8);
-            pos = append_str(text, pos, " macl="); pos = append_hex(text, pos, g_slave_ctx.macl, 8);
+            pos = append_str(text, pos, "mach=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().mach, 8);
+            pos = append_str(text, pos, " macl=");
+            pos = append_hex(text, pos, GDBStub::SlaveSH2().macl, 8);
             text[pos++] = '\n';
 
             send_monitor_text(text, pos);
@@ -1328,16 +1543,21 @@ namespace SRL
          * away. In a correctly-working debounce, report_count should land on
          * exactly 1 per physical press regardless of how high fire_count goes.
          */
-        static inline void send_nmi_diag_dump() {
+        inline static void send_nmi_diag_dump()
+        {
             char text[160];
             size_t pos = 0;
-            pos = append_str(text, pos, "nmi generation="); pos = append_hex(text, pos, g_nmi_generation, 8);
+            pos = append_str(text, pos, "nmi generation=");
+            pos = append_hex(text, pos, g_nmi_generation, 8);
             text[pos++] = '\n';
-            pos = append_str(text, pos, "fire_count="); pos = append_hex(text, pos, g_nmi_fire_count, 8);
+            pos = append_str(text, pos, "fire_count=");
+            pos = append_hex(text, pos, g_nmi_fire_count, 8);
             text[pos++] = '\n';
-            pos = append_str(text, pos, "report_count="); pos = append_hex(text, pos, g_nmi_report_count, 8);
+            pos = append_str(text, pos, "report_count=");
+            pos = append_hex(text, pos, g_nmi_report_count, 8);
             text[pos++] = '\n';
-            pos = append_str(text, pos, "swallow_count="); pos = append_hex(text, pos, g_nmi_swallow_count, 8);
+            pos = append_str(text, pos, "swallow_count=");
+            pos = append_hex(text, pos, g_nmi_swallow_count, 8);
             text[pos++] = '\n';
             send_monitor_text(text, pos);
         }
@@ -1352,24 +1572,34 @@ namespace SRL
          * anywhere, including inside precompiled library code with no debug
          * info -- see the "cannot recover" investigation).
          */
-        static inline void send_halt_trace_dump() {
+        inline static void send_halt_trace_dump()
+        {
             char text[400];
             size_t pos = 0;
 
-            pos = append_str(text, pos, "pc="); pos = append_hex(text, pos, g_ctx.pc, 8);
-            pos = append_str(text, pos, " pr="); pos = append_hex(text, pos, g_ctx.pr, 8);
-            pos = append_str(text, pos, " sr="); pos = append_hex(text, pos, g_ctx.sr, 8);
+            pos = append_str(text, pos, "pc=");
+            pos = append_hex(text, pos, GDBStub::MasterSH2().pc, 8);
+            pos = append_str(text, pos, " pr=");
+            pos = append_hex(text, pos, GDBStub::MasterSH2().pr, 8);
+            pos = append_str(text, pos, " sr=");
+            pos = append_hex(text, pos, GDBStub::MasterSH2().sr, 8);
             text[pos++] = '\n';
 
-            pos = append_str(text, pos, "was_swbreak="); text[pos++] = g_was_swbreak ? '1' : '0';
-            pos = append_str(text, pos, " is_ctrl_c_stop="); text[pos++] = g_is_ctrl_c_stop ? '1' : '0';
-            pos = append_str(text, pos, " last_stop_signal="); pos = append_hex(text, pos, g_last_stop_signal, 2);
+            pos = append_str(text, pos, "was_swbreak=");
+            text[pos++] = g_was_swbreak ? '1' : '0';
+            pos = append_str(text, pos, " is_ctrl_c_stop=");
+            text[pos++] = g_is_ctrl_c_stop ? '1' : '0';
+            pos = append_str(text, pos, " last_stop_signal=");
+            pos = append_hex(text, pos, g_last_stop_signal, 2);
             text[pos++] = '\n';
 
             const int bp_slot = find_breakpoint_slot(g_ctx.pc);
-            pos = append_str(text, pos, "bp_slot="); pos = append_hex(text, pos, static_cast<uint32_t>(bp_slot), 8);
-            pos = append_str(text, pos, " step_active="); text[pos++] = g_step_data.active ? '1' : '0';
-            pos = append_str(text, pos, " step_is_delayed="); text[pos++] = g_step_data.is_delayed ? '1' : '0';
+            pos = append_str(text, pos, "bp_slot=");
+            pos = append_hex(text, pos, static_cast<uint32_t>(bp_slot), 8);
+            pos = append_str(text, pos, " step_active=");
+            text[pos++] = g_step_data.active ? '1' : '0';
+            pos = append_str(text, pos, " step_is_delayed=");
+            text[pos++] = g_step_data.is_delayed ? '1' : '0';
             text[pos++] = '\n';
 
             // What handle_gdb_continue() would do right now, without doing it.
@@ -1377,10 +1607,14 @@ namespace SRL
             text[pos++] = (bp_slot >= 0 || g_step_data.is_delayed) ? '1' : '0';
             text[pos++] = '\n';
 
-            if (is_valid_memory_range(g_ctx.pc, 2U)) {
-                uint16_t opcode = *reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
-                pos = append_str(text, pos, "opcode_at_pc="); pos = append_hex(text, pos, opcode, 4);
-            } else {
+            if (is_valid_memory_range(GDBStub::MasterSH2().pc, 2U))
+            {
+                uint16_t opcode = *reinterpret_cast<volatile uint16_t *>(GDBStub::MasterSH2().pc | 0x20000000U);
+                pos = append_str(text, pos, "opcode_at_pc=");
+                pos = append_hex(text, pos, opcode, 4);
+            }
+            else
+            {
                 pos = append_str(text, pos, "opcode_at_pc=invalid_range");
             }
             text[pos++] = '\n';
@@ -1390,12 +1624,13 @@ namespace SRL
 
         /**
          * @brief Prepares the CPU state for a GDB single-step command ('s' / 'vCont;s').
-         * 
+         *
          * Places a temporary software breakpoint on the next sequential instruction
          * (or the branch target if the current instruction is a branch), ensuring
          * the stub catches execution immediately after one instruction.
          */
-        static inline void handle_gdb_step() {
+        inline static void handle_gdb_step()
+        {
             g_is_ctrl_c_stop = false;
 
             // A slave parked at a breakpoint (see InstallSlaveExceptionHandler())
@@ -1405,12 +1640,13 @@ namespace SRL
 
             // See g_ctx_is_fake's declaration: if the current halt came from
             // Poll()'s out-of-band snapshot path rather than a real exception,
-            // g_ctx.pc is not a real instruction address and r0-r14 are zeroed --
+            // MasterSH2().pc is not a real instruction address and r0-r14 are zeroed --
             // decoding an opcode there or planting a trap based on it would
             // corrupt state. The real CPU registers were never touched, so the
             // only correct behavior is to do nothing and let execution continue
             // untouched wherever it actually is.
-            if (g_ctx_is_fake) {
+            if (g_ctx_is_fake)
+            {
                 g_ctx_is_fake = false;
                 return;
             }
@@ -1425,7 +1661,8 @@ namespace SRL
          * software breakpoint, and sets up a silent step-over trap to re-insert
          * the breakpoint after the instruction executes.
          */
-        static inline void handle_gdb_continue() {
+        inline static void handle_gdb_continue()
+        {
             g_is_ctrl_c_stop = false;
             g_debug_pause = false;
             SlaveIPIClear();
@@ -1437,23 +1674,26 @@ namespace SRL
 
             // See handle_gdb_step() / g_ctx_is_fake: same hazard applies to
             // continue's breakpoint-restore-and-step-over logic below.
-            if (g_ctx_is_fake) {
+            if (g_ctx_is_fake)
+            {
                 g_ctx_is_fake = false;
                 return;
             }
 
             const int bp_slot = find_breakpoint_slot(g_ctx.pc);
-            if (bp_slot >= 0) {
+            if (bp_slot >= 0)
+            {
                 // Temporarily restore the original instruction so the CPU can execute it.
                 // We deliberately leave active = true so the slot remains owned throughout
                 // the step-over sequence — no interrupt between here and re-insertion can
                 // see a half-released slot with a valid address but active = false.
-                volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(g_ctx.pc | 0x20000000U);
+                volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_ctx.pc | 0x20000000U);
                 *code = g_software_breakpoints[bp_slot].original_instruction;
                 // active intentionally kept true; re-insertion handler will re-patch it.
             }
 
-            if (bp_slot >= 0 || g_step_data.is_delayed) {
+            if (bp_slot >= 0 || g_step_data.is_delayed)
+            {
                 do_software_step();
                 g_resuming_from_breakpoint = true;
                 // If this is purely a delay-slot step-over (bp_slot == -1), g_resume_bp_slot
@@ -1464,17 +1704,20 @@ namespace SRL
             }
         }
 
-        __attribute__((used)) inline void process_commands() __asm__("srl_gdbstub_process_commands");
-
         /**
          * @brief Core GDB Remote Serial Protocol (RSP) packet processor.
-         * 
+         *
          * This function reads and parses RSP packets ('g', 'G', 'm', 'M', 'z', 'Z', 'vCont', etc.)
          * from the USB FIFO. It reads/writes CPU state via the `g_ctx` global exception frame,
          * manipulates software breakpoints, and responds to the debugger.
          * It executes entirely from the SH-2 exception context.
+         * @note The exception thunk reaches this through the extern "C"
+         * srl_gdbstub_process_commands() trampoline (defined after the class):
+         * an __asm__ label on an in-class member function definition is
+         * silently ignored by GCC, so the member itself has no fixed symbol.
          */
-        __attribute__((used)) inline void process_commands() {
+        inline static void process_commands()
+        {
             // Must be the very first thing: marks g_in_process_commands for the
             // entire duration, so Poll() (see its top) knows to skip its
             // GDB-related work if VBlank fires while we're already halted here.
@@ -1509,27 +1752,32 @@ namespace SRL
             char out_buf[1024];
 
             SRL::Logger::Log::LogPrint("[GDBStub] process_commands() entered. PC: 0x%08lX",
-                static_cast<unsigned long>(g_ctx.pc));
+                                       static_cast<unsigned long>(GDBStub::MasterSH2().pc));
 
             adjust_pc_for_software_breakpoint();
 
             // Clear the UBC Channel A match flag (CMFA) in BRCR to prevent infinite re-entry loops.
-            volatile uint16_t* BRCR = reinterpret_cast<volatile uint16_t*>(0xFFFFFF60U);
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
             *BRCR &= ~0x0080U;
 
             undo_software_step();
 
             // --- Silent step-over: re-insert the breakpoint we temporarily removed for $c ---
-            if (g_resuming_from_breakpoint) {
+            if (g_resuming_from_breakpoint)
+            {
                 g_resuming_from_breakpoint = false;
-                if (g_resume_bp_slot >= 0 && g_resume_bp_slot < static_cast<int>(MaxSoftwareBreakpoints)) {
+                if (g_resume_bp_slot >= 0 && g_resume_bp_slot < static_cast<int>(MaxSoftwareBreakpoints))
+                {
                     const uint32_t bp_addr = g_software_breakpoints[g_resume_bp_slot].address;
-                    if ((bp_addr & 1U) == 0U && is_valid_memory_range(bp_addr, 2U)) {
-                        volatile uint16_t* code = reinterpret_cast<volatile uint16_t*>(bp_addr | 0x20000000U);
+                    if ((bp_addr & 1U) == 0U && is_valid_memory_range(bp_addr, 2U))
+                    {
+                        volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(bp_addr | 0x20000000U);
                         *code = SoftwareBreakInstruction;
                         // active was kept true throughout; confirm the write then leave it true.
                         PurgeCache();
-                    } else {
+                    }
+                    else
+                    {
                         // Address became invalid — release the slot cleanly.
                         g_software_breakpoints[g_resume_bp_slot].active = false;
                     }
@@ -1556,14 +1804,19 @@ namespace SRL
             // pre-connection fallback path (snapshot_polling_context() +
             // process_commands(), see Poll() below) BEFORE __gdb_wait_rx() is
             // ever called, so fixing only that function left this loop hanging.
-            if (!g_has_connection) {
-                while (!SRL::DevCart::CS0::IsRxfEmpty()) {
-                    if (!SRL::DevCart::CS0::IsConnected()) {
+            if (!g_has_connection)
+            {
+                while (!SRL::DevCart::CS0::IsRxfEmpty())
+                {
+                    if (!SRL::DevCart::CS0::IsConnected())
+                    {
                         break;
                     }
-                    (void)*(volatile uint8_t*)(SRL::DevCart::CS0::UsbFifo);
+                    (void)*(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
                 }
-            } else if (g_handshake_done) {
+            }
+            else if (g_handshake_done)
+            {
                 // If we are already connected and we just entered the trap handler
                 // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
                 send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
@@ -1572,616 +1825,757 @@ namespace SRL
             // The stop reason (SIGTRAP or SIGINT) is preserved until '?' arrives.
             // g_is_ctrl_c_stop remains active to mask PR/R14, and is cleared upon resume.
 
-            while (true) {
+            while (true)
+            {
                 out_buf[0] = 0;
-                if (!packet_get(in_buf, sizeof(in_buf))) {
+                if (!packet_get(in_buf, sizeof(in_buf)))
+                {
                     // USB disconnected while waiting for a packet — release the
                     // slave (if frozen) and stop processing.
                     SlaveIPIClear();
                     return;
                 }
 
-                switch (in_buf[0]) {
-                    case '!':
-                        // Enable extended-remote mode. We already tolerate vRun without this,
-                        // but acknowledging it properly avoids relying on that leniency.
-                        packet_put('\0', "OK", 2);
-                        break;
-                    case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
-                        clear_breakpoints(true);
-                        g_handshake_done = false;
-                        g_has_connection = false;
-                        SlaveIPIClear();
-                        return;
-                    case '?':
-                        // First '?' marks the connection as active and sends the stop reason.
-                        g_has_connection = true;
-                        send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
-                        break;
-                    case 'q':
-                        if (starts_with(in_buf, "qSupported")) {
-                            // Advertise swbreak, hwbreak (Z1-Z4 are implemented via the UBC,
-                            // see install_hardware_watchpoint), and target description so GDB
-                            // knows the arch. Dynamically insert the PacketSize to ensure it
-                            // stays in sync with kPacketDataMax.
-                            constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+;qXfer:features:read+";
-                            
-                            static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
-                            static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
+                switch (in_buf[0])
+                {
+                case '!':
+                    // Enable extended-remote mode. We already tolerate vRun without this,
+                    // but acknowledging it properly avoids relying on that leniency.
+                    packet_put('\0', "OK", 2);
+                    break;
+                case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
+                    clear_breakpoints(true);
+                    g_handshake_done = false;
+                    g_has_connection = false;
+                    SlaveIPIClear();
+                    return;
+                case '?':
+                    // First '?' marks the connection as active and sends the stop reason.
+                    g_has_connection = true;
+                    send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
+                    break;
+                case 'q':
+                    if (starts_with(in_buf, "qSupported"))
+                    {
+                        // Advertise swbreak, hwbreak (Z1-Z4 are implemented via the UBC,
+                        // see install_hardware_watchpoint), and target description so GDB
+                        // knows the arch. Dynamically insert the PacketSize to ensure it
+                        // stays in sync with kPacketDataMax.
+                        constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+;qXfer:features:read+";
 
-                            size_t out_len = 0;
-                            for (size_t i = 0; i < sizeof(kPacketSizeStr) - 1; ++i) {
-                                if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = kPacketSizeStr[i];
-                            }
-                            for (const char* s = kFeaturesStr; *s; ++s) {
-                                if (out_len < sizeof(out_buf) - 1) out_buf[out_len++] = *s;
-                            }
-                            
-                            out_buf[out_len] = '\0';
-                            packet_put('\0', out_buf, out_len);
-                            g_handshake_done = true;
-                        } else if (starts_with(in_buf, "qXfer:features:read:")) {
-                            // qXfer:features:read:target.xml:offset,length
-                            // Full SH-2 register description so gdb-multiarch auto-detects
-                            // architecture and register layout without needing 'set arch'.
-                            static const char target_xml[] =
-                                "<?xml version=\"1.0\"?>\n"
-                                "<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
-                                "<target version=\"1.0\">\n"
-                                "  <architecture>sh</architecture>\n"
-                                "  <feature name=\"org.gnu.gdb.sh.core\">\n"
-                                "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r2\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r3\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r4\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r5\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r6\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r7\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r8\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r9\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\"/>\n"
-                                "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"16\"/>\n"
-                                "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
-                                "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
-                                "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                                "  </feature>\n"
-                                "  <feature name=\"org.sega.saturn.slave_sh2\">\n"
-                                "    <reg name=\"slave_r0\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"23\"/>\n"
-                                "    <reg name=\"slave_r1\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"24\"/>\n"
-                                "    <reg name=\"slave_r2\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"25\"/>\n"
-                                "    <reg name=\"slave_r3\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"26\"/>\n"
-                                "    <reg name=\"slave_r4\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"27\"/>\n"
-                                "    <reg name=\"slave_r5\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"28\"/>\n"
-                                "    <reg name=\"slave_r6\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"29\"/>\n"
-                                "    <reg name=\"slave_r7\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"30\"/>\n"
-                                "    <reg name=\"slave_r8\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"31\"/>\n"
-                                "    <reg name=\"slave_r9\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"32\"/>\n"
-                                "    <reg name=\"slave_r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"33\"/>\n"
-                                "    <reg name=\"slave_r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"34\"/>\n"
-                                "    <reg name=\"slave_r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"35\"/>\n"
-                                "    <reg name=\"slave_r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"36\"/>\n"
-                                "    <reg name=\"slave_r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"37\"/>\n"
-                                "    <reg name=\"slave_r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\" regnum=\"38\"/>\n"
-                                "    <reg name=\"slave_pc\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"39\"/>\n"
-                                "    <reg name=\"slave_pr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"40\"/>\n"
-                                "    <reg name=\"slave_gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"41\"/>\n"
-                                "    <reg name=\"slave_vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"42\"/>\n"
-                                "    <reg name=\"slave_mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"43\"/>\n"
-                                "    <reg name=\"slave_macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"44\"/>\n"
-                                "    <reg name=\"slave_sr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"45\"/>\n"
-                                "  </feature>\n"
-                                "</target>\n";
-                            // Send in chunks respecting the requested length from GDB.
-                            // Parse offset and length from "qXfer:features:read:target.xml:off,len"
-                            static const size_t xml_len = sizeof(target_xml) - 1U;
-                            uint32_t xfer_off = 0, xfer_len = 0;
-                            bool xfer_ok = false;
-                            {
-                                const char* colon = in_buf;
-                                int colons = 0;
-                                while (*colon && colons < 4) { if (*colon++ == ':') ++colons; }
-                                // colon now points past the 4th ':', i.e. at "off,len"
-                                // If the packet was malformed (fewer than 4 colons), *colon will 
-                                // point exactly to '\0'. parse_hex_u32_until handles empty strings
-                                // correctly by immediately returning false, safely aborting the parse.
-                                if (parse_hex_u32_until(colon, ',', xfer_off, colon) && *colon == ',') {
-                                    ++colon;
-                                    xfer_ok = parse_hex_u32_until(colon, '\0', xfer_len, colon);
-                                }
-                            }
-                            if (!xfer_ok) {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-                            if (xfer_off >= xml_len) {
-                                out_buf[0] = 'l'; packet_put('\0', out_buf, 1);
-                            } else {
-                                size_t avail = xml_len - xfer_off;
-                                size_t send  = avail < xfer_len ? avail : xfer_len;
-                                if (send > kPacketDataMax) send = kPacketDataMax;
-                                
-                                // Ensure kPacketDataMax can never be raised so high that out_buf[1 + i] overflows.
-                                static_assert(kPacketDataMax < sizeof(out_buf) - 1U, "kPacketDataMax is too large for out_buf");
+                        static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
+                        static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
 
-                                bool last = (xfer_off + send >= xml_len);
-                                out_buf[0] = last ? 'l' : 'm';
-                                for (size_t i = 0; i < send; ++i) out_buf[1 + i] = target_xml[xfer_off + i];
-                                packet_put('\0', out_buf, 1 + send);
-                            }
-                        } else if (starts_with(in_buf, "qfThreadInfo")) {
-                            // Single-thread target.
-                            packet_put('\0', "m1", 2);
-                        } else if (starts_with(in_buf, "qsThreadInfo")) {
-                            packet_put('\0', "l", 1);
-                        } else if (starts_with(in_buf, "qAttached")) {
-                            packet_put('\0', "1", 1);
-                        } else if (starts_with(in_buf, "qOffsets")) {
-                            constexpr const char offsets[] = "Text=0;Data=0;Bss=0";
-                            packet_put('\0', offsets, sizeof(offsets) - 1);
-                        } else if (starts_with(in_buf, "qC")) {
-                            packet_put('\0', "QC1", 3);
-                        } else if (starts_with(in_buf, "qRcmd,")) {
-                            // GDB's `monitor <text>` command: qRcmd,<hex-encoded-ascii-text>.
-                            // A few built-in diagnostic commands ("regs slave", "nmi", "trace")
-                            // are handled synchronously right here, replying with $O console-output
-                            // packets (see send_monitor_text) before the final OK, since their
-                            // data already lives in memory the stub can read itself. Everything
-                            // else is decoded into g_last_monitor_command and the counter is
-                            // bumped; user code polls GetMonitorCommandCount()/
-                            // GetLastMonitorCommand() to react (e.g. "crash illegal").
-                            const char* hex_payload = in_buf + 6;
-                            size_t hex_len = 0;
-                            while (hex_payload[hex_len] != '\0') hex_len++;
-                            const size_t cmd_len = hex_len / 2;
-                            if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_last_monitor_command)) {
-                                packet_put('\0', "E01", 3);
-                            } else if (hex2mem(hex_payload, reinterpret_cast<uint8_t*>(g_last_monitor_command), static_cast<int>(cmd_len))) {
-                                g_last_monitor_command[cmd_len] = '\0';
-                                if (str_equals(g_last_monitor_command, "regs slave")) {
-                                    send_slave_regs_dump();
-                                    packet_put('\0', "OK", 2);
-                                } else if (str_equals(g_last_monitor_command, "nmi")) {
-                                    send_nmi_diag_dump();
-                                    packet_put('\0', "OK", 2);
-                                } else if (str_equals(g_last_monitor_command, "trace")) {
-                                    send_halt_trace_dump();
-                                    packet_put('\0', "OK", 2);
-                                } else {
-                                    g_monitor_command_count = g_monitor_command_count + 1;
-                                    packet_put('\0', "OK", 2);
-                                }
-                            } else {
-                                packet_put('\0', "E01", 3);
-                            }
-                        } else {
-                            packet_put('\0', nullptr, 0);
+                        size_t out_len = 0;
+                        for (size_t i = 0; i < sizeof(kPacketSizeStr) - 1; ++i)
+                        {
+                            if (out_len < sizeof(out_buf) - 1)
+                                out_buf[out_len++] = kPacketSizeStr[i];
                         }
-                        break;
-                    case 'H':
-                        packet_put('\0', "OK", 2);
-                        break;
+                        for (const char *s = kFeaturesStr; *s; ++s)
+                        {
+                            if (out_len < sizeof(out_buf) - 1)
+                                out_buf[out_len++] = *s;
+                        }
 
-                    case 'v':
-                        // Minimal v packet support for MI/VS Code remote sessions.
-                        if (starts_with(in_buf, "vCont?")) {
-                            constexpr const char vcont_supported[] = "vCont;c;s";
-                            packet_put('\0', vcont_supported, sizeof(vcont_supported) - 1);
-                        } else if (starts_with(in_buf, "vCont;")) {
-                            // Scan each ;action[:tid] pair.
-                            // Only treat as step if s/S applies to thread 1 (:1),
-                            // to all threads (:*), or has no thread qualifier at all.
-                            // A step directed at an unrecognised thread (e.g. ;s:2) is
-                            // ignored — fall through to continue for our single thread.
-                            bool has_step = false;
-                            const char* p = in_buf + 5; 
-                            while (*p != '\0') {
-                                if (*p == ';') {
-                                    ++p; // Skip ';'
-                                    if (*p == '\0') break;
-                                    const char action = *p;
-                                    
-                                    // Scan to the next ';' or the end of the string
-                                    const char* next_semi = p;
-                                    while (*next_semi != '\0' && *next_semi != ';') {
-                                        ++next_semi;
+                        out_buf[out_len] = '\0';
+                        packet_put('\0', out_buf, out_len);
+                        g_handshake_done = true;
+                    }
+                    else if (starts_with(in_buf, "qXfer:features:read:"))
+                    {
+                        // qXfer:features:read:target.xml:offset,length
+                        // Full SH-2 register description so gdb-multiarch auto-detects
+                        // architecture and register layout without needing 'set arch'.
+                        static const char target_xml[] =
+                            "<?xml version=\"1.0\"?>\n"
+                            "<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
+                            "<target version=\"1.0\">\n"
+                            "  <architecture>sh</architecture>\n"
+                            "  <feature name=\"org.gnu.gdb.sh.core\">\n"
+                            "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r2\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r3\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r4\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r5\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r6\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r7\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r8\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r9\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\"/>\n"
+                            "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"16\"/>\n"
+                            "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
+                            "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
+                            "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
+                            "  </feature>\n"
+                            "  <feature name=\"org.sega.saturn.slave_sh2\">\n"
+                            "    <reg name=\"slave_r0\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"23\"/>\n"
+                            "    <reg name=\"slave_r1\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"24\"/>\n"
+                            "    <reg name=\"slave_r2\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"25\"/>\n"
+                            "    <reg name=\"slave_r3\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"26\"/>\n"
+                            "    <reg name=\"slave_r4\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"27\"/>\n"
+                            "    <reg name=\"slave_r5\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"28\"/>\n"
+                            "    <reg name=\"slave_r6\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"29\"/>\n"
+                            "    <reg name=\"slave_r7\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"30\"/>\n"
+                            "    <reg name=\"slave_r8\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"31\"/>\n"
+                            "    <reg name=\"slave_r9\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"32\"/>\n"
+                            "    <reg name=\"slave_r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"33\"/>\n"
+                            "    <reg name=\"slave_r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"34\"/>\n"
+                            "    <reg name=\"slave_r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"35\"/>\n"
+                            "    <reg name=\"slave_r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"36\"/>\n"
+                            "    <reg name=\"slave_r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"37\"/>\n"
+                            "    <reg name=\"slave_r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\" regnum=\"38\"/>\n"
+                            "    <reg name=\"slave_pc\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"39\"/>\n"
+                            "    <reg name=\"slave_pr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"40\"/>\n"
+                            "    <reg name=\"slave_gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"41\"/>\n"
+                            "    <reg name=\"slave_vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"42\"/>\n"
+                            "    <reg name=\"slave_mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"43\"/>\n"
+                            "    <reg name=\"slave_macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"44\"/>\n"
+                            "    <reg name=\"slave_sr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"45\"/>\n"
+                            "  </feature>\n"
+                            "</target>\n";
+                        // Send in chunks respecting the requested length from GDB.
+                        // Parse offset and length from "qXfer:features:read:target.xml:off,len"
+                        static const size_t xml_len = sizeof(target_xml) - 1U;
+                        uint32_t xfer_off = 0, xfer_len = 0;
+                        bool xfer_ok = false;
+                        {
+                            const char *colon = in_buf;
+                            int colons = 0;
+                            while (*colon && colons < 4)
+                            {
+                                if (*colon++ == ':')
+                                    ++colons;
+                            }
+                            // colon now points past the 4th ':', i.e. at "off,len"
+                            // If the packet was malformed (fewer than 4 colons), *colon will
+                            // point exactly to '\0'. parse_hex_u32_until handles empty strings
+                            // correctly by immediately returning false, safely aborting the parse.
+                            if (parse_hex_u32_until(colon, ',', xfer_off, colon) && *colon == ',')
+                            {
+                                ++colon;
+                                xfer_ok = parse_hex_u32_until(colon, '\0', xfer_len, colon);
+                            }
+                        }
+                        if (!xfer_ok)
+                        {
+                            packet_put('\0', "E01", 3);
+                            break;
+                        }
+                        if (xfer_off >= xml_len)
+                        {
+                            out_buf[0] = 'l';
+                            packet_put('\0', out_buf, 1);
+                        }
+                        else
+                        {
+                            size_t avail = xml_len - xfer_off;
+                            size_t send = avail < xfer_len ? avail : xfer_len;
+                            if (send > kPacketDataMax)
+                                send = kPacketDataMax;
+
+                            // Ensure kPacketDataMax can never be raised so high that out_buf[1 + i] overflows.
+                            static_assert(kPacketDataMax < sizeof(out_buf) - 1U, "kPacketDataMax is too large for out_buf");
+
+                            bool last = (xfer_off + send >= xml_len);
+                            out_buf[0] = last ? 'l' : 'm';
+                            for (size_t i = 0; i < send; ++i)
+                                out_buf[1 + i] = target_xml[xfer_off + i];
+                            packet_put('\0', out_buf, 1 + send);
+                        }
+                    }
+                    else if (starts_with(in_buf, "qfThreadInfo"))
+                    {
+                        // Single-thread target.
+                        packet_put('\0', "m1", 2);
+                    }
+                    else if (starts_with(in_buf, "qsThreadInfo"))
+                    {
+                        packet_put('\0', "l", 1);
+                    }
+                    else if (starts_with(in_buf, "qAttached"))
+                    {
+                        packet_put('\0', "1", 1);
+                    }
+                    else if (starts_with(in_buf, "qOffsets"))
+                    {
+                        constexpr const char offsets[] = "Text=0;Data=0;Bss=0";
+                        packet_put('\0', offsets, sizeof(offsets) - 1);
+                    }
+                    else if (starts_with(in_buf, "qC"))
+                    {
+                        packet_put('\0', "QC1", 3);
+                    }
+                    else if (starts_with(in_buf, "qRcmd,"))
+                    {
+                        // GDB's `monitor <text>` command: qRcmd,<hex-encoded-ascii-text>.
+                        // A few built-in diagnostic commands ("regs slave", "nmi", "trace")
+                        // are handled synchronously right here, replying with $O console-output
+                        // packets (see send_monitor_text) before the final OK, since their
+                        // data already lives in memory the stub can read itself. Everything
+                        // else is decoded into g_last_monitor_command and the counter is
+                        // bumped; user code polls GetMonitorCommandCount()/
+                        // GetLastMonitorCommand() to react (e.g. "crash illegal").
+                        const char *hex_payload = in_buf + 6;
+                        size_t hex_len = 0;
+                        while (hex_payload[hex_len] != '\0')
+                            hex_len++;
+                        const size_t cmd_len = hex_len / 2;
+                        if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_last_monitor_command))
+                        {
+                            packet_put('\0', "E01", 3);
+                        }
+                        else if (hex2mem(hex_payload, reinterpret_cast<uint8_t *>(g_last_monitor_command), static_cast<int>(cmd_len)))
+                        {
+                            g_last_monitor_command[cmd_len] = '\0';
+                            if (str_equals(g_last_monitor_command, "regs slave"))
+                            {
+                                send_slave_regs_dump();
+                                packet_put('\0', "OK", 2);
+                            }
+                            else if (str_equals(g_last_monitor_command, "nmi"))
+                            {
+                                send_nmi_diag_dump();
+                                packet_put('\0', "OK", 2);
+                            }
+                            else if (str_equals(g_last_monitor_command, "trace"))
+                            {
+                                send_halt_trace_dump();
+                                packet_put('\0', "OK", 2);
+                            }
+                            else
+                            {
+                                g_monitor_command_count = g_monitor_command_count + 1;
+                                packet_put('\0', "OK", 2);
+                            }
+                        }
+                        else
+                        {
+                            packet_put('\0', "E01", 3);
+                        }
+                    }
+                    else
+                    {
+                        packet_put('\0', nullptr, 0);
+                    }
+                    break;
+                case 'H':
+                    packet_put('\0', "OK", 2);
+                    break;
+
+                case 'v':
+                    // Minimal v packet support for MI/VS Code remote sessions.
+                    if (starts_with(in_buf, "vCont?"))
+                    {
+                        constexpr const char vcont_supported[] = "vCont;c;s";
+                        packet_put('\0', vcont_supported, sizeof(vcont_supported) - 1);
+                    }
+                    else if (starts_with(in_buf, "vCont;"))
+                    {
+                        // Scan each ;action[:tid] pair.
+                        // Only treat as step if s/S applies to thread 1 (:1),
+                        // to all threads (:*), or has no thread qualifier at all.
+                        // A step directed at an unrecognised thread (e.g. ;s:2) is
+                        // ignored — fall through to continue for our single thread.
+                        bool has_step = false;
+                        const char *p = in_buf + 5;
+                        while (*p != '\0')
+                        {
+                            if (*p == ';')
+                            {
+                                ++p; // Skip ';'
+                                if (*p == '\0')
+                                    break;
+                                const char action = *p;
+
+                                // Scan to the next ';' or the end of the string
+                                const char *next_semi = p;
+                                while (*next_semi != '\0' && *next_semi != ';')
+                                {
+                                    ++next_semi;
+                                }
+
+                                if (action == 's' || action == 'S')
+                                {
+                                    // The token format is 's' or 'S' followed optionally by ':<thread>'
+                                    if (p + 1 == next_semi)
+                                    {
+                                        // Just "s" or "S", no qualifier
+                                        has_step = true;
+                                        break;
                                     }
-
-                                    if (action == 's' || action == 'S') {
-                                        // The token format is 's' or 'S' followed optionally by ':<thread>'
-                                        if (p + 1 == next_semi) {
-                                            // Just "s" or "S", no qualifier
+                                    else if (p[1] == ':')
+                                    {
+                                        const char thread_id = p[2];
+                                        if (thread_id == '*' || (thread_id == '1' && (p[3] == '\0' || p[3] == ';')))
+                                        {
                                             has_step = true;
                                             break;
-                                        } else if (p[1] == ':') {
-                                            const char thread_id = p[2];
-                                            if (thread_id == '*' || (thread_id == '1' && (p[3] == '\0' || p[3] == ';'))) {
-                                                has_step = true;
-                                                break;
-                                            }
                                         }
                                     }
-                                    // Advance pointer to the next ';' (or end of string)
-                                    p = next_semi;
-                                } else {
-                                    ++p;
                                 }
+                                // Advance pointer to the next ';' (or end of string)
+                                p = next_semi;
                             }
-                            if (has_step) {
-                                handle_gdb_step();
-                            } else {
-                                handle_gdb_continue();
+                            else
+                            {
+                                ++p;
                             }
-                            return;
-                        } else if (starts_with(in_buf, "vRun")) {
-                            // Extended-remote run compatibility: treat like continue.
+                        }
+                        if (has_step)
+                        {
+                            handle_gdb_step();
+                        }
+                        else
+                        {
                             handle_gdb_continue();
-                            return;
-                        } else {
-                            packet_put('\0', nullptr, 0);
                         }
-                        break;
-                    case 'g':
-                        {
-                            if (g_ctx.pc == 0) {
-                                snapshot_polling_context();
-                            }
-                            
-                            // Send a copy of the context. We do NOT zero PR/R14 for Ctrl-C-family
-                            // stops here, despite an earlier version of this code doing so to stop
-                            // GDB from unwinding into SGL's no-debug-info interrupt wrapper.
-                            //
-                            // Hardware-confirmed regression that reverted it: reporting PR=0 (a
-                            // sentinel GDB reads as "no caller / invalid frame") is what actually
-                            // breaks GDB's client, not the reverse. Caught live on a real NMI-frozen
-                            // target: `monitor trace` (reading g_ctx.pr directly, unaffected by this
-                            // masking) showed a real, valid PR, but GDB's own `print $pr` -- reading
-                            // the masked 'g' reply -- showed exactly 0. From that point on, EVERY
-                            // subsequent command in that GDB session failed with "Cannot evaluate
-                            // expression on the specified stack frame", including plain `monitor`
-                            // requests that never touch frame/expression logic at all -- meaning
-                            // GDB's client got stuck before it even sent anything further to the
-                            // target, blocking Continue along with everything else. Separately
-                            // confirmed: a real (unmasked) PR pointing into the same no-debug-info
-                            // library code did NOT cause GDB to hang or loop -- `bt` returned
-                            // promptly with "Backtrace stopped: frame did not save the PC". So this
-                            // masking was solving a problem GDB's current SH-2 backend already
-                            // handles fine on its own, while introducing a much worse one.
-                            SH2Context ctx_copy = g_ctx;
-
-                            char* p_out = out_buf;
-                            p_out = mem2hex((uint8_t*)&ctx_copy, p_out, sizeof(SH2Context));
-
-                            // Pad to the fixed size stock GDB's SH backend requires (see
-                            // GdbFixedShPaddingRegisters above) instead of appending the
-                            // slave pseudo-registers -- those remain reachable via 'p'/'P'
-                            // with the same register indices despite this limitation.
-                            for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i) {
-                                *p_out++ = '0';
-                                *p_out++ = '0';
-                            }
-                            *p_out = '\0';
-
-                            const int tx_len = static_cast<int>(p_out - out_buf);
-                            packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                        }
-                        break;
-                    case 'G':
-                        {
-                            // The G packet payload must contain at least the core register set.
-                            // GDB reflects back the full g response -- including the trailing
-                            // zero-padding block -- so we accept any payload >= core size and
-                            // only write the first sizeof(SH2Context)*2 chars.
-                            constexpr size_t core_len = sizeof(SH2Context) * 2;
-                            size_t len = 0;
-                            while (in_buf[1 + len] != '\0') len++;
-                            if (len < core_len) {
-                                packet_put('\0', "E01", 3);
-                            } else if (hex2mem(&in_buf[1], (uint8_t*)&g_ctx, sizeof(SH2Context))) {
-                                packet_put('\0', "OK", 2);
-                            } else {
-                                packet_put('\0', "E01", 3);
-                            }
-                        }
-                        break;
-                    case 'p': // Read a single register
-                        {
-                            uint32_t reg_idx = 0;
-                            const char* ptr = &in_buf[1];
-                            if (!parse_hex_u32_until(ptr, '\0', reg_idx, ptr)) {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-
-                            if (reg_idx > 22 + NumSlaveRegs) {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-
-                            if (reg_idx >= 23) {
-                                const uint32_t slave_reg_index = reg_idx - 23;
-                                uint32_t* reg_ptr = &g_slave_ctx.r[0];
-                                if (slave_reg_index < 16U) reg_ptr = &g_slave_ctx.r[slave_reg_index];
-                                else if (slave_reg_index == 16U) reg_ptr = &g_slave_ctx.pc;
-                                else if (slave_reg_index == 17U) reg_ptr = &g_slave_ctx.pr;
-                                else if (slave_reg_index == 18U) reg_ptr = &g_slave_ctx.gbr;
-                                else if (slave_reg_index == 19U) reg_ptr = &g_slave_ctx.vbr;
-                                else if (slave_reg_index == 20U) reg_ptr = &g_slave_ctx.mach;
-                                else if (slave_reg_index == 21U) reg_ptr = &g_slave_ctx.macl;
-                                else if (slave_reg_index == 22U) reg_ptr = &g_slave_ctx.sr;
-                                else {
-                                    packet_put('\0', "E01", 3);
-                                    break;
-                                }
-                                const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t*>(reg_ptr), out_buf, 4) - out_buf);
-                                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                                break;
-                            }
-
-                            uint32_t* reg_ptr = &g_ctx.r[0];
-                            if (reg_idx < 16) reg_ptr = &g_ctx.r[reg_idx];
-                            else if (reg_idx == 16) reg_ptr = &g_ctx.pc;
-                            else if (reg_idx == 17) reg_ptr = &g_ctx.pr;
-                            else if (reg_idx == 18) reg_ptr = &g_ctx.gbr;
-                            else if (reg_idx == 19) reg_ptr = &g_ctx.vbr;
-                            else if (reg_idx == 20) reg_ptr = &g_ctx.mach;
-                            else if (reg_idx == 21) reg_ptr = &g_ctx.macl;
-                            else if (reg_idx == 22) reg_ptr = &g_ctx.sr;
-
-                            const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t*>(reg_ptr), out_buf, 4) - out_buf);
-                            packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                        }
-                        break;
-                    case 'P': // Write a single register
-                        {
-                            uint32_t reg_idx = 0;
-                            const char* ptr = &in_buf[1];
-                            if (!parse_hex_u32_until(ptr, '=', reg_idx, ptr) || *ptr != '=') {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-                            ptr++; // skip '='
-
-                            if (reg_idx > 22 + NumSlaveRegs) {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-
-                            if (reg_idx >= 23) {
-                                const uint32_t slave_reg_index = reg_idx - 23;
-                                uint32_t* reg_ptr = &g_slave_ctx.r[0];
-                                if (slave_reg_index < 16U) reg_ptr = &g_slave_ctx.r[slave_reg_index];
-                                else if (slave_reg_index == 16U) reg_ptr = &g_slave_ctx.pc;
-                                else if (slave_reg_index == 17U) reg_ptr = &g_slave_ctx.pr;
-                                else if (slave_reg_index == 18U) reg_ptr = &g_slave_ctx.gbr;
-                                else if (slave_reg_index == 19U) reg_ptr = &g_slave_ctx.vbr;
-                                else if (slave_reg_index == 20U) reg_ptr = &g_slave_ctx.mach;
-                                else if (slave_reg_index == 21U) reg_ptr = &g_slave_ctx.macl;
-                                else if (slave_reg_index == 22U) reg_ptr = &g_slave_ctx.sr;
-                                else {
-                                    packet_put('\0', "E01", 3);
-                                    break;
-                                }
-                                if (hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4)) {
-                                    packet_put('\0', "OK", 2);
-                                } else {
-                                    packet_put('\0', "E01", 3);
-                                }
-                                break;
-                            }
-
-                            uint32_t* reg_ptr = &g_ctx.r[0];
-                            if (reg_idx < 16) reg_ptr = &g_ctx.r[reg_idx];
-                            else if (reg_idx == 16) reg_ptr = &g_ctx.pc;
-                            else if (reg_idx == 17) reg_ptr = &g_ctx.pr;
-                            else if (reg_idx == 18) reg_ptr = &g_ctx.gbr;
-                            else if (reg_idx == 19) reg_ptr = &g_ctx.vbr;
-                            else if (reg_idx == 20) reg_ptr = &g_ctx.mach;
-                            else if (reg_idx == 21) reg_ptr = &g_ctx.macl;
-                            else if (reg_idx == 22) reg_ptr = &g_ctx.sr;
-
-                            if (hex2mem(ptr, reinterpret_cast<uint8_t*>(reg_ptr), 4)) {
-                                packet_put('\0', "OK", 2);
-                            } else {
-                                packet_put('\0', "E01", 3);
-                            }
-                        }
-                        break;
-                    case 'm':
-                        {
-                            uint32_t addr = 0, length = 0;
-                            const char* ptr = &in_buf[1];
-                            if (!parse_hex_u32_until(ptr, ',', addr, ptr) || *ptr != ',') {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-                            ++ptr; // skip ','
-                            if (!parse_hex_u32_until(ptr, '\0', length, ptr)) {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-                            // Note: reading memory here does not touch the slave, so this is
-                            // safe even while g_debug_pause is set (slave frozen) -- the master's
-                            // own bus access is independent of slave state.
-                            // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
-                            if (length > 511U || !is_valid_memory_range(addr, length)) {
-                                packet_put('\0', "E01", 3);
-                                break;
-                            }
-
-                            // Read via the cache-through mirror (see install_software_breakpoint
-                            // and friends) so a value just patched through that same mirror --
-                            // e.g. a breakpoint installed earlier in this same halted session,
-                            // before the deferred CacheFlusher purge runs -- isn't masked by a
-                            // stale D-cache line still held under the plain (cached) alias.
-                            const int tx_len = static_cast<int>(mem2hex((uint8_t*)(addr | 0x20000000U), out_buf, static_cast<int>(length)) - out_buf);
-                            packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                        }
-                        break;
-                    case 'M':
-                        {
-                            uint32_t addr = 0, length = 0;
-                            const char* p = &in_buf[1];
-                            if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',') {
-                                packet_put('\0', "E02", 3);
-                                break;
-                            }
-                            ++p; // skip ','
-                            if (!parse_hex_u32_until(p, ':', length, p) || *p != ':') {
-                                packet_put('\0', "E02", 3);
-                                break;
-                            }
-                            ++p; // skip ':'
-
-                            if (length > 511U || !is_valid_memory_range(addr, length)) {
-                                packet_put('\0', "E02", 3);
-                                break;
-                            }
-
-                            // Write via the cache-through mirror, same as every other in-place
-                            // patch in this file (breakpoints, step traps) -- see the 'm' handler
-                            // just above for why the plain (cached) alias isn't safe here.
-                            // Uses hex2mem_aligned() rather than plain hex2mem(): this handler
-                            // can target VDP RAM (e.g. CRAM), which doesn't reliably latch
-                            // single-byte writes -- see hex2mem_aligned()'s doc comment.
-                            if (hex2mem_aligned(p, addr | 0x20000000U, length)) {
-                                PurgeCache();
-                                packet_put('\0', "OK", 2);
-                            } else {
-                                packet_put('\0', "E01", 3);
-                            }
-                        }
-                        break;
-                    case 'Z':
-                    case 'z':
-                        {
-                            // RSP breakpoints/watchpoints: Z[type],addr,kind / z[type],addr,kind
-                            const char type_char = in_buf[1];
-                            if ((type_char < '0' || type_char > '4') || in_buf[2] != ',') {
-                                packet_put('\0', nullptr, 0); // Not supported type or bad format
-                                break;
-                            }
-                            
-                            const uint32_t wp_type = static_cast<uint32_t>(type_char - '0');
-
-                            uint32_t addr = 0;
-                            const char* p = &in_buf[3];
-                            if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',') {
-                                packet_put('\0', "E03", 3);
-                                break;
-                            }
-
-                            ++p; // skip ','
-                            uint32_t kind = 0;
-                            const char* end = p;
-                            if (!parse_hex_u32_until(p, '\0', kind, end)) {
-                                packet_put('\0', "E03", 3);
-                                break;
-                            }
-
-                            bool ok = false;
-                            if (in_buf[0] == 'Z') {
-                                if (wp_type == 0) {
-                                    // SH-2 instructions are 16-bit (kind normally 2).
-                                    if (kind == 0U || kind == 2U) {
-                                        ok = install_software_breakpoint(addr);
-                                    }
-                                } else {
-                                    ok = install_hardware_watchpoint(addr, wp_type);
-                                }
-                            } else {
-                                if (wp_type == 0) {
-                                    if (kind == 0U || kind == 2U) {
-                                        ok = remove_software_breakpoint(addr);
-                                    }
-                                } else {
-                                    ok = remove_hardware_watchpoint(addr, wp_type);
-                                }
-                            }
-
-                            packet_put('\0', ok ? "OK" : "E03", ok ? 2 : 3);
-                        }
-                        break;
-                    case 'D': // Detach
-                        packet_put('\0', "OK", 2);
-                        clear_breakpoints(true);
-                        g_handshake_done = false;
-                        g_has_connection = false;
-                        SlaveIPIClear();
                         return;
-                    case 'T': // Is thread alive?
-                        // Report thread as alive for single-thread target.
-                        packet_put('\0', "OK", 2);
-                        break;
-                    case 'c': {
-                        // Optional trailing hex address ("caddr"): resume at addr instead
-                        // of the current PC. No address is the overwhelmingly common case
-                        // (plain "c"), so a parse failure/absence just leaves PC untouched.
-                        if (in_buf[1] != '\0') {
-                            uint32_t addr = 0;
-                            const char* end = &in_buf[1];
-                            if (parse_hex_u32_until(&in_buf[1], '\0', addr, end)) {
-                                g_ctx.pc = addr;
-                            }
-                        }
+                    }
+                    else if (starts_with(in_buf, "vRun"))
+                    {
+                        // Extended-remote run compatibility: treat like continue.
                         handle_gdb_continue();
                         return;
                     }
-                    case 's':
-                    case 'S':
+                    else
+                    {
+                        packet_put('\0', nullptr, 0);
+                    }
+                    break;
+                case 'g':
+                {
+                    if (GDBStub::MasterSH2().pc == 0)
+                    {
+                        snapshot_polling_context();
+                    }
+
+                    // Send a copy of the context. We do NOT zero PR/R14 for Ctrl-C-family
+                    // stops here, despite an earlier version of this code doing so to stop
+                    // GDB from unwinding into SGL's no-debug-info interrupt wrapper.
+                    //
+                    // Hardware-confirmed regression that reverted it: reporting PR=0 (a
+                    // sentinel GDB reads as "no caller / invalid frame") is what actually
+                    // breaks GDB's client, not the reverse. Caught live on a real NMI-frozen
+                    // target: `monitor trace` (reading MasterSH2().pr directly, unaffected by this
+                    // masking) showed a real, valid PR, but GDB's own `print $pr` -- reading
+                    // the masked 'g' reply -- showed exactly 0. From that point on, EVERY
+                    // subsequent command in that GDB session failed with "Cannot evaluate
+                    // expression on the specified stack frame", including plain `monitor`
+                    // requests that never touch frame/expression logic at all -- meaning
+                    // GDB's client got stuck before it even sent anything further to the
+                    // target, blocking Continue along with everything else. Separately
+                    // confirmed: a real (unmasked) PR pointing into the same no-debug-info
+                    // library code did NOT cause GDB to hang or loop -- `bt` returned
+                    // promptly with "Backtrace stopped: frame did not save the PC". So this
+                    // masking was solving a problem GDB's current SH-2 backend already
+                    // handles fine on its own, while introducing a much worse one.
+                    SH2Context ctx_copy = GDBStub::MasterSH2();
+
+                    char *p_out = out_buf;
+                    p_out = mem2hex((uint8_t *)&ctx_copy, p_out, sizeof(SH2Context));
+
+                    // Pad to the fixed size stock GDB's SH backend requires (see
+                    // GdbFixedShPaddingRegisters above) instead of appending the
+                    // slave pseudo-registers -- those remain reachable via 'p'/'P'
+                    // with the same register indices despite this limitation.
+                    for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i)
+                    {
+                        *p_out++ = '0';
+                        *p_out++ = '0';
+                    }
+                    *p_out = '\0';
+
+                    const int tx_len = static_cast<int>(p_out - out_buf);
+                    packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                }
+                break;
+                case 'G':
+                {
+                    // The G packet payload must contain at least the core register set.
+                    // GDB reflects back the full g response -- including the trailing
+                    // zero-padding block -- so we accept any payload >= core size and
+                    // only write the first sizeof(SH2Context)*2 chars.
+                    constexpr size_t core_len = sizeof(SH2Context) * 2;
+                    size_t len = 0;
+                    while (in_buf[1 + len] != '\0')
+                        len++;
+                    if (len < core_len)
+                    {
+                        packet_put('\0', "E01", 3);
+                    }
+                    else if (hex2mem(&in_buf[1], (uint8_t *)&g_ctx, sizeof(SH2Context)))
+                    {
+                        packet_put('\0', "OK", 2);
+                    }
+                    else
+                    {
+                        packet_put('\0', "E01", 3);
+                    }
+                }
+                break;
+                case 'p': // Read a single register
+                {
+                    uint32_t reg_idx = 0;
+                    const char *ptr = &in_buf[1];
+                    if (!parse_hex_u32_until(ptr, '\0', reg_idx, ptr))
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+
+                    if (reg_idx > 22 + NumSlaveRegs)
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+
+                    if (reg_idx >= 23)
+                    {
+                        const uint32_t slave_reg_index = reg_idx - 23;
+                        uint32_t *reg_ptr = &GDBStub::SlaveSH2().r[0];
+                        if (slave_reg_index < 16U)
+                            reg_ptr = &GDBStub::SlaveSH2().r[slave_reg_index];
+                        else if (slave_reg_index == 16U)
+                            reg_ptr = &GDBStub::SlaveSH2().pc;
+                        else if (slave_reg_index == 17U)
+                            reg_ptr = &GDBStub::SlaveSH2().pr;
+                        else if (slave_reg_index == 18U)
+                            reg_ptr = &GDBStub::SlaveSH2().gbr;
+                        else if (slave_reg_index == 19U)
+                            reg_ptr = &GDBStub::SlaveSH2().vbr;
+                        else if (slave_reg_index == 20U)
+                            reg_ptr = &GDBStub::SlaveSH2().mach;
+                        else if (slave_reg_index == 21U)
+                            reg_ptr = &GDBStub::SlaveSH2().macl;
+                        else if (slave_reg_index == 22U)
+                            reg_ptr = &GDBStub::SlaveSH2().sr;
+                        else
                         {
-                            // "saddr" has no separator; "S sig[;addr]" carries a two-digit
-                            // signal number (ignored -- we don't support signal delivery)
-                            // before the optional ';addr'.
-                            const char* p = &in_buf[1];
-                            if (in_buf[0] == 'S') {
-                                if (hex(p[0]) >= 0 && hex(p[1]) >= 0) p += 2;
-                                if (*p == ';') ++p;
-                            }
-                            if (*p != '\0') {
-                                uint32_t addr = 0;
-                                const char* end = p;
-                                if (parse_hex_u32_until(p, '\0', addr, end)) {
-                                    g_ctx.pc = addr;
-                                }
+                            packet_put('\0', "E01", 3);
+                            break;
+                        }
+                        const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg_ptr), out_buf, 4) - out_buf);
+                        packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                        break;
+                    }
+
+                    uint32_t *reg_ptr = &GDBStub::MasterSH2().r[0];
+                    if (reg_idx < 16)
+                        reg_ptr = &GDBStub::MasterSH2().r[reg_idx];
+                    else if (reg_idx == 16)
+                        reg_ptr = &GDBStub::MasterSH2().pc;
+                    else if (reg_idx == 17)
+                        reg_ptr = &GDBStub::MasterSH2().pr;
+                    else if (reg_idx == 18)
+                        reg_ptr = &GDBStub::MasterSH2().gbr;
+                    else if (reg_idx == 19)
+                        reg_ptr = &GDBStub::MasterSH2().vbr;
+                    else if (reg_idx == 20)
+                        reg_ptr = &GDBStub::MasterSH2().mach;
+                    else if (reg_idx == 21)
+                        reg_ptr = &GDBStub::MasterSH2().macl;
+                    else if (reg_idx == 22)
+                        reg_ptr = &GDBStub::MasterSH2().sr;
+
+                    const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg_ptr), out_buf, 4) - out_buf);
+                    packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                }
+                break;
+                case 'P': // Write a single register
+                {
+                    uint32_t reg_idx = 0;
+                    const char *ptr = &in_buf[1];
+                    if (!parse_hex_u32_until(ptr, '=', reg_idx, ptr) || *ptr != '=')
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+                    ptr++; // skip '='
+
+                    if (reg_idx > 22 + NumSlaveRegs)
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+
+                    if (reg_idx >= 23)
+                    {
+                        const uint32_t slave_reg_index = reg_idx - 23;
+                        uint32_t *reg_ptr = &GDBStub::SlaveSH2().r[0];
+                        if (slave_reg_index < 16U)
+                            reg_ptr = &GDBStub::SlaveSH2().r[slave_reg_index];
+                        else if (slave_reg_index == 16U)
+                            reg_ptr = &GDBStub::SlaveSH2().pc;
+                        else if (slave_reg_index == 17U)
+                            reg_ptr = &GDBStub::SlaveSH2().pr;
+                        else if (slave_reg_index == 18U)
+                            reg_ptr = &GDBStub::SlaveSH2().gbr;
+                        else if (slave_reg_index == 19U)
+                            reg_ptr = &GDBStub::SlaveSH2().vbr;
+                        else if (slave_reg_index == 20U)
+                            reg_ptr = &GDBStub::SlaveSH2().mach;
+                        else if (slave_reg_index == 21U)
+                            reg_ptr = &GDBStub::SlaveSH2().macl;
+                        else if (slave_reg_index == 22U)
+                            reg_ptr = &GDBStub::SlaveSH2().sr;
+                        else
+                        {
+                            packet_put('\0', "E01", 3);
+                            break;
+                        }
+                        if (hex2mem(ptr, reinterpret_cast<uint8_t *>(reg_ptr), 4))
+                        {
+                            packet_put('\0', "OK", 2);
+                        }
+                        else
+                        {
+                            packet_put('\0', "E01", 3);
+                        }
+                        break;
+                    }
+
+                    uint32_t *reg_ptr = &GDBStub::MasterSH2().r[0];
+                    if (reg_idx < 16)
+                        reg_ptr = &GDBStub::MasterSH2().r[reg_idx];
+                    else if (reg_idx == 16)
+                        reg_ptr = &GDBStub::MasterSH2().pc;
+                    else if (reg_idx == 17)
+                        reg_ptr = &GDBStub::MasterSH2().pr;
+                    else if (reg_idx == 18)
+                        reg_ptr = &GDBStub::MasterSH2().gbr;
+                    else if (reg_idx == 19)
+                        reg_ptr = &GDBStub::MasterSH2().vbr;
+                    else if (reg_idx == 20)
+                        reg_ptr = &GDBStub::MasterSH2().mach;
+                    else if (reg_idx == 21)
+                        reg_ptr = &GDBStub::MasterSH2().macl;
+                    else if (reg_idx == 22)
+                        reg_ptr = &GDBStub::MasterSH2().sr;
+
+                    if (hex2mem(ptr, reinterpret_cast<uint8_t *>(reg_ptr), 4))
+                    {
+                        packet_put('\0', "OK", 2);
+                    }
+                    else
+                    {
+                        packet_put('\0', "E01", 3);
+                    }
+                }
+                break;
+                case 'm':
+                {
+                    uint32_t addr = 0, length = 0;
+                    const char *ptr = &in_buf[1];
+                    if (!parse_hex_u32_until(ptr, ',', addr, ptr) || *ptr != ',')
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+                    ++ptr; // skip ','
+                    if (!parse_hex_u32_until(ptr, '\0', length, ptr))
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+                    // Note: reading memory here does not touch the slave, so this is
+                    // safe even while g_debug_pause is set (slave frozen) -- the master's
+                    // own bus access is independent of slave state.
+                    // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
+                    if (length > 511U || !is_valid_memory_range(addr, length))
+                    {
+                        packet_put('\0', "E01", 3);
+                        break;
+                    }
+
+                    // Read via the cache-through mirror (see install_software_breakpoint
+                    // and friends) so a value just patched through that same mirror --
+                    // e.g. a breakpoint installed earlier in this same halted session,
+                    // before the deferred CacheFlusher purge runs -- isn't masked by a
+                    // stale D-cache line still held under the plain (cached) alias.
+                    const int tx_len = static_cast<int>(mem2hex((uint8_t *)(addr | 0x20000000U), out_buf, static_cast<int>(length)) - out_buf);
+                    packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                }
+                break;
+                case 'M':
+                {
+                    uint32_t addr = 0, length = 0;
+                    const char *p = &in_buf[1];
+                    if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
+                    {
+                        packet_put('\0', "E02", 3);
+                        break;
+                    }
+                    ++p; // skip ','
+                    if (!parse_hex_u32_until(p, ':', length, p) || *p != ':')
+                    {
+                        packet_put('\0', "E02", 3);
+                        break;
+                    }
+                    ++p; // skip ':'
+
+                    if (length > 511U || !is_valid_memory_range(addr, length))
+                    {
+                        packet_put('\0', "E02", 3);
+                        break;
+                    }
+
+                    // Write via the cache-through mirror, same as every other in-place
+                    // patch in this file (breakpoints, step traps) -- see the 'm' handler
+                    // just above for why the plain (cached) alias isn't safe here.
+                    // Uses hex2mem_aligned() rather than plain hex2mem(): this handler
+                    // can target VDP RAM (e.g. CRAM), which doesn't reliably latch
+                    // single-byte writes -- see hex2mem_aligned()'s doc comment.
+                    if (hex2mem_aligned(p, addr | 0x20000000U, length))
+                    {
+                        PurgeCache();
+                        packet_put('\0', "OK", 2);
+                    }
+                    else
+                    {
+                        packet_put('\0', "E01", 3);
+                    }
+                }
+                break;
+                case 'Z':
+                case 'z':
+                {
+                    // RSP breakpoints/watchpoints: Z[type],addr,kind / z[type],addr,kind
+                    const char type_char = in_buf[1];
+                    if ((type_char < '0' || type_char > '4') || in_buf[2] != ',')
+                    {
+                        packet_put('\0', nullptr, 0); // Not supported type or bad format
+                        break;
+                    }
+
+                    const uint32_t wp_type = static_cast<uint32_t>(type_char - '0');
+
+                    uint32_t addr = 0;
+                    const char *p = &in_buf[3];
+                    if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
+                    {
+                        packet_put('\0', "E03", 3);
+                        break;
+                    }
+
+                    ++p; // skip ','
+                    uint32_t kind = 0;
+                    const char *end = p;
+                    if (!parse_hex_u32_until(p, '\0', kind, end))
+                    {
+                        packet_put('\0', "E03", 3);
+                        break;
+                    }
+
+                    bool ok = false;
+                    if (in_buf[0] == 'Z')
+                    {
+                        if (wp_type == 0)
+                        {
+                            // SH-2 instructions are 16-bit (kind normally 2).
+                            if (kind == 0U || kind == 2U)
+                            {
+                                ok = install_software_breakpoint(addr);
                             }
                         }
-                        handle_gdb_step();
-                        return;
-                    default:
-                        packet_put('\0', nullptr, 0);
-                        break;
+                        else
+                        {
+                            ok = install_hardware_watchpoint(addr, wp_type);
+                        }
+                    }
+                    else
+                    {
+                        if (wp_type == 0)
+                        {
+                            if (kind == 0U || kind == 2U)
+                            {
+                                ok = remove_software_breakpoint(addr);
+                            }
+                        }
+                        else
+                        {
+                            ok = remove_hardware_watchpoint(addr, wp_type);
+                        }
+                    }
+
+                    packet_put('\0', ok ? "OK" : "E03", ok ? 2 : 3);
+                }
+                break;
+                case 'D': // Detach
+                    packet_put('\0', "OK", 2);
+                    clear_breakpoints(true);
+                    g_handshake_done = false;
+                    g_has_connection = false;
+                    SlaveIPIClear();
+                    return;
+                case 'T': // Is thread alive?
+                    // Report thread as alive for single-thread target.
+                    packet_put('\0', "OK", 2);
+                    break;
+                case 'c':
+                {
+                    // Optional trailing hex address ("caddr"): resume at addr instead
+                    // of the current PC. No address is the overwhelmingly common case
+                    // (plain "c"), so a parse failure/absence just leaves PC untouched.
+                    if (in_buf[1] != '\0')
+                    {
+                        uint32_t addr = 0;
+                        const char *end = &in_buf[1];
+                        if (parse_hex_u32_until(&in_buf[1], '\0', addr, end))
+                        {
+                            GDBStub::MasterSH2().pc = addr;
+                        }
+                    }
+                    handle_gdb_continue();
+                    return;
+                }
+                case 's':
+                case 'S':
+                {
+                    // "saddr" has no separator; "S sig[;addr]" carries a two-digit
+                    // signal number (ignored -- we don't support signal delivery)
+                    // before the optional ';addr'.
+                    const char *p = &in_buf[1];
+                    if (in_buf[0] == 'S')
+                    {
+                        if (hex(p[0]) >= 0 && hex(p[1]) >= 0)
+                            p += 2;
+                        if (*p == ';')
+                            ++p;
+                    }
+                    if (*p != '\0')
+                    {
+                        uint32_t addr = 0;
+                        const char *end = p;
+                        if (parse_hex_u32_until(p, '\0', addr, end))
+                        {
+                            GDBStub::MasterSH2().pc = addr;
+                        }
+                    }
+                }
+                    handle_gdb_step();
+                    return;
+                default:
+                    packet_put('\0', nullptr, 0);
+                    break;
                 }
             }
         }
         // --- Exception Handler ---
-
-        extern "C" void srl_gdbstub_exception_thunk();
-        // Tiny trampolines that tag g_last_stop_signal with the right POSIX
-        // signal for their exception family before falling into the shared
-        // thunk above -- see their definition (right after
-        // srl_gdbstub_exception_thunk's __asm__ block) for why this needs to
-        // be a jump into the SAME shared body rather than a full duplicate:
-        // every SH-2 exception vector lands at a fixed address with no
-        // argument-passing convention and no on-chip "cause" register (unlike
-        // e.g. SH-3/4's EXPEVT), so the only way to tell GDB which exception
-        // family fired is to give each family its own tiny entry stub.
-        extern "C" void srl_gdbstub_illegal_thunk();
-        extern "C" void srl_gdbstub_addrerr_thunk();
-        extern "C" void srl_gdbstub_nmi_thunk();
-
+        // (thunk entry points are declared extern "C" at the top of this file)
 
         /**
          * @brief Hook the SH-2 CPU exception vectors for the GDB stub.
-         * 
+         *
          * Relocates the Vector Base Register (VBR) from ROM to RAM if necessary,
          * and installs `srl_gdbstub_exception_thunk` as the handler for critical
          * CPU traps including Illegal Instruction, Address Errors, and NMI.
@@ -2191,34 +2585,38 @@ namespace SRL
          * the program at whatever instruction it interrupted and reports SIGINT
          * to GDB, exactly like Ctrl-C, instead of actually rebooting the console.
          */
-        static inline void InstallExceptionHandlers() {
+        inline static void InstallExceptionHandlers()
+        {
             SRL::Logger::Log::LogPrint("[GDBStub] InstallExceptionHandlers() start");
-            if (!g_handlers_installed) {
+            if (!g_handlers_installed)
+            {
                 // Read the current VBR
                 uint32_t current_vbr = 0;
                 asm volatile("stc vbr, %0" : "=r"(current_vbr)); // current_vbr = this CPU's (the master's) current VBR
-                
+
                 // If VBR is still 0 (Boot ROM), we cannot write to it. We must relocate to RAM.
                 // We use 0x06000000 as a safe fallback and copy the Boot ROM vectors there to preserve the chain.
-                if (current_vbr == 0) {
+                if (current_vbr == 0)
+                {
                     current_vbr = 0x06000000;
                     // On the Saturn, physical address 0x00000000 maps to the Boot ROM.
                     // We read from the cache-through mirror at 0x20000000 to ensure we bypass
                     // the cache. Using the 0x20000000 mirror explicitly guarantees we read the
                     // actual ROM vectors even if a dev environment mapped something else to
                     // the cached address 0.
-                    volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U);
-                    volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
+                    volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
+                    volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(current_vbr | 0x20000000U);
                     // The SH-2 exception vector table is exactly 256 bytes = 64 × uint32_t entries.
                     // Copying 256 uint32_t would read 1024 bytes — 768 bytes past the table end.
-                    for (int i = 0; i < 64; i++) {
+                    for (int i = 0; i < 64; i++)
+                    {
                         dst_table[i] = src_table[i];
                     }
-                    asm volatile("ldc %0, vbr" :: "r"(current_vbr)); // VBR = current_vbr (0x06000000) -- point the CPU at the freshly-copied RAM table
+                    asm volatile("ldc %0, vbr" ::"r"(current_vbr)); // VBR = current_vbr (0x06000000) -- point the CPU at the freshly-copied RAM table
                 }
 
                 // Write directly to the Cache-Through mirror of the VBR table
-                volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(current_vbr | 0x20000000U);
+                volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(current_vbr | 0x20000000U);
 
                 // Patch our exceptions
                 // SH-2 exception vector layout from VBR:
@@ -2237,14 +2635,14 @@ namespace SRL
                 // 'g' register-read handler, since NMI (an asynchronous button press)
                 // can interrupt SGL/BIOS code with no debug info to unwind through,
                 // exactly like a Ctrl-C stop can.
-                vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Illegal Instruction
-                vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Reserved Instruction
-                vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Slot Illegal Instruction
-                vbr_table[7] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // General Illegal Instruction
-                vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);  // Slot Reserved Instruction
-                vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);  // CPU Address Error
-                vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk); // DMA Address Error
-                vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_nmi_thunk);      // NMI (Reset button)
+                vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Illegal Instruction
+                vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Reserved Instruction
+                vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Slot Illegal Instruction
+                vbr_table[7] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // General Illegal Instruction
+                vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Slot Reserved Instruction
+                vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);    // CPU Address Error
+                vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);   // DMA Address Error
+                vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_nmi_thunk);       // NMI (Reset button)
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
@@ -2254,20 +2652,55 @@ namespace SRL
             SRL::Logger::Log::LogPrint("[GDBStub] InstallExceptionHandlers() end");
         }
 
+    public:
 
-        // --- Public API ---
+        /**
+         * @brief Master SH-2 register state captured at the current debug stop.
+         * @return Reference to the master's saved context
+         */
+        inline static SH2Context &MasterSH2()
+        {
+            return g_ctx;
+        }
+
+        /**
+         * @brief Slave SH-2 register state captured by the slave-side thunks.
+         * @return Reference to the slave's saved context
+         */
+        inline static SH2Context &SlaveSH2()
+        {
+            return g_slave_ctx;
+        }
+
+        /**
+         * @brief Returns how many RSP packets have been received.
+         */
+        inline static uint32_t GetCommandCount()
+        {
+            return g_command_count;
+        }
+
+        /**
+         * @brief Returns the most recently received RSP packet (truncated to 63 chars).
+         */
+        inline static const char *GetLastCommand()
+        {
+            return g_last_command;
+        }
 
         /**
          * @brief Returns true when cartridge-level USB data path should be enabled.
          */
-        inline bool IsUsbDataPathEnabled() {
+        inline static bool IsUsbDataPathEnabled()
+        {
             return g_devcart_usb_datapath_enabled;
         }
 
         /**
          * @brief Initialize the GDB stub and hook exception vectors.
          */
-        inline void Init() {
+        inline static void Init()
+        {
             SRL::Logger::Log::LogPrint("[GDBStub] Init() start");
             g_has_connection = false;
             g_handshake_done = false;
@@ -2297,9 +2730,10 @@ namespace SRL
             g_debug_pause = false;
 
             SRL::Logger::Log::LogPrint("[GDBStub] DevCart ready: %d, Port: %d, USB Datapath: %d",
-                g_devcart_ready ? 1 : 0, g_devcart_port_available ? 1 : 0, g_devcart_usb_datapath_enabled ? 1 : 0);
+                                       g_devcart_ready ? 1 : 0, g_devcart_port_available ? 1 : 0, g_devcart_usb_datapath_enabled ? 1 : 0);
 
-            if (!g_handlers_installed) {
+            if (!g_handlers_installed)
+            {
                 InstallExceptionHandlers();
             }
             SRL::Logger::Log::LogPrint("[GDBStub] Init() end");
@@ -2308,71 +2742,80 @@ namespace SRL
         /**
          * @brief Returns true only after the GDB handshake (qSupported exchange) has completed.
          */
-        inline bool IsConnected() {
+        inline static bool IsConnected()
+        {
             return g_handshake_done;
         }
 
         /**
          * @brief Returns true once the GDB exception handlers have been installed.
          */
-        inline bool IsHandlersInstalled() {
+        inline static bool IsHandlersInstalled()
+        {
             return g_handlers_installed;
         }
 
         /**
          * @brief Returns how many times ExceptionThunk has executed.
          */
-        inline uint32_t GetExceptionThunkCount() {
+        inline static uint32_t GetExceptionThunkCount()
+        {
             return g_exception_thunk_count;
         }
 
         /**
          * @brief Returns how many RX bytes were consumed by the stub from DevCart.
          */
-        inline uint32_t GetRxDetectCount() {
+        inline static uint32_t GetRxDetectCount()
+        {
             return g_rx_detect_count;
         }
 
         /**
          * @brief Returns how many times Poll() observed RX data pending in DevCart FIFO.
          */
-        inline uint32_t GetRxReadyCount() {
+        inline static uint32_t GetRxReadyCount()
+        {
             return g_rx_ready_count;
         }
 
         /**
          * @brief Returns how many TX bytes were written by the stub to DevCart.
          */
-        inline uint32_t GetTxByteCount() {
+        inline static uint32_t GetTxByteCount()
+        {
             return g_tx_byte_count;
         }
 
         /**
          * @brief Returns how many times Poll() had to process RX without Trap3 entry.
          */
-        inline uint32_t GetPollFallbackCount() {
+        inline static uint32_t GetPollFallbackCount()
+        {
             return g_poll_fallback_count;
         }
 
         /**
          * @brief Returns true when DevCart CS1 signature registers are readable and valid.
          */
-        inline bool IsDevCartReady() {
+        inline static bool IsDevCartReady()
+        {
             return g_devcart_ready;
         }
 
         /**
          * @brief Returns true when USB_FLAGS reserved bits match expected USB dev cart pattern.
          */
-        inline bool IsDevCartPortAvailable() {
+        inline static bool IsDevCartPortAvailable()
+        {
             return g_devcart_port_available;
         }
-
 
         /**
          * @brief Returns latest raw USB_FLAGS value sampled by the stub.
          */
-        inline uint8_t GetLastUsbFlags() {
+        inline static uint8_t GetLastUsbFlags()
+        {
             return g_last_usb_flags;
         }
 
@@ -2395,14 +2838,16 @@ namespace SRL
          * Send one `monitor` command, `continue`, then repeat if you need each
          * one to take effect individually.
          */
-        inline uint32_t GetMonitorCommandCount() {
+        inline static uint32_t GetMonitorCommandCount()
+        {
             return g_monitor_command_count;
         }
 
         /**
          * @brief Returns the text of the most recently received `monitor` command.
          */
-        inline const char* GetLastMonitorCommand() {
+        inline static const char *GetLastMonitorCommand()
+        {
             return g_last_monitor_command;
         }
 
@@ -2411,7 +2856,8 @@ namespace SRL
          * @details Reads shared Work RAM, so this is safe to call from the master
          * even though the counter is incremented by code running on the slave.
          */
-        inline uint32_t GetSlaveIciCount() {
+        inline static uint32_t GetSlaveIciCount()
+        {
             return g_slave_ici_count;
         }
 
@@ -2423,11 +2869,10 @@ namespace SRL
          * the slave. Zero unless InstallSlaveExceptionHandler() has been
          * installed on the slave.
          */
-        inline uint32_t GetSlaveBreakpointCount() {
+        inline static uint32_t GetSlaveBreakpointCount()
+        {
             return g_slave_bp_count;
         }
-
-        extern "C" void srl_gdbstub_slave_ici_thunk();
 
         /**
          * @brief Installs GDBStub's slave-freeze handler on the FRT Input Capture
@@ -2445,43 +2890,46 @@ namespace SRL
          * hardware writeup. Only use this in a project that never calls
          * SRL::Slave::ExecuteOnSlave.
          */
-        static inline void InstallSlaveFreezeHandler() {
+        inline static void InstallSlaveFreezeHandler()
+        {
             uint32_t vbr = 0;
             asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's (the slave's) current VBR
 
-            if (vbr == 0) {
+            if (vbr == 0)
+            {
                 // The slave boots with VBR == 0, same as the master. Relocate to a
                 // slave-private area distinct from the master's own relocation
                 // target (0x06000000, see InstallExceptionHandlers()) so the two
                 // CPUs never overwrite each other's copy of the boot ROM vector
                 // table.
                 vbr = 0x06010000U;
-                volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U);
-                volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
-                for (int i = 0; i < 64; i++) {
+                volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
+                volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
+                for (int i = 0; i < 64; i++)
+                {
                     dst_table[i] = src_table[i];
                 }
-                asm volatile("ldc %0, vbr" :: "r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied RAM table
+                asm volatile("ldc %0, vbr" ::"r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied RAM table
             }
 
-            volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
+            volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
             vbr_table[FRT_ICI_VECTOR] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_ici_thunk);
 
             // Give the FRT interrupt group (ICI/OCIA/OCIB/OVI) a non-zero priority —
             // priority 0 is always masked regardless of the SR interrupt mask level.
-            volatile uint16_t* iprb = reinterpret_cast<volatile uint16_t*>(FRT_IPRB);
+            volatile uint16_t *iprb = reinterpret_cast<volatile uint16_t *>(FRT_IPRB);
             *iprb = static_cast<uint16_t>((*iprb & 0xF0FFU) | (0x0FU << 8));
 
             // Enable the Input Capture Interrupt itself.
-            *reinterpret_cast<volatile uint8_t*>(FRT_TIER) |= FRT_ICF;
+            *reinterpret_cast<volatile uint8_t *>(FRT_TIER) |= FRT_ICF;
 
             // Lower this CPU's own SR interrupt mask (I3-I0) so priority-15
             // interrupts are actually accepted — out of reset, all interrupts are
             // masked (mask level 15).
             uint32_t sr = 0;
             asm volatile("stc sr, %0" : "=r"(sr));           // sr = this CPU's current SR
-            sr &= ~0x000000F0U;                               // clear the I3-I0 interrupt mask bits (bring the mask level down to 0, i.e. accept all interrupt priorities)
-            asm volatile("ldc %0, sr" :: "r"(sr) : "memory"); // SR = sr -- commit the lowered mask so the ICI can actually reach this CPU
+            sr &= ~0x000000F0U;                              // clear the I3-I0 interrupt mask bits (bring the mask level down to 0, i.e. accept all interrupt priorities)
+            asm volatile("ldc %0, sr" ::"r"(sr) : "memory"); // SR = sr -- commit the lowered mask so the ICI can actually reach this CPU
 
             ForcePurgeCache();
         }
@@ -2496,14 +2944,14 @@ namespace SRL
          * @endcode
          * @see InstallSlaveFreezeHandler
          */
-        class InstallSlaveFreezeTask : public SRL::Types::ITask {
+        class InstallSlaveFreezeTask : public SRL::Types::ITask
+        {
         protected:
-            void Do() override {
+            void Do() override
+            {
                 InstallSlaveFreezeHandler();
             }
         };
-
-        extern "C" void srl_gdbstub_slave_illegal_thunk();
 
         /**
          * @brief Installs GDBStub's breakpoint handler on the Illegal Instruction
@@ -2587,25 +3035,28 @@ namespace SRL
          * symptom, from an unrelated trigger, is what a slave breakpoint hit
          * causes too -- likely the same underlying SGL fragility.)
          */
-        static inline void InstallSlaveExceptionHandler() {
+        inline static void InstallSlaveExceptionHandler()
+        {
             uint32_t vbr = 0;
             asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's (the slave's) current VBR
 
-            if (vbr == 0) {
+            if (vbr == 0)
+            {
                 // Same relocation target as InstallSlaveFreezeHandler() (see its
                 // comment) -- idempotent if both are ever installed on the same
                 // slave: whichever runs first does the one-time copy, the second
                 // just patches its own vector into the already-relocated table.
                 vbr = 0x06010000U;
-                volatile uint32_t* src_table = reinterpret_cast<volatile uint32_t*>(0x20000000U);
-                volatile uint32_t* dst_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
-                for (int i = 0; i < 64; i++) {
+                volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
+                volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
+                for (int i = 0; i < 64; i++)
+                {
                     dst_table[i] = src_table[i];
                 }
-                asm volatile("ldc %0, vbr" :: "r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied (or already-relocated) RAM table
+                asm volatile("ldc %0, vbr" ::"r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied (or already-relocated) RAM table
             }
 
-            volatile uint32_t* vbr_table = reinterpret_cast<volatile uint32_t*>(vbr | 0x20000000U);
+            volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
             vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_illegal_thunk);
 
             ForcePurgeCache();
@@ -2623,26 +3074,29 @@ namespace SRL
          * @endcode
          * @see InstallSlaveExceptionHandler
          */
-        class InstallSlaveExceptionTask : public SRL::Types::ITask {
+        class InstallSlaveExceptionTask : public SRL::Types::ITask
+        {
         protected:
-            void Do() override {
+            void Do() override
+            {
                 InstallSlaveExceptionHandler();
             }
         };
 
         /**
          * @brief Enter the GDB stub via software trap (Illegal Instruction).
-         * 
-         * IMPORTANT: The __attribute__((noinline)) is load-bearing. 
+         *
+         * IMPORTANT: The __attribute__((noinline)) is load-bearing.
          * When this function executes, it triggers an exception via the 0xFFFF instruction.
-         * The GDB stub's `adjust_pc_for_software_breakpoint()` handles this exception by 
+         * The GDB stub's `adjust_pc_for_software_breakpoint()` handles this exception by
          * advancing the program counter by 2 bytes (`g_ctx.pc += 2U`).
          * If this function were inlined, `g_ctx.pc += 2U` would incorrectly skip the actual user
          * instruction immediately following the `Break()` call. By forcing this to not be inlined,
          * the instruction following `0xFFFF` is this function's `rts` (Return from Subroutine).
          * The `+= 2U` safely skips the `0xFFFF` and lands on `rts`, returning to the caller.
          */
-        __attribute__((noinline)) static void Break() {
+        __attribute__((noinline)) inline static void Break()
+        {
             // Force a breakpoint exception.
             // Using Illegal Instruction (0xFFFF) which reliably vectors to VBR[4].
             // SGL frequently overwrites TRAPA vectors (32-63) causing them to be ignored.
@@ -2652,25 +3106,16 @@ namespace SRL
         /**
          * @brief Compatibility alias matching the upstream libyaul GDB stub API.
          */
-        inline void gdb_break() {
+        inline static void gdb_break()
+        {
             Break();
         }
 
         /**
-         * @brief Compatibility initializer matching the upstream gdbstub_t-based startup path.
+         * @brief Check for incoming GDB interrupt request
          */
-        inline void Init(gdbstub_t& gdbstub) {
-            if (gdbstub.device != nullptr && gdbstub.device->init != nullptr) {
-                gdbstub.device->init();
-            }
-
-            Init();
-        }
-
-        /**
-         * @brief Check for incoming GDB interrupt request (Ctrl-C)
-         */
-        __attribute__((noinline)) inline void Poll() {
+        __attribute__((noinline)) inline static void Poll()
+        {
             // If we're called reentrantly while the CPU is already halted inside
             // process_commands() (e.g. VBlank firing while mid-conversation with
             // GDB after a breakpoint/Ctrl-C/NMI stop), skip our GDB-related work
@@ -2678,7 +3123,8 @@ namespace SRL
             // called us) proceed normally. See ReentrancyGuard's doc comment.
             // Any pending RX byte is simply left in the FIFO for a later, safe
             // (non-reentrant) Poll() call to pick up -- nothing is lost.
-            if (g_in_process_commands) {
+            if (ReentrancyGuard::IsInProcessCommands())
+            {
                 return;
             }
 
@@ -2690,7 +3136,8 @@ namespace SRL
             // there's no meaningful call stack to show on the master side for
             // an async event like this -- the interesting state is the slave's,
             // inspected via `monitor regs slave` / the slave pseudo-registers.
-            if (g_slave_stopped) {
+            if (g_slave_stopped)
+            {
                 g_is_ctrl_c_stop = true;
                 Break();
             }
@@ -2699,18 +3146,21 @@ namespace SRL
             g_last_usb_flags = usbFlags;
             g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
 
-
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::Rxf) == 0;
-            if (rxPending) {
+            if (rxPending)
+            {
                 g_rx_ready_count = g_rx_ready_count + 1;
 
-                if (!g_has_connection || !g_handshake_done) {
+                if (!g_has_connection || !g_handshake_done)
+                {
                     // During initial attach/handshake, do not consume RX bytes here.
                     // Let process_commands() read the full '$...#xx' packet intact.
                     snapshot_polling_context();
                     g_poll_fallback_count = g_poll_fallback_count + 1;
                     process_commands();
-                } else {
+                }
+                else
+                {
                     // Active session while target runs: only Ctrl-C should interrupt.
                     // Read the FIFO byte directly rather than via
                     // SRL::DevCart::CS0::Read() -- that wrapper calls WaitRxf()
@@ -2724,12 +3174,15 @@ namespace SRL
                     const uint8_t ch = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
                     g_rx_detect_count = g_rx_detect_count + 1;
 
-                    if (ch == 0x03U) {
+                    if (ch == 0x03U)
+                    {
                         record_command("<Ctrl-C>");
                         g_is_ctrl_c_stop = true;
                         g_poll_fallback_count = g_poll_fallback_count + 1;
                         Break();
-                    } else if (ch == '$') {
+                    }
+                    else if (ch == '$')
+                    {
                         // Preserve packet start byte and process packet without forcing a trap.
                         g_unget_char = '$';
                         snapshot_polling_context();
@@ -2740,25 +3193,35 @@ namespace SRL
             }
 
             // Hardware-level disconnect: clear session state.
-            if (!SRL::DevCart::CS0::IsConnected()) {
+            if (!SRL::DevCart::CS0::IsConnected())
+            {
                 g_has_connection = false;
                 g_handshake_done = false;
             }
         }
-}
+    };
 }
 
-extern "C" __attribute__((used)) inline void slave_ipi_handler(void) {
+// Fixed-symbol entry point the master exception thunk jsr's into (see the
+// literal pool of _srl_gdbstub_exception_thunk below).
+extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
+{
+    SRL::GDBStub::process_commands();
+}
+
+extern "C" __attribute__((used)) inline void slave_ipi_handler(void)
+{
     // Called by srl_gdbstub_slave_ici_thunk (below) on the slave SH-2, AFTER the
     // thunk has already snapshotted the slave's full register state into
     // SRL::GDBStub::g_slave_ctx. Disable further ICI firing while we are already
     // inside one — mirrors the disable/spin/re-enable shape used for master<->slave
     // ICI handlers elsewhere in Saturn homebrew (e.g. libyaul's cpu_dual) — and
     // clear the flag the doorbell write set.
-    *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_TIER) &= ~SRL::GDBStub::FRT_ICF;
-    *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_FTCSR) &= ~SRL::GDBStub::FRT_ICF;
+    *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_TIER) &= ~SRL::GDBStub::FRT_ICF;
+    *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_FTCSR) &= ~SRL::GDBStub::FRT_ICF;
 
-    while (SRL::GDBStub::g_debug_pause) {
+    while (SRL::GDBStub::g_debug_pause)
+    {
         asm volatile("nop"); // spin -- just burns a cycle each iteration while frozen, no state to touch
     }
 
@@ -2766,7 +3229,7 @@ extern "C" __attribute__((used)) inline void slave_ipi_handler(void) {
     // purge the slave's own cache before resuming.
     SRL::GDBStub::ForcePurgeCache();
 
-    *reinterpret_cast<volatile uint8_t*>(SRL::GDBStub::FRT_TIER) |= SRL::GDBStub::FRT_ICF;
+    *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_TIER) |= SRL::GDBStub::FRT_ICF;
     // Returning here lets srl_gdbstub_slave_ici_thunk restore registers and rte.
 }
 
@@ -2776,7 +3239,8 @@ extern "C" __attribute__((used)) inline void slave_ipi_handler(void) {
 // InstallSlaveExceptionHandler() definition) for the full investigation,
 // evidence, and its connection to the already-documented SGL/FRT-ICI
 // dispatch-completion fragility in slave_counter_task.hpp.
-extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void) {
+extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
+{
     // Called by srl_gdbstub_slave_illegal_thunk (below) on the slave SH-2,
     // AFTER the thunk has already snapshotted the slave's full register
     // state into SRL::GDBStub::g_slave_ctx. See
@@ -2786,21 +3250,23 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void) {
     // Illegal Instruction pushes the address of the faulting instruction
     // itself (unlike TRAPA, which pushes PC+2) -- advance past it the same
     // way adjust_pc_for_software_breakpoint() does for the master.
-    SRL::GDBStub::g_slave_ctx.pc += 2U;
+    SRL::GDBStub::SlaveSH2().pc += 2U;
 
     // One-shot: if this was a GDB-inserted breakpoint, remove it now so
     // resuming doesn't immediately re-fault on the same patched instruction
     // -- there's no step-over support for slave code. Re-add it with a
     // fresh 'break'/'Z0' if you need it to fire again.
-    const uint32_t bp_addr = SRL::GDBStub::g_slave_ctx.pc - 2U;
-    if (SRL::GDBStub::find_breakpoint_slot(bp_addr) >= 0) {
+    const uint32_t bp_addr = SRL::GDBStub::SlaveSH2().pc - 2U;
+    if (SRL::GDBStub::find_breakpoint_slot(bp_addr) >= 0)
+    {
         SRL::GDBStub::remove_software_breakpoint(bp_addr);
     }
 
     SRL::GDBStub::g_slave_stopped = true;
     SRL::GDBStub::g_slave_resume = false;
 
-    while (!SRL::GDBStub::g_slave_resume) {
+    while (!SRL::GDBStub::g_slave_resume)
+    {
         asm volatile("nop"); // spin -- waiting for the master to release this slave breakpoint stop, no state to touch
     }
 
@@ -2825,92 +3291,92 @@ __asm__(
     ".global _srl_gdbstub_exception_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_exception_thunk:\n"
-    "mov.l r0, @-r15\n"              // push r0 (predecrement r15, store) -- stash the CPU's true pre-exception r0 so it isn't lost to the scratch use below
-    "stc.l gbr, @-r15\n"             // push gbr the same way -- stash it too, restored into g_ctx a few lines down
-    "mov.l 1f, r0\n"                 // r0 = &g_ctx (address loaded from the literal pool at label 1, below)
-    "mov.l r14, @(14*4, r0)\n"       // g_ctx.r[14] = r14
-    "mov.l r13, @(13*4, r0)\n"       // g_ctx.r[13] = r13
-    "mov.l r12, @(12*4, r0)\n"       // g_ctx.r[12] = r12
-    "mov.l r11, @(11*4, r0)\n"       // g_ctx.r[11] = r11
-    "mov.l r10, @(10*4, r0)\n"       // g_ctx.r[10] = r10
-    "mov.l r9,  @(9*4,  r0)\n"       // g_ctx.r[9] = r9
-    "mov.l r8,  @(8*4,  r0)\n"       // g_ctx.r[8] = r8
-    "mov.l r7,  @(7*4,  r0)\n"       // g_ctx.r[7] = r7
-    "mov.l r6,  @(6*4,  r0)\n"       // g_ctx.r[6] = r6
-    "mov.l r5,  @(5*4,  r0)\n"       // g_ctx.r[5] = r5
-    "mov.l r4,  @(4*4,  r0)\n"       // g_ctx.r[4] = r4
-    "mov.l r3,  @(3*4,  r0)\n"       // g_ctx.r[3] = r3
-    "mov.l r2,  @(2*4,  r0)\n"       // g_ctx.r[2] = r2
-    "mov.l r1,  @(1*4,  r0)\n"       // g_ctx.r[1] = r1 -- r0 itself is saved later, once it's no longer needed as the g_ctx pointer
-    "mov r15, r1\n"                  // r1 = current r15 (post both of our pushes above, i.e. pre-exception SP minus 16: 8 for the hardware's own PC/SR push, 8 for ours)
-    "add #16, r1\n"                  // r1 = pre-exception SP exactly -- undoes both pushes, giving GDB the SP the interrupted code actually had, not our exception-frame SP
-    "mov.l r1, @(15*4, r0)\n"        // g_ctx.r[15] = r1 (the reconstructed, user-visible stack pointer)
-    "mov.l @r15+, r1\n"              // pop our earlier gbr push back into r1, r15 += 4 (now pointing just past our two pushes)
-    "mov.l @r15+, r2\n"              // pop our earlier r0 push into r2, r15 += 4 -- r15 is now exactly where the CPU's own exception entry left it, pointing at its PC/SR frame
-    "mov.l r2, @r0\n"                // g_ctx.r[0] = r2 (the true pre-exception r0, recovered from the stack)
-    "mov r0, r2\n"                   // r2 = r0 (= &g_ctx) -- r0 keeps pointing at g_ctx's base for the rest of this thunk
-    "add #64, r2\n"                  // r2 = &g_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block, everything below is offset from here
-    "mov.l r1, @(2*4, r2)\n"         // g_ctx.gbr = r1 (the gbr value popped a few lines up; offset 8 from &g_ctx.pc lands on .gbr)
-    "mov.l @r15, r1\n"               // r1 = *r15, i.e. the CPU's own hardware-pushed PC (peek, not pop -- we overwrite it in place later so `rte` can pick up a possibly-modified value)
-    "mov.l r1, @r2\n"                // g_ctx.pc = r1
-    "mov.l @(4, r15), r1\n"          // r1 = *(r15+4), the CPU's own hardware-pushed SR (same peek-not-pop reasoning)
-    "mov.l r1, @(24, r2)\n"          // g_ctx.sr = r1 (offset 24 from &g_ctx.pc lands on .sr)
-    "sts pr, r1\n"                   // r1 = current PR -- exceptions don't auto-save PR the way they do PC/SR, so this captures whatever the interrupted code's own return address was
-    "mov.l r1, @(1*4, r2)\n"         // g_ctx.pr = r1
-    "stc vbr, r1\n"                  // r1 = current VBR
-    "mov.l r1, @(3*4, r2)\n"         // g_ctx.vbr = r1
-    "sts mach, r1\n"                 // r1 = MACH (multiply/accumulate high word)
-    "mov.l r1, @(4*4, r2)\n"         // g_ctx.mach = r1
-    "sts macl, r1\n"                 // r1 = MACL (multiply/accumulate low word)
-    "mov.l r1, @(5*4, r2)\n"         // g_ctx.macl = r1 -- full context snapshot is now complete
-    "mov.l 3f, r1\n"                 // r1 = &g_exception_thunk_count (literal pool label 3)
-    "mov.l @r1, r2\n"                // r2 = current thunk-entry counter value
-    "add #1, r2\n"                   // r2 += 1
-    "mov.l r2, @r1\n"                // g_exception_thunk_count = r2 -- diagnostic: every real halt of any kind bumps this
-    "mov.l 2f, r1\n"                 // r1 = &process_commands (literal pool label 2)
-    "jsr @r1\n"                      // call process_commands() -- PR is set to the address right after this delay slot, i.e. the next instruction
-    "nop\n"                          // jsr's mandatory delay slot (executes before the call target starts; nothing needed here). process_commands() now owns the CPU until it decides to return -- the entire GDB session for this halt happens inside that call
-    "mov.l 1f, r0\n"                 // r0 = &g_ctx again -- reload since r0 isn't guaranteed preserved across the call above
-    "mov r0, r2\n"                   // r2 = r0 (= &g_ctx)
-    "add #64, r2\n"                  // r2 = &g_ctx.pc again, for the restore half
-    "mov.l @(1*4, r2), r1\n"         // r1 = g_ctx.pr (possibly rewritten by process_commands(), e.g. by single-step bookkeeping)
-    "lds r1, pr\n"                   // PR = r1
-    "mov.l @(3*4, r2), r1\n"         // r1 = g_ctx.vbr
-    "ldc r1, vbr\n"                  // VBR = r1
-    "mov.l @(4*4, r2), r1\n"         // r1 = g_ctx.mach
-    "lds r1, mach\n"                 // MACH = r1
-    "mov.l @(5*4, r2), r1\n"         // r1 = g_ctx.macl
-    "lds r1, macl\n"                 // MACL = r1
-    "mov.l @(2*4, r2), r1\n"         // r1 = g_ctx.gbr
-    "ldc r1, gbr\n"                  // GBR = r1
-    "mov.l @(24, r2), r1\n"          // r1 = g_ctx.sr (possibly rewritten by GDB/process_commands() -- e.g. to change the interrupt mask across a step)
-    "mov.l r1, @(4, r15)\n"          // overwrite the hardware's own pushed SR slot on the stack with r1, so the `rte` below resumes with this (possibly new) SR
-    "mov.l @r2, r1\n"                // r1 = g_ctx.pc (possibly rewritten -- this is how GDB redirects execution, e.g. a step-trap target or a `jump`)
-    "mov.l r1, @r15\n"               // overwrite the hardware's own pushed PC slot with r1, so `rte` resumes at this (possibly new) address
-    "mov.l @(14*4, r0), r14\n"       // restore r14 from g_ctx.r[14] (possibly rewritten by GDB)
-    "mov.l @(13*4, r0), r13\n"       // restore r13
-    "mov.l @(12*4, r0), r12\n"       // restore r12
-    "mov.l @(11*4, r0), r11\n"       // restore r11
-    "mov.l @(10*4, r0), r10\n"       // restore r10
-    "mov.l @(9*4,  r0), r9\n"        // restore r9
-    "mov.l @(8*4,  r0), r8\n"        // restore r8
-    "mov.l @(7*4,  r0), r7\n"        // restore r7
-    "mov.l @(6*4,  r0), r6\n"        // restore r6
-    "mov.l @(5*4,  r0), r5\n"        // restore r5
-    "mov.l @(4*4,  r0), r4\n"        // restore r4
-    "mov.l @(3*4,  r0), r3\n"        // restore r3
-    "mov.l @(2*4,  r0), r2\n"        // restore r2
-    "mov.l @(1*4,  r0), r1\n"        // restore r1
+    "mov.l r0, @-r15\n"        // push r0 (predecrement r15, store) -- stash the CPU's true pre-exception r0 so it isn't lost to the scratch use below
+    "stc.l gbr, @-r15\n"       // push gbr the same way -- stash it too, restored into g_ctx a few lines down
+    "mov.l 1f, r0\n"           // r0 = &g_ctx (address loaded from the literal pool at label 1, below)
+    "mov.l r14, @(14*4, r0)\n" // g_ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n" // g_ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n" // g_ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n" // g_ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n" // g_ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n" // g_ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n" // g_ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n" // g_ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n" // g_ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n" // g_ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n" // g_ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n" // g_ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n" // g_ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n" // g_ctx.r[1] = r1 -- r0 itself is saved later, once it's no longer needed as the g_ctx pointer
+    "mov r15, r1\n"            // r1 = current r15 (post both of our pushes above, i.e. pre-exception SP minus 16: 8 for the hardware's own PC/SR push, 8 for ours)
+    "add #16, r1\n"            // r1 = pre-exception SP exactly -- undoes both pushes, giving GDB the SP the interrupted code actually had, not our exception-frame SP
+    "mov.l r1, @(15*4, r0)\n"  // g_ctx.r[15] = r1 (the reconstructed, user-visible stack pointer)
+    "mov.l @r15+, r1\n"        // pop our earlier gbr push back into r1, r15 += 4 (now pointing just past our two pushes)
+    "mov.l @r15+, r2\n"        // pop our earlier r0 push into r2, r15 += 4 -- r15 is now exactly where the CPU's own exception entry left it, pointing at its PC/SR frame
+    "mov.l r2, @r0\n"          // g_ctx.r[0] = r2 (the true pre-exception r0, recovered from the stack)
+    "mov r0, r2\n"             // r2 = r0 (= &g_ctx) -- r0 keeps pointing at g_ctx's base for the rest of this thunk
+    "add #64, r2\n"            // r2 = &g_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block, everything below is offset from here
+    "mov.l r1, @(2*4, r2)\n"   // g_ctx.gbr = r1 (the gbr value popped a few lines up; offset 8 from &g_ctx.pc lands on .gbr)
+    "mov.l @r15, r1\n"         // r1 = *r15, i.e. the CPU's own hardware-pushed PC (peek, not pop -- we overwrite it in place later so `rte` can pick up a possibly-modified value)
+    "mov.l r1, @r2\n"          // g_ctx.pc = r1
+    "mov.l @(4, r15), r1\n"    // r1 = *(r15+4), the CPU's own hardware-pushed SR (same peek-not-pop reasoning)
+    "mov.l r1, @(24, r2)\n"    // g_ctx.sr = r1 (offset 24 from &g_ctx.pc lands on .sr)
+    "sts pr, r1\n"             // r1 = current PR -- exceptions don't auto-save PR the way they do PC/SR, so this captures whatever the interrupted code's own return address was
+    "mov.l r1, @(1*4, r2)\n"   // g_ctx.pr = r1
+    "stc vbr, r1\n"            // r1 = current VBR
+    "mov.l r1, @(3*4, r2)\n"   // g_ctx.vbr = r1
+    "sts mach, r1\n"           // r1 = MACH (multiply/accumulate high word)
+    "mov.l r1, @(4*4, r2)\n"   // g_ctx.mach = r1
+    "sts macl, r1\n"           // r1 = MACL (multiply/accumulate low word)
+    "mov.l r1, @(5*4, r2)\n"   // g_ctx.macl = r1 -- full context snapshot is now complete
+    "mov.l 3f, r1\n"           // r1 = &g_exception_thunk_count (literal pool label 3)
+    "mov.l @r1, r2\n"          // r2 = current thunk-entry counter value
+    "add #1, r2\n"             // r2 += 1
+    "mov.l r2, @r1\n"          // g_exception_thunk_count = r2 -- diagnostic: every real halt of any kind bumps this
+    "mov.l 2f, r1\n"           // r1 = &process_commands (literal pool label 2)
+    "jsr @r1\n"                // call process_commands() -- PR is set to the address right after this delay slot, i.e. the next instruction
+    "nop\n"                    // jsr's mandatory delay slot (executes before the call target starts; nothing needed here). process_commands() now owns the CPU until it decides to return -- the entire GDB session for this halt happens inside that call
+    "mov.l 1f, r0\n"           // r0 = &g_ctx again -- reload since r0 isn't guaranteed preserved across the call above
+    "mov r0, r2\n"             // r2 = r0 (= &g_ctx)
+    "add #64, r2\n"            // r2 = &g_ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"   // r1 = g_ctx.pr (possibly rewritten by process_commands(), e.g. by single-step bookkeeping)
+    "lds r1, pr\n"             // PR = r1
+    "mov.l @(3*4, r2), r1\n"   // r1 = g_ctx.vbr
+    "ldc r1, vbr\n"            // VBR = r1
+    "mov.l @(4*4, r2), r1\n"   // r1 = g_ctx.mach
+    "lds r1, mach\n"           // MACH = r1
+    "mov.l @(5*4, r2), r1\n"   // r1 = g_ctx.macl
+    "lds r1, macl\n"           // MACL = r1
+    "mov.l @(2*4, r2), r1\n"   // r1 = g_ctx.gbr
+    "ldc r1, gbr\n"            // GBR = r1
+    "mov.l @(24, r2), r1\n"    // r1 = g_ctx.sr (possibly rewritten by GDB/process_commands() -- e.g. to change the interrupt mask across a step)
+    "mov.l r1, @(4, r15)\n"    // overwrite the hardware's own pushed SR slot on the stack with r1, so the `rte` below resumes with this (possibly new) SR
+    "mov.l @r2, r1\n"          // r1 = g_ctx.pc (possibly rewritten -- this is how GDB redirects execution, e.g. a step-trap target or a `jump`)
+    "mov.l r1, @r15\n"         // overwrite the hardware's own pushed PC slot with r1, so `rte` resumes at this (possibly new) address
+    "mov.l @(14*4, r0), r14\n" // restore r14 from g_ctx.r[14] (possibly rewritten by GDB)
+    "mov.l @(13*4, r0), r13\n" // restore r13
+    "mov.l @(12*4, r0), r12\n" // restore r12
+    "mov.l @(11*4, r0), r11\n" // restore r11
+    "mov.l @(10*4, r0), r10\n" // restore r10
+    "mov.l @(9*4,  r0), r9\n"  // restore r9
+    "mov.l @(8*4,  r0), r8\n"  // restore r8
+    "mov.l @(7*4,  r0), r7\n"  // restore r7
+    "mov.l @(6*4,  r0), r6\n"  // restore r6
+    "mov.l @(5*4,  r0), r5\n"  // restore r5
+    "mov.l @(4*4,  r0), r4\n"  // restore r4
+    "mov.l @(3*4,  r0), r3\n"  // restore r3
+    "mov.l @(2*4,  r0), r2\n"  // restore r2
+    "mov.l @(1*4,  r0), r1\n"  // restore r1
     // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
     // STILL holds the base pointer to g_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n"                // restore r0 itself, last, from g_ctx.r[0] (offset 0) -- r0 is both the value being restored and the pointer used to fetch it, hence "last"
-    "rte\n"                          // return from exception: on the SH-2 this pops SR then PC off the stack -- the very slots we overwrote above, so this resumes at the (possibly GDB-redirected) address with the (possibly GDB-redirected) SR
-    "nop\n"                          // rte's mandatory delay slot -- still executes in the pre-return context before control actually transfers
+    "mov.l @r0, r0\n" // restore r0 itself, last, from g_ctx.r[0] (offset 0) -- r0 is both the value being restored and the pointer used to fetch it, hence "last"
+    "rte\n"           // return from exception: on the SH-2 this pops SR then PC off the stack -- the very slots we overwrote above, so this resumes at the (possibly GDB-redirected) address with the (possibly GDB-redirected) SR
+    "nop\n"           // rte's mandatory delay slot -- still executes in the pre-return context before control actually transfers
     ".align 4\n"
-    "1: .long srl_gdbstub_ctx\n"                // literal pool: address of g_ctx
-    "2: .long srl_gdbstub_process_commands\n"   // literal pool: address of process_commands()
-    "3: .long srl_gdbstub_thunk_count\n"        // literal pool: address of g_exception_thunk_count
+    "1: .long srl_gdbstub_ctx\n"              // literal pool: address of g_ctx
+    "2: .long _srl_gdbstub_process_commands\n" // literal pool: address of the srl_gdbstub_process_commands() trampoline
+    "3: .long srl_gdbstub_thunk_count\n"      // literal pool: address of g_exception_thunk_count
 );
 
 // Per-exception-family entry trampolines. The SH-2 has no on-chip "cause"
@@ -2933,15 +3399,15 @@ __asm__(
     ".global _srl_gdbstub_illegal_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_illegal_thunk:\n"
-    "mov.l r0, @-r15\n"              // push r0 -- only r0/r1 are used as scratch here, and both are restored before falling into the shared thunk, so it sees them untouched
-    "mov.l r1, @-r15\n"              // push r1
-    "mov.l 1f, r0\n"                 // r0 = &g_last_stop_signal (literal pool label 1)
-    "mov #4, r1\n"        // SIGILL
-    "mov.b r1, @r0\n"                // g_last_stop_signal = SIGILL(4) -- tags this halt's reported signal before the shared thunk (which doesn't know which vector fired) takes over
-    "mov.l @r15+, r1\n"              // pop r1 back
-    "mov.l @r15+, r0\n"              // pop r0 back -- r15 is now exactly where the CPU's own exception entry left it, as the shared thunk expects
+    "mov.l r0, @-r15\n"                  // push r0 -- only r0/r1 are used as scratch here, and both are restored before falling into the shared thunk, so it sees them untouched
+    "mov.l r1, @-r15\n"                  // push r1
+    "mov.l 1f, r0\n"                     // r0 = &g_last_stop_signal (literal pool label 1)
+    "mov #4, r1\n"                       // SIGILL
+    "mov.b r1, @r0\n"                    // g_last_stop_signal = SIGILL(4) -- tags this halt's reported signal before the shared thunk (which doesn't know which vector fired) takes over
+    "mov.l @r15+, r1\n"                  // pop r1 back
+    "mov.l @r15+, r0\n"                  // pop r0 back -- r15 is now exactly where the CPU's own exception entry left it, as the shared thunk expects
     "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
-    "nop\n"                          // bra's mandatory delay slot
+    "nop\n"                              // bra's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
 );
@@ -2981,48 +3447,48 @@ __asm__(
     ".global _srl_gdbstub_nmi_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_nmi_thunk:\n"
-    "mov.l r0, @-r15\n"              // push r0 -- r0/r1/r2 are this thunk's scratch registers, all saved/restored around the debounce logic so the shared thunk (or a plain rte, for a swallowed bounce) sees them untouched
-    "mov.l r1, @-r15\n"              // push r1
-    "mov.l r2, @-r15\n"              // push r2
-    "mov.l 6f, r0\n"                 // r0 = &g_nmi_fire_count (label 6)
-    "mov.l @r0, r1\n"                // r1 = current fire count
-    "add #1, r1\n"                   // r1 += 1
-    "mov.l r1, @r0\n"                // g_nmi_fire_count = r1 -- unconditionally counts every edge, bounce or genuine
-    "mov.l 1f, r0\n"                 // r0 = &g_nmi_generation (label 1)
-    "mov.l @r0, r1\n"                // r1 = current generation
-    "add #1, r1\n"                   // r1 += 1 -- this edge claims the next generation number
-    "mov.l r1, @r0\n"                // g_nmi_generation = r1 (publish it)
-    "mov r1, r2\n"                   // r2 = r1 -- remember THIS edge's own generation number, to compare against after the wait
-    "mov.l 2f, r1\n"                 // r1 = 300000 (debounce wait iteration count, label 2)
+    "mov.l r0, @-r15\n" // push r0 -- r0/r1/r2 are this thunk's scratch registers, all saved/restored around the debounce logic so the shared thunk (or a plain rte, for a swallowed bounce) sees them untouched
+    "mov.l r1, @-r15\n" // push r1
+    "mov.l r2, @-r15\n" // push r2
+    "mov.l 6f, r0\n"    // r0 = &g_nmi_fire_count (label 6)
+    "mov.l @r0, r1\n"   // r1 = current fire count
+    "add #1, r1\n"      // r1 += 1
+    "mov.l r1, @r0\n"   // g_nmi_fire_count = r1 -- unconditionally counts every edge, bounce or genuine
+    "mov.l 1f, r0\n"    // r0 = &g_nmi_generation (label 1)
+    "mov.l @r0, r1\n"   // r1 = current generation
+    "add #1, r1\n"      // r1 += 1 -- this edge claims the next generation number
+    "mov.l r1, @r0\n"   // g_nmi_generation = r1 (publish it)
+    "mov r1, r2\n"      // r2 = r1 -- remember THIS edge's own generation number, to compare against after the wait
+    "mov.l 2f, r1\n"    // r1 = 300000 (debounce wait iteration count, label 2)
     "3:\n"
-    "dt r1\n"                        // r1 -= 1; T flag = (r1 == 0)
-    "bf 3b\n"                        // loop back to label 3 while T is false (r1 != 0) -- busy-waits long enough for mechanical switch bounce to settle; a newer edge arriving during this wait re-enters this same thunk from the top as a nested exception, safe since nothing shared is touched yet
-    "mov.l 1f, r0\n"                 // r0 = &g_nmi_generation again
-    "mov.l @r0, r1\n"                // r1 = generation now (possibly bumped again by a nested bounce edge while we waited)
-    "cmp/eq r1, r2\n"                // T = (r1 == r2), i.e. "is the generation still exactly what I set it to?"
-    "bf 4f\n"                        // if NOT equal (a newer edge arrived and moved it on), jump to label 4: this edge was superseded, quietly swallow it
-    "mov.l 7f, r0\n"                 // r0 = &g_nmi_report_count (label 7)
-    "mov.l @r0, r1\n"                // r1 = current report count
-    "add #1, r1\n"                   // r1 += 1
-    "mov.l r1, @r0\n"                // g_nmi_report_count = r1 -- this is the one edge (the last of any bounce train) that actually gets reported
-    "mov.l 5f, r0\n"                 // r0 = &g_is_ctrl_c_stop (label 5)
-    "mov #1, r1\n"                   // r1 = 1
-    "mov.b r1, @r0\n"                // g_is_ctrl_c_stop = true -- report this halt as SIGINT, the same signal Ctrl-C uses, not a generic trap
-    "mov.l @r15+, r2\n"              // pop r2 back
-    "mov.l @r15+, r1\n"              // pop r1 back
-    "mov.l @r15+, r0\n"              // pop r0 back -- restores exact pre-tag CPU state the shared thunk expects
+    "dt r1\n"                            // r1 -= 1; T flag = (r1 == 0)
+    "bf 3b\n"                            // loop back to label 3 while T is false (r1 != 0) -- busy-waits long enough for mechanical switch bounce to settle; a newer edge arriving during this wait re-enters this same thunk from the top as a nested exception, safe since nothing shared is touched yet
+    "mov.l 1f, r0\n"                     // r0 = &g_nmi_generation again
+    "mov.l @r0, r1\n"                    // r1 = generation now (possibly bumped again by a nested bounce edge while we waited)
+    "cmp/eq r1, r2\n"                    // T = (r1 == r2), i.e. "is the generation still exactly what I set it to?"
+    "bf 4f\n"                            // if NOT equal (a newer edge arrived and moved it on), jump to label 4: this edge was superseded, quietly swallow it
+    "mov.l 7f, r0\n"                     // r0 = &g_nmi_report_count (label 7)
+    "mov.l @r0, r1\n"                    // r1 = current report count
+    "add #1, r1\n"                       // r1 += 1
+    "mov.l r1, @r0\n"                    // g_nmi_report_count = r1 -- this is the one edge (the last of any bounce train) that actually gets reported
+    "mov.l 5f, r0\n"                     // r0 = &g_is_ctrl_c_stop (label 5)
+    "mov #1, r1\n"                       // r1 = 1
+    "mov.b r1, @r0\n"                    // g_is_ctrl_c_stop = true -- report this halt as SIGINT, the same signal Ctrl-C uses, not a generic trap
+    "mov.l @r15+, r2\n"                  // pop r2 back
+    "mov.l @r15+, r1\n"                  // pop r1 back
+    "mov.l @r15+, r0\n"                  // pop r0 back -- restores exact pre-tag CPU state the shared thunk expects
     "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk to actually report the stop
-    "nop\n"                          // bra's mandatory delay slot
+    "nop\n"                              // bra's mandatory delay slot
     "4:\n"
-    "mov.l 8f, r0\n"                 // r0 = &g_nmi_swallow_count (label 8)
-    "mov.l @r0, r1\n"                // r1 = current swallow count
-    "add #1, r1\n"                   // r1 += 1
-    "mov.l r1, @r0\n"                // g_nmi_swallow_count = r1 -- this edge was a bounce superseded by a newer one; counted for diagnostics, nothing else happens
-    "mov.l @r15+, r2\n"              // pop r2 back
-    "mov.l @r15+, r1\n"              // pop r1 back
-    "mov.l @r15+, r0\n"              // pop r0 back
-    "rte\n"                          // return from exception WITHOUT reporting anything to GDB -- g_ctx is never touched, so a bounce train of any length only ever leaves one clean report behind, from whichever edge's wait finished last
-    "nop\n"                          // rte's mandatory delay slot
+    "mov.l 8f, r0\n"    // r0 = &g_nmi_swallow_count (label 8)
+    "mov.l @r0, r1\n"   // r1 = current swallow count
+    "add #1, r1\n"      // r1 += 1
+    "mov.l r1, @r0\n"   // g_nmi_swallow_count = r1 -- this edge was a bounce superseded by a newer one; counted for diagnostics, nothing else happens
+    "mov.l @r15+, r2\n" // pop r2 back
+    "mov.l @r15+, r1\n" // pop r1 back
+    "mov.l @r15+, r0\n" // pop r0 back
+    "rte\n"             // return from exception WITHOUT reporting anything to GDB -- g_ctx is never touched, so a bounce train of any length only ever leaves one clean report behind, from whichever edge's wait finished last
+    "nop\n"             // rte's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_nmi_generation\n"    // literal pool: address of g_nmi_generation
     "2: .long 300000\n"                        // literal pool: debounce busy-wait iteration count
@@ -3037,15 +3503,15 @@ __asm__(
     ".global _srl_gdbstub_addrerr_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_addrerr_thunk:\n"
-    "mov.l r0, @-r15\n"              // push r0 -- same save/restore-around-the-tag pattern as srl_gdbstub_illegal_thunk above
-    "mov.l r1, @-r15\n"              // push r1
-    "mov.l 1f, r0\n"                 // r0 = &g_last_stop_signal (literal pool label 1)
-    "mov #10, r1\n"       // SIGBUS
-    "mov.b r1, @r0\n"                // g_last_stop_signal = SIGBUS(10) -- CPU/DMA address-error family reports as a bus error, not a generic trap
-    "mov.l @r15+, r1\n"              // pop r1 back
-    "mov.l @r15+, r0\n"              // pop r0 back -- restores the exact pre-tag CPU state the shared thunk expects
+    "mov.l r0, @-r15\n"                  // push r0 -- same save/restore-around-the-tag pattern as srl_gdbstub_illegal_thunk above
+    "mov.l r1, @-r15\n"                  // push r1
+    "mov.l 1f, r0\n"                     // r0 = &g_last_stop_signal (literal pool label 1)
+    "mov #10, r1\n"                      // SIGBUS
+    "mov.b r1, @r0\n"                    // g_last_stop_signal = SIGBUS(10) -- CPU/DMA address-error family reports as a bus error, not a generic trap
+    "mov.l @r15+, r1\n"                  // pop r1 back
+    "mov.l @r15+, r0\n"                  // pop r0 back -- restores the exact pre-tag CPU state the shared thunk expects
     "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
-    "nop\n"                          // bra's mandatory delay slot
+    "nop\n"                              // bra's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
 );
@@ -3067,88 +3533,88 @@ __asm__(
     ".global _srl_gdbstub_slave_ici_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_slave_ici_thunk:\n"
-    "mov.l r0, @-r15\n"              // push r0 -- stash the slave's true pre-exception r0
-    "stc.l gbr, @-r15\n"             // push gbr
-    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx (literal pool label 1)
-    "mov.l r14, @(14*4, r0)\n"       // g_slave_ctx.r[14] = r14
-    "mov.l r13, @(13*4, r0)\n"       // g_slave_ctx.r[13] = r13
-    "mov.l r12, @(12*4, r0)\n"       // g_slave_ctx.r[12] = r12
-    "mov.l r11, @(11*4, r0)\n"       // g_slave_ctx.r[11] = r11
-    "mov.l r10, @(10*4, r0)\n"       // g_slave_ctx.r[10] = r10
-    "mov.l r9,  @(9*4,  r0)\n"       // g_slave_ctx.r[9] = r9
-    "mov.l r8,  @(8*4,  r0)\n"       // g_slave_ctx.r[8] = r8
-    "mov.l r7,  @(7*4,  r0)\n"       // g_slave_ctx.r[7] = r7
-    "mov.l r6,  @(6*4,  r0)\n"       // g_slave_ctx.r[6] = r6
-    "mov.l r5,  @(5*4,  r0)\n"       // g_slave_ctx.r[5] = r5
-    "mov.l r4,  @(4*4,  r0)\n"       // g_slave_ctx.r[4] = r4
-    "mov.l r3,  @(3*4,  r0)\n"       // g_slave_ctx.r[3] = r3
-    "mov.l r2,  @(2*4,  r0)\n"       // g_slave_ctx.r[2] = r2
-    "mov.l r1,  @(1*4,  r0)\n"       // g_slave_ctx.r[1] = r1
-    "mov r15, r1\n"                  // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
-    "add #16, r1\n"                  // r1 = pre-exception SP exactly
-    "mov.l r1, @(15*4, r0)\n"        // g_slave_ctx.r[15] = r1
-    "mov.l @r15+, r1\n"              // pop our gbr push back into r1
-    "mov.l @r15+, r2\n"              // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
-    "mov.l r2, @r0\n"                // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
-    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
-    "mov.l r1, @(2*4, r2)\n"         // g_slave_ctx.gbr = r1
-    "mov.l @r15, r1\n"               // r1 = hardware-pushed PC (peek)
-    "mov.l r1, @r2\n"                // g_slave_ctx.pc = r1
-    "mov.l @(4, r15), r1\n"          // r1 = hardware-pushed SR (peek)
-    "mov.l r1, @(24, r2)\n"          // g_slave_ctx.sr = r1
-    "sts pr, r1\n"                   // r1 = current PR (the interrupted code's own return address)
-    "mov.l r1, @(1*4, r2)\n"         // g_slave_ctx.pr = r1
-    "stc vbr, r1\n"                  // r1 = current VBR
-    "mov.l r1, @(3*4, r2)\n"         // g_slave_ctx.vbr = r1
-    "sts mach, r1\n"                 // r1 = MACH
-    "mov.l r1, @(4*4, r2)\n"         // g_slave_ctx.mach = r1
-    "sts macl, r1\n"                 // r1 = MACL
-    "mov.l r1, @(5*4, r2)\n"         // g_slave_ctx.macl = r1 -- snapshot complete
-    "mov.l 3f, r1\n"                 // r1 = &g_slave_ici_count (literal pool label 3)
-    "mov.l @r1, r2\n"                // r2 = current ICI-entry counter value
-    "add #1, r2\n"                   // r2 += 1
-    "mov.l r2, @r1\n"                // g_slave_ici_count = r2 -- diagnostic: every ICI-driven entry bumps this
-    "mov.l 2f, r1\n"                 // r1 = &slave_ipi_handler (literal pool label 2)
-    "jsr @r1\n"                      // call slave_ipi_handler() -- a plain spin-wait, not the RSP command processor (the slave has no direct link to the debugger)
-    "nop\n"                          // jsr's mandatory delay slot
-    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
-    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc again, for the restore half
-    "mov.l @(1*4, r2), r1\n"         // r1 = g_slave_ctx.pr
-    "lds r1, pr\n"                   // PR = r1
-    "mov.l @(3*4, r2), r1\n"         // r1 = g_slave_ctx.vbr
-    "ldc r1, vbr\n"                  // VBR = r1
-    "mov.l @(4*4, r2), r1\n"         // r1 = g_slave_ctx.mach
-    "lds r1, mach\n"                 // MACH = r1
-    "mov.l @(5*4, r2), r1\n"         // r1 = g_slave_ctx.macl
-    "lds r1, macl\n"                 // MACL = r1
-    "mov.l @(2*4, r2), r1\n"         // r1 = g_slave_ctx.gbr
-    "ldc r1, gbr\n"                  // GBR = r1
-    "mov.l @(24, r2), r1\n"          // r1 = g_slave_ctx.sr
-    "mov.l r1, @(4, r15)\n"          // overwrite the hardware's pushed SR slot on the stack with r1
-    "mov.l @r2, r1\n"                // r1 = g_slave_ctx.pc
-    "mov.l r1, @r15\n"               // overwrite the hardware's pushed PC slot with r1
-    "mov.l @(14*4, r0), r14\n"       // restore r14 from g_slave_ctx.r[14]
-    "mov.l @(13*4, r0), r13\n"       // restore r13
-    "mov.l @(12*4, r0), r12\n"       // restore r12
-    "mov.l @(11*4, r0), r11\n"       // restore r11
-    "mov.l @(10*4, r0), r10\n"       // restore r10
-    "mov.l @(9*4,  r0), r9\n"        // restore r9
-    "mov.l @(8*4,  r0), r8\n"        // restore r8
-    "mov.l @(7*4,  r0), r7\n"        // restore r7
-    "mov.l @(6*4,  r0), r6\n"        // restore r6
-    "mov.l @(5*4,  r0), r5\n"        // restore r5
-    "mov.l @(4*4,  r0), r4\n"        // restore r4
-    "mov.l @(3*4,  r0), r3\n"        // restore r3
-    "mov.l @(2*4,  r0), r2\n"        // restore r2
-    "mov.l @(1*4,  r0), r1\n"        // restore r1
+    "mov.l r0, @-r15\n"        // push r0 -- stash the slave's true pre-exception r0
+    "stc.l gbr, @-r15\n"       // push gbr
+    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx (literal pool label 1)
+    "mov.l r14, @(14*4, r0)\n" // g_slave_ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n" // g_slave_ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n" // g_slave_ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n" // g_slave_ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n" // g_slave_ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n" // g_slave_ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n" // g_slave_ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n" // g_slave_ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n" // g_slave_ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n" // g_slave_ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n" // g_slave_ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n" // g_slave_ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n" // g_slave_ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n" // g_slave_ctx.r[1] = r1
+    "mov r15, r1\n"            // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
+    "add #16, r1\n"            // r1 = pre-exception SP exactly
+    "mov.l r1, @(15*4, r0)\n"  // g_slave_ctx.r[15] = r1
+    "mov.l @r15+, r1\n"        // pop our gbr push back into r1
+    "mov.l @r15+, r2\n"        // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
+    "mov.l r2, @r0\n"          // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
+    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"            // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
+    "mov.l r1, @(2*4, r2)\n"   // g_slave_ctx.gbr = r1
+    "mov.l @r15, r1\n"         // r1 = hardware-pushed PC (peek)
+    "mov.l r1, @r2\n"          // g_slave_ctx.pc = r1
+    "mov.l @(4, r15), r1\n"    // r1 = hardware-pushed SR (peek)
+    "mov.l r1, @(24, r2)\n"    // g_slave_ctx.sr = r1
+    "sts pr, r1\n"             // r1 = current PR (the interrupted code's own return address)
+    "mov.l r1, @(1*4, r2)\n"   // g_slave_ctx.pr = r1
+    "stc vbr, r1\n"            // r1 = current VBR
+    "mov.l r1, @(3*4, r2)\n"   // g_slave_ctx.vbr = r1
+    "sts mach, r1\n"           // r1 = MACH
+    "mov.l r1, @(4*4, r2)\n"   // g_slave_ctx.mach = r1
+    "sts macl, r1\n"           // r1 = MACL
+    "mov.l r1, @(5*4, r2)\n"   // g_slave_ctx.macl = r1 -- snapshot complete
+    "mov.l 3f, r1\n"           // r1 = &g_slave_ici_count (literal pool label 3)
+    "mov.l @r1, r2\n"          // r2 = current ICI-entry counter value
+    "add #1, r2\n"             // r2 += 1
+    "mov.l r2, @r1\n"          // g_slave_ici_count = r2 -- diagnostic: every ICI-driven entry bumps this
+    "mov.l 2f, r1\n"           // r1 = &slave_ipi_handler (literal pool label 2)
+    "jsr @r1\n"                // call slave_ipi_handler() -- a plain spin-wait, not the RSP command processor (the slave has no direct link to the debugger)
+    "nop\n"                    // jsr's mandatory delay slot
+    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
+    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"            // r2 = &g_slave_ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"   // r1 = g_slave_ctx.pr
+    "lds r1, pr\n"             // PR = r1
+    "mov.l @(3*4, r2), r1\n"   // r1 = g_slave_ctx.vbr
+    "ldc r1, vbr\n"            // VBR = r1
+    "mov.l @(4*4, r2), r1\n"   // r1 = g_slave_ctx.mach
+    "lds r1, mach\n"           // MACH = r1
+    "mov.l @(5*4, r2), r1\n"   // r1 = g_slave_ctx.macl
+    "lds r1, macl\n"           // MACL = r1
+    "mov.l @(2*4, r2), r1\n"   // r1 = g_slave_ctx.gbr
+    "ldc r1, gbr\n"            // GBR = r1
+    "mov.l @(24, r2), r1\n"    // r1 = g_slave_ctx.sr
+    "mov.l r1, @(4, r15)\n"    // overwrite the hardware's pushed SR slot on the stack with r1
+    "mov.l @r2, r1\n"          // r1 = g_slave_ctx.pc
+    "mov.l r1, @r15\n"         // overwrite the hardware's pushed PC slot with r1
+    "mov.l @(14*4, r0), r14\n" // restore r14 from g_slave_ctx.r[14]
+    "mov.l @(13*4, r0), r13\n" // restore r13
+    "mov.l @(12*4, r0), r12\n" // restore r12
+    "mov.l @(11*4, r0), r11\n" // restore r11
+    "mov.l @(10*4, r0), r10\n" // restore r10
+    "mov.l @(9*4,  r0), r9\n"  // restore r9
+    "mov.l @(8*4,  r0), r8\n"  // restore r8
+    "mov.l @(7*4,  r0), r7\n"  // restore r7
+    "mov.l @(6*4,  r0), r6\n"  // restore r6
+    "mov.l @(5*4,  r0), r5\n"  // restore r5
+    "mov.l @(4*4,  r0), r4\n"  // restore r4
+    "mov.l @(3*4,  r0), r3\n"  // restore r3
+    "mov.l @(2*4,  r0), r2\n"  // restore r2
+    "mov.l @(1*4,  r0), r1\n"  // restore r1
     // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
     // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n"                // restore r0 itself, last, from g_slave_ctx.r[0]
-    "rte\n"                          // return from exception: resumes at the (possibly slave_ipi_handler-redirected) PC/SR just written to the stack
-    "nop\n"                          // rte's mandatory delay slot
+    "mov.l @r0, r0\n" // restore r0 itself, last, from g_slave_ctx.r[0]
+    "rte\n"           // return from exception: resumes at the (possibly slave_ipi_handler-redirected) PC/SR just written to the stack
+    "nop\n"           // rte's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_slave_ctx\n"       // literal pool: address of g_slave_ctx
     "2: .long _slave_ipi_handler\n"          // literal pool: address of slave_ipi_handler()
@@ -3175,90 +3641,90 @@ __asm__(
     ".global _srl_gdbstub_slave_illegal_thunk\n"
     ".align 2\n"
     "_srl_gdbstub_slave_illegal_thunk:\n"
-    "mov.l r0, @-r15\n"              // push r0 -- stash the slave's true pre-exception r0
-    "stc.l gbr, @-r15\n"             // push gbr
-    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx (literal pool label 1)
-    "mov.l r14, @(14*4, r0)\n"       // g_slave_ctx.r[14] = r14
-    "mov.l r13, @(13*4, r0)\n"       // g_slave_ctx.r[13] = r13
-    "mov.l r12, @(12*4, r0)\n"       // g_slave_ctx.r[12] = r12
-    "mov.l r11, @(11*4, r0)\n"       // g_slave_ctx.r[11] = r11
-    "mov.l r10, @(10*4, r0)\n"       // g_slave_ctx.r[10] = r10
-    "mov.l r9,  @(9*4,  r0)\n"       // g_slave_ctx.r[9] = r9
-    "mov.l r8,  @(8*4,  r0)\n"       // g_slave_ctx.r[8] = r8
-    "mov.l r7,  @(7*4,  r0)\n"       // g_slave_ctx.r[7] = r7
-    "mov.l r6,  @(6*4,  r0)\n"       // g_slave_ctx.r[6] = r6
-    "mov.l r5,  @(5*4,  r0)\n"       // g_slave_ctx.r[5] = r5
-    "mov.l r4,  @(4*4,  r0)\n"       // g_slave_ctx.r[4] = r4
-    "mov.l r3,  @(3*4,  r0)\n"       // g_slave_ctx.r[3] = r3
-    "mov.l r2,  @(2*4,  r0)\n"       // g_slave_ctx.r[2] = r2
-    "mov.l r1,  @(1*4,  r0)\n"       // g_slave_ctx.r[1] = r1
-    "mov r15, r1\n"                  // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
-    "add #16, r1\n"                  // r1 = pre-exception SP exactly
-    "mov.l r1, @(15*4, r0)\n"        // g_slave_ctx.r[15] = r1
-    "mov.l @r15+, r1\n"              // pop our gbr push back into r1
-    "mov.l @r15+, r2\n"              // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
-    "mov.l r2, @r0\n"                // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
-    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
-    "mov.l r1, @(2*4, r2)\n"         // g_slave_ctx.gbr = r1
-    "mov.l @r15, r1\n"               // r1 = hardware-pushed PC (peek) -- this is the address of the 0xFFFF breakpoint opcode itself, since Illegal Instruction pushes the faulting instruction's own address
-    "mov.l r1, @r2\n"                // g_slave_ctx.pc = r1
-    "mov.l @(4, r15), r1\n"          // r1 = hardware-pushed SR (peek)
-    "mov.l r1, @(24, r2)\n"          // g_slave_ctx.sr = r1
-    "sts pr, r1\n"                   // r1 = current PR (the interrupted code's own return address)
-    "mov.l r1, @(1*4, r2)\n"         // g_slave_ctx.pr = r1
-    "stc vbr, r1\n"                  // r1 = current VBR
-    "mov.l r1, @(3*4, r2)\n"         // g_slave_ctx.vbr = r1
-    "sts mach, r1\n"                 // r1 = MACH
-    "mov.l r1, @(4*4, r2)\n"         // g_slave_ctx.mach = r1
-    "sts macl, r1\n"                 // r1 = MACL
-    "mov.l r1, @(5*4, r2)\n"         // g_slave_ctx.macl = r1 -- snapshot complete
-    "mov.l 3f, r1\n"                 // r1 = &g_slave_bp_count (literal pool label 3)
-    "mov.l @r1, r2\n"                // r2 = current slave-breakpoint-hit counter value
-    "add #1, r2\n"                   // r2 += 1
-    "mov.l r2, @r1\n"                // g_slave_bp_count = r2 -- diagnostic: every slave breakpoint hit bumps this
-    "mov.l 2f, r1\n"                 // r1 = &slave_breakpoint_handler (literal pool label 2)
-    "jsr @r1\n"                      // call slave_breakpoint_handler() -- the slave's own halt/spin-wait/one-shot-remove/resume logic; the slave has no direct link to the debugger, so this does NOT process RSP commands itself
-    "nop\n"                          // jsr's mandatory delay slot
-    "mov.l 1f, r0\n"                 // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
-    "mov r0, r2\n"                   // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"                  // r2 = &g_slave_ctx.pc again, for the restore half
-    "mov.l @(1*4, r2), r1\n"         // r1 = g_slave_ctx.pr
-    "lds r1, pr\n"                   // PR = r1
-    "mov.l @(3*4, r2), r1\n"         // r1 = g_slave_ctx.vbr
-    "ldc r1, vbr\n"                  // VBR = r1
-    "mov.l @(4*4, r2), r1\n"         // r1 = g_slave_ctx.mach
-    "lds r1, mach\n"                 // MACH = r1
-    "mov.l @(5*4, r2), r1\n"         // r1 = g_slave_ctx.macl
-    "lds r1, macl\n"                 // MACL = r1
-    "mov.l @(2*4, r2), r1\n"         // r1 = g_slave_ctx.gbr
-    "ldc r1, gbr\n"                  // GBR = r1
-    "mov.l @(24, r2), r1\n"          // r1 = g_slave_ctx.sr
-    "mov.l r1, @(4, r15)\n"          // overwrite the hardware's pushed SR slot on the stack with r1
-    "mov.l @r2, r1\n"                // r1 = g_slave_ctx.pc -- slave_breakpoint_handler() already advanced this past the 0xFFFF opcode (and restored the original instruction there) before returning, so this resumes just past the breakpoint, not back on top of it
-    "mov.l r1, @r15\n"               // overwrite the hardware's pushed PC slot with r1
-    "mov.l @(14*4, r0), r14\n"       // restore r14 from g_slave_ctx.r[14]
-    "mov.l @(13*4, r0), r13\n"       // restore r13
-    "mov.l @(12*4, r0), r12\n"       // restore r12
-    "mov.l @(11*4, r0), r11\n"       // restore r11
-    "mov.l @(10*4, r0), r10\n"       // restore r10
-    "mov.l @(9*4,  r0), r9\n"        // restore r9
-    "mov.l @(8*4,  r0), r8\n"        // restore r8
-    "mov.l @(7*4,  r0), r7\n"        // restore r7
-    "mov.l @(6*4,  r0), r6\n"        // restore r6
-    "mov.l @(5*4,  r0), r5\n"        // restore r5
-    "mov.l @(4*4,  r0), r4\n"        // restore r4
-    "mov.l @(3*4,  r0), r3\n"        // restore r3
-    "mov.l @(2*4,  r0), r2\n"        // restore r2
-    "mov.l @(1*4,  r0), r1\n"        // restore r1
+    "mov.l r0, @-r15\n"        // push r0 -- stash the slave's true pre-exception r0
+    "stc.l gbr, @-r15\n"       // push gbr
+    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx (literal pool label 1)
+    "mov.l r14, @(14*4, r0)\n" // g_slave_ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n" // g_slave_ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n" // g_slave_ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n" // g_slave_ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n" // g_slave_ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n" // g_slave_ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n" // g_slave_ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n" // g_slave_ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n" // g_slave_ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n" // g_slave_ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n" // g_slave_ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n" // g_slave_ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n" // g_slave_ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n" // g_slave_ctx.r[1] = r1
+    "mov r15, r1\n"            // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
+    "add #16, r1\n"            // r1 = pre-exception SP exactly
+    "mov.l r1, @(15*4, r0)\n"  // g_slave_ctx.r[15] = r1
+    "mov.l @r15+, r1\n"        // pop our gbr push back into r1
+    "mov.l @r15+, r2\n"        // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
+    "mov.l r2, @r0\n"          // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
+    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"            // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
+    "mov.l r1, @(2*4, r2)\n"   // g_slave_ctx.gbr = r1
+    "mov.l @r15, r1\n"         // r1 = hardware-pushed PC (peek) -- this is the address of the 0xFFFF breakpoint opcode itself, since Illegal Instruction pushes the faulting instruction's own address
+    "mov.l r1, @r2\n"          // g_slave_ctx.pc = r1
+    "mov.l @(4, r15), r1\n"    // r1 = hardware-pushed SR (peek)
+    "mov.l r1, @(24, r2)\n"    // g_slave_ctx.sr = r1
+    "sts pr, r1\n"             // r1 = current PR (the interrupted code's own return address)
+    "mov.l r1, @(1*4, r2)\n"   // g_slave_ctx.pr = r1
+    "stc vbr, r1\n"            // r1 = current VBR
+    "mov.l r1, @(3*4, r2)\n"   // g_slave_ctx.vbr = r1
+    "sts mach, r1\n"           // r1 = MACH
+    "mov.l r1, @(4*4, r2)\n"   // g_slave_ctx.mach = r1
+    "sts macl, r1\n"           // r1 = MACL
+    "mov.l r1, @(5*4, r2)\n"   // g_slave_ctx.macl = r1 -- snapshot complete
+    "mov.l 3f, r1\n"           // r1 = &g_slave_bp_count (literal pool label 3)
+    "mov.l @r1, r2\n"          // r2 = current slave-breakpoint-hit counter value
+    "add #1, r2\n"             // r2 += 1
+    "mov.l r2, @r1\n"          // g_slave_bp_count = r2 -- diagnostic: every slave breakpoint hit bumps this
+    "mov.l 2f, r1\n"           // r1 = &slave_breakpoint_handler (literal pool label 2)
+    "jsr @r1\n"                // call slave_breakpoint_handler() -- the slave's own halt/spin-wait/one-shot-remove/resume logic; the slave has no direct link to the debugger, so this does NOT process RSP commands itself
+    "nop\n"                    // jsr's mandatory delay slot
+    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
+    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
+    "add #64, r2\n"            // r2 = &g_slave_ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"   // r1 = g_slave_ctx.pr
+    "lds r1, pr\n"             // PR = r1
+    "mov.l @(3*4, r2), r1\n"   // r1 = g_slave_ctx.vbr
+    "ldc r1, vbr\n"            // VBR = r1
+    "mov.l @(4*4, r2), r1\n"   // r1 = g_slave_ctx.mach
+    "lds r1, mach\n"           // MACH = r1
+    "mov.l @(5*4, r2), r1\n"   // r1 = g_slave_ctx.macl
+    "lds r1, macl\n"           // MACL = r1
+    "mov.l @(2*4, r2), r1\n"   // r1 = g_slave_ctx.gbr
+    "ldc r1, gbr\n"            // GBR = r1
+    "mov.l @(24, r2), r1\n"    // r1 = g_slave_ctx.sr
+    "mov.l r1, @(4, r15)\n"    // overwrite the hardware's pushed SR slot on the stack with r1
+    "mov.l @r2, r1\n"          // r1 = g_slave_ctx.pc -- slave_breakpoint_handler() already advanced this past the 0xFFFF opcode (and restored the original instruction there) before returning, so this resumes just past the breakpoint, not back on top of it
+    "mov.l r1, @r15\n"         // overwrite the hardware's pushed PC slot with r1
+    "mov.l @(14*4, r0), r14\n" // restore r14 from g_slave_ctx.r[14]
+    "mov.l @(13*4, r0), r13\n" // restore r13
+    "mov.l @(12*4, r0), r12\n" // restore r12
+    "mov.l @(11*4, r0), r11\n" // restore r11
+    "mov.l @(10*4, r0), r10\n" // restore r10
+    "mov.l @(9*4,  r0), r9\n"  // restore r9
+    "mov.l @(8*4,  r0), r8\n"  // restore r8
+    "mov.l @(7*4,  r0), r7\n"  // restore r7
+    "mov.l @(6*4,  r0), r6\n"  // restore r6
+    "mov.l @(5*4,  r0), r5\n"  // restore r5
+    "mov.l @(4*4,  r0), r4\n"  // restore r4
+    "mov.l @(3*4,  r0), r3\n"  // restore r3
+    "mov.l @(2*4,  r0), r2\n"  // restore r2
+    "mov.l @(1*4,  r0), r1\n"  // restore r1
     // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
     // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n"                // restore r0 itself, last, from g_slave_ctx.r[0]
-    "rte\n"                          // return from exception: resumes just past the (now-restored) breakpoint instruction, per the PC written above
-    "nop\n"                          // rte's mandatory delay slot
+    "mov.l @r0, r0\n" // restore r0 itself, last, from g_slave_ctx.r[0]
+    "rte\n"           // return from exception: resumes just past the (now-restored) breakpoint instruction, per the PC written above
+    "nop\n"           // rte's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_slave_ctx\n"        // literal pool: address of g_slave_ctx
-    "2: .long _slave_breakpoint_handler\n"    // literal pool: address of slave_breakpoint_handler()
-    "3: .long srl_gdbstub_slave_bp_count\n"   // literal pool: address of g_slave_bp_count
+    "1: .long srl_gdbstub_slave_ctx\n"      // literal pool: address of g_slave_ctx
+    "2: .long _slave_breakpoint_handler\n"  // literal pool: address of slave_breakpoint_handler()
+    "3: .long srl_gdbstub_slave_bp_count\n" // literal pool: address of g_slave_bp_count
 );
