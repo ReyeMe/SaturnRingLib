@@ -1,5 +1,5 @@
 #include <srl_memory.hpp>
-#include <srl_sgl_workarea.hpp>
+#include "srl_workarea.hpp"
 
 /** @brief Application initialization
  */
