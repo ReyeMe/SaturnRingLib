@@ -76,7 +76,7 @@ namespace SRL
 
         // State grouped by topic below. Members referenced by name from the
         // __asm__ thunks at the bottom of this file (g_ctx, g_slave_ctx,
-        // g_is_ctrl_c_stop, g_last_stop_signal and the thunk/slave
+        // g_last_stop_signal and the thunk/slave
         // counters) stay standalone: each needs its own fixed symbol, which a
         // struct field cannot have.
         //
@@ -85,7 +85,6 @@ namespace SRL
         // the still-incomplete enclosing class. Defaults are given in each
         // instance's initializer instead.
 
-        __attribute__((used)) inline static volatile bool g_is_ctrl_c_stop __asm__("srl_gdbstub_is_ctrl_c_stop") = false; // set when stopped via Ctrl-C, cleared on continue
         __attribute__((used)) inline static volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
 
         /**
@@ -188,8 +187,8 @@ namespace SRL
         __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5; // 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS
 
         /**
-         * @brief How the current debug stop came about (beyond g_is_ctrl_c_stop /
-         * g_last_stop_signal, which the thunks write by symbol).
+         * @brief How the current debug stop came about (beyond g_last_stop_signal,
+         * which the thunks write by symbol).
          */
         struct StopStatus
         {
@@ -212,10 +211,29 @@ namespace SRL
 
             /** @brief Set during PC adjustment if we hit a GDB swbreak */
             bool WasSwBreak;
+
+            /**
+             * @brief Signal to report for this stop instead of g_last_stop_signal, or 0 for none.
+             * @details Every stop that goes through Break() executes 0xFFFF, so the
+             * illegal-instruction thunk always tags it SIGILL. Callers that know
+             * better set this first: Poll() sets SIGINT (2) for Ctrl-C and slave
+             * breakpoint stops, and Break() itself sets SIGTRAP (5) if nothing set
+             * it already. A genuine illegal instruction leaves it at 0 and is still
+             * reported as SIGILL. Cleared on resume.
+             */
+            volatile uint8_t SignalOverride;
         };
 
         /** @brief Current stop state */
-        inline static StopStatus g_stop = {false, false};
+        inline static StopStatus g_stop = {false, false, 0};
+
+        /**
+         * @brief Signal to report to GDB for the current stop.
+         */
+        inline static uint8_t current_stop_signal()
+        {
+            return g_stop.SignalOverride != 0 ? g_stop.SignalOverride : g_last_stop_signal;
+        }
 
         // --- Slave freeze via SH-2 on-chip FRT Input Capture Interrupt (ICI) ---
         //
@@ -1679,8 +1697,8 @@ namespace SRL
 
             pos = append_str(text, pos, "was_swbreak=");
             text[pos++] = g_stop.WasSwBreak ? '1' : '0';
-            pos = append_str(text, pos, " is_ctrl_c_stop=");
-            text[pos++] = g_is_ctrl_c_stop ? '1' : '0';
+            pos = append_str(text, pos, " signal_override=");
+            pos = append_hex(text, pos, g_stop.SignalOverride, 2);
             pos = append_str(text, pos, " last_stop_signal=");
             pos = append_hex(text, pos, g_last_stop_signal, 2);
             text[pos++] = '\n';
@@ -1723,7 +1741,7 @@ namespace SRL
          */
         inline static void handle_gdb_step()
         {
-            g_is_ctrl_c_stop = false;
+            g_stop.SignalOverride = 0;
 
             // A slave parked at a breakpoint (see InstallSlaveExceptionHandler())
             // is released by SlaveReleaseGuard when process_commands() returns,
@@ -1755,7 +1773,7 @@ namespace SRL
          */
         inline static void handle_gdb_continue()
         {
-            g_is_ctrl_c_stop = false;
+            g_stop.SignalOverride = 0;
             g_slave.DebugPause = false;
             SlaveIPIClear();
 
@@ -1911,11 +1929,11 @@ namespace SRL
             {
                 // If we are already connected and we just entered the trap handler
                 // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
-                send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
+                send_stop_signal(current_stop_signal());
             }
 
-            // The stop reason (SIGTRAP or SIGINT) is preserved until '?' arrives.
-            // g_is_ctrl_c_stop remains active to mask PR/R14, and is cleared upon resume.
+            // The stop reason is preserved until '?' arrives; g_stop.SignalOverride
+            // is cleared upon resume.
 
             while (true)
             {
@@ -1936,6 +1954,7 @@ namespace SRL
                     packet_put('\0', "OK", 2);
                     break;
                 case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
+                    g_stop.SignalOverride = 0;
                     clear_breakpoints(true);
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
@@ -1944,7 +1963,7 @@ namespace SRL
                 case '?':
                     // First '?' marks the connection as active and sends the stop reason.
                     g_session.HasConnection = true;
-                    send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
+                    send_stop_signal(current_stop_signal());
                     break;
                 case 'q':
                     if (starts_with(in_buf, "qSupported"))
@@ -2599,6 +2618,7 @@ namespace SRL
                 break;
                 case 'D': // Detach
                     packet_put('\0', "OK", 2);
+                    g_stop.SignalOverride = 0;
                     clear_breakpoints(true);
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
@@ -2800,7 +2820,7 @@ namespace SRL
             g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
 
             g_devcart.LastUsbFlags = SRL::DevCart::CS0::ReadFlags();
-            g_is_ctrl_c_stop = false;
+            g_stop.SignalOverride = 0;
             g_last_stop_signal = 5;
             g_breakpoints.UbcChannelAActive = false;
             g_devcart.UsbDataPathEnabled = true;
@@ -3179,6 +3199,14 @@ namespace SRL
             // Force a breakpoint exception.
             // Using Illegal Instruction (0xFFFF) which reliably vectors to VBR[4].
             // SGL frequently overwrites TRAPA vectors (32-63) causing them to be ignored.
+            // The illegal-instruction thunk tags every 0xFFFF as SIGILL; report an
+            // explicit Break() as SIGTRAP instead, unless the caller (Poll()) already
+            // chose a signal. See StopStatus::SignalOverride.
+            if (g_stop.SignalOverride == 0)
+            {
+                g_stop.SignalOverride = 5U; // SIGTRAP
+            }
+
             asm volatile(".word 0xFFFF" ::: "memory"); // emit the raw 0xFFFF opcode -- not a real instruction, deliberately traps as Illegal Instruction
         }
 
@@ -3217,7 +3245,7 @@ namespace SRL
             // inspected via `monitor regs slave` / the slave pseudo-registers.
             if (g_slave.Stopped)
             {
-                g_is_ctrl_c_stop = true;
+                g_stop.SignalOverride = 2U; // SIGINT
                 Break();
             }
 
@@ -3256,7 +3284,7 @@ namespace SRL
                     if (ch == 0x03U)
                     {
                         record_command("<Ctrl-C>");
-                        g_is_ctrl_c_stop = true;
+                        g_stop.SignalOverride = 2U; // SIGINT
                         g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                         Break();
                     }
