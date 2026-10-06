@@ -30,7 +30,6 @@ extern "C"
     // family fired is to give each family its own tiny entry stub.
     void srl_gdbstub_illegal_thunk();
     void srl_gdbstub_addrerr_thunk();
-    void srl_gdbstub_nmi_thunk();
     void srl_gdbstub_slave_ici_thunk();
     void srl_gdbstub_slave_illegal_thunk();
 }
@@ -75,77 +74,148 @@ namespace SRL
         // Second SH-2 context for the slave CPU. Exported in the GDB register map
         __attribute__((used)) inline static SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
 
-        // Set true by snapshot_polling_context() immediately before it calls
-        // process_commands() from Poll()'s out-of-band packet path (initial
-        // handshake, or a GDB packet arriving while the target is nominally
-        // "running" outside any real hardware exception). g_ctx in that case has
-        // r0-r14 zeroed and a pc/pr that do not correspond to a real, resumable
-        // instruction (see snapshot_polling_context()'s doc comment) -- the real
-        // CPU registers were never touched. handle_gdb_continue()/handle_gdb_step()
-        // must treat this as a no-op rather than using that data for breakpoint
-        // restore or step-trap placement, which would corrupt state using
-        // garbage addresses/register values. Read-and-cleared by
-        // handle_gdb_continue()/handle_gdb_step() so it never leaks into a
-        // later, real exception-driven invocation.
-        __attribute__((used)) inline static volatile bool g_ctx_is_fake = false;
+        // State grouped by topic below. Members referenced by name from the
+        // __asm__ thunks at the bottom of this file (g_ctx, g_slave_ctx,
+        // g_is_ctrl_c_stop, g_last_stop_signal and the thunk/slave
+        // counters) stay standalone: each needs its own fixed symbol, which a
+        // struct field cannot have.
+        //
+        // None of these nested structs use default member initializers: GCC
+        // rejects them on a nested struct whose instance is a static member of
+        // the still-incomplete enclosing class. Defaults are given in each
+        // instance's initializer instead.
 
-        __attribute__((used)) inline static volatile bool g_has_connection = false;                                       // set on any valid RSP packet received
-        __attribute__((used)) inline static volatile bool g_handshake_done = false;                                       // set only after qSupported exchange
-        __attribute__((used)) inline static volatile bool g_is_ctrl_c_stop __asm__("srl_gdbstub_is_ctrl_c_stop") = false; // set when stopped via Ctrl-C (or the Saturn's physical Reset button, via NMI), cleared on continue
-        __attribute__((used)) inline static volatile uint32_t g_command_count = 0;
+        __attribute__((used)) inline static volatile bool g_is_ctrl_c_stop __asm__("srl_gdbstub_is_ctrl_c_stop") = false; // set when stopped via Ctrl-C, cleared on continue
         __attribute__((used)) inline static volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
-        __attribute__((used)) inline static char g_last_command[64] = {};
-        // Last "monitor <text>" command received via qRcmd, and how many have
-        // arrived. User code can poll GetMonitorCommandCount() to detect a new
-        // one and dispatch on GetLastMonitorCommand() -- this gives host-side
-        // tooling (or a script) a way to trigger sample behavior without a
-        // physical gamepad, e.g. `(gdb) monitor crash illegal`.
-        inline static char g_last_monitor_command[64] = {};
-        inline static volatile uint32_t g_monitor_command_count = 0;
-        inline static int g_unget_char = -1;
+
+        /**
+         * @brief GDB Remote Serial Protocol session state.
+         */
+        struct SessionStatus
+        {
+            /** @brief Set on any valid RSP packet received */
+            volatile bool HasConnection;
+
+            /** @brief Set only after the qSupported exchange */
+            volatile bool HandshakeDone;
+
+            /** @brief Number of RSP packets received */
+            volatile uint32_t CommandCount;
+
+            /** @brief Most recently received RSP packet (truncated to 63 chars) */
+            char LastCommand[64];
+        };
+
+        /** @brief Current GDB session state */
+        inline static SessionStatus g_session = {false, false, 0, {}};
+
+        /**
+         * @brief Last "monitor <text>" command received via qRcmd, and how many
+         * have arrived.
+         * @details User code can poll GetMonitorCommandCount() to detect a new
+         * one and dispatch on GetLastMonitorCommand() -- this gives host-side
+         * tooling (or a script) a way to trigger sample behavior without a
+         * physical gamepad, e.g. `(gdb) monitor crash illegal`.
+         */
+        struct MonitorStatus
+        {
+            /** @brief Text of the most recent non-built-in monitor command */
+            char LastCommand[64];
+
+            /** @brief Number of non-built-in monitor commands received */
+            volatile uint32_t CommandCount;
+        };
+
+        /** @brief Current monitor command state */
+        inline static MonitorStatus g_monitor = {{}, 0};
+
+        /** @brief Whether InstallExceptionHandlers() has patched the master's vector table */
         inline static bool g_handlers_installed = false;
-        inline static volatile uint32_t g_rx_detect_count = 0;     // incremented each time the stub reads a byte from DevCart RX
-        inline static volatile uint32_t g_rx_ready_count = 0;      // incremented each time Poll() sees RX data pending
-        inline static volatile uint32_t g_tx_byte_count = 0;       // incremented each time the stub writes a byte to DevCart TX
-        inline static volatile uint32_t g_poll_fallback_count = 0; // incremented when Poll() handles RX without Trap3
 
+        /**
+         * @brief DevCart USB data transfer state: RX pushback byte and traffic counters.
+         * @note No default member initializers, same reason as DevCartStatus below.
+         * Defaults are given in g_transfer's initializer.
+         */
+        struct TransferStatus
+        {
+            /** @brief Byte pushed back to be returned by the next __gdb_getc(), or -1 if none */
+            int UngetChar;
 
-        inline static bool g_devcart_ready = false;
-        inline static bool g_devcart_port_available = false;
-        inline static bool g_devcart_usb_datapath_enabled = true;
-        inline static uint8_t g_last_usb_flags = 0xFF;
+            /** @brief Incremented each time the stub reads a byte from DevCart RX */
+            volatile uint32_t RxDetectCount;
+
+            /** @brief Incremented each time Poll() sees RX data pending */
+            volatile uint32_t RxReadyCount;
+
+            /** @brief Incremented each time the stub writes a byte to DevCart TX */
+            volatile uint32_t TxByteCount;
+
+            /** @brief Incremented when Poll() handles RX without Trap3 */
+            volatile uint32_t PollFallbackCount;
+        };
+
+        /** @brief Current data transfer state */
+        inline static TransferStatus g_transfer = {-1, 0, 0, 0, 0};
+
+        /**
+         * @brief DevCart (USB cartridge) link status, as last observed by Init() / Poll().
+         * @note No default member initializers: GCC rejects them on a nested struct
+         * whose instance is a static member of the still-incomplete enclosing class.
+         * Defaults are given in g_devcart's initializer below.
+         */
+        struct DevCartStatus
+        {
+            /** @brief Cart detected at Init() (CS0 USB_FLAGS readable) */
+            bool Ready;
+
+            /** @brief USB port currently available, refreshed on every Poll() */
+            bool PortAvailable;
+
+            /** @brief Whether the cartridge-level USB data path should be enabled */
+            bool UsbDataPathEnabled;
+
+            /** @brief Raw CS0 USB_FLAGS value from the last read */
+            uint8_t LastUsbFlags;
+        };
+
+        /** @brief Current DevCart link status */
+        inline static DevCartStatus g_devcart = {false, false, true, 0xFF};
+        
         // __asm__-named (like g_ctx above) so the per-exception-type trampolines
         // below (srl_gdbstub_illegal_thunk / srl_gdbstub_addrerr_thunk) can write
         // to it directly by a fixed symbol, without needing a C++-mangled name.
         __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5; // 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS
-        inline static bool g_was_swbreak = false;                                                                            // Set during PC adjustment if we hit a GDB swbreak
-        // Set when $c stepped over a software breakpoint; cleared after re-insertion.
-        // When set, the next process_commands() entry is silent (re-inserts BP, continues).
-        inline static bool g_resuming_from_breakpoint = false;
-        // Constraint: If Poll() is called from user code and handles a 'z0' packet that deallocates
-        // this specific breakpoint slot before the step-over trap fires, the slot's active flag is cleared.
-        // However, the re-insertion handler will silently re-patch the freed address and set active=true
-        // on what should be a dead slot. Since process_commands is single-threaded, this race only
-        // occurs if user code calls Poll() between the continue and the trap.
-        inline static int g_resume_bp_slot = -1; // slot index of the BP that was stepped over
-        // Global pause flag used to freeze the slave SH-2 while the master is in GDB.
-        inline static volatile uint32_t g_debug_pause = 0;
 
-        // Debounce generation counter for the Reset-button/NMI path (see
-        // srl_gdbstub_nmi_thunk's doc comment). Incremented by every NMI edge;
-        // read back by that same edge's thunk after its debounce wait to detect
-        // whether a newer edge (mechanical switch bounce) arrived in the
-        // meantime.
-        inline static volatile uint32_t g_nmi_generation __asm__("srl_gdbstub_nmi_generation") = 0;
+        /**
+         * @brief How the current debug stop came about (beyond g_is_ctrl_c_stop /
+         * g_last_stop_signal, which the thunks write by symbol).
+         */
+        struct StopStatus
+        {
+            /**
+             * @brief g_ctx is a synthetic snapshot, not a real exception frame.
+             * @details Set true by snapshot_polling_context() immediately before it calls
+             * process_commands() from Poll()'s out-of-band packet path (initial
+             * handshake, or a GDB packet arriving while the target is nominally
+             * "running" outside any real hardware exception). g_ctx in that case has
+             * r0-r14 zeroed and a pc/pr that do not correspond to a real, resumable
+             * instruction (see snapshot_polling_context()'s doc comment) -- the real
+             * CPU registers were never touched. handle_gdb_continue()/handle_gdb_step()
+             * must treat this as a no-op rather than using that data for breakpoint
+             * restore or step-trap placement, which would corrupt state using
+             * garbage addresses/register values. Read-and-cleared by
+             * handle_gdb_continue()/handle_gdb_step() so it never leaks into a
+             * later, real exception-driven invocation.
+             */
+            volatile bool CtxIsFake;
 
-        // TEMP DIAGNOSTIC: NMI/Reset-button instrumentation. fire_count increments
-        // on every single NMI edge (bounce or genuine). report_count increments
-        // only when an edge actually notifies GDB. swallow_count increments when
-        // an edge is debounced away. In a working debounce, fire_count may be > 1
-        // per press but report_count should always land on exactly 1.
-        inline static volatile uint32_t g_nmi_fire_count __asm__("srl_gdbstub_nmi_fire_count") = 0;
-        inline static volatile uint32_t g_nmi_report_count __asm__("srl_gdbstub_nmi_report_count") = 0;
-        inline static volatile uint32_t g_nmi_swallow_count __asm__("srl_gdbstub_nmi_swallow_count") = 0;
+            /** @brief Set during PC adjustment if we hit a GDB swbreak */
+            bool WasSwBreak;
+        };
+
+        /** @brief Current stop state */
+        inline static StopStatus g_stop = {false, false};
 
         // --- Slave freeze via SH-2 on-chip FRT Input Capture Interrupt (ICI) ---
         //
@@ -191,23 +261,43 @@ namespace SRL
         // shared Work RAM) whether the interrupt is actually reaching the slave.
         __attribute__((used)) inline static volatile uint32_t g_slave_ici_count __asm__("srl_gdbstub_slave_ici_count") = 0;
 
-        // --- Slave-side breakpoint support (illegal-instruction vector, NOT
-        // FRT-ICI -- see InstallSlaveExceptionHandler()'s doc comment for why
-        // this is a separate, independent mechanism from the freeze handler
-        // above and its documented SRL::Slave conflict) ---
-        //
-        // Set true by the slave's own illegal-instruction thunk when it hits a
-        // software breakpoint (or any illegal instruction) in slave-executed
-        // code. Poll() (which runs every VBlank on the master, independent of
-        // whatever the master's own C++ code is doing) bridges this into a
-        // normal master-side debug stop by calling Break() -- the same way a
-        // Ctrl-C byte already does from that exact call site. The slave itself
-        // just spins on g_slave_resume in the meantime.
-        inline static volatile bool g_slave_stopped = false;
-        // Master sets this (via handle_gdb_continue()/handle_gdb_step(), same
-        // as any other resume) to release a slave halted in g_slave_stopped.
-        inline static volatile bool g_slave_resume = false;
-        inline static volatile bool g_slave_handlers_installed = false;
+        /**
+         * @brief Slave SH-2 halt state, shared between both CPUs through Work RAM.
+         */
+        struct SlaveStatus
+        {
+            /** @brief Freeze flag the slave's FRT-ICI handler spins on while the master is in GDB */
+            volatile uint32_t DebugPause;
+
+            /**
+             * @brief Slave halted at a breakpoint.
+             * @details Slave-side breakpoint support uses the illegal-instruction
+             * vector, NOT FRT-ICI -- see InstallSlaveExceptionHandler()'s doc
+             * comment for why this is a separate, independent mechanism from the
+             * freeze handler above and its documented SRL::Slave conflict.
+             * Set true by the slave's own illegal-instruction thunk when it hits a
+             * software breakpoint (or any illegal instruction) in slave-executed
+             * code. Poll() (which runs every VBlank on the master, independent of
+             * whatever the master's own C++ code is doing) bridges this into a
+             * normal master-side debug stop by calling Break() -- the same way a
+             * Ctrl-C byte already does from that exact call site. The slave itself
+             * just spins on Resume in the meantime.
+             */
+            volatile bool Stopped;
+
+            /**
+             * @brief Master sets this (via handle_gdb_continue()/handle_gdb_step(),
+             * same as any other resume) to release a slave halted in Stopped.
+             */
+            volatile bool Resume;
+
+            /** @brief Whether InstallSlaveExceptionHandler() has run on the slave */
+            volatile bool HandlersInstalled;
+        };
+
+        /** @brief Current slave halt state */
+        inline static SlaveStatus g_slave = {0, false, false, false};
+
         // Diagnostic: incremented by the slave's illegal-instruction thunk every
         // time it fires, mirroring g_slave_ici_count's role for the freeze handler.
         __attribute__((used)) inline static volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
@@ -220,7 +310,7 @@ namespace SRL
          */
         inline static void SlaveIPISet()
         {
-            g_debug_pause = 1;
+            g_slave.DebugPause = 1;
             *reinterpret_cast<volatile uint16_t *>(MasterNotifiesSlave) = 0xFFFFU;
         }
 
@@ -229,7 +319,7 @@ namespace SRL
          */
         inline static void SlaveIPIClear()
         {
-            g_debug_pause = 0;
+            g_slave.DebugPause = 0;
         }
 
         // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
@@ -249,7 +339,47 @@ namespace SRL
             bool active;
         };
 
-        inline static SoftwareBreakpoint g_software_breakpoints[MaxSoftwareBreakpoints] = {};
+        /**
+         * @brief Software breakpoint slots, step-over bookkeeping, and UBC ownership
+         * (everything behind the Z0-Z4 / z0-z4 packets).
+         */
+        struct BreakpointStatus
+        {
+            /** @brief Software breakpoint slots (Z0) */
+            SoftwareBreakpoint Software[MaxSoftwareBreakpoints];
+
+            /**
+             * @brief Set when $c stepped over a software breakpoint; cleared after re-insertion.
+             * @details When set, the next process_commands() entry is silent (re-inserts BP, continues).
+             */
+            bool ResumingFromBreakpoint;
+
+            /**
+             * @brief Slot index of the BP that was stepped over, or -1.
+             * @details Constraint: If Poll() is called from user code and handles a 'z0' packet that deallocates
+             * this specific breakpoint slot before the step-over trap fires, the slot's active flag is cleared.
+             * However, the re-insertion handler will silently re-patch the freed address and set active=true
+             * on what should be a dead slot. Since process_commands is single-threaded, this race only
+             * occurs if user code calls Poll() between the continue and the trap.
+             */
+            int ResumeSlot;
+
+            /**
+             * @brief Whether a GDB watchpoint/hwbreak currently owns UBC channel A (Z1-Z4).
+             * @warning The SH-2 has exactly one usable UBC channel (A), and this flag is the
+             * ONLY record of who owns it -- it cannot detect the hardware being reprogrammed
+             * by code that writes BARA/BAMRA/BBRA/BRCR directly instead of going through
+             * install_hardware_watchpoint()/remove_hardware_watchpoint() (e.g. a project's own
+             * UBC-based test trigger). If that happens while a GDB `watch`/`hwbreak` is active,
+             * GDB is left believing its watchpoint is still armed after the hardware has
+             * silently been repointed elsewhere. Project code that also needs the UBC should
+             * route through these two functions rather than programming the registers itself.
+             */
+            bool UbcChannelAActive;
+        };
+
+        /** @brief Current breakpoint state */
+        inline static BreakpointStatus g_breakpoints = {{}, false, -1, false};
 
         // --- Utility Functions ---
 
@@ -389,12 +519,12 @@ namespace SRL
             size_t i = 0;
             while (i < 63 && cmd[i] != '\0')
             {
-                g_last_command[i] = cmd[i];
+                g_session.LastCommand[i] = cmd[i];
                 ++i;
             }
-            g_last_command[i] = '\0';
-            g_command_count = g_command_count + 1;
-            g_has_connection = true;
+            g_session.LastCommand[i] = '\0';
+            g_session.CommandCount = g_session.CommandCount + 1;
+            g_session.HasConnection = true;
         }
 
         inline static bool starts_with(const char *s, const char *prefix)
@@ -486,7 +616,7 @@ namespace SRL
         {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
             {
-                if (g_software_breakpoints[i].active && g_software_breakpoints[i].address == address)
+                if (g_breakpoints.Software[i].active && g_breakpoints.Software[i].address == address)
                 {
                     return static_cast<int>(i);
                 }
@@ -498,7 +628,7 @@ namespace SRL
         {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
             {
-                if (!g_software_breakpoints[i].active)
+                if (!g_breakpoints.Software[i].active)
                 {
                     return static_cast<int>(i);
                 }
@@ -536,7 +666,7 @@ namespace SRL
         //
         // Hardware-confirmed bug this fixes: handle_gdb_continue()/
         // handle_gdb_step() used to be the only places that cleared
-        // g_slave_stopped/set g_slave_resume. 'D' (detach), 'k' (kill), and
+        // g_slave.Stopped/set g_slave.Resume. 'D' (detach), 'k' (kill), and
         // the packet_get()-failure/disconnect path all `return` without
         // going through either -- including GDB's own implicit detach at the
         // end of a batch-mode session (e.g. `gdb -batch -ex "target remote
@@ -553,10 +683,10 @@ namespace SRL
         {
             ~SlaveReleaseGuard()
             {
-                if (g_slave_stopped)
+                if (g_slave.Stopped)
                 {
-                    g_slave_stopped = false;
-                    g_slave_resume = true;
+                    g_slave.Stopped = false;
+                    g_slave.Resume = true;
                 }
             }
         };
@@ -589,20 +719,20 @@ namespace SRL
         {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
             {
-                if (!g_software_breakpoints[i].active)
+                if (!g_breakpoints.Software[i].active)
                 {
                     continue;
                 }
 
                 if (restore_memory)
                 {
-                    volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_software_breakpoints[i].address | 0x20000000U);
-                    *code = g_software_breakpoints[i].original_instruction;
+                    volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_breakpoints.Software[i].address | 0x20000000U);
+                    *code = g_breakpoints.Software[i].original_instruction;
                 }
 
-                g_software_breakpoints[i].active = false;
-                g_software_breakpoints[i].address = 0;
-                g_software_breakpoints[i].original_instruction = 0;
+                g_breakpoints.Software[i].active = false;
+                g_breakpoints.Software[i].address = 0;
+                g_breakpoints.Software[i].original_instruction = 0;
             }
             if (restore_memory)
             {
@@ -632,10 +762,10 @@ namespace SRL
             }
 
             volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
-            g_software_breakpoints[slot].address = address;
-            g_software_breakpoints[slot].original_instruction = *code;
+            g_breakpoints.Software[slot].address = address;
+            g_breakpoints.Software[slot].original_instruction = *code;
             *code = SoftwareBreakInstruction;
-            g_software_breakpoints[slot].active = true;
+            g_breakpoints.Software[slot].active = true;
             PurgeCache();
             return true;
         }
@@ -657,30 +787,20 @@ namespace SRL
             }
 
             volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
-            *code = g_software_breakpoints[slot].original_instruction;
-            g_software_breakpoints[slot].active = false;
-            g_software_breakpoints[slot].address = 0;
-            g_software_breakpoints[slot].original_instruction = 0;
+            *code = g_breakpoints.Software[slot].original_instruction;
+            g_breakpoints.Software[slot].active = false;
+            g_breakpoints.Software[slot].address = 0;
+            g_breakpoints.Software[slot].original_instruction = 0;
             PurgeCache();
             return true;
         }
-
-        // @warning The SH-2 has exactly one usable UBC channel (A), and this flag is the
-        // ONLY record of who owns it -- it cannot detect the hardware being reprogrammed
-        // by code that writes BARA/BAMRA/BBRA/BRCR directly instead of going through
-        // install_hardware_watchpoint()/remove_hardware_watchpoint() (e.g. a project's own
-        // UBC-based test trigger). If that happens while a GDB `watch`/`hwbreak` is active,
-        // GDB is left believing its watchpoint is still armed after the hardware has
-        // silently been repointed elsewhere. Project code that also needs the UBC should
-        // route through these two functions rather than programming the registers itself.
-        inline static bool g_ubc_channel_a_active = false;
 
         /**
          * @brief Configures the User Break Controller (UBC) for a hardware watchpoint.
          */
         inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type)
         {
-            if (g_ubc_channel_a_active)
+            if (g_breakpoints.UbcChannelAActive)
             {
                 return false; // Only one channel supported currently
             }
@@ -716,7 +836,7 @@ namespace SRL
             *BRCR = 0x0001U;                  // Enable UBC Channel A
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
 
-            g_ubc_channel_a_active = true;
+            g_breakpoints.UbcChannelAActive = true;
             return true;
         }
 
@@ -727,13 +847,13 @@ namespace SRL
         {
             (void)address;
             (void)type;
-            if (!g_ubc_channel_a_active)
+            if (!g_breakpoints.UbcChannelAActive)
             {
                 return false;
             }
             volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
             *BRCR = 0x0000U; // Disable UBC
-            g_ubc_channel_a_active = false;
+            g_breakpoints.UbcChannelAActive = false;
             return true;
         }
 
@@ -946,13 +1066,13 @@ namespace SRL
          */
         inline static void adjust_pc_for_software_breakpoint()
         {
-            g_was_swbreak = false;
+            g_stop.WasSwBreak = false;
             // SoftwareBreakInstruction (0xFFFF) is the SAME opcode CrashProgram() uses to
             // deliberately trigger a real Illegal Instruction crash, so vector 4's thunk
             // (srl_gdbstub_illegal_thunk) cannot tell "GDB's own breakpoint/step-trap fired"
             // apart from "the user's code genuinely executed an illegal instruction" -- it
             // unconditionally pre-sets g_last_stop_signal = SIGILL(4) before this function
-            // even runs. Every g_was_swbreak = true branch below IS one of our own traps
+            // even runs. Every g_stop.WasSwBreak = true branch below IS one of our own traps
             // (a GDB-inserted breakpoint or do_software_step()'s internal step trap), never
             // a real crash, so it must be reported as SIGTRAP(5) -- overriding the thunk's
             // pre-set value -- or GDB won't recognize it as its own breakpoint (no swbreak
@@ -969,7 +1089,7 @@ namespace SRL
             // Correct PC to the branch target and apply side effects.
             if (g_step_data.active && g_step_data.is_delayed && GDBStub::MasterSH2().pc == g_step_data.address)
             {
-                g_was_swbreak = true;
+                g_stop.WasSwBreak = true;
                 g_last_stop_signal = 5U; // SIGTRAP — our own step trap, not a real crash
                 // Delay slot trap fired — hardware gave us the delay slot's address.
                 // Present PC to GDB as the branch target (where execution will resume).
@@ -1002,13 +1122,13 @@ namespace SRL
             // stops at the same address (one for their BP, one for the hardcoded Break).
             if (find_breakpoint_slot(GDBStub::MasterSH2().pc) >= 0 || (g_step_data.active && GDBStub::MasterSH2().pc == g_step_data.address))
             {
-                g_was_swbreak = true;
+                g_stop.WasSwBreak = true;
                 g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
                 return;                  // PC is already exactly at the breakpoint.
             }
 
             // If it is a programmatic Break() (0xFFFF) not inserted by GDB, we must advance the PC
-            // past it so that execution can resume cleanly on continue/step. We do NOT set g_was_swbreak
+            // past it so that execution can resume cleanly on continue/step. We do NOT set g_stop.WasSwBreak
             // to true, otherwise GDB will auto-continue over it because it isn't in its breakpoint list.
             if (is_valid_memory_range(GDBStub::MasterSH2().pc, 2U))
             {
@@ -1029,7 +1149,7 @@ namespace SRL
             const uint32_t trap_address = GDBStub::MasterSH2().pc - 2U;
             if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address))
             {
-                g_was_swbreak = true;
+                g_stop.WasSwBreak = true;
                 g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
                 GDBStub::MasterSH2().pc = trap_address;
             }
@@ -1085,7 +1205,7 @@ namespace SRL
             // (captured via "mova 1f, r0") -- always the same fixed address
             // regardless of where Poll()'s real caller actually is. It is not a
             // valid resume point. Flag this so continue/step treat it as a no-op.
-            g_ctx_is_fake = true;
+            g_stop.CtxIsFake = true;
         }
 
         // --- Transport (libyaul-style device hooks) ---
@@ -1103,7 +1223,7 @@ namespace SRL
         // just reading the stop message and typing a couple of commands.
         // Confirmed directly: pausing as little as 1-3 seconds between a
         // Ctrl-C/breakpoint/NMI stop and the next `continue` was enough to hit
-        // this timeout, silently resetting g_has_connection/g_handshake_done
+        // this timeout, silently resetting g_session.HasConnection/g_session.HandshakeDone
         // and resuming the target out from under GDB, which was still sitting
         // there expecting a reply to whatever it sent next -- exactly the
         // "GDB shows the stop, but Continue does nothing" symptom reported
@@ -1125,15 +1245,15 @@ namespace SRL
         // Samples/Debug - GDB Stub/readme.md for the full writeup.
         //
         // Waits for USB RX data.
-        // - Before first connection (g_has_connection=false): waits indefinitely
+        // - Before first connection (g_session.HasConnection=false): waits indefinitely
         //   so Break() before GDB attaches works correctly -- UNLESS the cable
         //   is (or becomes) physically absent, in which case there is clearly
         //   no debugger that could ever attach, so we bail out immediately.
         //   Hardware-confirmed bug this fixes: with the cable unplugged, the
         //   floating USB_FLAGS register can read as "RX pending", pulling
         //   Poll() into process_commands() before any GDB session ever
-        //   existed (g_has_connection still false). The disconnect check used
-        //   to live inside `if (g_has_connection)`, so it never ran in that
+        //   existed (g_session.HasConnection still false). The disconnect check used
+        //   to live inside `if (g_session.HasConnection)`, so it never ran in that
         //   case, and this loop had no other exit condition -- a permanent
         //   hang that merely reconnecting the cable couldn't clear (nothing
         //   was actively sending bytes to satisfy `IsRxfEmpty()`).
@@ -1148,17 +1268,17 @@ namespace SRL
                 // Abort immediately on cable unplug, connected or not.
                 if (!SRL::DevCart::CS0::IsConnected())
                 {
-                    g_has_connection = false;
-                    g_handshake_done = false;
+                    g_session.HasConnection = false;
+                    g_session.HandshakeDone = false;
                     return false;
                 }
                 // After handshake, apply idle timeout for dead GDB processes.
-                if (g_has_connection && g_handshake_done)
+                if (g_session.HasConnection && g_session.HandshakeDone)
                 {
                     if (++idle > GDB_RX_IDLE_TIMEOUT)
                     {
-                        g_has_connection = false;
-                        g_handshake_done = false;
+                        g_session.HasConnection = false;
+                        g_session.HandshakeDone = false;
                         return false;
                     }
                 }
@@ -1176,16 +1296,16 @@ namespace SRL
             {
                 if (!SRL::DevCart::CS0::IsConnected())
                 {
-                    g_has_connection = false;
-                    g_handshake_done = false;
+                    g_session.HasConnection = false;
+                    g_session.HandshakeDone = false;
                     return false;
                 }
-                if (g_has_connection && g_handshake_done)
+                if (g_session.HasConnection && g_session.HandshakeDone)
                 {
                     if (++idle > GDB_TX_IDLE_TIMEOUT)
                     {
-                        g_has_connection = false;
-                        g_handshake_done = false;
+                        g_session.HasConnection = false;
+                        g_session.HandshakeDone = false;
                         return false;
                     }
                 }
@@ -1195,10 +1315,10 @@ namespace SRL
 
         inline static int __gdb_getc()
         {
-            if (g_unget_char != -1)
+            if (g_transfer.UngetChar != -1)
             {
-                int c = g_unget_char;
-                g_unget_char = -1;
+                int c = g_transfer.UngetChar;
+                g_transfer.UngetChar = -1;
                 return c;
             }
             if (!__gdb_wait_rx())
@@ -1206,7 +1326,7 @@ namespace SRL
                 return -1; // disconnected
             }
             const uint8_t c = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
-            g_rx_detect_count = g_rx_detect_count + 1;
+            g_transfer.RxDetectCount = g_transfer.RxDetectCount + 1;
             return static_cast<int>(c);
         }
 
@@ -1217,7 +1337,7 @@ namespace SRL
                 return false; // disconnected
             }
             *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo) = value;
-            g_tx_byte_count = g_tx_byte_count + 1;
+            g_transfer.TxByteCount = g_transfer.TxByteCount + 1;
             return true;
         }
 
@@ -1262,7 +1382,7 @@ namespace SRL
                 if (data != nullptr && len > 0)
                 {
                     csum += packet_put_data(data, len);
-                    if (!g_has_connection)
+                    if (!g_session.HasConnection)
                         return; // disconnect mid-send
                 }
 
@@ -1292,7 +1412,7 @@ namespace SRL
                     }
                     else if (ch == '$')
                     {
-                        g_unget_char = '$';
+                        g_transfer.UngetChar = '$';
                         return;
                     }
                 }
@@ -1394,7 +1514,7 @@ namespace SRL
                 // or a single-step trap. If we append it for a programmatic Break() or a real crash
                 // using 0xFFFF, GDB will fail to find it in its list and auto-continue the target,
                 // resulting in an infinite loop.
-                if (g_was_swbreak)
+                if (g_stop.WasSwBreak)
                 {
                     const char *swb = "swbreak:;";
                     for (int i = 0; i < 9; ++i)
@@ -1536,41 +1656,13 @@ namespace SRL
         }
 
         /**
-         * @brief Built-in `monitor nmi` command: dumps the Reset-button/NMI
-         * debounce diagnostic counters (see srl_gdbstub_nmi_thunk's doc comment).
-         * fire_count = every NMI edge seen (bounce or genuine); report_count =
-         * edges that actually notified GDB; swallow_count = edges debounced
-         * away. In a correctly-working debounce, report_count should land on
-         * exactly 1 per physical press regardless of how high fire_count goes.
-         */
-        inline static void send_nmi_diag_dump()
-        {
-            char text[160];
-            size_t pos = 0;
-            pos = append_str(text, pos, "nmi generation=");
-            pos = append_hex(text, pos, g_nmi_generation, 8);
-            text[pos++] = '\n';
-            pos = append_str(text, pos, "fire_count=");
-            pos = append_hex(text, pos, g_nmi_fire_count, 8);
-            text[pos++] = '\n';
-            pos = append_str(text, pos, "report_count=");
-            pos = append_hex(text, pos, g_nmi_report_count, 8);
-            text[pos++] = '\n';
-            pos = append_str(text, pos, "swallow_count=");
-            pos = append_hex(text, pos, g_nmi_swallow_count, 8);
-            text[pos++] = '\n';
-            send_monitor_text(text, pos);
-        }
-
-        /**
          * @brief Built-in `monitor trace` command: dumps a full, read-only snapshot
          * of the current halt state -- where we stopped, why, and what `continue`
          * would decide to do about it -- WITHOUT mutating anything (no memory
          * patches, no g_step_data changes). Meant to be run BEFORE continuing, to
          * capture exactly what the stub sees for a specific stop that's hard to
-         * reproduce on demand (e.g. the Reset-button/NMI path, which can land
-         * anywhere, including inside precompiled library code with no debug
-         * info -- see the "cannot recover" investigation).
+         * reproduce on demand (e.g. a Ctrl-C stop, which can land anywhere,
+         * including inside precompiled library code with no debug info).
          */
         inline static void send_halt_trace_dump()
         {
@@ -1586,7 +1678,7 @@ namespace SRL
             text[pos++] = '\n';
 
             pos = append_str(text, pos, "was_swbreak=");
-            text[pos++] = g_was_swbreak ? '1' : '0';
+            text[pos++] = g_stop.WasSwBreak ? '1' : '0';
             pos = append_str(text, pos, " is_ctrl_c_stop=");
             text[pos++] = g_is_ctrl_c_stop ? '1' : '0';
             pos = append_str(text, pos, " last_stop_signal=");
@@ -1638,16 +1730,16 @@ namespace SRL
             // regardless of which command got us there -- no single-step support
             // for slave code, so 's' just resumes it same as 'c' would.
 
-            // See g_ctx_is_fake's declaration: if the current halt came from
+            // See g_stop.CtxIsFake's declaration: if the current halt came from
             // Poll()'s out-of-band snapshot path rather than a real exception,
             // MasterSH2().pc is not a real instruction address and r0-r14 are zeroed --
             // decoding an opcode there or planting a trap based on it would
             // corrupt state. The real CPU registers were never touched, so the
             // only correct behavior is to do nothing and let execution continue
             // untouched wherever it actually is.
-            if (g_ctx_is_fake)
+            if (g_stop.CtxIsFake)
             {
-                g_ctx_is_fake = false;
+                g_stop.CtxIsFake = false;
                 return;
             }
 
@@ -1664,7 +1756,7 @@ namespace SRL
         inline static void handle_gdb_continue()
         {
             g_is_ctrl_c_stop = false;
-            g_debug_pause = false;
+            g_slave.DebugPause = false;
             SlaveIPIClear();
 
             // A slave parked at a breakpoint (see InstallSlaveExceptionHandler())
@@ -1672,11 +1764,11 @@ namespace SRL
             // see that struct's doc comment for why this must happen on every
             // exit path, not just this one.
 
-            // See handle_gdb_step() / g_ctx_is_fake: same hazard applies to
+            // See handle_gdb_step() / g_stop.CtxIsFake: same hazard applies to
             // continue's breakpoint-restore-and-step-over logic below.
-            if (g_ctx_is_fake)
+            if (g_stop.CtxIsFake)
             {
-                g_ctx_is_fake = false;
+                g_stop.CtxIsFake = false;
                 return;
             }
 
@@ -1688,19 +1780,19 @@ namespace SRL
                 // the step-over sequence — no interrupt between here and re-insertion can
                 // see a half-released slot with a valid address but active = false.
                 volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_ctx.pc | 0x20000000U);
-                *code = g_software_breakpoints[bp_slot].original_instruction;
+                *code = g_breakpoints.Software[bp_slot].original_instruction;
                 // active intentionally kept true; re-insertion handler will re-patch it.
             }
 
             if (bp_slot >= 0 || g_step_data.is_delayed)
             {
                 do_software_step();
-                g_resuming_from_breakpoint = true;
-                // If this is purely a delay-slot step-over (bp_slot == -1), g_resume_bp_slot
+                g_breakpoints.ResumingFromBreakpoint = true;
+                // If this is purely a delay-slot step-over (bp_slot == -1), g_breakpoints.ResumeSlot
                 // captures -1. The re-insertion block in process_commands safely skips the -1
-                // slot but still honors g_resuming_from_breakpoint, allowing the target to
+                // slot but still honors g_breakpoints.ResumingFromBreakpoint, allowing the target to
                 // silently resume execution without notifying GDB.
-                g_resume_bp_slot = bp_slot;
+                g_breakpoints.ResumeSlot = bp_slot;
             }
         }
 
@@ -1763,12 +1855,12 @@ namespace SRL
             undo_software_step();
 
             // --- Silent step-over: re-insert the breakpoint we temporarily removed for $c ---
-            if (g_resuming_from_breakpoint)
+            if (g_breakpoints.ResumingFromBreakpoint)
             {
-                g_resuming_from_breakpoint = false;
-                if (g_resume_bp_slot >= 0 && g_resume_bp_slot < static_cast<int>(MaxSoftwareBreakpoints))
+                g_breakpoints.ResumingFromBreakpoint = false;
+                if (g_breakpoints.ResumeSlot >= 0 && g_breakpoints.ResumeSlot < static_cast<int>(MaxSoftwareBreakpoints))
                 {
-                    const uint32_t bp_addr = g_software_breakpoints[g_resume_bp_slot].address;
+                    const uint32_t bp_addr = g_breakpoints.Software[g_breakpoints.ResumeSlot].address;
                     if ((bp_addr & 1U) == 0U && is_valid_memory_range(bp_addr, 2U))
                     {
                         volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(bp_addr | 0x20000000U);
@@ -1779,10 +1871,10 @@ namespace SRL
                     else
                     {
                         // Address became invalid — release the slot cleanly.
-                        g_software_breakpoints[g_resume_bp_slot].active = false;
+                        g_breakpoints.Software[g_breakpoints.ResumeSlot].active = false;
                     }
                 }
-                g_resume_bp_slot = -1;
+                g_breakpoints.ResumeSlot = -1;
                 // Resume transparent execution — do NOT report a stop to GDB.
                 return;
             }
@@ -1804,7 +1896,7 @@ namespace SRL
             // pre-connection fallback path (snapshot_polling_context() +
             // process_commands(), see Poll() below) BEFORE __gdb_wait_rx() is
             // ever called, so fixing only that function left this loop hanging.
-            if (!g_has_connection)
+            if (!g_session.HasConnection)
             {
                 while (!SRL::DevCart::CS0::IsRxfEmpty())
                 {
@@ -1815,7 +1907,7 @@ namespace SRL
                     (void)*(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
                 }
             }
-            else if (g_handshake_done)
+            else if (g_session.HandshakeDone)
             {
                 // If we are already connected and we just entered the trap handler
                 // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
@@ -1845,13 +1937,13 @@ namespace SRL
                     break;
                 case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
                     clear_breakpoints(true);
-                    g_handshake_done = false;
-                    g_has_connection = false;
+                    g_session.HandshakeDone = false;
+                    g_session.HasConnection = false;
                     SlaveIPIClear();
                     return;
                 case '?':
                     // First '?' marks the connection as active and sends the stop reason.
-                    g_has_connection = true;
+                    g_session.HasConnection = true;
                     send_stop_signal(g_is_ctrl_c_stop ? 2U : g_last_stop_signal);
                     break;
                 case 'q':
@@ -1880,7 +1972,7 @@ namespace SRL
 
                         out_buf[out_len] = '\0';
                         packet_put('\0', out_buf, out_len);
-                        g_handshake_done = true;
+                        g_session.HandshakeDone = true;
                     }
                     else if (starts_with(in_buf, "qXfer:features:read:"))
                     {
@@ -2018,11 +2110,11 @@ namespace SRL
                     else if (starts_with(in_buf, "qRcmd,"))
                     {
                         // GDB's `monitor <text>` command: qRcmd,<hex-encoded-ascii-text>.
-                        // A few built-in diagnostic commands ("regs slave", "nmi", "trace")
+                        // A few built-in diagnostic commands ("regs slave", "trace")
                         // are handled synchronously right here, replying with $O console-output
                         // packets (see send_monitor_text) before the final OK, since their
                         // data already lives in memory the stub can read itself. Everything
-                        // else is decoded into g_last_monitor_command and the counter is
+                        // else is decoded into g_monitor.LastCommand and the counter is
                         // bumped; user code polls GetMonitorCommandCount()/
                         // GetLastMonitorCommand() to react (e.g. "crash illegal").
                         const char *hex_payload = in_buf + 6;
@@ -2030,31 +2122,26 @@ namespace SRL
                         while (hex_payload[hex_len] != '\0')
                             hex_len++;
                         const size_t cmd_len = hex_len / 2;
-                        if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_last_monitor_command))
+                        if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_monitor.LastCommand))
                         {
                             packet_put('\0', "E01", 3);
                         }
-                        else if (hex2mem(hex_payload, reinterpret_cast<uint8_t *>(g_last_monitor_command), static_cast<int>(cmd_len)))
+                        else if (hex2mem(hex_payload, reinterpret_cast<uint8_t *>(g_monitor.LastCommand), static_cast<int>(cmd_len)))
                         {
-                            g_last_monitor_command[cmd_len] = '\0';
-                            if (str_equals(g_last_monitor_command, "regs slave"))
+                            g_monitor.LastCommand[cmd_len] = '\0';
+                            if (str_equals(g_monitor.LastCommand, "regs slave"))
                             {
                                 send_slave_regs_dump();
                                 packet_put('\0', "OK", 2);
                             }
-                            else if (str_equals(g_last_monitor_command, "nmi"))
-                            {
-                                send_nmi_diag_dump();
-                                packet_put('\0', "OK", 2);
-                            }
-                            else if (str_equals(g_last_monitor_command, "trace"))
+                            else if (str_equals(g_monitor.LastCommand, "trace"))
                             {
                                 send_halt_trace_dump();
                                 packet_put('\0', "OK", 2);
                             }
                             else
                             {
-                                g_monitor_command_count = g_monitor_command_count + 1;
+                                g_monitor.CommandCount = g_monitor.CommandCount + 1;
                                 packet_put('\0', "OK", 2);
                             }
                         }
@@ -2388,7 +2475,7 @@ namespace SRL
                         break;
                     }
                     // Note: reading memory here does not touch the slave, so this is
-                    // safe even while g_debug_pause is set (slave frozen) -- the master's
+                    // safe even while g_slave.DebugPause is set (slave frozen) -- the master's
                     // own bus access is independent of slave state.
                     // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
                     if (length > 511U || !is_valid_memory_range(addr, length))
@@ -2513,8 +2600,8 @@ namespace SRL
                 case 'D': // Detach
                     packet_put('\0', "OK", 2);
                     clear_breakpoints(true);
-                    g_handshake_done = false;
-                    g_has_connection = false;
+                    g_session.HandshakeDone = false;
+                    g_session.HasConnection = false;
                     SlaveIPIClear();
                     return;
                 case 'T': // Is thread alive?
@@ -2578,12 +2665,10 @@ namespace SRL
          *
          * Relocates the Vector Base Register (VBR) from ROM to RAM if necessary,
          * and installs `srl_gdbstub_exception_thunk` as the handler for critical
-         * CPU traps including Illegal Instruction, Address Errors, and NMI.
+         * CPU traps including Illegal Instruction, Address Errors and User Break.
          *
-         * NMI is how the Saturn's physical Reset button reaches the SH-2 (it is
-         * not a hard reset line) -- once this is installed, pressing Reset stops
-         * the program at whatever instruction it interrupted and reports SIGINT
-         * to GDB, exactly like Ctrl-C, instead of actually rebooting the console.
+         * NMI (vector 11, the Saturn's physical Reset button) is deliberately left
+         * on whatever handler the BIOS/SGL installed.
          */
         inline static void InstallExceptionHandlers()
         {
@@ -2628,13 +2713,8 @@ namespace SRL
                 // generic SIGTRAP for these -- see srl_gdbstub_illegal_thunk /
                 // srl_gdbstub_addrerr_thunk's doc comment. UBC break and TRAPA #3 are
                 // genuinely trap/breakpoint-like, so they keep reporting SIGTRAP as
-                // before and go straight to the shared thunk. NMI gets its own
-                // trampoline too (srl_gdbstub_nmi_thunk) so it's reported as SIGINT --
-                // the same signal Ctrl-C uses -- rather than a generic SIGTRAP; this
-                // also reuses the existing g_is_ctrl_c_stop-gated PR/R14 masking in the
-                // 'g' register-read handler, since NMI (an asynchronous button press)
-                // can interrupt SGL/BIOS code with no debug info to unwind through,
-                // exactly like a Ctrl-C stop can.
+                // before and go straight to the shared thunk. NMI (vector 11) is not
+                // hooked.
                 vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Illegal Instruction
                 vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Reserved Instruction
                 vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Slot Illegal Instruction
@@ -2642,7 +2722,6 @@ namespace SRL
                 vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Slot Reserved Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);    // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);   // DMA Address Error
-                vbr_table[11] = reinterpret_cast<uint32_t>(&srl_gdbstub_nmi_thunk);       // NMI (Reset button)
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
@@ -2677,7 +2756,7 @@ namespace SRL
          */
         inline static uint32_t GetCommandCount()
         {
-            return g_command_count;
+            return g_session.CommandCount;
         }
 
         /**
@@ -2685,7 +2764,7 @@ namespace SRL
          */
         inline static const char *GetLastCommand()
         {
-            return g_last_command;
+            return g_session.LastCommand;
         }
 
         /**
@@ -2693,7 +2772,7 @@ namespace SRL
          */
         inline static bool IsUsbDataPathEnabled()
         {
-            return g_devcart_usb_datapath_enabled;
+            return g_devcart.UsbDataPathEnabled;
         }
 
         /**
@@ -2702,35 +2781,35 @@ namespace SRL
         inline static void Init()
         {
             SRL::Logger::Log::LogPrint("[GDBStub] Init() start");
-            g_has_connection = false;
-            g_handshake_done = false;
-            g_command_count = 0;
+            g_session.HasConnection = false;
+            g_session.HandshakeDone = false;
+            g_session.CommandCount = 0;
             g_exception_thunk_count = 0;
-            g_rx_detect_count = 0;
-            g_rx_ready_count = 0;
-            g_tx_byte_count = 0;
-            g_poll_fallback_count = 0;
-            g_last_command[0] = '\0';
-            g_unget_char = -1;
+            g_transfer.RxDetectCount = 0;
+            g_transfer.RxReadyCount = 0;
+            g_transfer.TxByteCount = 0;
+            g_transfer.PollFallbackCount = 0;
+            g_session.LastCommand[0] = '\0';
+            g_transfer.UngetChar = -1;
             // Use CS0 USB_FLAGS readability as the proxy for cart detection.
             // Do NOT read CS1 registers here: on USBGamers carts the CS1 space
             // may not be decoded, causing the SH-2 bus to hang (bus error).
             // HasWascaSignature() checks CS1 CPLD magic bytes (0x24000001/03);
             // IsPortAvailable() only reads CS0 USB_FLAGS which is always safe.
-            g_devcart_ready = SRL::DevCart::CS0::IsPortAvailable(); // CS0-only check
-            g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
+            g_devcart.Ready = SRL::DevCart::CS0::IsPortAvailable(); // CS0-only check
+            g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
 
-            g_last_usb_flags = SRL::DevCart::CS0::ReadFlags();
+            g_devcart.LastUsbFlags = SRL::DevCart::CS0::ReadFlags();
             g_is_ctrl_c_stop = false;
             g_last_stop_signal = 5;
-            g_ubc_channel_a_active = false;
-            g_devcart_usb_datapath_enabled = true;
+            g_breakpoints.UbcChannelAActive = false;
+            g_devcart.UsbDataPathEnabled = true;
             clear_breakpoints(false);
             // Initialise the pause flag – false by default.
-            g_debug_pause = false;
+            g_slave.DebugPause = false;
 
             SRL::Logger::Log::LogPrint("[GDBStub] DevCart ready: %d, Port: %d, USB Datapath: %d",
-                                       g_devcart_ready ? 1 : 0, g_devcart_port_available ? 1 : 0, g_devcart_usb_datapath_enabled ? 1 : 0);
+                                       g_devcart.Ready ? 1 : 0, g_devcart.PortAvailable ? 1 : 0, g_devcart.UsbDataPathEnabled ? 1 : 0);
 
             if (!g_handlers_installed)
             {
@@ -2744,7 +2823,7 @@ namespace SRL
          */
         inline static bool IsConnected()
         {
-            return g_handshake_done;
+            return g_session.HandshakeDone;
         }
 
         /**
@@ -2768,7 +2847,7 @@ namespace SRL
          */
         inline static uint32_t GetRxDetectCount()
         {
-            return g_rx_detect_count;
+            return g_transfer.RxDetectCount;
         }
 
         /**
@@ -2776,7 +2855,7 @@ namespace SRL
          */
         inline static uint32_t GetRxReadyCount()
         {
-            return g_rx_ready_count;
+            return g_transfer.RxReadyCount;
         }
 
         /**
@@ -2784,7 +2863,7 @@ namespace SRL
          */
         inline static uint32_t GetTxByteCount()
         {
-            return g_tx_byte_count;
+            return g_transfer.TxByteCount;
         }
 
         /**
@@ -2792,7 +2871,7 @@ namespace SRL
          */
         inline static uint32_t GetPollFallbackCount()
         {
-            return g_poll_fallback_count;
+            return g_transfer.PollFallbackCount;
         }
 
         /**
@@ -2800,7 +2879,7 @@ namespace SRL
          */
         inline static bool IsDevCartReady()
         {
-            return g_devcart_ready;
+            return g_devcart.Ready;
         }
 
         /**
@@ -2808,7 +2887,7 @@ namespace SRL
          */
         inline static bool IsDevCartPortAvailable()
         {
-            return g_devcart_port_available;
+            return g_devcart.PortAvailable;
         }
 
         /**
@@ -2816,7 +2895,7 @@ namespace SRL
          */
         inline static uint8_t GetLastUsbFlags()
         {
-            return g_last_usb_flags;
+            return g_devcart.LastUsbFlags;
         }
 
         /**
@@ -2840,7 +2919,7 @@ namespace SRL
          */
         inline static uint32_t GetMonitorCommandCount()
         {
-            return g_monitor_command_count;
+            return g_monitor.CommandCount;
         }
 
         /**
@@ -2848,7 +2927,7 @@ namespace SRL
          */
         inline static const char *GetLastMonitorCommand()
         {
-            return g_last_monitor_command;
+            return g_monitor.LastCommand;
         }
 
         /**
@@ -3015,7 +3094,7 @@ namespace SRL
          * @warning Hardware-confirmed: dispatching this function itself via
          * SRL::Slave::ExecuteOnSlave() is unreliable -- the function body
          * completes correctly on the slave (confirmed via
-         * g_slave_handlers_installed reading true, and via the installed
+         * g_slave.HandlersInstalled reading true, and via the installed
          * handler subsequently catching real breakpoints correctly), but the
          * ITask's own `running` flag was observed to never clear on the
          * master side afterward, hanging any `while (task.IsRunning())` wait
@@ -3060,7 +3139,7 @@ namespace SRL
             vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_illegal_thunk);
 
             ForcePurgeCache();
-            g_slave_handlers_installed = true;
+            g_slave.HandlersInstalled = true;
         }
 
         /**
@@ -3118,7 +3197,7 @@ namespace SRL
         {
             // If we're called reentrantly while the CPU is already halted inside
             // process_commands() (e.g. VBlank firing while mid-conversation with
-            // GDB after a breakpoint/Ctrl-C/NMI stop), skip our GDB-related work
+            // GDB after a breakpoint/Ctrl-C stop), skip our GDB-related work
             // entirely and let the interrupt handler's OTHER work (whatever
             // called us) proceed normally. See ReentrancyGuard's doc comment.
             // Any pending RX byte is simply left in the FIFO for a later, safe
@@ -3132,31 +3211,31 @@ namespace SRL
             // into a normal master-side debug stop -- Poll() runs every VBlank
             // independent of whatever the master's own C++ code is doing (e.g.
             // stuck in a bounded wait for a slave job), so this is reached
-            // promptly regardless. Reported as SIGINT, same as Ctrl-C/NMI:
+            // promptly regardless. Reported as SIGINT, same as Ctrl-C:
             // there's no meaningful call stack to show on the master side for
             // an async event like this -- the interesting state is the slave's,
             // inspected via `monitor regs slave` / the slave pseudo-registers.
-            if (g_slave_stopped)
+            if (g_slave.Stopped)
             {
                 g_is_ctrl_c_stop = true;
                 Break();
             }
 
             const uint8_t usbFlags = SRL::DevCart::CS0::ReadFlags();
-            g_last_usb_flags = usbFlags;
-            g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
+            g_devcart.LastUsbFlags = usbFlags;
+            g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
 
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::Rxf) == 0;
             if (rxPending)
             {
-                g_rx_ready_count = g_rx_ready_count + 1;
+                g_transfer.RxReadyCount = g_transfer.RxReadyCount + 1;
 
-                if (!g_has_connection || !g_handshake_done)
+                if (!g_session.HasConnection || !g_session.HandshakeDone)
                 {
                     // During initial attach/handshake, do not consume RX bytes here.
                     // Let process_commands() read the full '$...#xx' packet intact.
                     snapshot_polling_context();
-                    g_poll_fallback_count = g_poll_fallback_count + 1;
+                    g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                     process_commands();
                 }
                 else
@@ -3172,21 +3251,21 @@ namespace SRL
                     // pending via rxPending, matching __gdb_getc()'s own
                     // direct-read pattern below.
                     const uint8_t ch = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
-                    g_rx_detect_count = g_rx_detect_count + 1;
+                    g_transfer.RxDetectCount = g_transfer.RxDetectCount + 1;
 
                     if (ch == 0x03U)
                     {
                         record_command("<Ctrl-C>");
                         g_is_ctrl_c_stop = true;
-                        g_poll_fallback_count = g_poll_fallback_count + 1;
+                        g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                         Break();
                     }
                     else if (ch == '$')
                     {
                         // Preserve packet start byte and process packet without forcing a trap.
-                        g_unget_char = '$';
+                        g_transfer.UngetChar = '$';
                         snapshot_polling_context();
-                        g_poll_fallback_count = g_poll_fallback_count + 1;
+                        g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                         process_commands();
                     }
                 }
@@ -3195,8 +3274,8 @@ namespace SRL
             // Hardware-level disconnect: clear session state.
             if (!SRL::DevCart::CS0::IsConnected())
             {
-                g_has_connection = false;
-                g_handshake_done = false;
+                g_session.HasConnection = false;
+                g_session.HandshakeDone = false;
             }
         }
     };
@@ -3220,7 +3299,7 @@ extern "C" __attribute__((used)) inline void slave_ipi_handler(void)
     *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_TIER) &= ~SRL::GDBStub::FRT_ICF;
     *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_FTCSR) &= ~SRL::GDBStub::FRT_ICF;
 
-    while (SRL::GDBStub::g_debug_pause)
+    while (SRL::GDBStub::g_slave.DebugPause)
     {
         asm volatile("nop"); // spin -- just burns a cycle each iteration while frozen, no state to touch
     }
@@ -3262,15 +3341,15 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
         SRL::GDBStub::remove_software_breakpoint(bp_addr);
     }
 
-    SRL::GDBStub::g_slave_stopped = true;
-    SRL::GDBStub::g_slave_resume = false;
+    SRL::GDBStub::g_slave.Stopped = true;
+    SRL::GDBStub::g_slave.Resume = false;
 
-    while (!SRL::GDBStub::g_slave_resume)
+    while (!SRL::GDBStub::g_slave.Resume)
     {
         asm volatile("nop"); // spin -- waiting for the master to release this slave breakpoint stop, no state to touch
     }
 
-    SRL::GDBStub::g_slave_stopped = false;
+    SRL::GDBStub::g_slave.Stopped = false;
 
     // The master may have patched more breakpoints into memory while we were
     // halted; purge the slave's own cache before resuming (mirrors slave_ipi_handler).
@@ -3410,92 +3489,6 @@ __asm__(
     "nop\n"                              // bra's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
-);
-
-// NMI (the Saturn's physical Reset button) is asynchronous and, unlike the
-// illegal-opcode/address-error families above, carries no "this address is
-// definitely a fault" semantics -- it can land literally anywhere, including
-// inside SGL/BIOS code with no debug info. It should be reported to GDB as
-// SIGINT, exactly like Ctrl-C, so tag g_is_ctrl_c_stop (not g_last_stop_signal)
-// before falling into the shared thunk -- see send_stop_signal's callers,
-// which already prefer g_is_ctrl_c_stop over g_last_stop_signal, and the 'g'
-// register-read handler, which already masks PR/R14 when g_is_ctrl_c_stop is
-// set for exactly this "interrupted inside code with no unwind info" reason.
-//
-// Hardware-confirmed bug this debounces: the Reset button is a plain
-// mechanical switch, and NMI is genuinely non-maskable -- unlike VBlank (see
-// InterruptMaskGuard), nothing can block a second edge from a bouncing
-// contact from re-entering this thunk while the first one is still being
-// handled, including while already halted and mid-conversation with GDB.
-// Symptom before this fix: pressing Reset once stopped cleanly in GDB, but
-// Continue immediately re-broke (or hung) instead of resuming -- a queued
-// bounce edge firing again before any real instruction could execute.
-//
-// Fix: a generation-counter debounce. Every edge bumps g_nmi_generation,
-// remembers its own value, then busy-waits (long enough for mechanical
-// bounce to settle). If a NEWER edge arrives during that wait, it re-enters
-// this same thunk from the top as a nested exception -- safe, since nothing
-// shared is touched before the wait completes. Only the edge that finds
-// g_nmi_generation UNCHANGED after its own wait (i.e. no newer edge arrived)
-// actually reports a stop to GDB via the shared thunk. Every earlier
-// (bounced) edge, once its nested children finish and it resumes mid-loop,
-// finds the generation has moved on and just rte's away transparently --
-// never touching g_ctx, so there's no reentrancy corruption risk from an
-// unbounded bounce train, only a single clean stop from the last edge.
-__asm__(
-    ".weak _srl_gdbstub_nmi_thunk\n"
-    ".global _srl_gdbstub_nmi_thunk\n"
-    ".align 2\n"
-    "_srl_gdbstub_nmi_thunk:\n"
-    "mov.l r0, @-r15\n" // push r0 -- r0/r1/r2 are this thunk's scratch registers, all saved/restored around the debounce logic so the shared thunk (or a plain rte, for a swallowed bounce) sees them untouched
-    "mov.l r1, @-r15\n" // push r1
-    "mov.l r2, @-r15\n" // push r2
-    "mov.l 6f, r0\n"    // r0 = &g_nmi_fire_count (label 6)
-    "mov.l @r0, r1\n"   // r1 = current fire count
-    "add #1, r1\n"      // r1 += 1
-    "mov.l r1, @r0\n"   // g_nmi_fire_count = r1 -- unconditionally counts every edge, bounce or genuine
-    "mov.l 1f, r0\n"    // r0 = &g_nmi_generation (label 1)
-    "mov.l @r0, r1\n"   // r1 = current generation
-    "add #1, r1\n"      // r1 += 1 -- this edge claims the next generation number
-    "mov.l r1, @r0\n"   // g_nmi_generation = r1 (publish it)
-    "mov r1, r2\n"      // r2 = r1 -- remember THIS edge's own generation number, to compare against after the wait
-    "mov.l 2f, r1\n"    // r1 = 300000 (debounce wait iteration count, label 2)
-    "3:\n"
-    "dt r1\n"                            // r1 -= 1; T flag = (r1 == 0)
-    "bf 3b\n"                            // loop back to label 3 while T is false (r1 != 0) -- busy-waits long enough for mechanical switch bounce to settle; a newer edge arriving during this wait re-enters this same thunk from the top as a nested exception, safe since nothing shared is touched yet
-    "mov.l 1f, r0\n"                     // r0 = &g_nmi_generation again
-    "mov.l @r0, r1\n"                    // r1 = generation now (possibly bumped again by a nested bounce edge while we waited)
-    "cmp/eq r1, r2\n"                    // T = (r1 == r2), i.e. "is the generation still exactly what I set it to?"
-    "bf 4f\n"                            // if NOT equal (a newer edge arrived and moved it on), jump to label 4: this edge was superseded, quietly swallow it
-    "mov.l 7f, r0\n"                     // r0 = &g_nmi_report_count (label 7)
-    "mov.l @r0, r1\n"                    // r1 = current report count
-    "add #1, r1\n"                       // r1 += 1
-    "mov.l r1, @r0\n"                    // g_nmi_report_count = r1 -- this is the one edge (the last of any bounce train) that actually gets reported
-    "mov.l 5f, r0\n"                     // r0 = &g_is_ctrl_c_stop (label 5)
-    "mov #1, r1\n"                       // r1 = 1
-    "mov.b r1, @r0\n"                    // g_is_ctrl_c_stop = true -- report this halt as SIGINT, the same signal Ctrl-C uses, not a generic trap
-    "mov.l @r15+, r2\n"                  // pop r2 back
-    "mov.l @r15+, r1\n"                  // pop r1 back
-    "mov.l @r15+, r0\n"                  // pop r0 back -- restores exact pre-tag CPU state the shared thunk expects
-    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk to actually report the stop
-    "nop\n"                              // bra's mandatory delay slot
-    "4:\n"
-    "mov.l 8f, r0\n"    // r0 = &g_nmi_swallow_count (label 8)
-    "mov.l @r0, r1\n"   // r1 = current swallow count
-    "add #1, r1\n"      // r1 += 1
-    "mov.l r1, @r0\n"   // g_nmi_swallow_count = r1 -- this edge was a bounce superseded by a newer one; counted for diagnostics, nothing else happens
-    "mov.l @r15+, r2\n" // pop r2 back
-    "mov.l @r15+, r1\n" // pop r1 back
-    "mov.l @r15+, r0\n" // pop r0 back
-    "rte\n"             // return from exception WITHOUT reporting anything to GDB -- g_ctx is never touched, so a bounce train of any length only ever leaves one clean report behind, from whichever edge's wait finished last
-    "nop\n"             // rte's mandatory delay slot
-    ".align 4\n"
-    "1: .long srl_gdbstub_nmi_generation\n"    // literal pool: address of g_nmi_generation
-    "2: .long 300000\n"                        // literal pool: debounce busy-wait iteration count
-    "5: .long srl_gdbstub_is_ctrl_c_stop\n"    // literal pool: address of g_is_ctrl_c_stop
-    "6: .long srl_gdbstub_nmi_fire_count\n"    // literal pool: address of g_nmi_fire_count
-    "7: .long srl_gdbstub_nmi_report_count\n"  // literal pool: address of g_nmi_report_count
-    "8: .long srl_gdbstub_nmi_swallow_count\n" // literal pool: address of g_nmi_swallow_count
 );
 
 __asm__(

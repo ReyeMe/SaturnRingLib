@@ -19,7 +19,7 @@ using namespace SRL::Math::Types;
  * SRL_DEBUG_MAX_PRINT_LENGTH-sized static buffer -- printing a %s argument
  * longer than what's left of that buffer after the rest of the line's literal
  * text corrupts whatever static memory follows it. GDB command/monitor text
- * (up to 63 chars, see g_last_command/g_last_monitor_command) routinely
+ * (up to 63 chars, see g_session.LastCommand/g_monitor.LastCommand) routinely
  * exceeds that budget, so it must be truncated here at the call site before
  * being handed to Print -- %.Ns precision is not supported by that formatter
  * (it silently drops the value instead of truncating it), so this can't be
@@ -101,7 +101,7 @@ int main()
     SRL::Debug::Print(22, 10, "DOWN: Touch var");
     Log::LogPrint("GDB Stub active, waiting for GDB connection via Poll()");
     Log::LogPrint("monitor commands: crash illegal|addr|reserved|slotillegal|"
-        "slotreserved|genillegal|dma|ubc|trapa3, step, touch, regs slave, nmi, trace");
+        "slotreserved|genillegal|dma|ubc|trapa3, step, touch, regs slave, trace");
 
     SRL::Core::Synchronize();
     // NOTE: Break() issues trapa #32 which blocks the Saturn in the RSP command loop
