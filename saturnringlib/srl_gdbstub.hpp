@@ -13,22 +13,40 @@ extern "C"
     // Entry points shared between SRL::GDBStub and the hand-written __asm__
     // thunks at the bottom of this file. They are free extern "C" functions
     // (not class members) because the thunks reference them by fixed,
-    // unmangled symbol name; each one is a friend of SRL::GDBStub.
+    // unmangled symbol name; each C++ one is a friend of SRL::GDBStub.
+
+    /**
+     * @brief Slave-side breakpoint handler, called by srl_gdbstub_slave_illegal_thunk on the slave SH-2.
+     */
     void slave_breakpoint_handler(void);
+
+    /**
+     * @brief Fixed-symbol trampoline into SRL::GDBStub::process_commands(), called by srl_gdbstub_exception_thunk.
+     */
     void srl_gdbstub_process_commands(void);
 
+    /**
+     * @brief Shared master-side exception entry: saves the full SH-2 context, runs the RSP loop, restores and returns.
+     */
     void srl_gdbstub_exception_thunk();
-    // Tiny trampolines that tag g_last_stop_signal with the right POSIX
-    // signal for their exception family before falling into the shared
-    // thunk above -- see their definition (right after
-    // srl_gdbstub_exception_thunk's __asm__ block) for why this needs to
-    // be a jump into the SAME shared body rather than a full duplicate:
-    // every SH-2 exception vector lands at a fixed address with no
-    // argument-passing convention and no on-chip "cause" register (unlike
-    // e.g. SH-3/4's EXPEVT), so the only way to tell GDB which exception
-    // family fired is to give each family its own tiny entry stub.
+
+    /**
+     * @brief Illegal-instruction family entry: tags the stop as SIGILL, then falls into srl_gdbstub_exception_thunk.
+     * @details Each exception family gets its own tiny entry stub because every
+     * SH-2 exception vector lands at a fixed address with no argument-passing
+     * convention and no on-chip "cause" register (unlike e.g. SH-3/4's EXPEVT),
+     * so this is the only way to tell GDB which exception family fired.
+     */
     void srl_gdbstub_illegal_thunk();
+
+    /**
+     * @brief Address-error family entry: tags the stop as SIGBUS, then falls into srl_gdbstub_exception_thunk.
+     */
     void srl_gdbstub_addrerr_thunk();
+
+    /**
+     * @brief Slave-side illegal-instruction entry: saves the slave context and calls slave_breakpoint_handler().
+     */
     void srl_gdbstub_slave_illegal_thunk();
 }
 
@@ -36,28 +54,43 @@ namespace SRL
 {
     /**
      * @brief A basic GDB Remote Serial Protocol stub for the Sega Saturn using the DevCart.
-     *
-     * Uses Interrupt::Vector::Trap3 (trapa #3) for software breakpoints.
+     * @details Software breakpoints are a 0xFFFF (illegal instruction) patch caught
+     * on the master's Illegal Instruction vector. Call Init() once at startup and
+     * Poll() regularly (SRL::Core does both in DEBUG builds).
      */
     class GDBStub
     {
     public:
-        // GDB Remote protocol expects registers for SH in this exact order:
-        // R0-R15, PC, PR, GBR, VBR, MACH, MACL, SR
         /**
          * @brief Represents the SH-2 CPU register state.
-         *
-         * This exactly matches the register layout expected by GDB's SH architecture.
+         * @details This exactly matches the register order expected by GDB's SH
+         * architecture: R0-R15, PC, PR, GBR, VBR, MACH, MACL, SR. The __asm__
+         * thunks also depend on these field offsets (r[N] at N*4, pc at 64).
          */
         struct SH2Context
         {
+            /** @brief General purpose registers R0-R15 (R15 is the stack pointer) */
             uint32_t r[16];
+
+            /** @brief Program counter */
             uint32_t pc;
+
+            /** @brief Procedure register (return address) */
             uint32_t pr;
+
+            /** @brief Global base register */
             uint32_t gbr;
+
+            /** @brief Vector base register */
             uint32_t vbr;
+
+            /** @brief Multiply-accumulate register, high word */
             uint32_t mach;
+
+            /** @brief Multiply-accumulate register, low word */
             uint32_t macl;
+
+            /** @brief Status register */
             uint32_t sr;
         };
 
@@ -65,10 +98,16 @@ namespace SRL
         friend void ::slave_breakpoint_handler(void);
         friend void ::srl_gdbstub_process_commands(void);
 
-        // Globals — inline so they are defined exactly once across all TUs.
+        /**
+         * @brief Master SH-2 register state saved by the exception thunk at the current stop.
+         * @details __asm__-named so the thunks can address it by a fixed symbol.
+         */
         __attribute__((used)) inline static SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
 
-        // Second SH-2 context for the slave CPU. Exported in the GDB register map
+        /**
+         * @brief Slave SH-2 register state saved by the slave thunk at its last breakpoint.
+         * @details Exposed to GDB as the slave_* pseudo-registers and via `monitor regs slave`.
+         */
         __attribute__((used)) inline static SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
 
         // State grouped by topic below. Members referenced by name from the
@@ -82,6 +121,7 @@ namespace SRL
         // the still-incomplete enclosing class. Defaults are given in each
         // instance's initializer instead.
 
+        /** @brief Number of times the master exception thunk has been entered (diagnostic) */
         __attribute__((used)) inline static volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
 
         /**
@@ -147,7 +187,7 @@ namespace SRL
             /** @brief Incremented each time the stub writes a byte to DevCart TX */
             volatile uint32_t TxByteCount;
 
-            /** @brief Incremented when Poll() handles RX without Trap3 */
+            /** @brief Incremented when Poll() handles RX data itself, outside of an exception */
             volatile uint32_t PollFallbackCount;
         };
 
@@ -178,10 +218,13 @@ namespace SRL
         /** @brief Current DevCart link status */
         inline static DevCartStatus g_devcart = {false, false, true, 0xFF};
         
-        // __asm__-named (like g_ctx above) so the per-exception-type trampolines
-        // below (srl_gdbstub_illegal_thunk / srl_gdbstub_addrerr_thunk) can write
-        // to it directly by a fixed symbol, without needing a C++-mangled name.
-        __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5; // 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS
+        /**
+         * @brief POSIX signal of the last stop: 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS.
+         * @details __asm__-named (like g_ctx) so the per-exception-type trampolines
+         * (srl_gdbstub_illegal_thunk / srl_gdbstub_addrerr_thunk) can write
+         * to it directly by a fixed symbol, without needing a C++-mangled name.
+         */
+        __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5;
 
         /**
          * @brief How the current debug stop came about (beyond g_last_stop_signal,
@@ -226,6 +269,7 @@ namespace SRL
 
         /**
          * @brief Signal to report to GDB for the current stop.
+         * @return g_stop.SignalOverride if set, otherwise g_last_stop_signal
          */
         inline static uint8_t current_stop_signal()
         {
@@ -264,15 +308,20 @@ namespace SRL
         /** @brief Current slave halt state */
         inline static SlaveStatus g_slave = {false, false, false};
 
-        // Diagnostic: incremented by the slave's illegal-instruction thunk every
-        // time it fires.
+        /** @brief Number of times the slave's illegal-instruction thunk has fired (diagnostic) */
         __attribute__((used)) inline static volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
 
-        // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
-        // This avoids collisions with SGL which frequently overwrites TRAPA vectors (32-63)
-        // for its own CD-ROM and BIOS system calls.
+        /**
+         * @brief Opcode patched in for software breakpoints and step traps (Illegal Instruction).
+         * @details Avoids TRAPA, whose vectors (32-63) SGL frequently overwrites
+         * for its own CD-ROM and BIOS system calls.
+         */
         static constexpr uint16_t SoftwareBreakInstruction = 0xFFFFU;
+
+        /** @brief Number of software breakpoint slots */
         static constexpr size_t MaxSoftwareBreakpoints = 32;
+
+        /** @brief Maximum RSP packet payload length; advertised to GDB as PacketSize (this + 1) */
         static constexpr size_t kPacketDataMax = 399U;
 
         /**
@@ -280,8 +329,13 @@ namespace SRL
          */
         struct SoftwareBreakpoint
         {
+            /** @brief Address of the patched instruction */
             uint32_t address;
+
+            /** @brief Instruction that was at address before it was replaced by SoftwareBreakInstruction */
             uint16_t original_instruction;
+
+            /** @brief Whether this slot is in use */
             bool active;
         };
 
@@ -331,6 +385,8 @@ namespace SRL
 
         /**
          * @brief Converts a hex character to its integer value.
+         * @param ch Character to convert ('0'-'9', 'a'-'f' or 'A'-'F')
+         * @return Value 0-15, or -1 if ch is not a hex digit
          */
         inline static int hex(char ch)
         {
@@ -345,6 +401,8 @@ namespace SRL
 
         /**
          * @brief Converts a 4-bit integer to its hex character equivalent.
+         * @param v Value to convert (only the low 4 bits are used)
+         * @return Lowercase hex digit character
          */
         inline static char hexchar(int v)
         {
@@ -352,11 +410,15 @@ namespace SRL
             return v < 10 ? '0' + v : 'a' + v - 10;
         }
 
+        /** @brief qSupported PacketSize feature string, must match kPacketDataMax + 1 */
         static constexpr char kPacketSizeStr[] = "PacketSize=400";
         static_assert(kPacketDataMax + 1U == 400, "Update kPacketSizeStr if kPacketDataMax changes");
 
         /**
-         * @brief Decodes a hex string into memory.
+         * @brief Decodes a hex string into memory, one byte store at a time.
+         * @param buf Hex string to decode (2 characters per byte)
+         * @param mem Destination buffer
+         * @param count Number of bytes to decode
          * @return Pointer to the character following the decoded hex string, or nullptr on failure.
          */
         inline static const char *hex2mem(const char *buf, uint8_t *mem, int count)
@@ -381,8 +443,7 @@ namespace SRL
          * @brief Decodes a hex string into memory, using 32-/16-bit stores where
          * address and remaining length allow, falling back to byte stores only
          * for the unaligned remainder.
-         *
-         * Hardware-confirmed bug this fixes: plain hex2mem() above stores one
+         * @details Hardware-confirmed bug this fixes: plain hex2mem() above stores one
          * byte at a time. That's fine for RAM, but VDP2 CRAM (and VDP RAM in
          * general) does not reliably latch single-byte bus writes -- writing
          * a 16-bit color value via GDB's 'M' packet (or `set *(unsigned
@@ -393,6 +454,9 @@ namespace SRL
          * 32-bit `set` expression, since both went through the byte-wise
          * path. Composing and storing whole aligned words/halfwords at once
          * matches the bus cycle width VDP RAM actually requires.
+         * @param buf Hex string to decode (2 characters per byte)
+         * @param addr Destination address
+         * @param count Number of bytes to decode
          * @return Pointer to the character following the decoded hex string, or nullptr on failure.
          */
         inline static const char *hex2mem_aligned(const char *buf, uint32_t addr, int count)
@@ -446,6 +510,9 @@ namespace SRL
 
         /**
          * @brief Encodes memory into a hex string.
+         * @param mem Source buffer
+         * @param buf Destination string, must hold count * 2 + 1 characters
+         * @param count Number of bytes to encode
          * @return Pointer to the null terminator of the resulting string.
          */
         inline static char *mem2hex(const uint8_t *mem, char *buf, int count)
@@ -460,6 +527,10 @@ namespace SRL
             return buf;
         }
 
+        /**
+         * @brief Records a received RSP packet in g_session and marks the session as connected.
+         * @param cmd Packet payload (truncated to 63 characters)
+         */
         inline static void record_command(const char *cmd)
         {
             size_t i = 0;
@@ -473,6 +544,12 @@ namespace SRL
             g_session.HasConnection = true;
         }
 
+        /**
+         * @brief Checks whether a string starts with a prefix.
+         * @param s String to test
+         * @param prefix Expected prefix
+         * @return true if s starts with prefix
+         */
         inline static bool starts_with(const char *s, const char *prefix)
         {
             size_t i = 0;
@@ -487,6 +564,12 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Compares two null-terminated strings.
+         * @param a First string
+         * @param b Second string
+         * @return true if both strings are identical
+         */
         inline static bool str_equals(const char *a, const char *b)
         {
             size_t i = 0;
@@ -501,6 +584,9 @@ namespace SRL
 
         /**
          * @brief Checks if a memory range is valid for access, preventing bus errors.
+         * @param addr Start address
+         * @param length Length of the range in bytes
+         * @return true if the range does not wrap around and stays below 0xF0000000
          */
         inline static bool is_valid_memory_range(uint32_t addr, uint32_t length)
         {
@@ -527,6 +613,14 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Parses a hex number up to a delimiter or the end of the string.
+         * @param p String to parse
+         * @param delimiter Character that ends the number
+         * @param out_value Parsed value (only written on success)
+         * @param out_end Pointer to the delimiter or terminator (only written on success)
+         * @return true if at least one digit was parsed and no invalid character was found
+         */
         inline static bool parse_hex_u32_until(const char *p, char delimiter, uint32_t &out_value, const char *&out_end)
         {
             uint32_t value = 0;
@@ -556,6 +650,7 @@ namespace SRL
 
         /**
          * @brief Finds the software breakpoint slot for a given address.
+         * @param address Breakpoint address
          * @return The slot index, or -1 if not found.
          */
         inline static int find_breakpoint_slot(uint32_t address)
@@ -570,6 +665,10 @@ namespace SRL
             return -1;
         }
 
+        /**
+         * @brief Finds an unused software breakpoint slot.
+         * @return The slot index, or -1 if all slots are in use
+         */
         inline static int find_free_breakpoint_slot()
         {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
@@ -582,8 +681,12 @@ namespace SRL
             return -1;
         }
 
+        /** @brief Set by PurgeCache() when memory was patched; consumed by FlushCacheIfDirty() */
         inline static bool g_cache_dirty = false;
 
+        /**
+         * @brief Purges this CPU's cache immediately (CCR.CP), then waits for it to take effect.
+         */
         inline static void ForcePurgeCache()
         {
             *reinterpret_cast<volatile uint8_t *>(0xFFFFFE92) |= 0x10;
@@ -592,6 +695,9 @@ namespace SRL
             asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory"); // 8 nops -- pure delay, no register/memory effect
         }
 
+        /**
+         * @brief Purges the cache if PurgeCache() was requested since the last purge.
+         */
         inline static void FlushCacheIfDirty()
         {
             if (g_cache_dirty)
@@ -601,32 +707,42 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief RAII guard that runs FlushCacheIfDirty() when it goes out of scope.
+         */
         struct CacheFlusher
         {
+            /**
+             * @brief Purges the cache if any memory was patched.
+             */
             ~CacheFlusher() { FlushCacheIfDirty(); }
         };
 
-        // Releases a slave halted at a breakpoint (see
-        // InstallSlaveExceptionHandler()) on EVERY exit path from
-        // process_commands(), not just the 'c'/'s' ones.
-        //
-        // Hardware-confirmed bug this fixes: handle_gdb_continue()/
-        // handle_gdb_step() used to be the only places that cleared
-        // g_slave.Stopped/set g_slave.Resume. 'D' (detach), 'k' (kill), and
-        // the packet_get()-failure/disconnect path all `return` without
-        // going through either -- including GDB's own implicit detach at the
-        // end of a batch-mode session (e.g. `gdb -batch -ex "target remote
-        // ..." -ex "monitor trace"`, used throughout this project's own
-        // testing). Any of those left the slave permanently parked in its
-        // spin-wait: the master resumes fine (RTE doesn't care about slave
-        // state), so Poll()/the main loop look completely healthy, but
-        // SlaveCounterTask::Do() never actually returns, so IsRunning()
-        // stays true forever and no further slave jobs are ever dispatched
-        // again -- confirmed by re-arming the exact same breakpoint address
-        // in a fresh session afterward and it never firing again, because
-        // the slave was never actually re-entering that code at all.
+        /**
+         * @brief RAII guard that releases a slave halted at a breakpoint (see
+         * InstallSlaveExceptionHandler()) on EVERY exit path from
+         * process_commands(), not just the 'c'/'s' ones.
+         * @details Hardware-confirmed bug this fixes: handle_gdb_continue()/
+         * handle_gdb_step() used to be the only places that cleared
+         * g_slave.Stopped/set g_slave.Resume. 'D' (detach), 'k' (kill), and
+         * the packet_get()-failure/disconnect path all `return` without
+         * going through either -- including GDB's own implicit detach at the
+         * end of a batch-mode session (e.g. `gdb -batch -ex "target remote
+         * ..." -ex "monitor trace"`, used throughout this project's own
+         * testing). Any of those left the slave permanently parked in its
+         * spin-wait: the master resumes fine (RTE doesn't care about slave
+         * state), so Poll()/the main loop look completely healthy, but
+         * SlaveCounterTask::Do() never actually returns, so IsRunning()
+         * stays true forever and no further slave jobs are ever dispatched
+         * again -- confirmed by re-arming the exact same breakpoint address
+         * in a fresh session afterward and it never firing again, because
+         * the slave was never actually re-entering that code at all.
+         */
         struct SlaveReleaseGuard
         {
+            /**
+             * @brief Releases the slave if it is halted at a breakpoint.
+             */
             ~SlaveReleaseGuard()
             {
                 if (g_slave.Stopped)
@@ -638,21 +754,39 @@ namespace SRL
         };
 
 
+        /**
+         * @brief RAII guard marking process_commands() as running, so a re-entrant Poll() skips its GDB work.
+         */
         struct ReentrancyGuard
         {
-            // Set for the entire duration of process_commands() (see its RAII guard).
-            // Poll() checks this at entry and returns immediately if set -- see the
-            // comment there for why this exists and why blanket-masking interrupts
-            // (an earlier, now-reverted fix) was the wrong approach.
+            /**
+             * @brief Set for the entire duration of process_commands().
+             * @details Poll() checks this at entry and returns immediately if set -- see the
+             * comment there for why this exists and why blanket-masking interrupts
+             * (an earlier, now-reverted fix) was the wrong approach.
+             */
             inline static volatile bool g_in_process_commands = false;
 
-
+            /**
+             * @brief Marks process_commands() as running.
+             */
             ReentrancyGuard() { g_in_process_commands = true; }
+
+            /**
+             * @brief Marks process_commands() as no longer running.
+             */
             ~ReentrancyGuard() { g_in_process_commands = false; }
 
+            /**
+             * @brief Whether process_commands() is currently running.
+             * @return true while a ReentrancyGuard is alive
+             */
             inline static bool IsInProcessCommands() { return g_in_process_commands; }
         };
 
+        /**
+         * @brief Requests a cache purge before execution resumes (deferred to FlushCacheIfDirty()).
+         */
         inline static void PurgeCache()
         {
             g_cache_dirty = true;
@@ -660,6 +794,7 @@ namespace SRL
 
         /**
          * @brief Clears all active software breakpoints.
+         * @param restore_memory Whether to write the original instructions back before freeing the slots
          */
         inline static void clear_breakpoints(bool restore_memory)
         {
@@ -688,6 +823,9 @@ namespace SRL
 
         /**
          * @brief Installs a software breakpoint (0xFFFF) at the specified address.
+         * @param address Address of the instruction to break on (must be 2-byte aligned)
+         * @return true if the breakpoint is installed (or already was), false if the
+         * address is invalid or all slots are in use
          */
         inline static bool install_software_breakpoint(uint32_t address)
         {
@@ -718,6 +856,8 @@ namespace SRL
 
         /**
          * @brief Removes a software breakpoint and restores the original instruction.
+         * @param address Address of the breakpoint (must be 2-byte aligned)
+         * @return true if no breakpoint remains at that address, false if the address is invalid
          */
         inline static bool remove_software_breakpoint(uint32_t address)
         {
@@ -743,6 +883,9 @@ namespace SRL
 
         /**
          * @brief Configures the User Break Controller (UBC) for a hardware watchpoint.
+         * @param address Address to watch (exact match)
+         * @param type RSP Z-packet type: 1 = hardware breakpoint, 2 = write, 3 = read, 4 = access watchpoint
+         * @return true if UBC channel A was programmed, false if it is already in use or type is unsupported
          */
         inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type)
         {
@@ -788,6 +931,9 @@ namespace SRL
 
         /**
          * @brief Disables the User Break Controller (UBC) hardware watchpoint.
+         * @param address Unused: there is only one UBC channel to disable
+         * @param type Unused: there is only one UBC channel to disable
+         * @return true if a watchpoint was active and is now disabled, false if none was active
          */
         inline static bool remove_hardware_watchpoint(uint32_t address, uint32_t type)
         {
@@ -808,18 +954,38 @@ namespace SRL
          */
         struct StepData
         {
+            /** @brief Address where the step trap is placed */
             uint32_t address;
+
+            /** @brief Instruction replaced by the step trap */
             uint16_t original_instruction;
+
+            /** @brief Whether a step trap is currently in memory */
             bool active;
 
+            /** @brief Stepping a delayed branch: the trap sits in its delay slot */
             bool is_delayed;
+
+            /** @brief Address of the delayed branch instruction being stepped */
             uint32_t delayed_branch_pc;
+
+            /** @brief Where the delayed branch goes (reported as the new PC when the trap fires) */
             uint32_t delayed_target;
+
+            /** @brief Branch is BSR/JSR/BSRF and must set PR */
             bool delayed_updates_pr;
+
+            /** @brief PR value to apply when delayed_updates_pr is set */
             uint32_t delayed_pr;
+
+            /** @brief Branch is RTE: SR and SP must be restored from the stack */
             bool delayed_is_rte;
+
+            /** @brief SR value popped by the RTE being stepped */
             uint32_t delayed_sr;
         };
+
+        /** @brief Current single-step state */
         inline static StepData g_step_data = {0, 0, false, false, 0, 0, false, 0, false, 0};
 
         /**
@@ -1106,7 +1272,7 @@ namespace SRL
          */
         inline static void snapshot_polling_context()
         {
-            // Fallback context used when we service GDB packets outside ExceptionThunk.
+            // Fallback context used when we service GDB packets outside srl_gdbstub_exception_thunk.
             // It keeps PC/SP/special registers valid so GDB does not see a null frame.
             // We zero r0-r14 intentionally. The C++ compiler constantly clobbers these
             // during the Poll() execution itself, so capturing them via inline asm
@@ -1156,56 +1322,62 @@ namespace SRL
 
         // --- Transport (libyaul-style device hooks) ---
 
-        // Idle timeout applied after handshake when no packet arrives.
-        // MMIO reads (USB_FLAGS) have ~10 wait states on Saturn, so each loop
-        // iteration takes ~1-2 us.
-        //
-        // Hardware-confirmed bug this fixes: this same wait loop runs inside
-        // process_commands()'s packet loop -- i.e. while genuinely HALTED,
-        // mid-conversation with GDB, not just while polling during normal
-        // execution. The original 3,000,000-iteration value (~3-6 seconds) was
-        // sized for detecting a GDB process that crashed/was killed without
-        // cleanly detaching -- but it can't tell that apart from a developer
-        // just reading the stop message and typing a couple of commands.
-        // Confirmed directly: pausing as little as 1-3 seconds between a
-        // Ctrl-C/breakpoint/NMI stop and the next `continue` was enough to hit
-        // this timeout, silently resetting g_session.HasConnection/g_session.HandshakeDone
-        // and resuming the target out from under GDB, which was still sitting
-        // there expecting a reply to whatever it sent next -- exactly the
-        // "GDB shows the stop, but Continue does nothing" symptom reported
-        // after the Reset-button/NMI work. Bumped ~150x to give a realistic
-        // interactive debugging pause (several minutes) before giving up.
+        /**
+         * @brief Idle timeout (wait-loop iterations) applied after handshake when no packet arrives.
+         * @details MMIO reads (USB_FLAGS) have ~10 wait states on Saturn, so each loop
+         * iteration takes ~1-2 us.
+         *
+         * Hardware-confirmed bug this fixes: this same wait loop runs inside
+         * process_commands()'s packet loop -- i.e. while genuinely HALTED,
+         * mid-conversation with GDB, not just while polling during normal
+         * execution. The original 3,000,000-iteration value (~3-6 seconds) was
+         * sized for detecting a GDB process that crashed/was killed without
+         * cleanly detaching -- but it can't tell that apart from a developer
+         * just reading the stop message and typing a couple of commands.
+         * Confirmed directly: pausing as little as 1-3 seconds between a
+         * Ctrl-C/breakpoint/NMI stop and the next `continue` was enough to hit
+         * this timeout, silently resetting g_session.HasConnection/g_session.HandshakeDone
+         * and resuming the target out from under GDB, which was still sitting
+         * there expecting a reply to whatever it sent next -- exactly the
+         * "GDB shows the stop, but Continue does nothing" symptom reported
+         * after the Reset-button/NMI work. Bumped ~150x to give a realistic
+         * interactive debugging pause (several minutes) before giving up.
+         */
         static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 450000000U;
+
+        /** @brief Idle timeout (wait-loop iterations) for TX space, same rationale as GDB_RX_IDLE_TIMEOUT */
         static constexpr uint32_t GDB_TX_IDLE_TIMEOUT = 450000000U;
 
-        // @warning These IsConnected() guards (here, __gdb_wait_tx() below, and
-        // the drain loop in process_commands()) only cover software polling --
-        // hardware-confirmed on real Saturn hardware: physically unplugging the
-        // USB cable can still hang the console instantly, with no intervening
-        // frame, which points to the SH-2's Bus State Controller stalling on an
-        // external WAIT signal from the cart's CPLD/FTDI interface rather than
-        // any of these loops. No amount of guarding SRL::DevCart::CS0 call
-        // sites in this header can fix a stall that happens inside the bus
-        // cycle itself, before any instruction gets to run. See "Unplugging
-        // the USB cable mid-session hangs the console" in
-        // Samples/Debug - GDB Stub/readme.md for the full writeup.
-        //
-        // Waits for USB RX data.
-        // - Before first connection (g_session.HasConnection=false): waits indefinitely
-        //   so Break() before GDB attaches works correctly -- UNLESS the cable
-        //   is (or becomes) physically absent, in which case there is clearly
-        //   no debugger that could ever attach, so we bail out immediately.
-        //   Hardware-confirmed bug this fixes: with the cable unplugged, the
-        //   floating USB_FLAGS register can read as "RX pending", pulling
-        //   Poll() into process_commands() before any GDB session ever
-        //   existed (g_session.HasConnection still false). The disconnect check used
-        //   to live inside `if (g_session.HasConnection)`, so it never ran in that
-        //   case, and this loop had no other exit condition -- a permanent
-        //   hang that merely reconnecting the cable couldn't clear (nothing
-        //   was actively sending bytes to satisfy `IsRxfEmpty()`).
-        // - After connection established: also aborts on prolonged silence
-        //   (GDB process killed without sending D).
-        // Returns true if data is available, false if session should be abandoned.
+        /**
+         * @brief Waits for USB RX data.
+         * @warning These IsConnected() guards (here, __gdb_wait_tx() below, and
+         * the drain loop in process_commands()) only cover software polling --
+         * hardware-confirmed on real Saturn hardware: physically unplugging the
+         * USB cable can still hang the console instantly, with no intervening
+         * frame, which points to the SH-2's Bus State Controller stalling on an
+         * external WAIT signal from the cart's CPLD/FTDI interface rather than
+         * any of these loops. No amount of guarding SRL::DevCart::CS0 call
+         * sites in this header can fix a stall that happens inside the bus
+         * cycle itself, before any instruction gets to run. See "Unplugging
+         * the USB cable mid-session hangs the console" in
+         * Samples/Debug - GDB Stub/readme.md for the full writeup.
+         * @details
+         * - Before first connection (g_session.HasConnection=false): waits indefinitely
+         *   so Break() before GDB attaches works correctly -- UNLESS the cable
+         *   is (or becomes) physically absent, in which case there is clearly
+         *   no debugger that could ever attach, so we bail out immediately.
+         *   Hardware-confirmed bug this fixes: with the cable unplugged, the
+         *   floating USB_FLAGS register can read as "RX pending", pulling
+         *   Poll() into process_commands() before any GDB session ever
+         *   existed (g_session.HasConnection still false). The disconnect check used
+         *   to live inside `if (g_session.HasConnection)`, so it never ran in that
+         *   case, and this loop had no other exit condition -- a permanent
+         *   hang that merely reconnecting the cable couldn't clear (nothing
+         *   was actively sending bytes to satisfy `IsRxfEmpty()`).
+         * - After connection established: also aborts on prolonged silence
+         *   (GDB process killed without sending D).
+         * @return true if data is available, false if the session should be abandoned
+         */
         inline static bool __gdb_wait_rx()
         {
             uint32_t idle = 0;
@@ -1232,9 +1404,13 @@ namespace SRL
             return true;
         }
 
-        // Waits for USB TX space. Same cable-unplug hazard/fix as __gdb_wait_rx()
-        // above -- aborts on cable unplug regardless of connection state, and
-        // on prolonged silence once a session is established.
+        /**
+         * @brief Waits for USB TX space.
+         * @details Same cable-unplug hazard/fix as __gdb_wait_rx() -- aborts on
+         * cable unplug regardless of connection state, and on prolonged silence
+         * once a session is established.
+         * @return true if a byte can be written, false if the session should be abandoned
+         */
         inline static bool __gdb_wait_tx()
         {
             uint32_t idle = 0;
@@ -1259,6 +1435,10 @@ namespace SRL
             return true;
         }
 
+        /**
+         * @brief Reads one byte from the DevCart, returning a pushed-back byte first if there is one.
+         * @return Byte read (0-255), or -1 if the connection was lost
+         */
         inline static int __gdb_getc()
         {
             if (g_transfer.UngetChar != -1)
@@ -1276,6 +1456,11 @@ namespace SRL
             return static_cast<int>(c);
         }
 
+        /**
+         * @brief Writes one byte to the DevCart.
+         * @param value Byte to send
+         * @return true if sent, false if the connection was lost
+         */
         inline static bool __gdb_putc(uint8_t value)
         {
             if (!__gdb_wait_tx())
@@ -1289,6 +1474,12 @@ namespace SRL
 
         // --- Packet I/O (minimal, libyaul-style) ---
 
+        /**
+         * @brief Sends raw packet payload bytes and computes their checksum.
+         * @param buffer Payload to send
+         * @param len Number of bytes to send
+         * @return Modulo-256 sum of the bytes sent (stops early on disconnect)
+         */
         inline static uint8_t packet_put_data(const char *buffer, size_t len)
         {
             uint8_t sum = 0;
@@ -1303,10 +1494,12 @@ namespace SRL
         }
 
         /**
-         * @brief Sends a GDB RSP packet over the communication channel.
-         * @param prefix Optional prefix character (e.g. '+' for ack), or '\0' for none.
-         * @param payload The packet payload to send.
-         * @param payload_len The length of the payload.
+         * @brief Sends a GDB RSP packet ($type data#cc) and waits for GDB's acknowledgment.
+         * @details Retransmits on '-'. If GDB starts a new packet ('$') instead of
+         * acknowledging, the '$' is pushed back for the next packet_get().
+         * @param type Optional first payload character (e.g. 'T' or 'O'), or '\0' for none
+         * @param data Rest of the payload, may be nullptr when len is 0
+         * @param len Length of data
          */
         inline static void packet_put(char type, const char *data, size_t len)
         {
@@ -1365,7 +1558,14 @@ namespace SRL
             } while (true);
         }
 
-        // Returns false if disconnected (buffer will contain empty/partial data).
+        /**
+         * @brief Receives one GDB RSP packet, acknowledges it and strips any sequence id.
+         * @details NACKs ('-') and waits for a retransmission on a bad checksum or
+         * an oversized packet. The packet is also recorded via record_command().
+         * @param buffer Destination for the null-terminated payload
+         * @param max_len Size of buffer
+         * @return true if a packet was received, false if disconnected (buffer will contain empty/partial data)
+         */
         inline static bool packet_get(char *buffer, size_t max_len)
         {
             buffer[0] = '\0';
@@ -1447,6 +1647,12 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Sends a 'T' stop-reply packet to GDB.
+         * @details Adds "swbreak:;" for GDB-managed software breakpoints and step
+         * traps, "reason:signal;" for other SIGTRAP stops, and "thread:1;".
+         * @param signal POSIX signal number to report
+         */
         inline static void send_stop_signal(uint8_t signal)
         {
             char buf[64];
@@ -1482,6 +1688,13 @@ namespace SRL
             packet_put('T', buf, len);
         }
 
+        /**
+         * @brief Appends a string to a buffer (no terminator written).
+         * @param buf Destination buffer
+         * @param pos Current write position in buf
+         * @param s String to append
+         * @return New write position
+         */
         inline static size_t append_str(char *buf, size_t pos, const char *s)
         {
             while (*s != '\0')
@@ -1489,6 +1702,14 @@ namespace SRL
             return pos;
         }
 
+        /**
+         * @brief Appends a value as fixed-width lowercase hex to a buffer (no terminator written).
+         * @param buf Destination buffer
+         * @param pos Current write position in buf
+         * @param value Value to format
+         * @param digits Number of hex digits to write
+         * @return New write position
+         */
         inline static size_t append_hex(char *buf, size_t pos, uint32_t value, int digits)
         {
             for (int shift = (digits - 1) * 4; shift >= 0; shift -= 4)
@@ -1507,6 +1728,8 @@ namespace SRL
          * RSP command loop responding to a qRcmd request -- GDB keeps reading
          * packets after `monitor` until it sees a non-'O' reply, so any number of
          * $O packets sent here arrive before the final $OK.
+         * @param text Text to print on the GDB console
+         * @param len Length of text
          */
         inline static void send_monitor_text(const char *text, size_t len)
         {
@@ -1526,23 +1749,29 @@ namespace SRL
 
         // --- Core Handler ---
 
+        /** @brief Number of slave pseudo-register indices accepted by 'p'/'P' (starting at 23) */
         static constexpr size_t NumSlaveRegs = 24U;
 
-        // Empirically confirmed on real hardware (gdb-multiarch 15.1 and this repo's
-        // bundled sh-elf-gdb 14.2): both have a HARD-CODED, non-negotiable 268-byte
-        // 'g' packet size for the "sh"/"sh2" architecture -- 23 real registers plus
-        // 44 padding slots that GDB's own static register table already reserves as
-        // blank/anonymous (verified via `maintenance print registers` after
-        // `set architecture sh2`). Neither client honors qXfer:features:read-declared
-        // register counts for this architecture (GDB prints "Target-supplied
-        // registers are not supported by the current architecture" and then rejects
-        // any 'g' reply whose length does not match its own fixed count exactly --
-        // not just longer ones). The default 'g'/'G' packet below therefore pads out
-        // to this fixed size instead of appending the slave pseudo-registers, so
-        // basic sessions (breakpoints, stepping, core registers, memory) work with
-        // stock GDB. Those pseudo-registers remain reachable via 'p'/'P' with the
-        // same indices (23..) despite this limitation.
+        /**
+         * @brief Fixed 'g' packet register count GDB's SH backend requires.
+         * @details Empirically confirmed on real hardware (gdb-multiarch 15.1 and this repo's
+         * bundled sh-elf-gdb 14.2): both have a HARD-CODED, non-negotiable 268-byte
+         * 'g' packet size for the "sh"/"sh2" architecture -- 23 real registers plus
+         * 44 padding slots that GDB's own static register table already reserves as
+         * blank/anonymous (verified via `maintenance print registers` after
+         * `set architecture sh2`). Neither client honors qXfer:features:read-declared
+         * register counts for this architecture (GDB prints "Target-supplied
+         * registers are not supported by the current architecture" and then rejects
+         * any 'g' reply whose length does not match its own fixed count exactly --
+         * not just longer ones). The default 'g'/'G' packet below therefore pads out
+         * to this fixed size instead of appending the slave pseudo-registers, so
+         * basic sessions (breakpoints, stepping, core registers, memory) work with
+         * stock GDB. Those pseudo-registers remain reachable via 'p'/'P' with the
+         * same indices (23..) despite this limitation.
+         */
         static constexpr size_t GdbFixedShRegisterCount = 67U;
+
+        /** @brief Number of blank registers padded after the 23 real ones in a 'g' reply */
         static constexpr size_t GdbFixedShPaddingRegisters = GdbFixedShRegisterCount - 23U;
 
         /**
@@ -2686,6 +2915,7 @@ namespace SRL
 
         /**
          * @brief Returns how many RSP packets have been received.
+         * @return Number of RSP packets received since Init()
          */
         inline static uint32_t GetCommandCount()
         {
@@ -2694,6 +2924,7 @@ namespace SRL
 
         /**
          * @brief Returns the most recently received RSP packet (truncated to 63 chars).
+         * @return Null-terminated packet payload, empty if none
          */
         inline static const char *GetLastCommand()
         {
@@ -2702,6 +2933,7 @@ namespace SRL
 
         /**
          * @brief Returns true when cartridge-level USB data path should be enabled.
+         * @return Whether the cartridge-level USB data path should be enabled
          */
         inline static bool IsUsbDataPathEnabled()
         {
@@ -2748,6 +2980,7 @@ namespace SRL
 
         /**
          * @brief Returns true only after the GDB handshake (qSupported exchange) has completed.
+         * @return true once GDB has completed the qSupported handshake
          */
         inline static bool IsConnected()
         {
@@ -2756,6 +2989,7 @@ namespace SRL
 
         /**
          * @brief Returns true once the GDB exception handlers have been installed.
+         * @return true once Init() has patched the master's exception vectors
          */
         inline static bool IsHandlersInstalled()
         {
@@ -2763,7 +2997,8 @@ namespace SRL
         }
 
         /**
-         * @brief Returns how many times ExceptionThunk has executed.
+         * @brief Returns how many times the master exception thunk has executed.
+         * @return Number of entries into srl_gdbstub_exception_thunk
          */
         inline static uint32_t GetExceptionThunkCount()
         {
@@ -2772,6 +3007,7 @@ namespace SRL
 
         /**
          * @brief Returns how many RX bytes were consumed by the stub from DevCart.
+         * @return Number of bytes read from DevCart RX
          */
         inline static uint32_t GetRxDetectCount()
         {
@@ -2780,6 +3016,7 @@ namespace SRL
 
         /**
          * @brief Returns how many times Poll() observed RX data pending in DevCart FIFO.
+         * @return Number of Poll() calls that saw RX data pending
          */
         inline static uint32_t GetRxReadyCount()
         {
@@ -2788,6 +3025,7 @@ namespace SRL
 
         /**
          * @brief Returns how many TX bytes were written by the stub to DevCart.
+         * @return Number of bytes written to DevCart TX
          */
         inline static uint32_t GetTxByteCount()
         {
@@ -2795,7 +3033,8 @@ namespace SRL
         }
 
         /**
-         * @brief Returns how many times Poll() had to process RX without Trap3 entry.
+         * @brief Returns how many times Poll() processed RX data itself, outside of an exception.
+         * @return Number of times Poll() handled RX data itself
          */
         inline static uint32_t GetPollFallbackCount()
         {
@@ -2803,7 +3042,8 @@ namespace SRL
         }
 
         /**
-         * @brief Returns true when DevCart CS1 signature registers are readable and valid.
+         * @brief Returns true when the DevCart was detected at Init() (CS0 USB_FLAGS readable; CS1 is deliberately not probed).
+         * @return true if the DevCart was detected at Init()
          */
         inline static bool IsDevCartReady()
         {
@@ -2811,7 +3051,8 @@ namespace SRL
         }
 
         /**
-         * @brief Returns true when USB_FLAGS reserved bits match expected USB dev cart pattern.
+         * @brief Returns true when the DevCart USB port reported available at the last Poll().
+         * @return true if the DevCart USB port was available at the last Poll()
          */
         inline static bool IsDevCartPortAvailable()
         {
@@ -2820,6 +3061,7 @@ namespace SRL
 
         /**
          * @brief Returns latest raw USB_FLAGS value sampled by the stub.
+         * @return Raw CS0 USB_FLAGS value from the last read
          */
         inline static uint8_t GetLastUsbFlags()
         {
@@ -2844,6 +3086,7 @@ namespace SRL
          * stopped only incremented the target variable once after resuming.
          * Send one `monitor` command, `continue`, then repeat if you need each
          * one to take effect individually.
+         * @return Number of non-built-in monitor commands received
          */
         inline static uint32_t GetMonitorCommandCount()
         {
@@ -2852,6 +3095,7 @@ namespace SRL
 
         /**
          * @brief Returns the text of the most recently received `monitor` command.
+         * @return Null-terminated command text, empty if none
          */
         inline static const char *GetLastMonitorCommand()
         {
@@ -2865,6 +3109,7 @@ namespace SRL
          * master even though the counter is incremented by code running on
          * the slave. Zero unless InstallSlaveExceptionHandler() has been
          * installed on the slave.
+         * @return Number of times the slave breakpoint handler has fired
          */
         inline static uint32_t GetSlaveBreakpointCount()
         {
@@ -2996,6 +3241,9 @@ namespace SRL
         class InstallSlaveExceptionTask : public SRL::Types::ITask
         {
         protected:
+            /**
+             * @brief Runs InstallSlaveExceptionHandler() on the slave CPU.
+             */
             void Do() override
             {
                 InstallSlaveExceptionHandler();
@@ -3129,27 +3377,31 @@ namespace SRL
     };
 }
 
-// Fixed-symbol entry point the master exception thunk jsr's into (see the
-// literal pool of _srl_gdbstub_exception_thunk below).
+/**
+ * @details Fixed-symbol entry point the master exception thunk jsr's into (see
+ * the literal pool of _srl_gdbstub_exception_thunk below). Needed because an
+ * __asm__ label on an in-class member function definition is ignored by GCC.
+ */
 extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
 {
     SRL::GDBStub::process_commands();
 }
 
-// @warning Hardware-confirmed, NOT YET FIXED: a task interrupted by this
-// handler never dispatches again for the rest of the boot session --
-// see InstallSlaveExceptionHandler()'s doc comment (above this file's
-// InstallSlaveExceptionHandler() definition) for the full investigation,
-// evidence, and its connection to the already-documented SGL/FRT-ICI
-// dispatch-completion fragility in slave_counter_task.hpp.
+/**
+ * @details Called by srl_gdbstub_slave_illegal_thunk (below) on the slave SH-2,
+ * AFTER the thunk has already snapshotted the slave's full register state into
+ * SRL::GDBStub::g_slave_ctx. Removes the hit breakpoint (one-shot), flags the
+ * stop for Poll() on the master via g_slave.Stopped, then spins until the master
+ * sets g_slave.Resume. See SRL::GDBStub::InstallSlaveExceptionHandler()'s doc
+ * comment for the overall design (this is the slave-side half of that mechanism).
+ * @warning Hardware-confirmed, NOT YET FIXED: a task interrupted by this
+ * handler never dispatches again for the rest of the boot session --
+ * see InstallSlaveExceptionHandler()'s doc comment for the full investigation,
+ * evidence, and its connection to the already-documented SGL/FRT-ICI
+ * dispatch-completion fragility in slave_counter_task.hpp.
+ */
 extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
 {
-    // Called by srl_gdbstub_slave_illegal_thunk (below) on the slave SH-2,
-    // AFTER the thunk has already snapshotted the slave's full register
-    // state into SRL::GDBStub::g_slave_ctx. See
-    // SRL::GDBStub::InstallSlaveExceptionHandler()'s doc comment for the
-    // overall design (this is the slave-side half of that mechanism).
-
     // Illegal Instruction pushes the address of the faulting instruction
     // itself (unlike TRAPA, which pushes PC+2) -- advance past it the same
     // way adjust_pc_for_software_breakpoint() does for the master.
