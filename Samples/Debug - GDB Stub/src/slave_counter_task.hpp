@@ -5,18 +5,18 @@
 /**
  * @brief Task run on the Slave SH-2, used to exercise SRL::Slave::ExecuteOnSlave().
  *
- * @warning Hardware-confirmed: SRL::GDBStub::InstallSlaveFreezeHandler() does
- * NOT reliably work in a program that also uses SRL::Slave::ExecuteOnSlave(),
- * in either ordering. This file's own comments on InstallSlaveFreezeHandler()
- * called that "likely but unverified" -- real-hardware testing of this sample
- * confirmed it two different ways:
+ * @note History: SRL::GDBStub used to ship InstallSlaveFreezeHandler(), which
+ * froze the slave during master debug stops through the slave's FRT input-capture
+ * interrupt. It was removed because it never worked in a program that also uses
+ * SRL::Slave::ExecuteOnSlave(), in either ordering -- real-hardware testing of
+ * this sample confirmed it two different ways:
  *   1. Redispatching this task every frame (an early version of this sample):
- *      SRL::GDBStub::g_slave_ici_count -- which should tick up by exactly one
+ *      the handler's hit counter -- which should tick up by exactly one
  *      per debug stop -- incremented only for the first stop or two after
  *      boot, then went permanently silent.
  *   2. Dispatching this task a fixed 5 times at startup ONLY, then installing
  *      the freeze handler last and never touching SRL::Slave again: this
- *      does NOT fix it either. g_slave_ici_count read exactly 5 (matching
+ *      does NOT fix it either. The counter read exactly 5 (matching
  *      the dispatch count, not any debug stop) immediately after boot, then
  *      stayed at 5 across 8 further real Ctrl-C-triggered debug stops --
  *      it tracks past SRL::Slave activity, not live freeze pulses.
@@ -34,8 +34,6 @@
  *
  * This task is kept here purely to demonstrate SRL::Slave::ExecuteOnSlave()
  * itself working (it does, reliably) -- see main.cxx for how it's dispatched.
- * SRL::GDBStub::InstallSlaveFreezeHandler() is intentionally NOT called by
- * this sample any more; see the readme for the full writeup.
  */
 class SlaveCounterTask : public SRL::Types::ITask
 {

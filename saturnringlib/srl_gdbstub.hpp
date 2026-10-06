@@ -14,7 +14,6 @@ extern "C"
     // thunks at the bottom of this file. They are free extern "C" functions
     // (not class members) because the thunks reference them by fixed,
     // unmangled symbol name; each one is a friend of SRL::GDBStub.
-    void slave_ipi_handler(void);
     void slave_breakpoint_handler(void);
     void srl_gdbstub_process_commands(void);
 
@@ -30,7 +29,6 @@ extern "C"
     // family fired is to give each family its own tiny entry stub.
     void srl_gdbstub_illegal_thunk();
     void srl_gdbstub_addrerr_thunk();
-    void srl_gdbstub_slave_ici_thunk();
     void srl_gdbstub_slave_illegal_thunk();
 }
 
@@ -64,7 +62,6 @@ namespace SRL
         };
 
     private:
-        friend void ::slave_ipi_handler(void);
         friend void ::slave_breakpoint_handler(void);
         friend void ::srl_gdbstub_process_commands(void);
 
@@ -235,64 +232,15 @@ namespace SRL
             return g_stop.SignalOverride != 0 ? g_stop.SignalOverride : g_last_stop_signal;
         }
 
-        // --- Slave freeze via SH-2 on-chip FRT Input Capture Interrupt (ICI) ---
-        //
-        // The slave SH-2 has no path to the SCU interrupt bus, so it cannot be
-        // signalled through SRL::Interrupt. The documented cross-CPU mechanism is
-        // each SH-2's own on-chip Free-Running Timer (FRT): a word write to a
-        // special SCU-mapped address pulses the *other* CPU's FRT input-capture
-        // pin, setting that CPU's own FTCSR.ICF flag. If that CPU has enabled the
-        // Input Capture Interrupt (TIER.ICIE) and given it a non-zero priority
-        // (IPRB), the pulse fires a genuine hardware interrupt — vector 0x64
-        // (FRT-ICI) — in that CPU's own, independent VBR table.
-        //
-        // @warning Hardware-confirmed conflict (see Samples/Debug - GDB Stub/readme.md
-        // for the full writeup): SGL's own SRL::Slave::ExecuteOnSlave (slSlaveFunc)
-        // uses this exact FRT-ICI mechanism to dispatch jobs to the slave CPU, and
-        // InstallSlaveFreezeHandler() below does not coexist with it. On real
-        // hardware, g_slave_ici_count (below) tracks past SRL::Slave dispatch
-        // activity, not live freeze pulses — it stops incrementing for good once
-        // SRL::Slave::ExecuteOnSlave activity ceases, in either call order, and does
-        // not respond to subsequent debug stops. Working theory: SGL leaves the
-        // slave's own on-chip TIER.ICIE disabled once it has no queued work, and
-        // that bit lives in the slave's private peripheral space — the master
-        // cannot re-arm it directly, and the only sanctioned way to run code on the
-        // slave that could is SRL::Slave::ExecuteOnSlave() itself, which reopens the
-        // same conflict. Do not rely on slave-freeze in any project that also uses
-        // SRL::Slave; it has not been tested in a project that avoids SRL::Slave
-        // entirely.
-        static constexpr uint32_t FRT_TIER = 0xFFFFFE10U;  // Timer Interrupt Enable Register
-        static constexpr uint32_t FRT_FTCSR = 0xFFFFFE11U; // FRT Control/Status Register
-        static constexpr uint32_t FRT_IPRB = 0xFFFFFE60U;  // Interrupt Priority Register B (FRT: bits 11-8)
-        static constexpr uint8_t FRT_ICF = 0x80U;          // FTCSR.ICF / TIER.ICIE share this bit position
-        static constexpr uint32_t FRT_ICI_VECTOR = 0x64U;  // FRT Input Capture Interrupt vector, own VBR
-
-        // Cross-CPU "doorbell" addresses (SCU A-bus mapped). A 16-bit write to one
-        // of these pulses the *other* CPU's FRT input-capture pin. Safe to write
-        // even if the target CPU never installed a handler for it — it just sets
-        // an unused status flag in that case.
-        static constexpr uint32_t MasterNotifiesSlave = 0x21000000U;
-        static constexpr uint32_t SlaveNotifiesMaster = 0x21800000U;
-
-        // Diagnostic: incremented by the slave-side ICI thunk every time it fires,
-        // so the master can confirm (via g_slave_ctx / this counter, both in
-        // shared Work RAM) whether the interrupt is actually reaching the slave.
-        __attribute__((used)) inline static volatile uint32_t g_slave_ici_count __asm__("srl_gdbstub_slave_ici_count") = 0;
-
         /**
          * @brief Slave SH-2 halt state, shared between both CPUs through Work RAM.
          */
         struct SlaveStatus
         {
-            /** @brief Freeze flag the slave's FRT-ICI handler spins on while the master is in GDB */
-            volatile uint32_t DebugPause;
-
             /**
              * @brief Slave halted at a breakpoint.
-             * @details Slave-side breakpoint support uses the illegal-instruction
-             * vector, NOT FRT-ICI -- see InstallSlaveExceptionHandler()'s doc
-             * comment for why this is a separate, independent mechanism from the
-             * freeze handler above and its documented SRL::Slave conflict.
+             * @details Slave-side breakpoint support uses the slave's own
+             * illegal-instruction vector (see InstallSlaveExceptionHandler()).
              * Set true by the slave's own illegal-instruction thunk when it hits a
              * software breakpoint (or any illegal instruction) in slave-executed
              * code. Poll() (which runs every VBlank on the master, independent of
@@ -314,31 +262,11 @@ namespace SRL
         };
 
         /** @brief Current slave halt state */
-        inline static SlaveStatus g_slave = {0, false, false, false};
+        inline static SlaveStatus g_slave = {false, false, false};
 
         // Diagnostic: incremented by the slave's illegal-instruction thunk every
-        // time it fires, mirroring g_slave_ici_count's role for the freeze handler.
+        // time it fires.
         __attribute__((used)) inline static volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
-
-        /**
-         * @brief Requests that the slave SH-2 freeze (spin) for the duration of a debug stop.
-         * @details Sets the shared pause flag and pulses the slave's FRT input-capture
-         * pin. If InstallSlaveFreezeHandler() was never run on the slave, this is a
-         * harmless no-op from the slave's point of view.
-         */
-        inline static void SlaveIPISet()
-        {
-            g_slave.DebugPause = 1;
-            *reinterpret_cast<volatile uint16_t *>(MasterNotifiesSlave) = 0xFFFFU;
-        }
-
-        /**
-         * @brief Releases a slave previously frozen via SlaveIPISet().
-         */
-        inline static void SlaveIPIClear()
-        {
-            g_slave.DebugPause = 0;
-        }
 
         // We use Illegal Instruction (0xFFFF) by default for software breakpoints.
         // This avoids collisions with SGL which frequently overwrites TRAPA vectors (32-63)
@@ -1624,10 +1552,8 @@ namespace SRL
          * description outright (see the GdbFixedShRegisterCount comment above), the
          * slave_r0..slave_sr pseudo-registers are never reachable by name through
          * GDB's Registers UI -- this command is the practical way to inspect them.
-         * @note Reads as all zero unless InstallSlaveFreezeHandler() has been
-         * installed on the slave and at least one debug stop has occurred since --
-         * this stub's own samples generally don't call it (see SlaveCounterTask's
-         * doc comment for why it's incompatible with SRL::Slave::ExecuteOnSlave()).
+         * @note Reads as all zero unless InstallSlaveExceptionHandler() has been
+         * installed on the slave and the slave has hit at least one breakpoint.
          */
         inline static void send_slave_regs_dump()
         {
@@ -1774,8 +1700,6 @@ namespace SRL
         inline static void handle_gdb_continue()
         {
             g_stop.SignalOverride = 0;
-            g_slave.DebugPause = false;
-            SlaveIPIClear();
 
             // A slave parked at a breakpoint (see InstallSlaveExceptionHandler())
             // is released by SlaveReleaseGuard when process_commands() returns --
@@ -1897,10 +1821,6 @@ namespace SRL
                 return;
             }
 
-            // Freeze the slave SH-2 for the duration of this debug stop. Safe
-            // no-op if InstallSlaveFreezeHandler() was never run on the slave.
-            SlaveIPISet();
-
             // Drain any stale bytes that GDB sent before this trap fired.
             // Without this, GDB startup packets (including vCont;c) queued in
             // the FIFO while the Saturn was initialising would immediately resume
@@ -1940,9 +1860,7 @@ namespace SRL
                 out_buf[0] = 0;
                 if (!packet_get(in_buf, sizeof(in_buf)))
                 {
-                    // USB disconnected while waiting for a packet — release the
-                    // slave (if frozen) and stop processing.
-                    SlaveIPIClear();
+                    // USB disconnected while waiting for a packet -- stop processing.
                     return;
                 }
 
@@ -1958,7 +1876,6 @@ namespace SRL
                     clear_breakpoints(true);
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
-                    SlaveIPIClear();
                     return;
                 case '?':
                     // First '?' marks the connection as active and sends the stop reason.
@@ -2493,9 +2410,6 @@ namespace SRL
                         packet_put('\0', "E01", 3);
                         break;
                     }
-                    // Note: reading memory here does not touch the slave, so this is
-                    // safe even while g_slave.DebugPause is set (slave frozen) -- the master's
-                    // own bus access is independent of slave state.
                     // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
                     if (length > 511U || !is_valid_memory_range(addr, length))
                     {
@@ -2622,7 +2536,6 @@ namespace SRL
                     clear_breakpoints(true);
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
-                    SlaveIPIClear();
                     return;
                 case 'T': // Is thread alive?
                     // Report thread as alive for single-thread target.
@@ -2825,16 +2738,11 @@ namespace SRL
             g_breakpoints.UbcChannelAActive = false;
             g_devcart.UsbDataPathEnabled = true;
             clear_breakpoints(false);
-            // Initialise the pause flag – false by default.
-            g_slave.DebugPause = false;
 
             SRL::Logger::Log::LogPrint("[GDBStub] DevCart ready: %d, Port: %d, USB Datapath: %d",
                                        g_devcart.Ready ? 1 : 0, g_devcart.PortAvailable ? 1 : 0, g_devcart.UsbDataPathEnabled ? 1 : 0);
 
-            if (!g_handlers_installed)
-            {
-                InstallExceptionHandlers();
-            }
+            InstallExceptionHandlers(); // no-op if already installed
             SRL::Logger::Log::LogPrint("[GDBStub] Init() end");
         }
 
@@ -2951,16 +2859,6 @@ namespace SRL
         }
 
         /**
-         * @brief Returns how many times the slave's FRT-ICI freeze handler has fired.
-         * @details Reads shared Work RAM, so this is safe to call from the master
-         * even though the counter is incremented by code running on the slave.
-         */
-        inline static uint32_t GetSlaveIciCount()
-        {
-            return g_slave_ici_count;
-        }
-
-        /**
          * @brief Returns how many times the slave's illegal-instruction
          * (breakpoint) handler has fired.
          * @details Reads shared Work RAM, so this is safe to call from the
@@ -2972,85 +2870,6 @@ namespace SRL
         {
             return g_slave_bp_count;
         }
-
-        /**
-         * @brief Installs GDBStub's slave-freeze handler on the FRT Input Capture
-         * Interrupt (vector 0x64) of whichever CPU executes this function.
-         *
-         * @warning MUST be called from code running ON THE SLAVE SH-2 (e.g. via
-         * SRL::Slave::ExecuteOnSlave / InstallSlaveFreezeTask below) — VBR, TIER,
-         * and IPRB are per-CPU registers, so calling this from the master has no
-         * effect on the slave's interrupt controller.
-         *
-         * @warning Hardware-confirmed: does not coexist with any use of
-         * SRL::Slave::ExecuteOnSlave (slSlaveFunc) in the same project — see the
-         * @warning above "Slave freeze via SH-2 on-chip FRT Input Capture
-         * Interrupt (ICI)" and Samples/Debug - GDB Stub/readme.md for the full
-         * hardware writeup. Only use this in a project that never calls
-         * SRL::Slave::ExecuteOnSlave.
-         */
-        inline static void InstallSlaveFreezeHandler()
-        {
-            uint32_t vbr = 0;
-            asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's (the slave's) current VBR
-
-            if (vbr == 0)
-            {
-                // The slave boots with VBR == 0, same as the master. Relocate to a
-                // slave-private area distinct from the master's own relocation
-                // target (0x06000000, see InstallExceptionHandlers()) so the two
-                // CPUs never overwrite each other's copy of the boot ROM vector
-                // table.
-                vbr = 0x06010000U;
-                volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
-                volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
-                for (int i = 0; i < 64; i++)
-                {
-                    dst_table[i] = src_table[i];
-                }
-                asm volatile("ldc %0, vbr" ::"r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied RAM table
-            }
-
-            volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
-            vbr_table[FRT_ICI_VECTOR] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_ici_thunk);
-
-            // Give the FRT interrupt group (ICI/OCIA/OCIB/OVI) a non-zero priority —
-            // priority 0 is always masked regardless of the SR interrupt mask level.
-            volatile uint16_t *iprb = reinterpret_cast<volatile uint16_t *>(FRT_IPRB);
-            *iprb = static_cast<uint16_t>((*iprb & 0xF0FFU) | (0x0FU << 8));
-
-            // Enable the Input Capture Interrupt itself.
-            *reinterpret_cast<volatile uint8_t *>(FRT_TIER) |= FRT_ICF;
-
-            // Lower this CPU's own SR interrupt mask (I3-I0) so priority-15
-            // interrupts are actually accepted — out of reset, all interrupts are
-            // masked (mask level 15).
-            uint32_t sr = 0;
-            asm volatile("stc sr, %0" : "=r"(sr));           // sr = this CPU's current SR
-            sr &= ~0x000000F0U;                              // clear the I3-I0 interrupt mask bits (bring the mask level down to 0, i.e. accept all interrupt priorities)
-            asm volatile("ldc %0, sr" ::"r"(sr) : "memory"); // SR = sr -- commit the lowered mask so the ICI can actually reach this CPU
-
-            ForcePurgeCache();
-        }
-
-        /**
-         * @brief Convenience task that installs GDBStub's slave-freeze handler.
-         * @details Must be dispatched via SRL::Slave::ExecuteOnSlave so that
-         * InstallSlaveFreezeHandler() actually executes on the slave CPU:
-         * @code
-         * SRL::GDBStub::InstallSlaveFreezeTask installTask;
-         * SRL::Slave::ExecuteOnSlave(installTask);
-         * @endcode
-         * @see InstallSlaveFreezeHandler
-         */
-        class InstallSlaveFreezeTask : public SRL::Types::ITask
-        {
-        protected:
-            void Do() override
-            {
-                InstallSlaveFreezeHandler();
-            }
-        };
 
         /**
          * @brief Installs GDBStub's breakpoint handler on the Illegal Instruction
@@ -3075,12 +2894,12 @@ namespace SRL
          * SRL::Slave::ExecuteOnSlave()'s documented `!task.IsRunning()`
          * calling convention (see main.cxx) permanently blocks redispatch. A
          * targeted fix attempt (re-arming TIER.ICIE from inside
-         * slave_breakpoint_handler() on the resume path, mirroring
-         * slave_ipi_handler()'s own re-enable) did NOT resolve it, so this
+         * slave_breakpoint_handler() on the resume path, mirroring the
+         * since-removed slave-freeze handler's re-enable) did NOT resolve it, so this
          * is very likely NOT simply "the interrupt-enable bit got left
          * off" -- it looks like the same broader class of issue
-         * slave_counter_task.hpp's own @warning already documents for
-         * InstallSlaveFreezeHandler() (SGL's slSlaveFunc dispatch-completion
+         * slave_counter_task.hpp's own @warning already documents for the
+         * since-removed InstallSlaveFreezeHandler() (SGL's slSlaveFunc dispatch-completion
          * signaling getting disrupted by ANYTHING unusual happening during a
          * dispatched callback -- that doc comment's own conclusion, "no
          * ordering or dispatch-count workaround found... would need a
@@ -3141,10 +2960,11 @@ namespace SRL
 
             if (vbr == 0)
             {
-                // Same relocation target as InstallSlaveFreezeHandler() (see its
-                // comment) -- idempotent if both are ever installed on the same
-                // slave: whichever runs first does the one-time copy, the second
-                // just patches its own vector into the already-relocated table.
+                // The slave boots with VBR == 0, same as the master. Relocate to a
+                // slave-private area distinct from the master's own relocation
+                // target (0x06000000, see InstallExceptionHandlers()) so the two
+                // CPUs never overwrite each other's copy of the boot ROM vector
+                // table.
                 vbr = 0x06010000U;
                 volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
                 volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
@@ -3316,30 +3136,6 @@ extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
     SRL::GDBStub::process_commands();
 }
 
-extern "C" __attribute__((used)) inline void slave_ipi_handler(void)
-{
-    // Called by srl_gdbstub_slave_ici_thunk (below) on the slave SH-2, AFTER the
-    // thunk has already snapshotted the slave's full register state into
-    // SRL::GDBStub::g_slave_ctx. Disable further ICI firing while we are already
-    // inside one — mirrors the disable/spin/re-enable shape used for master<->slave
-    // ICI handlers elsewhere in Saturn homebrew (e.g. libyaul's cpu_dual) — and
-    // clear the flag the doorbell write set.
-    *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_TIER) &= ~SRL::GDBStub::FRT_ICF;
-    *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_FTCSR) &= ~SRL::GDBStub::FRT_ICF;
-
-    while (SRL::GDBStub::g_slave.DebugPause)
-    {
-        asm volatile("nop"); // spin -- just burns a cycle each iteration while frozen, no state to touch
-    }
-
-    // The master may have patched breakpoints into memory the slave executes;
-    // purge the slave's own cache before resuming.
-    SRL::GDBStub::ForcePurgeCache();
-
-    *reinterpret_cast<volatile uint8_t *>(SRL::GDBStub::FRT_TIER) |= SRL::GDBStub::FRT_ICF;
-    // Returning here lets srl_gdbstub_slave_ici_thunk restore registers and rte.
-}
-
 // @warning Hardware-confirmed, NOT YET FIXED: a task interrupted by this
 // handler never dispatches again for the rest of the boot session --
 // see InstallSlaveExceptionHandler()'s doc comment (above this file's
@@ -3380,7 +3176,7 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
     SRL::GDBStub::g_slave.Stopped = false;
 
     // The master may have patched more breakpoints into memory while we were
-    // halted; purge the slave's own cache before resuming (mirrors slave_ipi_handler).
+    // halted; purge the slave's own cache before resuming.
     SRL::GDBStub::ForcePurgeCache();
     // Returning here lets srl_gdbstub_slave_illegal_thunk restore registers and rte.
 }
@@ -3537,117 +3333,11 @@ __asm__(
     "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
 );
 
-// Slave-side counterpart of the thunk above, installed by
-// SRL::GDBStub::InstallSlaveFreezeHandler() onto the slave SH-2's own FRT-ICI
-// vector (0x64). Byte-for-byte the same register save/restore sequence as
-// _srl_gdbstub_exception_thunk — only the three referenced symbols differ:
-// it snapshots into srl_gdbstub_slave_ctx, calls slave_ipi_handler (a plain
-// spin-wait, not the RSP command processor), and counts into
-// srl_gdbstub_slave_ici_count instead of srl_gdbstub_thunk_count.
-// Same instruction-by-instruction commentary as _srl_gdbstub_exception_thunk
-// above (this is that same save/call/restore sequence, byte-for-byte,
-// retargeted at g_slave_ctx / slave_ipi_handler / the ICI counter) -- see
-// that thunk's comments for the full explanation of each step; only the
-// three literal-pool symbols at the bottom differ.
-__asm__(
-    ".weak _srl_gdbstub_slave_ici_thunk\n"
-    ".global _srl_gdbstub_slave_ici_thunk\n"
-    ".align 2\n"
-    "_srl_gdbstub_slave_ici_thunk:\n"
-    "mov.l r0, @-r15\n"        // push r0 -- stash the slave's true pre-exception r0
-    "stc.l gbr, @-r15\n"       // push gbr
-    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx (literal pool label 1)
-    "mov.l r14, @(14*4, r0)\n" // g_slave_ctx.r[14] = r14
-    "mov.l r13, @(13*4, r0)\n" // g_slave_ctx.r[13] = r13
-    "mov.l r12, @(12*4, r0)\n" // g_slave_ctx.r[12] = r12
-    "mov.l r11, @(11*4, r0)\n" // g_slave_ctx.r[11] = r11
-    "mov.l r10, @(10*4, r0)\n" // g_slave_ctx.r[10] = r10
-    "mov.l r9,  @(9*4,  r0)\n" // g_slave_ctx.r[9] = r9
-    "mov.l r8,  @(8*4,  r0)\n" // g_slave_ctx.r[8] = r8
-    "mov.l r7,  @(7*4,  r0)\n" // g_slave_ctx.r[7] = r7
-    "mov.l r6,  @(6*4,  r0)\n" // g_slave_ctx.r[6] = r6
-    "mov.l r5,  @(5*4,  r0)\n" // g_slave_ctx.r[5] = r5
-    "mov.l r4,  @(4*4,  r0)\n" // g_slave_ctx.r[4] = r4
-    "mov.l r3,  @(3*4,  r0)\n" // g_slave_ctx.r[3] = r3
-    "mov.l r2,  @(2*4,  r0)\n" // g_slave_ctx.r[2] = r2
-    "mov.l r1,  @(1*4,  r0)\n" // g_slave_ctx.r[1] = r1
-    "mov r15, r1\n"            // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
-    "add #16, r1\n"            // r1 = pre-exception SP exactly
-    "mov.l r1, @(15*4, r0)\n"  // g_slave_ctx.r[15] = r1
-    "mov.l @r15+, r1\n"        // pop our gbr push back into r1
-    "mov.l @r15+, r2\n"        // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
-    "mov.l r2, @r0\n"          // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
-    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"            // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
-    "mov.l r1, @(2*4, r2)\n"   // g_slave_ctx.gbr = r1
-    "mov.l @r15, r1\n"         // r1 = hardware-pushed PC (peek)
-    "mov.l r1, @r2\n"          // g_slave_ctx.pc = r1
-    "mov.l @(4, r15), r1\n"    // r1 = hardware-pushed SR (peek)
-    "mov.l r1, @(24, r2)\n"    // g_slave_ctx.sr = r1
-    "sts pr, r1\n"             // r1 = current PR (the interrupted code's own return address)
-    "mov.l r1, @(1*4, r2)\n"   // g_slave_ctx.pr = r1
-    "stc vbr, r1\n"            // r1 = current VBR
-    "mov.l r1, @(3*4, r2)\n"   // g_slave_ctx.vbr = r1
-    "sts mach, r1\n"           // r1 = MACH
-    "mov.l r1, @(4*4, r2)\n"   // g_slave_ctx.mach = r1
-    "sts macl, r1\n"           // r1 = MACL
-    "mov.l r1, @(5*4, r2)\n"   // g_slave_ctx.macl = r1 -- snapshot complete
-    "mov.l 3f, r1\n"           // r1 = &g_slave_ici_count (literal pool label 3)
-    "mov.l @r1, r2\n"          // r2 = current ICI-entry counter value
-    "add #1, r2\n"             // r2 += 1
-    "mov.l r2, @r1\n"          // g_slave_ici_count = r2 -- diagnostic: every ICI-driven entry bumps this
-    "mov.l 2f, r1\n"           // r1 = &slave_ipi_handler (literal pool label 2)
-    "jsr @r1\n"                // call slave_ipi_handler() -- a plain spin-wait, not the RSP command processor (the slave has no direct link to the debugger)
-    "nop\n"                    // jsr's mandatory delay slot
-    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
-    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"            // r2 = &g_slave_ctx.pc again, for the restore half
-    "mov.l @(1*4, r2), r1\n"   // r1 = g_slave_ctx.pr
-    "lds r1, pr\n"             // PR = r1
-    "mov.l @(3*4, r2), r1\n"   // r1 = g_slave_ctx.vbr
-    "ldc r1, vbr\n"            // VBR = r1
-    "mov.l @(4*4, r2), r1\n"   // r1 = g_slave_ctx.mach
-    "lds r1, mach\n"           // MACH = r1
-    "mov.l @(5*4, r2), r1\n"   // r1 = g_slave_ctx.macl
-    "lds r1, macl\n"           // MACL = r1
-    "mov.l @(2*4, r2), r1\n"   // r1 = g_slave_ctx.gbr
-    "ldc r1, gbr\n"            // GBR = r1
-    "mov.l @(24, r2), r1\n"    // r1 = g_slave_ctx.sr
-    "mov.l r1, @(4, r15)\n"    // overwrite the hardware's pushed SR slot on the stack with r1
-    "mov.l @r2, r1\n"          // r1 = g_slave_ctx.pc
-    "mov.l r1, @r15\n"         // overwrite the hardware's pushed PC slot with r1
-    "mov.l @(14*4, r0), r14\n" // restore r14 from g_slave_ctx.r[14]
-    "mov.l @(13*4, r0), r13\n" // restore r13
-    "mov.l @(12*4, r0), r12\n" // restore r12
-    "mov.l @(11*4, r0), r11\n" // restore r11
-    "mov.l @(10*4, r0), r10\n" // restore r10
-    "mov.l @(9*4,  r0), r9\n"  // restore r9
-    "mov.l @(8*4,  r0), r8\n"  // restore r8
-    "mov.l @(7*4,  r0), r7\n"  // restore r7
-    "mov.l @(6*4,  r0), r6\n"  // restore r6
-    "mov.l @(5*4,  r0), r5\n"  // restore r5
-    "mov.l @(4*4,  r0), r4\n"  // restore r4
-    "mov.l @(3*4,  r0), r3\n"  // restore r3
-    "mov.l @(2*4,  r0), r2\n"  // restore r2
-    "mov.l @(1*4,  r0), r1\n"  // restore r1
-    // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
-    // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
-    // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n" // restore r0 itself, last, from g_slave_ctx.r[0]
-    "rte\n"           // return from exception: resumes at the (possibly slave_ipi_handler-redirected) PC/SR just written to the stack
-    "nop\n"           // rte's mandatory delay slot
-    ".align 4\n"
-    "1: .long srl_gdbstub_slave_ctx\n"       // literal pool: address of g_slave_ctx
-    "2: .long _slave_ipi_handler\n"          // literal pool: address of slave_ipi_handler()
-    "3: .long srl_gdbstub_slave_ici_count\n" // literal pool: address of g_slave_ici_count
-);
-
 // Slave-side breakpoint thunk, installed by
 // SRL::GDBStub::InstallSlaveExceptionHandler() onto the slave SH-2's own
-// Illegal Instruction vector (4) -- independent of, and installed alongside,
-// the FRT-ICI thunk above if a project uses both. Byte-for-byte the same
-// register save/restore sequence as _srl_gdbstub_exception_thunk /
-// _srl_gdbstub_slave_ici_thunk -- only the three referenced symbols differ:
+// Illegal Instruction vector (4). Byte-for-byte the same register
+// save/restore sequence as _srl_gdbstub_exception_thunk -- only the three
+// referenced symbols differ:
 // it snapshots into srl_gdbstub_slave_ctx (same struct, same address),
 // calls slave_breakpoint_handler (the slave's own halt/spin-wait/resume
 // logic, not the master's RSP command processor -- the slave has no direct
@@ -3656,7 +3346,7 @@ __asm__(
 // above (byte-for-byte the same save/call/restore sequence, retargeted at
 // g_slave_ctx / slave_breakpoint_handler / the slave breakpoint counter) --
 // see that thunk's comments for the full explanation; only the three
-// literal-pool symbols at the bottom differ from the ICI thunk above.
+// literal-pool symbols at the bottom differ.
 __asm__(
     ".weak _srl_gdbstub_slave_illegal_thunk\n"
     ".global _srl_gdbstub_slave_illegal_thunk\n"

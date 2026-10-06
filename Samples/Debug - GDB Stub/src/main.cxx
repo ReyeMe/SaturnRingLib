@@ -110,13 +110,7 @@ int main()
 
     // Prove SRL::Slave::ExecuteOnSlave() itself works: one job is dispatched
     // every main-loop iteration below (not just at startup), so "Slave jobs
-    // done" keeps climbing for as long as the sample runs. See
-    // SlaveCounterTask's doc comment for why SRL::GDBStub::
-    // InstallSlaveFreezeHandler() is deliberately NOT used in this sample --
-    // hardware testing confirmed it does not coexist with SRL::Slave usage.
-    // That conflict was specifically with the freeze handler combined with
-    // ongoing SRL::Slave dispatch, not with SRL::Slave::ExecuteOnSlave() on
-    // its own, which is what's used here.
+    // done" keeps climbing for as long as the sample runs.
     SlaveCounterTask slaveTask;
     slaveTask.ResetTask();
 
@@ -124,9 +118,8 @@ int main()
     // Instruction vector, so a breakpoint set inside SlaveCounterTask::Do()
     // (or any other slave-executed code) is caught and reported to GDB
     // instead of hanging the slave forever -- see
-    // SRL::GDBStub::InstallSlaveExceptionHandler()'s doc comment. Independent
-    // of the freeze-handler conflict noted above: this hooks a different
-    // vector that SGL's own slave dispatch has no reason to touch.
+    // SRL::GDBStub::InstallSlaveExceptionHandler()'s doc comment. This hooks
+    // a vector that SGL's own slave dispatch has no reason to touch.
     SRL::GDBStub::InstallSlaveExceptionTask installExceptionTask;
     SRL::Slave::ExecuteOnSlave(installExceptionTask);
     // Bounded, not unconditional: see InstallSlaveExceptionHandler()'s
@@ -160,8 +153,7 @@ int main()
     while (true)
     {
         // Dispatch a new slave job only once the previous one has finished,
-        // never blocking waiting for it -- see the comment above slaveTask's
-        // declaration for why this doesn't use InstallSlaveFreezeHandler().
+        // never blocking waiting for it.
         //
         // Also throttled to roughly 4/sec (every kSlaveDispatchInterval
         // frames) rather than firing again the instant the slave goes idle.
