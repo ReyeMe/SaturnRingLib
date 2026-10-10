@@ -2,26 +2,51 @@
 
 set -e
 
-if pgrep -f "^ftx -g" > /dev/null; then
+usage() {
+    echo "Usage: $(basename "$0") <elf_file> [ipv4=localhost] [port=1234]" >&2
+    exit 1
+}
+
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+    usage
+fi
+
+ELF_FILE="$1"
+HOST="${2:-localhost}"
+PORT="${3:-1234}"
+
+if [[ ! -f "$ELF_FILE" ]]; then
+    echo "Error: ELF file not found: $ELF_FILE" >&2
+    exit 1
+fi
+
+if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
+    echo "Error: invalid port: $PORT" >&2
+    exit 1
+fi
+
+FTX_PATTERN="^ftx -g ${PORT}( |$)"
+
+if pgrep -f "$FTX_PATTERN" > /dev/null; then
     if [[ "$(uname -s)" == Darwin* ]]; then
-        if ! nc -z localhost 1234 > /dev/null 2>&1; then
-            pkill -9 -f "^ftx -g" || true
+        if ! nc -z "$HOST" "$PORT" > /dev/null 2>&1; then
+            pkill -9 -f "$FTX_PATTERN" || true
             sleep 0.5
         fi
     else
-        if ! (echo > /dev/tcp/localhost/1234) 2>/dev/null; then
-            pkill -9 -f "^ftx -g" || true
+        if ! (echo > "/dev/tcp/$HOST/$PORT") 2>/dev/null; then
+            pkill -9 -f "$FTX_PATTERN" || true
             sleep 0.5
         fi
     fi
 fi
 
-if ! pgrep -f "^ftx -g" > /dev/null; then
-    nohup ftx -g 1234 -v > /tmp/ftx.log 2>&1 &
+if ! pgrep -f "$FTX_PATTERN" > /dev/null; then
+    nohup ftx -g "$PORT" -v > /tmp/ftx.log 2>&1 &
     sleep 1
     if [[ "$(uname -s)" == Darwin* ]]; then
-        perl -e 'alarm 8; exec @ARGV' gdb-multiarch -batch -ex "target remote localhost:1234" -ex "detach" -ex "quit" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1 || true
+        perl -e 'alarm 8; exec @ARGV' gdb-multiarch -batch -ex "target remote $HOST:$PORT" -ex "detach" -ex "quit" "$ELF_FILE" > /dev/null 2>&1 || true
     else
-        timeout 8 gdb-multiarch -batch -ex "target remote localhost:1234" -ex "detach" -ex "quit" ./BuildDrop/Debug_GDBStub.elf > /dev/null 2>&1 || true
+        timeout 8 gdb-multiarch -batch -ex "target remote $HOST:$PORT" -ex "detach" -ex "quit" "$ELF_FILE" > /dev/null 2>&1 || true
     fi
 fi
