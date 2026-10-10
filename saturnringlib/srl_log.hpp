@@ -17,8 +17,11 @@ namespace SRL
      *          Logs can be directed to different outputs (DevCart USB, Emulator MMIO, or none).
      *          Log levels filter messages at compile-time for efficiency.
      *          Usage: Configure via macros SRL_LOG_OUTPUT and SRL_LOG_LEVEL before include.
-     *          Example: #define SRL_LOG_OUTPUT DEV_CART
-     *                   #define SRL_LOG_LEVEL INFO
+     *          Example:
+     *          @code
+     *          #define SRL_LOG_OUTPUT DEV_CART
+     *          #define SRL_LOG_LEVEL INFO
+     *          @endcode
      */
     namespace Logger
     {
