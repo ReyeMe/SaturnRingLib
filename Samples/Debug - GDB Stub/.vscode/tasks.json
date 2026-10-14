@@ -88,20 +88,21 @@
         {
             "label": "Start FTX",
             "type": "shell",
-            "command": "bash ./../../tools/scripts/start_ftx.sh",
+            "command": "bash ./../../tools/scripts/start_ftx.sh ./BuildDrop/Debug_GDBStub.elf",
             "windows": {
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
                     "-File",
-                    "./../../tools/scripts/start_ftx.ps1"
+                    "./../../tools/scripts/start_ftx.ps1",
+                    "./BuildDrop/Debug_GDBStub.elf"
                 ],
                 "options": {
                     "cwd": "${workspaceFolder}"
                 }
             },
             "osx": {
-                "command": "bash ./../../tools/scripts/start_ftx.sh",
+                "command": "bash ./../../tools/scripts/start_ftx.sh ./BuildDrop/Debug_GDBStub.elf",
                 "options": {
                     "cwd": "${workspaceFolder}",
                     "env": {
