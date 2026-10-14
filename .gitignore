@@ -1,4 +1,6 @@
 0.bin
+# copied into cd/data by shared.mk from modules_extra/samplemodule/data
+/Samples/SRL - Modules/cd/data/include me.txt
 **.zip
 
 **/yabause.ini
