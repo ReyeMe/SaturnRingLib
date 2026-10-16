@@ -218,7 +218,7 @@ GDB>+
 GDB>$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;QThreadOptions+;no-resumed+;memory-tagging+;xmlRegisters=i386;error-message+#14
 GDB>$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;QThreadOptions+;no-resumed+;memory-tagging+;xmlRegisters=i386;error-message+#14
 Target>+
-Target>$PacketSize=400;swbreak+;qXfer:features:read+#f4
+Target>$PacketSize=190;swbreak+;qXfer:features:read+#fa
 GDB>+
 GDB>$vCont?#49
 ...

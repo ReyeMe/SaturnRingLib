@@ -410,9 +410,11 @@ namespace SRL
             return v < 10 ? '0' + v : 'a' + v - 10;
         }
 
-        /** @brief qSupported PacketSize feature string, must match kPacketDataMax + 1 */
-        static constexpr char kPacketSizeStr[] = "PacketSize=400";
-        static_assert(kPacketDataMax + 1U == 400, "Update kPacketSizeStr if kPacketDataMax changes");
+        /** @brief qSupported PacketSize feature string, must match kPacketDataMax + 1
+         * @note GDB parses PacketSize as hex: "400" would mean 1024, making GDB request 512-byte 'm' reads the handler rejects.
+         */
+        static constexpr char kPacketSizeStr[] = "PacketSize=190";
+        static_assert(kPacketDataMax + 1U == 0x190, "Update kPacketSizeStr (hex) if kPacketDataMax changes");
 
         /**
          * @brief Decodes a hex string into memory, one byte store at a time.

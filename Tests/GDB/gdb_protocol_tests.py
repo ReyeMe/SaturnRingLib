@@ -326,6 +326,15 @@ def test_raw_qsupported(s):
     assert "PacketSize=" in reply, reply
     assert "swbreak" in reply, reply
     assert "hwbreak" in reply, reply
+    # GDB reads PacketSize as hex and sizes 'm' reads to PacketSize/2 bytes; the stub caps 'm' at 511.
+    size = int(re.search(r"PacketSize=([0-9a-fA-F]+)", reply).group(1), 16)
+    assert size // 2 <= 511, f"PacketSize={size:#x} lets GDB request reads the stub rejects"
+
+
+@test("GDB reads a 600-byte block in one command (PacketSize regression)")
+def test_large_memory_read(s):
+    out = s.cmd("x/600xb 0x06004000", timeout=10)
+    assert "Cannot access memory" not in out, out
 
 
 @test("raw qXfer:features:read returns target.xml describing the SH-2/slave regs")
