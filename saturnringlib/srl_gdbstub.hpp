@@ -308,6 +308,19 @@ namespace SRL
         /** @brief Current slave halt state */
         inline static SlaveStatus g_slave = {false, false, false};
 
+        /**
+         * @brief Cache-through view of a g_slave flag, for reads of a value the other CPU writes.
+         * @details The two SH-2 caches don't snoop each other: a CPU polling a flag through
+         * its cache keeps seeing its own stale copy (a tight spin never evicts the line),
+         * so the slave never saw Resume and stayed parked forever, wedging SGL's main loop.
+         * @param flag A g_slave member
+         * @return The same flag through the 0x20000000 cache-through address
+         */
+        inline static volatile bool &Uncached(volatile bool &flag)
+        {
+            return *reinterpret_cast<volatile bool *>(reinterpret_cast<uint32_t>(&flag) | 0x20000000U);
+        }
+
         /** @brief Number of times the slave's illegal-instruction thunk has fired (diagnostic) */
         __attribute__((used)) inline static volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
 
@@ -747,7 +760,7 @@ namespace SRL
              */
             ~SlaveReleaseGuard()
             {
-                if (g_slave.Stopped)
+                if (Uncached(g_slave.Stopped))
                 {
                     g_slave.Stopped = false;
                     g_slave.Resume = true;
@@ -952,7 +965,7 @@ namespace SRL
         }
 
         /**
-         * @brief Tracks the state of a single-step operation, including delay slot mechanics.
+         * @brief Tracks the state of a single-step operation.
          */
         struct StepData
         {
@@ -964,31 +977,10 @@ namespace SRL
 
             /** @brief Whether a step trap is currently in memory */
             bool active;
-
-            /** @brief Stepping a delayed branch: the trap sits in its delay slot */
-            bool is_delayed;
-
-            /** @brief Address of the delayed branch instruction being stepped */
-            uint32_t delayed_branch_pc;
-
-            /** @brief Where the delayed branch goes (reported as the new PC when the trap fires) */
-            uint32_t delayed_target;
-
-            /** @brief Branch is BSR/JSR/BSRF and must set PR */
-            bool delayed_updates_pr;
-
-            /** @brief PR value to apply when delayed_updates_pr is set */
-            uint32_t delayed_pr;
-
-            /** @brief Branch is RTE: SR and SP must be restored from the stack */
-            bool delayed_is_rte;
-
-            /** @brief SR value popped by the RTE being stepped */
-            uint32_t delayed_sr;
         };
 
         /** @brief Current single-step state */
-        inline static StepData g_step_data = {0, 0, false, false, 0, 0, false, 0, false, 0};
+        inline static StepData g_step_data = {0, 0, false};
 
         /**
          * @brief Removes the temporary software step trap and restores the original instruction.
@@ -1024,143 +1016,107 @@ namespace SRL
             uint16_t opcode = *code_ptr;
             uint32_t target_pc = pc + 2U;
 
-            if (g_step_data.is_delayed)
-            {
-                // We are stepping the instruction inside a delay slot.
-                // The SH-2 architecture explicitly forbids branch instructions from being
-                // placed in delay slots. Thus, we safely ignore the decoded opcode here
-                // and assume it's a regular instruction that progresses to PC + 2.
-                // If a buggy program violates this rule, the trap will be placed at PC + 2
-                // rather than aborting or following the nested branch.
-                target_pc = pc + 2U;
-            }
-            else
-            {
-                bool is_branch = false;
-                bool has_delay_slot = false;
-                uint32_t branch_target = pc + 2U;
+            bool is_branch = false;
+            bool has_delay_slot = false;
+            uint32_t branch_target = pc + 2U;
 
-                if ((opcode & 0xfb00U) == 0x8900U)
-                { // BT label, BT/S label
-                    is_branch = true;
-                    has_delay_slot = ((opcode & 0xff00U) == 0x8d00U);
-                    if ((GDBStub::MasterSH2().sr & 1U) != 0U)
-                    {
-                        int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
-                        branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
-                    }
-                    else
-                    {
-                        branch_target = pc + (has_delay_slot ? 4U : 2U);
-                    }
-                }
-                else if ((opcode & 0xfb00U) == 0x8b00U)
-                { // BF label, BF/S label
-                    is_branch = true;
-                    has_delay_slot = ((opcode & 0xff00U) == 0x8f00U);
-                    if ((GDBStub::MasterSH2().sr & 1U) == 0U)
-                    {
-                        int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
-                        branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
-                    }
-                    else
-                    {
-                        branch_target = pc + (has_delay_slot ? 4U : 2U);
-                    }
-                }
-                else if ((opcode & 0xe000U) == 0xa000U)
-                { // BRA label, BSR label
-                    is_branch = true;
-                    has_delay_slot = true;
-                    int16_t disp12 = static_cast<int16_t>((opcode & 0x0fffU) << 4) >> 4;
-                    branch_target = pc + (static_cast<int>(disp12) << 1) + 4U;
-                    if ((opcode & 0xf000U) == 0xb000U)
-                    { // BSR label
-                        g_step_data.delayed_updates_pr = true;
-                        g_step_data.delayed_pr = pc + 4U;
-                    }
-                }
-                else if ((opcode & 0xf0dfU) == 0x400bU)
-                { // JMP @Rm, JSR @Rm
-                    is_branch = true;
-                    has_delay_slot = true;
-                    uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                    branch_target = GDBStub::MasterSH2().r[reg_idx];
-                    if ((opcode & 0xf0ffU) == 0x400bU)
-                    { // JSR @Rm
-                        g_step_data.delayed_updates_pr = true;
-                        g_step_data.delayed_pr = pc + 4U;
-                    }
-                }
-                else if ((opcode & 0xf0ffU) == 0x0023U)
-                { // BRAF Rm
-                    is_branch = true;
-                    has_delay_slot = true;
-                    uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                    branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
-                }
-                else if ((opcode & 0xf0ffU) == 0x0003U)
-                { // BSRF Rm
-                    is_branch = true;
-                    has_delay_slot = true;
-                    uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                    branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
-                    g_step_data.delayed_updates_pr = true;
-                    g_step_data.delayed_pr = pc + 4U;
-                }
-                else if (opcode == 0x000bU)
-                { // RTS
-                    is_branch = true;
-                    has_delay_slot = true;
-                    branch_target = GDBStub::MasterSH2().pr;
-                }
-                else if (opcode == 0x002bU)
-                { // RTE
-                    is_branch = true;
-                    has_delay_slot = true;
-                    uint32_t sp = GDBStub::MasterSH2().r[15];
-                    if (is_valid_memory_range(sp, 8U))
-                    {
-                        branch_target = *reinterpret_cast<volatile uint32_t *>(sp | 0x20000000U);
-                        g_step_data.delayed_is_rte = true;
-                        g_step_data.delayed_sr = *reinterpret_cast<volatile uint32_t *>((sp + 4U) | 0x20000000U);
-                    }
-                }
-                else if ((opcode & 0xff00U) == 0xc300U)
-                { // TRAPA #imm
-                    uint32_t vec_num = opcode & 0xffU;
-                    if (vec_num <= 31U)
-                    {
-                        uint32_t vec_addr = GDBStub::MasterSH2().vbr + ((32U + vec_num) * 4U);
-                        if (is_valid_memory_range(vec_addr, 4U))
-                        {
-                            target_pc = *reinterpret_cast<volatile uint32_t *>(vec_addr | 0x20000000U);
-                        }
-                    }
-                }
-                else if (opcode == 0xFFFFU)
-                { // Illegal Instruction (our breakpoint)
-                    if (find_breakpoint_slot(pc) >= 0)
-                    {
-                        target_pc = pc + 2U;
-                    }
-                    else
-                    {
-                        target_pc = pc;
-                    }
-                }
-
-                if (is_branch && has_delay_slot)
+            if ((opcode & 0xfb00U) == 0x8900U)
+            { // BT label, BT/S label
+                is_branch = true;
+                has_delay_slot = ((opcode & 0xff00U) == 0x8d00U);
+                if ((GDBStub::MasterSH2().sr & 1U) != 0U)
                 {
-                    g_step_data.is_delayed = true;
-                    g_step_data.delayed_branch_pc = pc;
-                    g_step_data.delayed_target = branch_target;
+                    int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
+                    branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
+                }
+                else
+                {
+                    branch_target = pc + (has_delay_slot ? 4U : 2U);
+                }
+            }
+            else if ((opcode & 0xfb00U) == 0x8b00U)
+            { // BF label, BF/S label
+                is_branch = true;
+                has_delay_slot = ((opcode & 0xff00U) == 0x8f00U);
+                if ((GDBStub::MasterSH2().sr & 1U) == 0U)
+                {
+                    int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
+                    branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
+                }
+                else
+                {
+                    branch_target = pc + (has_delay_slot ? 4U : 2U);
+                }
+            }
+            else if ((opcode & 0xe000U) == 0xa000U)
+            { // BRA label, BSR label
+                is_branch = true;
+                int16_t disp12 = static_cast<int16_t>((opcode & 0x0fffU) << 4) >> 4;
+                branch_target = pc + (static_cast<int>(disp12) << 1) + 4U;
+            }
+            else if ((opcode & 0xf0dfU) == 0x400bU)
+            { // JMP @Rm, JSR @Rm
+                is_branch = true;
+                uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
+                branch_target = GDBStub::MasterSH2().r[reg_idx];
+            }
+            else if ((opcode & 0xf0ffU) == 0x0023U)
+            { // BRAF Rm
+                is_branch = true;
+                uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
+                branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
+            }
+            else if ((opcode & 0xf0ffU) == 0x0003U)
+            { // BSRF Rm
+                is_branch = true;
+                uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
+                branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
+            }
+            else if (opcode == 0x000bU)
+            { // RTS
+                is_branch = true;
+                branch_target = GDBStub::MasterSH2().pr;
+            }
+            else if (opcode == 0x002bU)
+            { // RTE
+                is_branch = true;
+                uint32_t sp = GDBStub::MasterSH2().r[15];
+                if (is_valid_memory_range(sp, 8U))
+                {
+                    branch_target = *reinterpret_cast<volatile uint32_t *>(sp | 0x20000000U);
+                }
+            }
+            else if ((opcode & 0xff00U) == 0xc300U)
+            { // TRAPA #imm
+                uint32_t vec_num = opcode & 0xffU;
+                if (vec_num <= 31U)
+                {
+                    uint32_t vec_addr = GDBStub::MasterSH2().vbr + ((32U + vec_num) * 4U);
+                    if (is_valid_memory_range(vec_addr, 4U))
+                    {
+                        target_pc = *reinterpret_cast<volatile uint32_t *>(vec_addr | 0x20000000U);
+                    }
+                }
+            }
+            else if (opcode == 0xFFFFU)
+            { // Illegal Instruction (our breakpoint)
+                if (find_breakpoint_slot(pc) >= 0)
+                {
                     target_pc = pc + 2U;
                 }
-                else if (is_branch)
+                else
                 {
-                    target_pc = branch_target;
+                    target_pc = pc;
                 }
+            }
+
+            // A delayed branch is stepped together with its delay slot: the trap goes on
+            // the target, so the CPU runs the slot and applies PR/SR/SP itself. A trap IN
+            // the slot is a slot-illegal exception, which reports the branch destination
+            // (hardware-confirmed) and would leave the slot's own instruction unexecuted.
+            if (is_branch)
+            {
+                target_pc = branch_target;
             }
 
             // Put a single-step trap at the target address.
@@ -1196,35 +1152,10 @@ namespace SRL
             //   - Illegal Instruction (0xFFFF): hardware pushes the address of the
             //     faulting instruction itself (the 0xFFFF word), i.e. g_step_data.address.
             //   - TRAPA #imm: hardware pushes PC+2 (past the trap), so we subtract 2.
+            //   - Slot illegal instruction (0xFFFF in a delay slot): hardware pushes the
+            //     branch destination, not the slot -- why steps never trap in a delay slot.
             //
-            // Phase 1 of delay-slot stepping: we placed 0xFFFF at the delay slot
-            // (g_step_data.address == branch_pc + 2). The hardware pushes that address.
-            // Detect this as MasterSH2().pc == g_step_data.address (NOT delayed_branch_pc).
-            // Correct PC to the branch target and apply side effects.
-            if (g_step_data.active && g_step_data.is_delayed && GDBStub::MasterSH2().pc == g_step_data.address)
-            {
-                g_stop.WasSwBreak = true;
-                g_last_stop_signal = 5U; // SIGTRAP — our own step trap, not a real crash
-                // Delay slot trap fired — hardware gave us the delay slot's address.
-                // Present PC to GDB as the branch target (where execution will resume).
-                GDBStub::MasterSH2().pc = g_step_data.delayed_target;
-
-                if (g_step_data.delayed_updates_pr)
-                {
-                    GDBStub::MasterSH2().pr = g_step_data.delayed_pr;
-                }
-                if (g_step_data.delayed_is_rte)
-                {
-                    GDBStub::MasterSH2().sr = g_step_data.delayed_sr;
-                    GDBStub::MasterSH2().r[15] += 8U;
-                }
-                g_step_data.is_delayed = false;
-                g_step_data.delayed_updates_pr = false;
-                g_step_data.delayed_is_rte = false;
-                return;
-            }
-
-            // Normal (non-delayed) step trap or software breakpoint:
+            // Step trap or software breakpoint:
             // PC pushed by hardware IS the faulting instruction address.
             //
             // EDGE CASE: If a user places a GDB software breakpoint exactly on a programmatic
@@ -1314,6 +1245,10 @@ namespace SRL
             GDBStub::MasterSH2().mach = mach;
             GDBStub::MasterSH2().macl = macl;
             GDBStub::MasterSH2().sr = sr;
+
+            // Not a crash: drop the signal left by any earlier crash stop, or a fresh
+            // attach reports it (e.g. SIGILL) and GDB resumes with an unsupported "C04".
+            g_last_stop_signal = 5U; // SIGTRAP
 
             // MasterSH2().pc above is the address of a label inside THIS function
             // (captured via "mova 1f, r0") -- always the same fixed address
@@ -1865,13 +1800,11 @@ namespace SRL
             pos = append_hex(text, pos, static_cast<uint32_t>(bp_slot), 8);
             pos = append_str(text, pos, " step_active=");
             text[pos++] = g_step_data.active ? '1' : '0';
-            pos = append_str(text, pos, " step_is_delayed=");
-            text[pos++] = g_step_data.is_delayed ? '1' : '0';
             text[pos++] = '\n';
 
             // What handle_gdb_continue() would do right now, without doing it.
             pos = append_str(text, pos, "would_step_over=");
-            text[pos++] = (bp_slot >= 0 || g_step_data.is_delayed) ? '1' : '0';
+            text[pos++] = bp_slot >= 0 ? '1' : '0';
             text[pos++] = '\n';
 
             if (is_valid_memory_range(GDBStub::MasterSH2().pc, 2U))
@@ -1896,6 +1829,31 @@ namespace SRL
          * (or the branch target if the current instruction is a branch), ensuring
          * the stub catches execution immediately after one instruction.
          */
+        /**
+         * @brief Applies the optional resume address of a 'c'/'C'/'s'/'S' packet to the master PC.
+         * @details "caddr"/"saddr" have no separator; "Csig[;addr]"/"Ssig[;addr]" carry a
+         * two-digit signal number (ignored -- we don't support signal delivery) before the
+         * optional ';addr'. No address (the common case) or a parse failure leaves PC untouched.
+         * @param packet Null-terminated packet payload, starting with the command letter
+         */
+        inline static void apply_resume_address(const char *packet)
+        {
+            const char *p = &packet[1];
+            if (packet[0] == 'C' || packet[0] == 'S')
+            {
+                if (hex(p[0]) >= 0 && hex(p[1]) >= 0)
+                    p += 2;
+                if (*p == ';')
+                    ++p;
+            }
+            uint32_t addr = 0;
+            const char *end = p;
+            if (*p != '\0' && parse_hex_u32_until(p, '\0', addr, end))
+            {
+                GDBStub::MasterSH2().pc = addr;
+            }
+        }
+
         inline static void handle_gdb_step()
         {
             g_stop.SignalOverride = 0;
@@ -1957,14 +1915,10 @@ namespace SRL
                 // active intentionally kept true; re-insertion handler will re-patch it.
             }
 
-            if (bp_slot >= 0 || g_step_data.is_delayed)
+            if (bp_slot >= 0)
             {
                 do_software_step();
                 g_breakpoints.ResumingFromBreakpoint = true;
-                // If this is purely a delay-slot step-over (bp_slot == -1), g_breakpoints.ResumeSlot
-                // captures -1. The re-insertion block in process_commands safely skips the -1
-                // slot but still honors g_breakpoints.ResumingFromBreakpoint, allowing the target to
-                // silently resume execution without notifying GDB.
                 g_breakpoints.ResumeSlot = bp_slot;
             }
         }
@@ -2065,7 +2019,11 @@ namespace SRL
             // pre-connection fallback path (snapshot_polling_context() +
             // process_commands(), see Poll() below) BEFORE __gdb_wait_rx() is
             // ever called, so fixing only that function left this loop hanging.
-            if (!g_session.HasConnection)
+            //
+            // Not on Poll()'s path (g_stop.CtxIsFake): there the pending bytes ARE the
+            // packet that brought us here (GDB's first qSupported) -- draining them cost
+            // every first connect after boot several NACKs/retransmits and desynced GDB.
+            if (!g_session.HasConnection && !g_stop.CtxIsFake)
             {
                 while (!SRL::DevCart::CS0::IsRxfEmpty())
                 {
@@ -2773,46 +2731,15 @@ namespace SRL
                     packet_put('\0', "OK", 2);
                     break;
                 case 'c':
-                {
-                    // Optional trailing hex address ("caddr"): resume at addr instead
-                    // of the current PC. No address is the overwhelmingly common case
-                    // (plain "c"), so a parse failure/absence just leaves PC untouched.
-                    if (in_buf[1] != '\0')
-                    {
-                        uint32_t addr = 0;
-                        const char *end = &in_buf[1];
-                        if (parse_hex_u32_until(&in_buf[1], '\0', addr, end))
-                        {
-                            GDBStub::MasterSH2().pc = addr;
-                        }
-                    }
+                case 'C':
+                    // GDB sends "C sig" to resume after a stop it believes was a
+                    // signal (e.g. SIGILL); without this it waits forever on the empty reply.
+                    apply_resume_address(in_buf);
                     handle_gdb_continue();
                     return;
-                }
                 case 's':
                 case 'S':
-                {
-                    // "saddr" has no separator; "S sig[;addr]" carries a two-digit
-                    // signal number (ignored -- we don't support signal delivery)
-                    // before the optional ';addr'.
-                    const char *p = &in_buf[1];
-                    if (in_buf[0] == 'S')
-                    {
-                        if (hex(p[0]) >= 0 && hex(p[1]) >= 0)
-                            p += 2;
-                        if (*p == ';')
-                            ++p;
-                    }
-                    if (*p != '\0')
-                    {
-                        uint32_t addr = 0;
-                        const char *end = p;
-                        if (parse_hex_u32_until(p, '\0', addr, end))
-                        {
-                            GDBStub::MasterSH2().pc = addr;
-                        }
-                    }
-                }
+                    apply_resume_address(in_buf);
                     handle_gdb_step();
                     return;
                 default:
@@ -3313,7 +3240,7 @@ namespace SRL
             // there's no meaningful call stack to show on the master side for
             // an async event like this -- the interesting state is the slave's,
             // inspected via `monitor regs slave` / the slave pseudo-registers.
-            if (g_slave.Stopped)
+            if (Uncached(g_slave.Stopped))
             {
                 g_stop.SignalOverride = 2U; // SIGINT
                 Break();
@@ -3404,25 +3331,33 @@ extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
  */
 extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
 {
-    // Illegal Instruction pushes the address of the faulting instruction
-    // itself (unlike TRAPA, which pushes PC+2) -- advance past it the same
-    // way adjust_pc_for_software_breakpoint() does for the master.
-    SRL::GDBStub::SlaveSH2().pc += 2U;
+    // The master wrote the breakpoint table; drop any stale copy in the slave's cache first.
+    SRL::GDBStub::ForcePurgeCache();
 
-    // One-shot: if this was a GDB-inserted breakpoint, remove it now so
-    // resuming doesn't immediately re-fault on the same patched instruction
-    // -- there's no step-over support for slave code. Re-add it with a
-    // fresh 'break'/'Z0' if you need it to fire again.
-    const uint32_t bp_addr = SRL::GDBStub::SlaveSH2().pc - 2U;
+    // Illegal Instruction pushes the address of the faulting instruction
+    // itself (unlike TRAPA, which pushes PC+2).
+    const uint32_t bp_addr = SRL::GDBStub::SlaveSH2().pc;
     if (SRL::GDBStub::find_breakpoint_slot(bp_addr) >= 0)
     {
+        // One-shot: a GDB-inserted breakpoint is removed now, restoring the
+        // original instruction, and PC stays on it so that instruction still
+        // runs on resume -- there's no step-over support for slave code.
+        // Re-add it with a fresh 'break'/'Z0' if you need it to fire again.
         SRL::GDBStub::remove_software_breakpoint(bp_addr);
     }
+    else
+    {
+        // A 0xFFFF compiled into the code (e.g. Break()) has no original
+        // instruction to restore: step over it, the same way
+        // adjust_pc_for_software_breakpoint() does for the master.
+        SRL::GDBStub::SlaveSH2().pc += 2U;
+    }
 
-    SRL::GDBStub::g_slave.Stopped = true;
+    // Clear Resume before raising Stopped, so the master can't release us before we wait.
     SRL::GDBStub::g_slave.Resume = false;
+    SRL::GDBStub::g_slave.Stopped = true;
 
-    while (!SRL::GDBStub::g_slave.Resume)
+    while (!SRL::GDBStub::Uncached(SRL::GDBStub::g_slave.Resume))
     {
         asm volatile("nop"); // spin -- waiting for the master to release this slave breakpoint stop, no state to touch
     }
@@ -3666,7 +3601,7 @@ __asm__(
     "ldc r1, gbr\n"            // GBR = r1
     "mov.l @(24, r2), r1\n"    // r1 = g_slave_ctx.sr
     "mov.l r1, @(4, r15)\n"    // overwrite the hardware's pushed SR slot on the stack with r1
-    "mov.l @r2, r1\n"          // r1 = g_slave_ctx.pc -- slave_breakpoint_handler() already advanced this past the 0xFFFF opcode (and restored the original instruction there) before returning, so this resumes just past the breakpoint, not back on top of it
+    "mov.l @r2, r1\n"          // r1 = g_slave_ctx.pc -- for a GDB breakpoint, slave_breakpoint_handler() restored the original instruction and left PC on it, so it runs now; for a compiled-in 0xFFFF it advanced PC past it
     "mov.l r1, @r15\n"         // overwrite the hardware's pushed PC slot with r1
     "mov.l @(14*4, r0), r14\n" // restore r14 from g_slave_ctx.r[14]
     "mov.l @(13*4, r0), r13\n" // restore r13
@@ -3686,7 +3621,7 @@ __asm__(
     // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
     "mov.l @r0, r0\n" // restore r0 itself, last, from g_slave_ctx.r[0]
-    "rte\n"           // return from exception: resumes just past the (now-restored) breakpoint instruction, per the PC written above
+    "rte\n"           // return from exception: resumes at the PC written above
     "nop\n"           // rte's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_slave_ctx\n"      // literal pool: address of g_slave_ctx
