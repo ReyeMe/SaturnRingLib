@@ -25,7 +25,7 @@ namespace SRL
              */
             virtual bool IsDone()
             {
-                return this->done;
+                return ITask::Uncached(this->done);
             }
 
             /** @brief Task Running Status getter
@@ -33,7 +33,7 @@ namespace SRL
              */
             virtual bool IsRunning()
             {
-                return this->running;
+                return ITask::Uncached(this->running);
             }
 
             /** @brief Start the Task on Slave SH2, then set its status to Done
@@ -54,14 +54,26 @@ namespace SRL
              */
             virtual bool ResetTask()
             {
-                if (!this->running)
+                if (!ITask::Uncached(this->running))
                 {
                     this->done = false;
                 }
-                return !this->done;
+                return !ITask::Uncached(this->done);
             }
 
         protected:
+            /** @brief Reads a status flag through the 0x20000000 cache-through mirror
+             * @details The slave writes done/running and the master reads them. The two SH-2
+             * caches don't snoop each other, so a master polling through its own cache can see
+             * a stale value forever (e.g. IsRunning() never clearing).
+             * @param flag Flag to read
+             * @return Current value in memory
+             */
+            static bool Uncached(const volatile bool& flag)
+            {
+                return *reinterpret_cast<const volatile bool*>(reinterpret_cast<uint32_t>(&flag) | 0x20000000U);
+            }
+
             /** @brief Holds a value indicating whether task has been completed
              */
             volatile bool done;

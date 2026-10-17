@@ -28,8 +28,13 @@ See that sample's own `readme.md` for what each trigger does and why.
 
 ## Coverage
 
-`gdb_protocol_tests.py` covers, in isolated per-test sessions (each test
-connects fresh and detaches/closes on its own, so failures don't cascade):
+`gdb_protocol_tests.py` runs every test on a **freshly booted target**: before
+each test the runner power-cycles the console (when a PSU address is given),
+uploads the sample and starts a new `ftx -g` proxy. No test can inherit a
+crashed CPU, an armed breakpoint, a busy UBC channel or a changed
+`g_testVariable` from an earlier one, so each result stands on its own. Tests
+check one behavior each; tests named `scenario: ...` chain several debugger
+operations on purpose. Coverage:
 
 - **Protocol negotiation**: `qSupported`, `qXfer:features:read` (target.xml),
   `qAttached`, `qOffsets`, `qC`, `qfThreadInfo`/`qsThreadInfo`, `H`, `T`,
@@ -60,19 +65,19 @@ connects fresh and detaches/closes on its own, so failures don't cascade):
   parked and it would never fire again.
 - **Detach (`D`) / kill (`k`)**: both leave the stub healthy for an
   immediate, independent reconnect.
-- **`monitor` diagnostics**: `trace`, `nmi`.
+- **`monitor` diagnostics**: `trace`.
 - **Timeouts**: an idle-but-connected client (several seconds of silence)
   is still served normally afterward; a `continue` left free-running for
   several seconds unattended can still be reclaimed with Ctrl-C.
-- **Unknown / malformed commands**, all in one session: an unsupported
+- **Unknown / malformed commands**, one test per packet: an unsupported
   top-level command, `Z`/`z` with a bad type digit or a missing separator,
   `m`/`M` with a missing `,`/`:`, removing a breakpoint that was never set
   (defined as a no-op success, not an error), and reading/writing the
   SH-2 peripheral register space (rejected by `is_valid_memory_range()`,
   since byte-wise access to much of that space causes real bus errors on
   this hardware) -- each checked against its actual defined error code or
-  "not supported" reply, with a final sanity command confirming the stub
-  wasn't left wedged by any of them.
+  "not supported" reply, followed by a sanity command confirming the stub
+  wasn't left wedged by it.
 - **Disconnections**: beyond the clean `D`/`k` paths above, an *abrupt*
   disconnect -- the gdb process killed outright, no detach, while a
   breakpoint is armed and a `continue` is in flight -- confirmed to still
@@ -86,6 +91,15 @@ connects fresh and detaches/closes on its own, so failures don't cascade):
   taking effect (per this project's documented dispatch semantics); and a
   software breakpoint and a hardware watchpoint armed at the same time,
   each firing independently and in the right order.
+- **Scenarios**: the same breakpoint hit three times in a row; `finish` back
+  to the caller; `nexti` through a function's delayed branches (`jsr`/`rts`)
+  without a fake SIGILL; conditional breakpoints with a true and a false
+  condition; a variable written while stopped being what the resumed program
+  sees; Ctrl-C, `bt`, then a breakpoint; recovering from a reserved-instruction
+  crash by stepping `$pc` over it (exercises the `C04` resume); a master
+  breakpoint after a slave breakpoint stop (regression test for the
+  stale-cache wedge); and a breakpoint left armed by a killed GDB not stopping
+  the next session.
 
 Not covered: `G` is only exercised as an identity round-trip (fetch then
 write back the same register blob) rather than with new values, to avoid
@@ -105,133 +119,58 @@ the emulators don't expose.
 ## Running
 
 ```bash
-./run_gdb_tests.sh                  # reuse whatever's already powered on
-./run_gdb_tests.sh 192.168.1.50     # power-cycle via a network PSU first,
-                                     # same REST API as ../run_tests.bat's
-                                     # USBGamers mode (relay_status/on/off/toggle)
+./run_gdb_tests.sh                       # re-upload before every test, no power-cycle
+./run_gdb_tests.sh 192.168.1.50          # power-cycle via a network PSU before every test,
+                                          # same REST API as ../run_tests.bat's
+                                          # USBGamers mode (relay_status/on/off)
+./run_gdb_tests.sh 192.168.1.50 --filter scenario   # extra options go to gdb_protocol_tests.py
 ```
 
-This builds and uploads the sample, starts the `ftx -g` GDB proxy, then runs
-`gdb_protocol_tests.py` against it. Results print to the terminal and are
+This builds the sample, then runs `gdb_protocol_tests.py`, which reloads the
+target before every test (power-cycle, upload with retries, fresh `ftx -g`
+proxy). A full run of all 68 tests takes about 45 minutes with a PSU; use
+`--filter` to run a subset. Results print to the terminal and are
 written to `gdb_uts.log` (`***UT_START***`/`***UT_END***` markers, one
 `PASS`/`FAIL`/`SKIP`/`ERROR` line per test, final counts), mirroring the
 on-target campaign's log format. Exits non-zero if any test failed or
 errored (skips don't count as failures).
 
 You can also run the test suite directly against an already-uploaded,
-already-proxied target:
+already-proxied target, without reloading between tests (tests then share one
+target, so a crash trigger takes every later test down with it):
 
 ```bash
 python3 gdb_protocol_tests.py "../../Samples/Debug - GDB Stub/BuildDrop/Debug_GDBStub.elf" --port 1234
 ```
 
-## Known flakiness on real hardware
+## Known issues on real hardware
 
-Validated across repeated full runs on real hardware, reliably passing: all
-protocol negotiation (`qSupported`/`qXfer`/`qAttached`/`qOffsets`/`qC`/
-thread-info/`H`/`T`/`vCont?`/`?`), `g`/`G`/`p`/`P` register access,
-aligned/unaligned `M` writes, the CRAM write regression test, a single
-software breakpoint, all eight exception vectors, detach/kill + reconnect,
-the `monitor` diagnostics, the idle-client and long-running-continue timeout
-tests, the unknown/malformed-command test, the dirty-disconnect test, and
-the breakpoint-removed-before-hit/mixed-resume-types/monitor-priority
-combination tests (each independently confirmed passing in an isolated,
-freshly power-cycled session -- see below for what "isolated" rules out).
+**The rig.** The first upload after a power-cycle routinely fails ("usb bulk
+write failed"); the runner retries after a fresh `usbreset`, and power-cycles
+again if that keeps failing. The network PSU itself has dropped off the
+network mid-run; the console then loses power and every later test fails
+with "monitor command not supported by this target" or FTDI errors in
+`ftx_gdb.log` -- check the PSU and rerun.
 
-Two different things cause the remaining flakiness, and they should not be
-conflated:
+**Hardware breakpoints and watchpoints (`Z1`-`Z4`, the SH-2 UBC) never
+fire.** `install_hardware_watchpoint()` reports success, but no stop ever
+arrives. Most likely cause: every value written to BBRA (`0x10`, `0x28`,
+`0x24`, `0x2C`) leaves the CPU/peripheral-cycle select bits (7-6) at `00`,
+which the SH7604 manual describes as "no break". This affects the
+watchpoint, `hbreak` and breakpoint-plus-watchpoint tests; they are kept
+(not skipped) so a fix can be verified.
 
-**1. The rig itself degrades under this suite's reconnect rate.** Each test
-opens a brand-new `target remote` session (49 of them per run) -- far
-heavier, faster churn than this project's normal one-connection-at-a-time
-hardware testing. The `ftx` proxy/USB link has repeatedly been observed to
-degrade partway through a full run the same way it's documented to degrade
-under heavy use elsewhere in this project (see the hardware-rig notes),
-recovering only after a full power-cycle. If a run shows a cluster of "no
-reply"/empty results, or realistic-looking commands getting a stale reply
-left over from an earlier command, concentrated in its second half, that's
-this -- power-cycle and rerun. The two-software-breakpoints,
-slave-breakpoint, and `k`/dirty-disconnect-reconnect tests are the most
-exposed to this, since each depends on either a longer command chain or a
-`continue` landing within its timeout window.
+**A breakpoint left armed by a killed GDB stays patched in.** `D`/`k` clear
+breakpoints, but a GDB that dies while the target runs leaves its `0xFFFF`
+patches in memory. The next session doesn't notice: the stale breakpoint
+still fires, GDB silently resumes from a stop it never asked for, and the
+stub re-inserts the patch. The `left armed by a killed GDB` scenario checks
+the memory directly and is expected to fail until the stub clears breakpoints
+when a new session starts.
 
-**2. Hardware breakpoints and watchpoints (`Z1`-`Z4`, the SH-2 UBC) do not
-fire reliably, independent of rig churn.** This was originally assumed to be
-another instance of (1) -- it isn't. Isolated, manually-driven sessions
-against a freshly power-cycled target (no other test running before or
-after, generous 10s+ timeouts, the shared UBC channel confirmed idle
-beforehand) still show `watch`/`rwatch`/`awatch`/`hbreak` failing to report
-a hit noticeably more often than not, including cases where:
-  - `Z1` (`hbreak`) installs successfully (gdb reports "Hardware assisted
-    breakpoint N at ..." with no error) but the CPU reaching that exact
-    instruction never produces a stop, even though the equivalent `BBRA`
-    register configuration (`0x0010`, instruction-fetch) fires reliably when
-    programmed directly by this sample's own `UserBreakController()` trigger
-    (`monitor crash ubc`, which passes consistently).
-  - A plain `watch g_testVariable` + a `monitor touch` that's known to
-    execute the write (confirmed separately via memory reads) still doesn't
-    produce a watchpoint stop.
-  - This affects the write/read/access watchpoint tests, the two
-    breakpoint-combination tests that involve a watchpoint or `hbreak`
-    (`hardware breakpoint`, `a software breakpoint and a hardware watchpoint
-    coexist`), and appears to be the same underlying issue in each case --
-    not something specific to any one Z-type or to the software breakpoint
-    coexisting alongside it.
-
-  This looks like a genuine gap somewhere in the UBC-based `Z1`-`Z4` path
-  (`install_hardware_watchpoint()`/the exception routing that reports a UBC
-  stop back to gdb) rather than a test-suite problem, but pinning down
-  exactly where is a separate investigation from writing test coverage --
-  these tests are being kept (not weakened or skipped) specifically so that
-  investigation has a reliable, scripted way to reproduce and verify a fix.
-  A `test_watchpoint`/`test_hardware_breakpoint` failure is not itself cause
-  to suspect this campaign's own code; a `git blame`/history check on
-  `install_hardware_watchpoint()` and its exception-reporting path is the
-  more useful next step.
-
-**3. A slave breakpoint permanently stops further slave dispatch after its
-first hit, for the rest of the boot session -- confirmed, root-caused, and
-NOT YET FIXED (distinct from, and found while investigating, a related
-cache bug that IS fixed).** Two separate things were going on here:
-
-- **Fixed**: a software breakpoint on slave-executed code could silently
-  never fire at all, because the master's cache-purge after patching the
-  0xFFFF opcode only purges its OWN instruction cache -- the SH-2's Cache
-  Control Register is private per-CPU hardware with no bus path between the
-  two CPUs, so the slave kept executing its own stale, cached copy of the
-  original code indefinitely. Fixed in `srl_slave.hpp`'s `SlaveTask()`
-  (the universal per-dispatch wrapper for every `SRL::Slave::ExecuteOnSlave()`
-  call): it now purges the slave's own cache, inline, before running any
-  task -- no cross-CPU dispatch needed since it's already running there.
-  An earlier attempt fixed this from `srl_gdbstub.hpp` instead (dispatching
-  a dedicated purge task at breakpoint-install time); that only worked when
-  the slave happened to be idle at that exact instant, and silently failed
-  the rest of the time when it collided with an already-in-flight dispatch
-  -- see `srl_slave.hpp`'s comment on `SlaveTask()` for the full story.
-- **Confirmed, not fixed**: even with that cache fix, a slave breakpoint
-  reliably fires exactly ONCE per boot. After it's released (the master-side
-  `g_slave_stopped`/`g_slave_resume` handshake verified working correctly),
-  the interrupted `ITask`'s `running` flag never clears back to false --
-  confirmed by directly instrumenting `SlaveTask()` with a dispatch counter:
-  it climbs steadily before the breakpoint fires, then goes completely flat
-  (zero further dispatches over 4+ seconds) right after. Since
-  `SRL::Slave::ExecuteOnSlave()`'s documented, correct usage pattern gates on
-  `!task.IsRunning()` before redispatching (see `main.cxx`), the task that
-  was breakpointed is never dispatched again for the rest of the boot
-  session -- only a power-cycle recovers it. Full root cause not isolated
-  (would need SH-2-assembly-level tracing of `srl_gdbstub_slave_illegal_thunk`'s
-  exact resume/RTE sequence, a separate undertaking from writing test
-  coverage); documented at `slave_breakpoint_handler()` in `srl_gdbstub.hpp`.
-  Practical effect on this suite: `slave breakpoint re-arms after detach`
-  now deterministically demonstrates this bug rather than confirming the
-  `SlaveReleaseGuard` fix it was originally written to regression-test --
-  the master-side release it checks for is confirmed still correct, but the
-  slave-side dispatch it also implicitly depends on is not currently
-  recovering, so this test is expected to fail until that's fixed.
-
-`g_testVariable` is also live, shared target state, not reset between
-tests: each test connects fresh, but the *target* keeps running continuously
-across the whole suite, so a `monitor touch`/`step` queued by one test that
-gets cut short (e.g. by a timeout, before its own cleanup runs) can still
-land and nudge `g_testVariable` before the next test reads it. The
-single-step test's exact expected value is the one most exposed to this.
+**Fixed: a slave breakpoint used to wedge the program.** The two SH-2 caches
+don't see each other's writes, and the slave waited for `g_slave.Resume`
+through its own cache, so it never saw the master release it -- it stayed
+parked inside SGL's slave interrupt, freezing the main loop. The same stale
+read made `ITask::IsRunning()` never clear on the master. Both now read these
+cross-CPU flags through the cache-through (`0x20000000`) mirror.
