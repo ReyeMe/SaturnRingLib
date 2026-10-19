@@ -162,13 +162,11 @@ plain SIGTRAP, while GDB only recognizes a watchpoint hit when the stop reply
 names it (`watch:`/`rwatch:`/`awatch:`/`hwbreak:`). Removing a watchpoint
 now clears BBRA, which is what actually disarms the channel.
 
-**A breakpoint left armed by a killed GDB stays patched in.** `D`/`k` clear
-breakpoints, but a GDB that dies while the target runs leaves its `0xFFFF`
-patches in memory. The next session doesn't notice: the stale breakpoint
-still fires, GDB silently resumes from a stop it never asked for, and the
-stub re-inserts the patch. The `left armed by a killed GDB` scenario checks
-the memory directly and is expected to fail until the stub clears breakpoints
-when a new session starts.
+**Fixed: a breakpoint left armed by a killed GDB stayed patched in.** `D`/`k`
+clear breakpoints, but a GDB that died while the target ran left its `0xFFFF`
+patches in memory; they kept firing, with GDB silently resuming. The stub now
+clears all breakpoints (and the UBC watchpoint) when a new session sends
+`qSupported`; the `left armed by a killed GDB` scenario checks the memory.
 
 **Fixed: a slave breakpoint used to wedge the program.** The two SH-2 caches
 don't see each other's writes, and the slave waited for `g_slave.Resume`
