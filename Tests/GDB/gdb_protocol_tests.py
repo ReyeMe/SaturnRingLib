@@ -830,7 +830,8 @@ def test_monitor_only_last_queued_command_wins(s):
 def test_interrupt_bt_then_breakpoint(s):
     s.cmd("continue", timeout=2)
     assert re.search(r"SIGINT|received signal", s.interrupt_and_wait(), re.IGNORECASE)
-    assert "(gdb)" in s.cmd("bt", timeout=15), "bt did not return"
+    # Unwinding through SGL's no-debug-info interrupt code costs GDB hundreds of 2-byte reads.
+    assert "(gdb)" in s.cmd("bt", timeout=60), "bt did not return"
     _hit_steppable(s)
 
 

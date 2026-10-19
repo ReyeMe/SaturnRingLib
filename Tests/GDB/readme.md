@@ -152,13 +152,14 @@ network mid-run; the console then loses power and every later test fails
 with "monitor command not supported by this target" or FTDI errors in
 `ftx_gdb.log` -- check the PSU and rerun.
 
-**Hardware breakpoints and watchpoints (`Z1`-`Z4`, the SH-2 UBC) never
-fire.** `install_hardware_watchpoint()` reports success, but no stop ever
-arrives. Most likely cause: every value written to BBRA (`0x10`, `0x28`,
-`0x24`, `0x2C`) leaves the CPU/peripheral-cycle select bits (7-6) at `00`,
-which the SH7604 manual describes as "no break". This affects the
-watchpoint, `hbreak` and breakpoint-plus-watchpoint tests; they are kept
-(not skipped) so a fix can be verified.
+**Fixed: hardware breakpoints and watchpoints (`Z1`-`Z4`, the SH-2 UBC) never
+fired.** Three things were wrong: BRCR was written at `0xFFFFFF60` (that is
+BARBH, channel B -- BRCR is `0xFFFFFF78`); every BBRA condition field left at
+`00` means "never break", so the CPU-cycle bits (7-6) and, for instruction
+fetches, the read bits (3-2) must be set; and a UBC stop was reported as a
+plain SIGTRAP, while GDB only recognizes a watchpoint hit when the stop reply
+names it (`watch:`/`rwatch:`/`awatch:`/`hwbreak:`). Removing a watchpoint
+now clears BBRA, which is what actually disarms the channel.
 
 **A breakpoint left armed by a killed GDB stays patched in.** `D`/`k` clear
 breakpoints, but a GDB that dies while the target runs leaves its `0xFFFF`
