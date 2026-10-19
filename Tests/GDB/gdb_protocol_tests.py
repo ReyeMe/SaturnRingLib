@@ -648,7 +648,7 @@ def test_single_step(s):
 
 CRASH_TRIGGERS = [
     "illegal", "reserved", "slotillegal", "slotreserved",
-    "genillegal", "dma", "ubc", "trapa3",
+    "genillegal", "dma", "ubc", "trapa35",
 ]
 
 
@@ -833,6 +833,25 @@ def test_interrupt_bt_then_breakpoint(s):
     # Unwinding through SGL's no-debug-info interrupt code costs GDB hundreds of 2-byte reads.
     assert "(gdb)" in s.cmd("bt", timeout=60), "bt did not return"
     _hit_steppable(s)
+
+
+@test("scenario: stepi over a trapa the stub handles lands on the next instruction")
+def test_stepi_over_handled_trapa(s):
+    # trapa #35 vectors into the stub itself: the step must not patch the stub's entry.
+    s.cmd("break Trapa35", timeout=5)
+    s.cmd("monitor crash trapa35", timeout=5)
+    assert "Trapa35" in s.cmd("continue", timeout=10), "breakpoint on Trapa35 not hit"
+    for _ in range(4):
+        if "trapa" in s.cmd("x/i $pc", timeout=5):
+            break
+        s.cmd("stepi", timeout=10)
+    else:
+        raise AssertionError("never reached the trapa instruction")
+    trapa_pc = parse_hex(s.cmd("p/x $pc", timeout=5))
+    out = s.cmd("stepi", timeout=10)
+    assert "SIGILL" not in out, f"stepping the trapa crashed: {out!r}"
+    pc = parse_hex(s.cmd("p/x $pc", timeout=5))
+    assert pc == trapa_pc + 2, f"after stepi pc is {pc:#x}, expected {trapa_pc + 2:#x}"
 
 
 @test("scenario: after a reserved-instruction crash, skipping it lets the program run on")

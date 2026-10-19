@@ -96,7 +96,8 @@ operations on purpose. Coverage:
   without a fake SIGILL; conditional breakpoints with a true and a false
   condition; a variable written while stopped being what the resumed program
   sees; Ctrl-C, `bt`, then a breakpoint; recovering from a reserved-instruction
-  crash by stepping `$pc` over it (exercises the `C04` resume); a master
+  crash by stepping `$pc` over it (exercises the `C04` resume); `stepi` over a
+  `trapa` the stub itself handles; a master
   breakpoint after a slave breakpoint stop (regression test for the
   stale-cache wedge); and a breakpoint left armed by a killed GDB not stopping
   the next session.
