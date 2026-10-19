@@ -102,7 +102,7 @@ void UserBreakController()
     volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
     volatile uint16_t *BAMRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF44U);
     volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
-    volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
+    volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U);
 
     // Capture the return address: whatever called this function will
     // be the first instruction executed after we re-enable the CPU.
@@ -111,10 +111,10 @@ void UserBreakController()
 
     *BARA = return_pc; // break exactly at the return site
     *BAMRA = 0x0000U;  // no address masking — exact match
-    // BBRA: CPFETCH=1 (instruction fetch cycle), no data cycle
-    *BBRA = 0x0010U;
-    // BRCR: UBDE=1 (enable UBC), CMFAi=0 (no interrupt masking)
-    *BRCR = 0x0001U;
+    // BBRA: CPU cycles (bits 7-6 = 01), instruction fetch (5-4 = 01), read (3-2 = 01); a 00 field never breaks
+    *BBRA = 0x0054U;
+    // BRCR: independent channels, break before the instruction runs
+    *BRCR = 0x0000U;
 
     // The break fires on the instruction fetch at return_pc,
     // i.e. the first instruction the caller executes after this returns.

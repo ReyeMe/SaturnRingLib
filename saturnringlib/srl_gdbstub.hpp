@@ -18,12 +18,12 @@ extern "C"
     /**
      * @brief Slave-side breakpoint handler, called by srl_gdbstub_slave_illegal_thunk on the slave SH-2.
      */
-    void slave_breakpoint_handler(void);
+    void slave_breakpoint_handler();
 
     /**
      * @brief Fixed-symbol trampoline into SRL::GDBStub::process_commands(), called by srl_gdbstub_exception_thunk.
      */
-    void srl_gdbstub_process_commands(void);
+    void srl_gdbstub_process_commands();
 
     /**
      * @brief Shared master-side exception entry: saves the full SH-2 context, runs the RSP loop, restores and returns.
@@ -43,6 +43,11 @@ extern "C"
      * @brief Address-error family entry: tags the stop as SIGBUS, then falls into srl_gdbstub_exception_thunk.
      */
     void srl_gdbstub_addrerr_thunk();
+
+    /**
+     * @brief User Break Controller entry: flags the stop as a UBC hit, then falls into srl_gdbstub_exception_thunk.
+     */
+    void srl_gdbstub_ubc_thunk();
 
     /**
      * @brief Slave-side illegal-instruction entry: saves the slave context and calls slave_breakpoint_handler().
@@ -226,6 +231,9 @@ namespace SRL
          */
         __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5;
 
+        /** @brief Set to 1 by srl_gdbstub_ubc_thunk when the current stop is a UBC (hbreak/watchpoint) hit */
+        __attribute__((used)) inline static volatile uint8_t g_ubc_hit __asm__("srl_gdbstub_ubc_hit") = 0;
+
         /**
          * @brief How the current debug stop came about (beyond g_last_stop_signal,
          * which the thunks write by symbol).
@@ -262,10 +270,13 @@ namespace SRL
              * reported as SIGILL. Cleared on resume.
              */
             volatile uint8_t SignalOverride;
+
+            /** @brief The current stop is a hit of GDB's UBC breakpoint/watchpoint (reported as hwbreak/watch) */
+            bool WasUbcHit;
         };
 
         /** @brief Current stop state */
-        inline static StopStatus g_stop = {false, false, 0};
+        inline static StopStatus g_stop = {false, false, 0, false};
 
         /**
          * @brief Signal to report to GDB for the current stop.
@@ -389,10 +400,16 @@ namespace SRL
              * route through these two functions rather than programming the registers itself.
              */
             bool UbcChannelAActive;
+
+            /** @brief Z-packet type channel A was armed with (1 = hbreak, 2/3/4 = write/read/access watch) */
+            uint32_t UbcType;
+
+            /** @brief Address channel A was armed with */
+            uint32_t UbcAddress;
         };
 
         /** @brief Current breakpoint state */
-        inline static BreakpointStatus g_breakpoints = {{}, false, -1, false};
+        inline static BreakpointStatus g_breakpoints = {{}, false, -1, false, 0, 0};
 
         // --- Utility Functions ---
 
@@ -912,17 +929,20 @@ namespace SRL
             volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
             volatile uint16_t *BAMRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF44U);
             volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
-            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
 
             *BARA = address;
             *BAMRA = 0x0000U; // exact match
 
+            // BBRA bits 7-6 select the bus cycle to compare: 00 = never break,
+            // 01 = CPU cycles. Leaving them at 00 is why no hbreak/watchpoint ever fired.
+            constexpr uint16_t kBreakOnCpuCycles = 0x0040U;
             uint16_t bbra_val = 0;
             switch (type)
             {
             case 1:
-                bbra_val = 0x0010U;
-                break; // HW breakpoint (Instruction fetch)
+                bbra_val = 0x0014U;
+                break; // HW breakpoint (instruction fetch, read: a 00 read/write field never breaks)
             case 2:
                 bbra_val = 0x0028U;
                 break; // Write watchpoint
@@ -936,11 +956,13 @@ namespace SRL
                 return false;
             }
 
-            *BBRA = bbra_val;
-            *BRCR = 0x0001U;                  // Enable UBC Channel A
+            *BBRA = kBreakOnCpuCycles | bbra_val;
+            *BRCR = 0x0000U;                  // independent channels, break before the instruction runs
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
 
             g_breakpoints.UbcChannelAActive = true;
+            g_breakpoints.UbcType = type;
+            g_breakpoints.UbcAddress = address;
             return true;
         }
 
@@ -958,8 +980,10 @@ namespace SRL
             {
                 return false;
             }
-            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
-            *BRCR = 0x0000U; // Disable UBC
+            volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
+            *BBRA = 0x0000U; // no break condition: this, not BRCR, is what disarms channel A
+            *BRCR = 0x0000U;
             g_breakpoints.UbcChannelAActive = false;
             return true;
         }
@@ -1137,6 +1161,15 @@ namespace SRL
         inline static void adjust_pc_for_software_breakpoint()
         {
             g_stop.WasSwBreak = false;
+            g_stop.WasUbcHit = false;
+            if (g_ubc_hit != 0U)
+            {
+                // UBC break (vector 12): the hardware PC is already right for GDB.
+                g_ubc_hit = 0U;
+                g_stop.WasUbcHit = true;
+                g_last_stop_signal = 5U; // SIGTRAP
+                return;
+            }
             // SoftwareBreakInstruction (0xFFFF) is the SAME opcode CrashProgram() uses to
             // deliberately trigger a real Illegal Instruction crash, so vector 4's thunk
             // (srl_gdbstub_illegal_thunk) cannot tell "GDB's own breakpoint/step-trap fired"
@@ -1256,8 +1289,6 @@ namespace SRL
             // valid resume point. Flag this so continue/step treat it as a no-op.
             g_stop.CtxIsFake = true;
         }
-
-        // --- Transport (libyaul-style device hooks) ---
 
         /**
          * @brief Idle timeout (wait-loop iterations) applied after handshake when no packet arrives.
@@ -1608,6 +1639,19 @@ namespace SRL
                     const char *swb = "swbreak:;";
                     for (int i = 0; i < 9; ++i)
                         buf[len++] = swb[i];
+                }
+                else if (g_stop.WasUbcHit && g_breakpoints.UbcChannelAActive)
+                {
+                    // GDB only reports a watchpoint hit when the stop reply names it.
+                    static const char *const kUbcReason[] = {"hwbreak", "watch", "rwatch", "awatch"};
+                    const uint32_t type = g_breakpoints.UbcType;
+                    len = static_cast<int>(append_str(buf, static_cast<size_t>(len), kUbcReason[(type >= 1U && type <= 4U) ? type - 1U : 0U]));
+                    buf[len++] = ':';
+                    if (type >= 2U)
+                    {
+                        len = static_cast<int>(append_hex(buf, static_cast<size_t>(len), g_breakpoints.UbcAddress, 8));
+                    }
+                    buf[len++] = ';';
                 }
                 else
                 {
@@ -1975,9 +2019,9 @@ namespace SRL
 
             adjust_pc_for_software_breakpoint();
 
-            // Clear the UBC Channel A match flag (CMFA) in BRCR to prevent infinite re-entry loops.
-            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF60U);
-            *BRCR &= ~0x0080U;
+            // Clear the UBC channel A match flags (CMFCA/CMFPA, bits 15-14) in BRCR.
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
+            *BRCR &= ~0xC000U;
 
             undo_software_step();
 
@@ -2813,7 +2857,7 @@ namespace SRL
                 vbr_table[8] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Slot Reserved Instruction
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);    // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);   // DMA Address Error
-                vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // User Break Controller
+                vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_ubc_thunk);       // User Break Controller
                 vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
 
                 ForcePurgeCache();
@@ -3520,6 +3564,24 @@ __asm__(
     "nop\n"                              // bra's mandatory delay slot
     ".align 4\n"
     "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
+);
+
+__asm__(
+    ".weak _srl_gdbstub_ubc_thunk\n"
+    ".global _srl_gdbstub_ubc_thunk\n"
+    ".align 2\n"
+    "_srl_gdbstub_ubc_thunk:\n"
+    "mov.l r0, @-r15\n"                  // push r0 -- same save/restore-around-the-tag pattern as the thunks above
+    "mov.l r1, @-r15\n"                  // push r1
+    "mov.l 1f, r0\n"                     // r0 = &g_ubc_hit (literal pool label 1)
+    "mov #1, r1\n"                       // 1 = this stop is a UBC hit
+    "mov.b r1, @r0\n"                    // g_ubc_hit = 1 -- lets process_commands() report it as hwbreak/watch, which the shared thunk can't tell apart
+    "mov.l @r15+, r1\n"                  // pop r1 back
+    "mov.l @r15+, r0\n"                  // pop r0 back -- the shared thunk sees the untouched pre-exception state
+    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
+    "nop\n"                              // bra's mandatory delay slot
+    ".align 4\n"
+    "1: .long srl_gdbstub_ubc_hit\n"     // literal pool: address of g_ubc_hit
 );
 
 // Slave-side breakpoint thunk, installed by

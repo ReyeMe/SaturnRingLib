@@ -118,7 +118,7 @@ void DMAAddressError();
  *   BARA  = 0xFFFFFF40  break address A
  *   BAMRA = 0xFFFFFF44  break address mask A (0 = exact match)
  *   BBRA  = 0xFFFFFF48  break bus cycle A
- *   BRCR  = 0xFFFFFF60  break control
+ *   BRCR  = 0xFFFFFF78  break control (0xFFFFFF60 is BARBH, channel B)
  */
 void UserBreakController();
 
