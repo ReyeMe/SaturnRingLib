@@ -2078,7 +2078,10 @@ namespace SRL
                     (void)*(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
                 }
             }
-            else if (g_session.HandshakeDone)
+            // Not on Poll()'s path either: there a new GDB's first packet brought us here, and
+            // HandshakeDone may be stale from a GDB that died -- an unrequested stop reply
+            // would arrive before its qSupported answer and shift every reply after it.
+            else if (g_session.HandshakeDone && !g_stop.CtxIsFake)
             {
                 // If we are already connected and we just entered the trap handler
                 // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
