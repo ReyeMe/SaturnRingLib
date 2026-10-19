@@ -602,6 +602,14 @@ def test_breakpoint_removed_before_hit(s):
     assert not re.search(r"Breakpoint|SteppableFunction", out), f"deleted breakpoint still fired: {out!r}"
 
 
+@test("software breakpoint in BIOS ROM is refused (E03), not silently accepted")
+def test_breakpoint_in_rom_refused(s):
+    rom_addr = 0x800  # BIOS ROM: the 0xFFFF patch can't stick
+    before = s.packet(f"m{rom_addr:x},2")
+    assert s.packet(f"Z0,{rom_addr:x},2") == "E03", "a breakpoint in ROM must be refused"
+    assert s.packet(f"m{rom_addr:x},2") == before, "ROM content changed"
+
+
 @test("hardware breakpoint (Z1/hbreak, distinct from the software Z0 path) hits")
 def test_hardware_breakpoint(s):
     s.cmd("hbreak SteppableFunction", timeout=5)

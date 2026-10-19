@@ -878,9 +878,14 @@ namespace SRL
             }
 
             volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
-            g_breakpoints.Software[slot].address = address;
-            g_breakpoints.Software[slot].original_instruction = *code;
+            const uint16_t original = *code;
             *code = SoftwareBreakInstruction;
+            if (*code != SoftwareBreakInstruction)
+            {
+                return false; // read-only memory (BIOS ROM): GDB reports "Cannot insert breakpoint"
+            }
+            g_breakpoints.Software[slot].address = address;
+            g_breakpoints.Software[slot].original_instruction = original;
             g_breakpoints.Software[slot].active = true;
             PurgeCache();
             return true;
@@ -1143,16 +1148,39 @@ namespace SRL
                 target_pc = branch_target;
             }
 
-            // Put a single-step trap at the target address.
-            if ((target_pc & 1U) == 0U && is_valid_memory_range(target_pc, 2U))
+            const bool is_call = (opcode & 0xf000U) == 0xb000U    // BSR
+                                 || (opcode & 0xf0ffU) == 0x400bU // JSR
+                                 || (opcode & 0xf0ffU) == 0x0003U; // BSRF
+            if (!place_step_trap(target_pc) && is_call)
             {
-                volatile uint16_t *target_code = reinterpret_cast<volatile uint16_t *>(target_pc | 0x20000000U);
-                g_step_data.address = target_pc;
-                g_step_data.original_instruction = *target_code;
-                *target_code = SoftwareBreakInstruction;
-                g_step_data.active = true;
-                PurgeCache();
+                // The callee can't be patched (BIOS ROM): step over the call instead of running free.
+                place_step_trap(pc + 4U);
             }
+        }
+
+        /**
+         * @brief Patches the single-step trap (0xFFFF) at an address and records it in g_step_data.
+         * @param address Instruction address to trap
+         * @return false if the address is invalid or read-only (the write did not stick)
+         */
+        inline static bool place_step_trap(uint32_t address)
+        {
+            if ((address & 1U) != 0U || !is_valid_memory_range(address, 2U))
+            {
+                return false;
+            }
+            volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
+            const uint16_t original = *code;
+            *code = SoftwareBreakInstruction;
+            if (*code != SoftwareBreakInstruction)
+            {
+                return false; // read-only memory (BIOS ROM)
+            }
+            g_step_data.address = address;
+            g_step_data.original_instruction = original;
+            g_step_data.active = true;
+            PurgeCache();
+            return true;
         }
 
         /**
