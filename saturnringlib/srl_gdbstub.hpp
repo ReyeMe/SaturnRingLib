@@ -2118,6 +2118,12 @@ namespace SRL
                 case 'q':
                     if (starts_with(in_buf, "qSupported"))
                     {
+                        // A new GDB session starts with no breakpoints: drop any that a GDB which
+                        // died while the target ran (no D/k) left patched in -- they would keep
+                        // firing, with GDB silently resuming from stops it never asked for.
+                        clear_breakpoints(true);
+                        remove_hardware_watchpoint(0U, 0U);
+
                         // Advertise swbreak, hwbreak (Z1-Z4 are implemented via the UBC,
                         // see install_hardware_watchpoint), and target description so GDB
                         // knows the arch. Dynamically insert the PacketSize to ensure it
