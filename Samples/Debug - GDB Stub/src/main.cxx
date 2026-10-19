@@ -96,15 +96,15 @@ int main()
     SRL::Debug::Print(22, 5, "Z: Gen. Illegal");
     SRL::Debug::Print(22, 6, "L: DMA Addr Err");
     SRL::Debug::Print(22, 7, "R: UBC Break");
-    SRL::Debug::Print(22, 8, "START: TRAPA 3");
+    SRL::Debug::Print(22, 8, "START: TRAPA 35");
     SRL::Debug::Print(22, 9, "UP: Step demo");
     SRL::Debug::Print(22, 10, "DOWN: Touch var");
     Log::LogPrint("GDB Stub active, waiting for GDB connection via Poll()");
     Log::LogPrint("monitor commands: crash illegal|addr|reserved|slotillegal|"
-        "slotreserved|genillegal|dma|ubc|trapa3, step, touch, regs slave, trace");
+        "slotreserved|genillegal|dma|ubc|trapa35, step, touch, regs slave, trace");
 
     SRL::Core::Synchronize();
-    // NOTE: Break() issues trapa #32 which blocks the Saturn in the RSP command loop
+    // NOTE: Break() executes 0xFFFF, which blocks the Saturn in the RSP command loop
     // waiting for a GDB client. Only call it when GDB is already connected.
     // SRL::GDBStub::Break();
 
@@ -209,7 +209,7 @@ int main()
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::Z)) { GeneralIllegalInstruction(); }
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::L)) { DMAAddressError(); }
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::R)) { UserBreakController(); }
-        else if (gamepad.WasPressed(SRL::Input::Digital::Button::START)) { Trapa3(); }
+        else if (gamepad.WasPressed(SRL::Input::Digital::Button::START)) { Trapa35(); }
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::Up)) { SteppableFunction(); }
         else if (gamepad.WasPressed(SRL::Input::Digital::Button::Down)) { g_testVariable = g_testVariable + 1; }
 

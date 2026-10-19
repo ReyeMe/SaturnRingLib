@@ -1112,14 +1112,14 @@ namespace SRL
             }
             else if ((opcode & 0xff00U) == 0xc300U)
             { // TRAPA #imm
-                uint32_t vec_num = opcode & 0xffU;
-                if (vec_num <= 31U)
+                // TRAPA #imm jumps through VBR + imm*4 (imm IS the vector number).
+                const uint32_t vec_addr = GDBStub::MasterSH2().vbr + ((opcode & 0xffU) * 4U);
+                if (is_valid_memory_range(vec_addr, 4U))
                 {
-                    uint32_t vec_addr = GDBStub::MasterSH2().vbr + ((32U + vec_num) * 4U);
-                    if (is_valid_memory_range(vec_addr, 4U))
-                    {
-                        target_pc = *reinterpret_cast<volatile uint32_t *>(vec_addr | 0x20000000U);
-                    }
+                    const uint32_t handler = *reinterpret_cast<volatile uint32_t *>(vec_addr | 0x20000000U);
+                    // A trap the stub handles stops in the stub anyway, reported at pc+2:
+                    // never patch the stub's own entry (the trap would re-fault inside it).
+                    target_pc = handler == reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk) ? pc + 2U : handler;
                 }
             }
             else if (opcode == 0xFFFFU)
@@ -2841,12 +2841,13 @@ namespace SRL
                 // Patch our exceptions
                 // SH-2 exception vector layout from VBR:
                 //   Fixed exceptions (reset, NMI, etc): VBR + 0x000..0x07C  (indices 0..31)
-                //   External/internal interrupts:         VBR + 0x080..0x0FC  (indices 32..63)
-                //   TRAPA #N vectors:                     VBR + 0x080 + N*4   (indices 32+N)
+                //   TRAPA user vectors:                   VBR + 0x080..0x0FC  (indices 32..63)
+                //   Interrupts (SCU, on-chip peripherals): index 64 and up
+                //   TRAPA #N:                             VBR + N*4 (N is the vector; 32..63 are free for users)
                 // The "illegal opcode" family and "address error" family route through
                 // their own tiny trampolines so GDB is told SIGILL/SIGBUS instead of a
                 // generic SIGTRAP for these -- see srl_gdbstub_illegal_thunk /
-                // srl_gdbstub_addrerr_thunk's doc comment. UBC break and TRAPA #3 are
+                // srl_gdbstub_addrerr_thunk's doc comment. UBC break and TRAPA #35 are
                 // genuinely trap/breakpoint-like, so they keep reporting SIGTRAP as
                 // before and go straight to the shared thunk. NMI (vector 11) is not
                 // hooked.
@@ -2858,7 +2859,7 @@ namespace SRL
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);    // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);   // DMA Address Error
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_ubc_thunk);       // User Break Controller
-                vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #3 (Legacy/Fallback)
+                vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #35 (Legacy/Fallback)
 
                 ForcePurgeCache();
                 g_handlers_installed = true;

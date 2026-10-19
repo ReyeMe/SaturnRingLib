@@ -121,9 +121,9 @@ void UserBreakController()
     asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
 }
 
-void Trapa3()
+void Trapa35()
 {
-    asm volatile("trapa #3" ::: "memory");
+    asm volatile("trapa #35" ::: "memory"); // TRAPA #N uses vector N; #3 would jump through the reset-SP vector
 }
 
 void SteppableFunction()
@@ -146,7 +146,7 @@ void HandleMonitorCommand(const char* cmd)
     else if (StrEquals(cmd, "crash genillegal")) { GeneralIllegalInstruction(); }
     else if (StrEquals(cmd, "crash dma")) { DMAAddressError(); }
     else if (StrEquals(cmd, "crash ubc")) { UserBreakController(); }
-    else if (StrEquals(cmd, "crash trapa3")) { Trapa3(); }
+    else if (StrEquals(cmd, "crash trapa35")) { Trapa35(); }
     else if (StrEquals(cmd, "step")) { SteppableFunction(); }
     else if (StrEquals(cmd, "touch")) { g_testVariable = g_testVariable + 1; }
     else
@@ -156,7 +156,7 @@ void HandleMonitorCommand(const char* cmd)
         // send_slave_regs_dump()/send_halt_trace_dump())
         // and never reach this dispatcher.
         Log::LogPrint("monitor: unknown command '%s' -- try crash illegal|addr|reserved|"
-            "slotillegal|slotreserved|genillegal|dma|ubc|trapa3, step, touch, "
+            "slotillegal|slotreserved|genillegal|dma|ubc|trapa35, step, touch, "
             "regs slave, or trace", cmd);
     }
 }
