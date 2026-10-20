@@ -1758,8 +1758,27 @@ namespace SRL
 
         // --- Core Handler ---
 
-        /** @brief Number of slave pseudo-register indices accepted by 'p'/'P' (starting at 23) */
-        static constexpr size_t NumSlaveRegs = 24U;
+        /**
+         * @brief Maps a GDB register number to its slot: 0-22 in g_ctx, 23-45 in g_slave_ctx.
+         * @details SH2Context is laid out in GDB's order (r0-r15, pc, pr, gbr, vbr, mach, macl, sr),
+         * which is also why the 'g' packet can dump it whole.
+         * @param reg_idx GDB register number
+         * @return The register, or nullptr when reg_idx is out of range
+         */
+        inline static uint32_t *register_slot(uint32_t reg_idx)
+        {
+            constexpr uint32_t kRegsPerCpu = sizeof(SH2Context) / sizeof(uint32_t);
+            static_assert(kRegsPerCpu == 23U, "SH2Context must stay in GDB's 23-register order");
+            if (reg_idx < kRegsPerCpu)
+            {
+                return reinterpret_cast<uint32_t *>(&g_ctx) + reg_idx;
+            }
+            if (reg_idx < 2U * kRegsPerCpu)
+            {
+                return reinterpret_cast<uint32_t *>(&g_slave_ctx) + (reg_idx - kRegsPerCpu);
+            }
+            return nullptr;
+        }
 
         /**
          * @brief Fixed 'g' packet register count GDB's SH backend requires.
@@ -2455,67 +2474,13 @@ namespace SRL
                 {
                     uint32_t reg_idx = 0;
                     const char *ptr = &in_buf[1];
-                    if (!parse_hex_u32_until(ptr, '\0', reg_idx, ptr))
+                    uint32_t *reg = parse_hex_u32_until(ptr, '\0', reg_idx, ptr) ? register_slot(reg_idx) : nullptr;
+                    if (reg == nullptr)
                     {
                         packet_put('\0', "E01", 3);
                         break;
                     }
-
-                    if (reg_idx > 22 + NumSlaveRegs)
-                    {
-                        packet_put('\0', "E01", 3);
-                        break;
-                    }
-
-                    if (reg_idx >= 23)
-                    {
-                        const uint32_t slave_reg_index = reg_idx - 23;
-                        uint32_t *reg_ptr = &GDBStub::SlaveSH2().r[0];
-                        if (slave_reg_index < 16U)
-                            reg_ptr = &GDBStub::SlaveSH2().r[slave_reg_index];
-                        else if (slave_reg_index == 16U)
-                            reg_ptr = &GDBStub::SlaveSH2().pc;
-                        else if (slave_reg_index == 17U)
-                            reg_ptr = &GDBStub::SlaveSH2().pr;
-                        else if (slave_reg_index == 18U)
-                            reg_ptr = &GDBStub::SlaveSH2().gbr;
-                        else if (slave_reg_index == 19U)
-                            reg_ptr = &GDBStub::SlaveSH2().vbr;
-                        else if (slave_reg_index == 20U)
-                            reg_ptr = &GDBStub::SlaveSH2().mach;
-                        else if (slave_reg_index == 21U)
-                            reg_ptr = &GDBStub::SlaveSH2().macl;
-                        else if (slave_reg_index == 22U)
-                            reg_ptr = &GDBStub::SlaveSH2().sr;
-                        else
-                        {
-                            packet_put('\0', "E01", 3);
-                            break;
-                        }
-                        const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg_ptr), out_buf, 4) - out_buf);
-                        packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                        break;
-                    }
-
-                    uint32_t *reg_ptr = &GDBStub::MasterSH2().r[0];
-                    if (reg_idx < 16)
-                        reg_ptr = &GDBStub::MasterSH2().r[reg_idx];
-                    else if (reg_idx == 16)
-                        reg_ptr = &GDBStub::MasterSH2().pc;
-                    else if (reg_idx == 17)
-                        reg_ptr = &GDBStub::MasterSH2().pr;
-                    else if (reg_idx == 18)
-                        reg_ptr = &GDBStub::MasterSH2().gbr;
-                    else if (reg_idx == 19)
-                        reg_ptr = &GDBStub::MasterSH2().vbr;
-                    else if (reg_idx == 20)
-                        reg_ptr = &GDBStub::MasterSH2().mach;
-                    else if (reg_idx == 21)
-                        reg_ptr = &GDBStub::MasterSH2().macl;
-                    else if (reg_idx == 22)
-                        reg_ptr = &GDBStub::MasterSH2().sr;
-
-                    const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg_ptr), out_buf, 4) - out_buf);
+                    const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg), out_buf, 4) - out_buf);
                     packet_put('\0', out_buf, static_cast<size_t>(tx_len));
                 }
                 break;
@@ -2523,74 +2488,12 @@ namespace SRL
                 {
                     uint32_t reg_idx = 0;
                     const char *ptr = &in_buf[1];
-                    if (!parse_hex_u32_until(ptr, '=', reg_idx, ptr) || *ptr != '=')
+                    uint32_t *reg = nullptr;
+                    if (parse_hex_u32_until(ptr, '=', reg_idx, ptr) && *ptr == '=')
                     {
-                        packet_put('\0', "E01", 3);
-                        break;
+                        reg = register_slot(reg_idx);
                     }
-                    ptr++; // skip '='
-
-                    if (reg_idx > 22 + NumSlaveRegs)
-                    {
-                        packet_put('\0', "E01", 3);
-                        break;
-                    }
-
-                    if (reg_idx >= 23)
-                    {
-                        const uint32_t slave_reg_index = reg_idx - 23;
-                        uint32_t *reg_ptr = &GDBStub::SlaveSH2().r[0];
-                        if (slave_reg_index < 16U)
-                            reg_ptr = &GDBStub::SlaveSH2().r[slave_reg_index];
-                        else if (slave_reg_index == 16U)
-                            reg_ptr = &GDBStub::SlaveSH2().pc;
-                        else if (slave_reg_index == 17U)
-                            reg_ptr = &GDBStub::SlaveSH2().pr;
-                        else if (slave_reg_index == 18U)
-                            reg_ptr = &GDBStub::SlaveSH2().gbr;
-                        else if (slave_reg_index == 19U)
-                            reg_ptr = &GDBStub::SlaveSH2().vbr;
-                        else if (slave_reg_index == 20U)
-                            reg_ptr = &GDBStub::SlaveSH2().mach;
-                        else if (slave_reg_index == 21U)
-                            reg_ptr = &GDBStub::SlaveSH2().macl;
-                        else if (slave_reg_index == 22U)
-                            reg_ptr = &GDBStub::SlaveSH2().sr;
-                        else
-                        {
-                            packet_put('\0', "E01", 3);
-                            break;
-                        }
-                        if (hex2mem(ptr, reinterpret_cast<uint8_t *>(reg_ptr), 4))
-                        {
-                            packet_put('\0', "OK", 2);
-                        }
-                        else
-                        {
-                            packet_put('\0', "E01", 3);
-                        }
-                        break;
-                    }
-
-                    uint32_t *reg_ptr = &GDBStub::MasterSH2().r[0];
-                    if (reg_idx < 16)
-                        reg_ptr = &GDBStub::MasterSH2().r[reg_idx];
-                    else if (reg_idx == 16)
-                        reg_ptr = &GDBStub::MasterSH2().pc;
-                    else if (reg_idx == 17)
-                        reg_ptr = &GDBStub::MasterSH2().pr;
-                    else if (reg_idx == 18)
-                        reg_ptr = &GDBStub::MasterSH2().gbr;
-                    else if (reg_idx == 19)
-                        reg_ptr = &GDBStub::MasterSH2().vbr;
-                    else if (reg_idx == 20)
-                        reg_ptr = &GDBStub::MasterSH2().mach;
-                    else if (reg_idx == 21)
-                        reg_ptr = &GDBStub::MasterSH2().macl;
-                    else if (reg_idx == 22)
-                        reg_ptr = &GDBStub::MasterSH2().sr;
-
-                    if (hex2mem(ptr, reinterpret_cast<uint8_t *>(reg_ptr), 4))
+                    if (reg != nullptr && hex2mem(ptr + 1, reinterpret_cast<uint8_t *>(reg), 4))
                     {
                         packet_put('\0', "OK", 2);
                     }
