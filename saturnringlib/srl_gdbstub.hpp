@@ -1895,7 +1895,7 @@ namespace SRL
         }
 
         /**
-         * @brief Prepares the CPU state for a GDB single-step command ('s' / 'vCont;s').
+         * @brief Prepares the CPU state for a GDB single-step command ('s'/'S').
          *
          * Places a temporary software breakpoint on the next sequential instruction
          * (or the branch target if the current instruction is a branch), ensuring
@@ -1952,7 +1952,7 @@ namespace SRL
         }
 
         /**
-         * @brief Prepares the CPU state for a GDB continue command ('c' / 'vCont;c').
+         * @brief Prepares the CPU state for a GDB continue command ('c'/'C').
          *
          * Restores the original instruction if the CPU is currently halted on a
          * software breakpoint, and sets up a silent step-over trap to re-insert
@@ -1998,7 +1998,7 @@ namespace SRL
         /**
          * @brief Core GDB Remote Serial Protocol (RSP) packet processor.
          *
-         * This function reads and parses RSP packets ('g', 'G', 'm', 'M', 'z', 'Z', 'vCont', etc.)
+         * This function reads and parses RSP packets ('g', 'G', 'm', 'M', 'z', 'Z', 'c', 's', etc.)
          * from the USB FIFO. It reads/writes CPU state via the `g_ctx` global exception frame,
          * manipulates software breakpoints, and responds to the debugger.
          * It executes entirely from the SH-2 exception context.
@@ -2079,7 +2079,7 @@ namespace SRL
             }
 
             // Drain any stale bytes that GDB sent before this trap fired.
-            // Without this, GDB startup packets (including vCont;c) queued in
+            // Without this, GDB startup packets (including a continue) queued in
             // the FIFO while the Saturn was initialising would immediately resume
             // the target upon the very first Break().
             //
@@ -2366,75 +2366,10 @@ namespace SRL
                     break;
 
                 case 'v':
-                    // Minimal v packet support for MI/VS Code remote sessions.
-                    if (starts_with(in_buf, "vCont?"))
-                    {
-                        constexpr const char vcont_supported[] = "vCont;c;s";
-                        packet_put('\0', vcont_supported, sizeof(vcont_supported) - 1);
-                    }
-                    else if (starts_with(in_buf, "vCont;"))
-                    {
-                        // Scan each ;action[:tid] pair.
-                        // Only treat as step if s/S applies to thread 1 (:1),
-                        // to all threads (:*), or has no thread qualifier at all.
-                        // A step directed at an unrecognised thread (e.g. ;s:2) is
-                        // ignored — fall through to continue for our single thread.
-                        bool has_step = false;
-                        const char *p = in_buf + 5;
-                        while (*p != '\0')
-                        {
-                            if (*p == ';')
-                            {
-                                ++p; // Skip ';'
-                                if (*p == '\0')
-                                    break;
-                                const char action = *p;
-
-                                // Scan to the next ';' or the end of the string
-                                const char *next_semi = p;
-                                while (*next_semi != '\0' && *next_semi != ';')
-                                {
-                                    ++next_semi;
-                                }
-
-                                if (action == 's' || action == 'S')
-                                {
-                                    // The token format is 's' or 'S' followed optionally by ':<thread>'
-                                    if (p + 1 == next_semi)
-                                    {
-                                        // Just "s" or "S", no qualifier
-                                        has_step = true;
-                                        break;
-                                    }
-                                    else if (p[1] == ':')
-                                    {
-                                        const char thread_id = p[2];
-                                        if (thread_id == '*' || (thread_id == '1' && (p[3] == '\0' || p[3] == ';')))
-                                        {
-                                            has_step = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                // Advance pointer to the next ';' (or end of string)
-                                p = next_semi;
-                            }
-                            else
-                            {
-                                ++p;
-                            }
-                        }
-                        if (has_step)
-                        {
-                            handle_gdb_step();
-                        }
-                        else
-                        {
-                            handle_gdb_continue();
-                        }
-                        return;
-                    }
-                    else if (starts_with(in_buf, "vRun"))
+                    // vCont? (and any other v packet but vRun) gets the empty "not supported"
+                    // reply: GDB only uses vCont when the stub also offers C/S, and falls back
+                    // to plain c/s/C either way.
+                    if (starts_with(in_buf, "vRun"))
                     {
                         // Extended-remote run compatibility: treat like continue.
                         handle_gdb_continue();
