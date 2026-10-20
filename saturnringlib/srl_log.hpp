@@ -346,14 +346,15 @@ namespace SRL
             }
 
             /** @brief Formatted log printer.
-             *  @tparam lvl Log level (default: MinLevel).
+             *  @tparam lvl Log level (default: INFO, like the free SRL::Logger::LogPrint(); a MinLevel
+             *          default made `lvl >= MinLevel` always true, so SRL_LOG_LEVEL=NONE still logged).
              *  @tparam Output Logger type.
              *  @tparam Args Variadic args for snprintf.
              *  @param message Format string.
              *  @param args Format arguments.
              *  Note: Uses static buffer; thread-unsafe but fine for embedded.
              */
-            template <SRL::Logger::LogLevels lvl = MinLevel, typename Output = DefaultLogger, typename... Args>
+            template <SRL::Logger::LogLevels lvl = SRL::Logger::LogLevels::INFO, typename Output = DefaultLogger, typename... Args>
             inline static void LogPrint(const char *message, Args... args)
             {
                 if constexpr (lvl >= MinLevel)
