@@ -520,6 +520,14 @@ def test_raw_g(s):
     assert re.fullmatch(r"[0-9a-fA-F]+", reply), reply
 
 
+@test("raw p reads master (0-22) and slave (23-45) registers and rejects 46")
+def test_raw_p_ranges(s):
+    for idx in (0, 22, 23, 45):  # r0, master sr, slave_r0, slave_sr
+        reply = s.packet(f"p{idx:x}")
+        assert re.fullmatch(r"[0-9a-fA-F]{8}", reply), f"p{idx:x}: {reply!r}"
+    assert s.packet("p2e") == "E01", "register 46 is past the slave set"
+
+
 @test("p $pc resolves to code within the loaded ROM image")
 def test_pc_sane(s):
     pc = parse_hex(s.cmd("p/x $pc", timeout=5))
