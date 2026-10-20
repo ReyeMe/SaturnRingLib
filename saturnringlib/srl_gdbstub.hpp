@@ -3069,37 +3069,10 @@ namespace SRL
          * @warning MUST be called from code running ON THE SLAVE SH-2 (e.g. via
          * SRL::Slave::ExecuteOnSlave / InstallSlaveExceptionTask below).
          *
-         * @warning UPDATE, hardware-confirmed: the "independent of, safe
-         * alongside SRL::Slave::ExecuteOnSlave()" claim this doc comment used
-         * to make here does NOT hold once a breakpoint actually fires. The
-         * vector itself (illegal instruction) genuinely doesn't overlap with
-         * FRT-ICI, and a breakpoint installs/hits/reports correctly the
-         * FIRST time -- but after exactly one hit, SRL::Slave::ExecuteOnSlave()
-         * never dispatches ANY task again for the rest of the boot session:
-         * confirmed by instrumenting SlaveTask() (srl_slave.hpp) with a
-         * dispatch counter that climbs steadily right up until a breakpoint
-         * fires here, then goes completely flat, and separately by
-         * instrumenting SlaveCounterTask::Do() itself the same way -- not a
-         * Do()-specific hang, the whole dispatch pipeline stops. The
-         * interrupted ITask's `running` flag simply never clears, so
-         * SRL::Slave::ExecuteOnSlave()'s documented `!task.IsRunning()`
-         * calling convention (see main.cxx) permanently blocks redispatch. A
-         * targeted fix attempt (re-arming TIER.ICIE from inside
-         * slave_breakpoint_handler() on the resume path, mirroring the
-         * since-removed slave-freeze handler's re-enable) did NOT resolve it, so this
-         * is very likely NOT simply "the interrupt-enable bit got left
-         * off" -- it looks like the same broader class of issue
-         * slave_counter_task.hpp's own @warning already documents for the
-         * since-removed InstallSlaveFreezeHandler() (SGL's slSlaveFunc dispatch-completion
-         * signaling getting disrupted by ANYTHING unusual happening during a
-         * dispatched callback -- that doc comment's own conclusion, "no
-         * ordering or dispatch-count workaround found... would need a
-         * from-scratch (non-SGL) slave wake-up path," appears to extend to
-         * this handler too, just via a different trigger (a nested
-         * exception mid-callback, not a competing interrupt vector) -- not
-         * fully root-caused; SGL's slSlaveFunc is precompiled, not available
-         * to inspect further without lower-level hardware tooling. Only a
-         * power-cycle currently recovers a task stuck this way.
+         * @note A slave breakpoint used to stop all further slave dispatch. That was a cache
+         * bug, not SGL: the two SH-2 caches don't see each other's writes, so the slave
+         * spun forever on a stale g_slave.Resume. The cross-CPU flags are now read through
+         * the cache-through mirror (see Uncached()), and dispatch resumes normally.
          *
          * Software breakpoints set via GDB's normal 'Z0' packet are just a
          * 0xFFFF memory patch and work regardless of which CPU's code they
@@ -3113,36 +3086,18 @@ namespace SRL
          * breakpoint hit here is one-shot (see slave_breakpoint_handler())
          * -- it's automatically removed the moment it's hit, so resuming
          * doesn't immediately re-fault on the same patched instruction. Set
-         * it again with a fresh 'break'/'Z0' if you need it to fire again --
-         * though per the warning above, that redispatch itself is currently
-         * not expected to succeed after the first hit.
+         * it again with a fresh 'break'/'Z0' if you need it to fire again.
          * There is also no real multi-thread RSP support: a slave stop halts
          * the whole session the same way Ctrl-C does, and the slave's saved
          * state is inspected via the existing `monitor regs slave` / slave
          * pseudo-registers, not by switching GDB threads.
          *
-         * @warning Hardware-confirmed: dispatching this function itself via
-         * SRL::Slave::ExecuteOnSlave() is unreliable -- the function body
-         * completes correctly on the slave (confirmed via
-         * g_slave.HandlersInstalled reading true, and via the installed
-         * handler subsequently catching real breakpoints correctly), but the
-         * ITask's own `running` flag was observed to never clear on the
-         * master side afterward, hanging any `while (task.IsRunning())` wait
-         * around this specific dispatch indefinitely. The `if (vbr == 0)`
-         * guard below was written assuming the slave's VBR is still at its
-         * boot-ROM default the first time any GDBStub code runs there, same
-         * as the master -- hardware testing found this false: the slave's
-         * VBR reads as already relocated (~0x06000400, not 0) by the time
-         * this runs, presumably by SGL's own slInitSystem()/dual-CPU setup,
-         * so the guard is skipped and this patches vector 4 directly into
-         * that already-live table instead of a fresh copy. That appears to
-         * be what disrupts slSlaveFunc's own dispatch-completion signal back
-         * to the master, even though it doesn't touch FRT-ICI. Callers must
-         * bound their own wait around this dispatch (see main.cxx's
-         * installExceptionTask usage) rather than waiting unconditionally.
-         * (See the UPDATE warning above: this same "running never clears"
-         * symptom, from an unrelated trigger, is what a slave breakpoint hit
-         * causes too -- likely the same underlying SGL fragility.)
+         * @note Hardware-confirmed: by the time this runs, SGL has already relocated
+         * the slave's VBR (~0x06000400, not 0), so the `if (vbr == 0)` copy below is
+         * skipped and vector 4 is patched straight into SGL's live table. The master
+         * used to see this task's `running` flag stuck at true afterwards; that was
+         * the same stale-cache read, fixed in ITask (srl_slave.hpp), which now reads
+         * its flags cache-through.
          */
         inline static void InstallSlaveExceptionHandler()
         {
@@ -3340,11 +3295,8 @@ extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
  * stop for Poll() on the master via g_slave.Stopped, then spins until the master
  * sets g_slave.Resume. See SRL::GDBStub::InstallSlaveExceptionHandler()'s doc
  * comment for the overall design (this is the slave-side half of that mechanism).
- * @warning Hardware-confirmed, NOT YET FIXED: a task interrupted by this
- * handler never dispatches again for the rest of the boot session --
- * see InstallSlaveExceptionHandler()'s doc comment for the full investigation,
- * evidence, and its connection to the already-documented SGL/FRT-ICI
- * dispatch-completion fragility in slave_counter_task.hpp.
+ * @note Both g_slave flags are read through Uncached(): a spin on the cached
+ * copy never sees the master's Resume, which left the slave parked forever.
  */
 extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
 {
