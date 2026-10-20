@@ -186,9 +186,6 @@ namespace SRL
             /** @brief Incremented each time the stub reads a byte from DevCart RX */
             volatile uint32_t RxDetectCount;
 
-            /** @brief Incremented each time Poll() sees RX data pending */
-            volatile uint32_t RxReadyCount;
-
             /** @brief Incremented each time the stub writes a byte to DevCart TX */
             volatile uint32_t TxByteCount;
 
@@ -197,7 +194,7 @@ namespace SRL
         };
 
         /** @brief Current data transfer state */
-        inline static TransferStatus g_transfer = {-1, 0, 0, 0, 0};
+        inline static TransferStatus g_transfer = {-1, 0, 0, 0};
 
         /**
          * @brief DevCart (USB cartridge) link status, as last observed by Init() / Poll().
@@ -212,16 +209,10 @@ namespace SRL
 
             /** @brief USB port currently available, refreshed on every Poll() */
             bool PortAvailable;
-
-            /** @brief Whether the cartridge-level USB data path should be enabled */
-            bool UsbDataPathEnabled;
-
-            /** @brief Raw CS0 USB_FLAGS value from the last read */
-            uint8_t LastUsbFlags;
         };
 
         /** @brief Current DevCart link status */
-        inline static DevCartStatus g_devcart = {false, false, true, 0xFF};
+        inline static DevCartStatus g_devcart = {false, false};
         
         /**
          * @brief POSIX signal of the last stop: 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS.
@@ -2781,15 +2772,6 @@ namespace SRL
         }
 
         /**
-         * @brief Returns true when cartridge-level USB data path should be enabled.
-         * @return Whether the cartridge-level USB data path should be enabled
-         */
-        inline static bool IsUsbDataPathEnabled()
-        {
-            return g_devcart.UsbDataPathEnabled;
-        }
-
-        /**
          * @brief Initialize the GDB stub and hook exception vectors.
          */
         inline static void Init()
@@ -2800,7 +2782,6 @@ namespace SRL
             g_session.CommandCount = 0;
             g_exception_thunk_count = 0;
             g_transfer.RxDetectCount = 0;
-            g_transfer.RxReadyCount = 0;
             g_transfer.TxByteCount = 0;
             g_transfer.PollFallbackCount = 0;
             g_session.LastCommand[0] = '\0';
@@ -2813,15 +2794,13 @@ namespace SRL
             g_devcart.Ready = SRL::DevCart::CS0::IsPortAvailable(); // CS0-only check
             g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
 
-            g_devcart.LastUsbFlags = SRL::DevCart::CS0::ReadFlags();
             g_stop.SignalOverride = 0;
             g_last_stop_signal = 5;
             g_breakpoints.UbcChannelAActive = false;
-            g_devcart.UsbDataPathEnabled = true;
             clear_breakpoints(false);
 
-            SRL::Logger::Log::LogPrint("[GDBStub] DevCart ready: %d, Port: %d, USB Datapath: %d",
-                                       g_devcart.Ready ? 1 : 0, g_devcart.PortAvailable ? 1 : 0, g_devcart.UsbDataPathEnabled ? 1 : 0);
+            SRL::Logger::Log::LogPrint("[GDBStub] DevCart ready: %d, Port: %d",
+                                       g_devcart.Ready ? 1 : 0, g_devcart.PortAvailable ? 1 : 0);
 
             InstallExceptionHandlers(); // no-op if already installed
             SRL::Logger::Log::LogPrint("[GDBStub] Init() end");
@@ -2864,15 +2843,6 @@ namespace SRL
         }
 
         /**
-         * @brief Returns how many times Poll() observed RX data pending in DevCart FIFO.
-         * @return Number of Poll() calls that saw RX data pending
-         */
-        inline static uint32_t GetRxReadyCount()
-        {
-            return g_transfer.RxReadyCount;
-        }
-
-        /**
          * @brief Returns how many TX bytes were written by the stub to DevCart.
          * @return Number of bytes written to DevCart TX
          */
@@ -2906,15 +2876,6 @@ namespace SRL
         inline static bool IsDevCartPortAvailable()
         {
             return g_devcart.PortAvailable;
-        }
-
-        /**
-         * @brief Returns latest raw USB_FLAGS value sampled by the stub.
-         * @return Raw CS0 USB_FLAGS value from the last read
-         */
-        inline static uint8_t GetLastUsbFlags()
-        {
-            return g_devcart.LastUsbFlags;
         }
 
         /**
@@ -3083,14 +3044,6 @@ namespace SRL
         }
 
         /**
-         * @brief Compatibility alias matching the upstream libyaul GDB stub API.
-         */
-        inline static void gdb_break()
-        {
-            Break();
-        }
-
-        /**
          * @brief Check for incoming GDB interrupt request
          */
         __attribute__((noinline)) inline static void Poll()
@@ -3122,14 +3075,11 @@ namespace SRL
             }
 
             const uint8_t usbFlags = SRL::DevCart::CS0::ReadFlags();
-            g_devcart.LastUsbFlags = usbFlags;
             g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
 
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::Rxf) == 0;
             if (rxPending)
             {
-                g_transfer.RxReadyCount = g_transfer.RxReadyCount + 1;
-
                 if (!g_session.HasConnection || !g_session.HandshakeDone)
                 {
                     // During initial attach/handshake, do not consume RX bytes here.
