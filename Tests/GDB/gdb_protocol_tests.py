@@ -464,10 +464,9 @@ def test_raw_t(s):
     assert s.packet("T01") == "OK"
 
 
-@test("raw vCont? advertises c/s support")
+@test("raw vCont? is not supported (GDB falls back to c/s/C)")
 def test_raw_vcont_query(s):
-    reply = s.packet("vCont?")
-    assert "vCont" in reply and "c" in reply and "s" in reply, reply
+    assert s.packet("vCont?") == ""
 
 
 @test("raw ? reports the initial stop signal")
