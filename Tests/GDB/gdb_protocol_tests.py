@@ -919,6 +919,25 @@ def test_detach_then_reconnect(s):
         s2.close()
 
 
+@test("scenario: stepi works on a real stop that follows a detached attach-while-running session")
+def test_stepi_after_detached_attach(s):
+    # This session attached via Poll()'s placeholder context; detaching (no c/s)
+    # used to leave it flagged fake, so the next real stop's stepi did nothing.
+    s.cmd("monitor crash trapa35", timeout=5)  # runs once the target resumes
+    s.cmd("detach", timeout=5)
+    s2 = new_session()
+    try:
+        s2.connect()  # the target is now halted in Trapa35, just past the trapa
+        assert "Trapa35" in s2.cmd("bt 1", timeout=5), "target did not stop in Trapa35"
+        pc = parse_hex(s2.cmd("p/x $pc", timeout=5))
+        out = s2.cmd("stepi", timeout=10)
+        assert "(gdb)" in out, f"stepi never stopped -- the target ran free: {out!r}"
+        new_pc = parse_hex(s2.cmd("p/x $pc", timeout=5))
+        assert new_pc == pc + 2, f"after stepi pc is {new_pc:#x}, expected {pc + 2:#x}"
+    finally:
+        s2.close()
+
+
 @test("scenario: raw k (kill) leaves the stub healthy for an immediate, independent reconnect")
 def test_kill_then_reconnect(s):
     try:
