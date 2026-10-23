@@ -3138,6 +3138,8 @@ namespace SRL
  */
 extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
 {
+    // A real exception: drop a fake-context flag left by a Poll() session that ended without c/s.
+    SRL::GDBStub::g_stop.CtxIsFake = false;
     SRL::GDBStub::process_commands();
 }
 
