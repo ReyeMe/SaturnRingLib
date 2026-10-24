@@ -3,17 +3,18 @@
 set -e
 
 usage() {
-    echo "Usage: $(basename "$0") <elf_file> [ipv4=localhost] [port=1234]" >&2
+    echo "Usage: $(basename "$0") <elf_file> [port=1234]" >&2
     exit 1
 }
 
-if [[ $# -lt 1 || $# -gt 3 ]]; then
+if [[ $# -lt 1 || $# -gt 2 ]]; then
     usage
 fi
 
 ELF_FILE="$1"
-HOST="${2:-localhost}"
-PORT="${3:-1234}"
+# This script starts (and health-checks) the ftx on THIS machine, so it only ever talks to localhost.
+HOST=localhost
+PORT="${2:-1234}"
 
 if [[ ! -f "$ELF_FILE" ]]; then
     echo "Error: ELF file not found: $ELF_FILE" >&2
