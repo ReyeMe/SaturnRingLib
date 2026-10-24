@@ -36,7 +36,7 @@ crashed CPU, an armed breakpoint, a busy UBC channel or a changed
 check one behavior each; tests named `scenario: ...` chain several debugger
 operations on purpose. Coverage:
 
-- **Protocol negotiation**: `qSupported`, `qXfer:features:read` (target.xml),
+- **Protocol negotiation**: `qSupported` (and that `qXfer:features:read` is not offered),
   `qAttached`, `qOffsets`, `qC`, `qfThreadInfo`/`qsThreadInfo`, `H`, `T`,
   `vCont?`, `?` -- each sent as a raw packet via GDB's `maint packet` and
   checked against the stub's actual implementation.

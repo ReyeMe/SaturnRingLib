@@ -2183,11 +2183,10 @@ namespace SRL
                         clear_breakpoints(true);
                         remove_hardware_watchpoint(0U, 0U);
 
-                        // Advertise swbreak, hwbreak (Z1-Z4 are implemented via the UBC,
-                        // see install_hardware_watchpoint), and target description so GDB
-                        // knows the arch. Dynamically insert the PacketSize to ensure it
-                        // stays in sync with kPacketDataMax.
-                        constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+;qXfer:features:read+";
+                        // Advertise swbreak and hwbreak (Z1-Z4 are implemented via the UBC,
+                        // see install_hardware_watchpoint). No qXfer:features target description:
+                        // GDB's SH port ignores it. PacketSize stays in sync with kPacketDataMax.
+                        constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+";
 
                         static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
                         static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
@@ -2207,117 +2206,6 @@ namespace SRL
                         out_buf[out_len] = '\0';
                         packet_put('\0', out_buf, out_len);
                         g_session.HandshakeDone = true;
-                    }
-                    else if (starts_with(in_buf, "qXfer:features:read:"))
-                    {
-                        // qXfer:features:read:target.xml:offset,length
-                        // Full SH-2 register description so gdb-multiarch auto-detects
-                        // architecture and register layout without needing 'set arch'.
-                        static const char target_xml[] =
-                            "<?xml version=\"1.0\"?>\n"
-                            "<!DOCTYPE target SYSTEM \"gdb-target.dtd\">\n"
-                            "<target version=\"1.0\">\n"
-                            "  <architecture>sh</architecture>\n"
-                            "  <feature name=\"org.gnu.gdb.sh.core\">\n"
-                            "    <reg name=\"r0\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r1\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r2\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r3\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r4\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r5\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r6\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r7\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r8\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r9\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\"/>\n"
-                            "    <reg name=\"pc\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"16\"/>\n"
-                            "    <reg name=\"pr\"  bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
-                            "    <reg name=\"gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\"/>\n"
-                            "    <reg name=\"mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "    <reg name=\"sr\"  bitsize=\"32\" type=\"uint32\" format=\"hex\"/>\n"
-                            "  </feature>\n"
-                            "  <feature name=\"org.sega.saturn.slave_sh2\">\n"
-                            "    <reg name=\"slave_r0\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"23\"/>\n"
-                            "    <reg name=\"slave_r1\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"24\"/>\n"
-                            "    <reg name=\"slave_r2\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"25\"/>\n"
-                            "    <reg name=\"slave_r3\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"26\"/>\n"
-                            "    <reg name=\"slave_r4\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"27\"/>\n"
-                            "    <reg name=\"slave_r5\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"28\"/>\n"
-                            "    <reg name=\"slave_r6\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"29\"/>\n"
-                            "    <reg name=\"slave_r7\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"30\"/>\n"
-                            "    <reg name=\"slave_r8\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"31\"/>\n"
-                            "    <reg name=\"slave_r9\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"32\"/>\n"
-                            "    <reg name=\"slave_r10\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"33\"/>\n"
-                            "    <reg name=\"slave_r11\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"34\"/>\n"
-                            "    <reg name=\"slave_r12\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"35\"/>\n"
-                            "    <reg name=\"slave_r13\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"36\"/>\n"
-                            "    <reg name=\"slave_r14\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"37\"/>\n"
-                            "    <reg name=\"slave_r15\" bitsize=\"32\" type=\"data_ptr\" format=\"hex\" regnum=\"38\"/>\n"
-                            "    <reg name=\"slave_pc\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"39\"/>\n"
-                            "    <reg name=\"slave_pr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"40\"/>\n"
-                            "    <reg name=\"slave_gbr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"41\"/>\n"
-                            "    <reg name=\"slave_vbr\" bitsize=\"32\" type=\"code_ptr\" format=\"hex\" regnum=\"42\"/>\n"
-                            "    <reg name=\"slave_mach\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"43\"/>\n"
-                            "    <reg name=\"slave_macl\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"44\"/>\n"
-                            "    <reg name=\"slave_sr\" bitsize=\"32\" type=\"uint32\" format=\"hex\" regnum=\"45\"/>\n"
-                            "  </feature>\n"
-                            "</target>\n";
-                        // Send in chunks respecting the requested length from GDB.
-                        // Parse offset and length from "qXfer:features:read:target.xml:off,len"
-                        static const size_t xml_len = sizeof(target_xml) - 1U;
-                        uint32_t xfer_off = 0, xfer_len = 0;
-                        bool xfer_ok = false;
-                        {
-                            const char *colon = in_buf;
-                            int colons = 0;
-                            while (*colon && colons < 4)
-                            {
-                                if (*colon++ == ':')
-                                    ++colons;
-                            }
-                            // colon now points past the 4th ':', i.e. at "off,len"
-                            // If the packet was malformed (fewer than 4 colons), *colon will
-                            // point exactly to '\0'. parse_hex_u32_until handles empty strings
-                            // correctly by immediately returning false, safely aborting the parse.
-                            if (parse_hex_u32_until(colon, ',', xfer_off, colon) && *colon == ',')
-                            {
-                                ++colon;
-                                xfer_ok = parse_hex_u32_until(colon, '\0', xfer_len, colon);
-                            }
-                        }
-                        if (!xfer_ok)
-                        {
-                            packet_put('\0', "E01", 3);
-                            break;
-                        }
-                        if (xfer_off >= xml_len)
-                        {
-                            out_buf[0] = 'l';
-                            packet_put('\0', out_buf, 1);
-                        }
-                        else
-                        {
-                            size_t avail = xml_len - xfer_off;
-                            size_t send = avail < xfer_len ? avail : xfer_len;
-                            if (send > kPacketDataMax)
-                                send = kPacketDataMax;
-
-                            // Ensure kPacketDataMax can never be raised so high that out_buf[1 + i] overflows.
-                            static_assert(kPacketDataMax < sizeof(out_buf) - 1U, "kPacketDataMax is too large for out_buf");
-
-                            bool last = (xfer_off + send >= xml_len);
-                            out_buf[0] = last ? 'l' : 'm';
-                            for (size_t i = 0; i < send; ++i)
-                                out_buf[1 + i] = target_xml[xfer_off + i];
-                            packet_put('\0', out_buf, 1 + send);
-                        }
                     }
                     else if (starts_with(in_buf, "qfThreadInfo"))
                     {

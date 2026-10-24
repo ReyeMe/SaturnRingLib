@@ -207,7 +207,7 @@ ftx -g 1234 -v
 (gdb) target remote host.docker.internal:1234
 ```
 
-> Note: `target remote` (not `target extended-remote`) is what's actually been verified against real hardware -- the stub does not implement the extra run-control packets (`vAttach`, `vRun`, `vKill`, ...) that `extended-remote` sessions can rely on. You generally don't need `set architecture` at all; GDB picks up "sh2" from the ELF automatically. If you do set it explicitly, be aware some GDB builds print `warning: Target-supplied registers are not supported by the current architecture` -- this is expected and harmless (see the pseudo-register caveat below).
+> Note: `target remote` (not `target extended-remote`) is what's actually been verified against real hardware -- the stub does not implement the extra run-control packets (`vAttach`, `vRun`, `vKill`, ...) that `extended-remote` sessions can rely on. You generally don't need `set architecture` at all; GDB picks up "sh2" from the ELF automatically.
 
 Ftx will print the communication log :
 
@@ -218,7 +218,7 @@ GDB>+
 GDB>$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;QThreadOptions+;no-resumed+;memory-tagging+;xmlRegisters=i386;error-message+#14
 GDB>$qSupported:multiprocess+;swbreak+;hwbreak+;qRelocInsn+;fork-events+;vfork-events+;exec-events+;vContSupported+;QThreadEvents+;QThreadOptions+;no-resumed+;memory-tagging+;xmlRegisters=i386;error-message+#14
 Target>+
-Target>$PacketSize=190;swbreak+;qXfer:features:read+#fa
+Target>$PacketSize=190;swbreak+;hwbreak+#69
 GDB>+
 GDB>$vCont?#49
 ...
@@ -374,7 +374,7 @@ How it surfaces to GDB: the slave's thunk saves full context into `g_slave_ctx` 
 
 ### Slave pseudo-registers -- known limitation
 
-`srl_gdbstub.hpp` advertises slave-CPU register state as named pseudo-registers (`$slave_pc`, `$slave_r0`, ...) via `qXfer:features:read`. In practice, **neither `gdb-multiarch` nor `sh-elf-gdb` honor this for the SH architecture** -- both hard-code a fixed register layout and print `warning: Target-supplied registers are not supported by the current architecture`, ignoring the extra names entirely. This isn't fixable from the target side; it's a limitation of GDB's (largely unmaintained) SH port. `monitor regs slave` is the practical, cross-client way to see this state instead.
+There are no named slave registers (`$slave_pc`, ...): **neither `gdb-multiarch` nor `sh-elf-gdb` accept a target-supplied register description (`qXfer:features:read`) for the SH architecture** -- both hard-code a fixed register layout -- so the stub doesn't offer one. This isn't fixable from the target side; it's a limitation of GDB's (largely unmaintained) SH port. Use `monitor regs slave`, or raw `p`/`P` with register numbers 23..45 (`maint packet p27`).
 
 VDP1/VDP2 hardware registers are **not** exposed by the stub at all (no pseudo-registers, no `monitor` command) -- **ordinary memory examination** at the real hardware address is the only way to inspect them, e.g.:
 ```gdb
