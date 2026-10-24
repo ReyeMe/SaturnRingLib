@@ -165,7 +165,7 @@ class GdbSession:
 
         gdb prints this as `received: "<reply>"` (lowercase, double-quoted,
         with non-printable/control bytes -- including literal newlines in
-        e.g. the qXfer target.xml payload -- escaped as \\xNN), not the
+        e.g. a monitor reply -- escaped as \\xNN), not the
         differently-cased, unquoted "Packet received: ..." originally
         assumed here. That mismatch alone made most raw-packet tests report
         "no reply" even when gdb's actual output, sitting right there in the
@@ -173,11 +173,9 @@ class GdbSession:
         """
         out = self.cmd(f"maint packet {payload}", timeout=timeout)
         # gdb escapes only non-printable bytes in the payload (as \xNN,
-        # including the payload's own embedded newlines -- e.g. in the
-        # qXfer target.xml reply -- so the whole thing stays on one
+        # including the payload's own embedded newlines, so the whole thing stays on one
         # terminal line); it does NOT escape literal '"' characters that
-        # appear in printable payload content (also common in that same
-        # XML reply: version="1.0", etc.). A quote-aware "stop at the first
+        # appear in printable payload content. A quote-aware "stop at the first
         # unescaped quote" regex truncates right there instead of at the
         # real end. Since escaping newlines guarantees the reply never
         # spans more than one line, greedily matching up to the LAST quote
@@ -426,11 +424,10 @@ def test_raw_qsupported_packet_size(s):
     assert size // 2 <= 511, f"PacketSize={size:#x} lets GDB request reads the stub rejects"
 
 
-@test("raw qXfer:features:read returns target.xml describing the SH-2/slave regs")
+@test("raw qXfer:features:read is not supported (GDB's SH port ignores target.xml)")
 def test_raw_qxfer(s):
-    reply = s.packet("qXfer:features:read:target.xml:0,3fb")
-    assert reply[:1] in ("m", "l"), reply
-    assert "<architecture>sh</architecture>" in reply, reply
+    assert "qXfer" not in s.packet("qSupported")
+    assert s.packet("qXfer:features:read:target.xml:0,3fb") == ""
 
 
 @test("raw qAttached reports attached-to-existing-process")
