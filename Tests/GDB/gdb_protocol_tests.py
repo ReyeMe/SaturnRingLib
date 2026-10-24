@@ -739,6 +739,25 @@ def test_slave_breakpoint(s):
     assert pc == int(bp_addr.group(1), 16), f"slave pc {pc:#x} != breakpoint {bp_addr.group(1)}"
 
 
+@test("scenario: a slave stop that happens while the master is halted is reported after continue")
+def test_slave_stop_during_master_halt(s):
+    main_cxx = os.path.join(os.path.dirname(ELF_PATH), "..", "src", "main.cxx")
+    src = open(main_cxx).read()
+    line = src[:src.index('"Loop counter: %d"')].count("\n") + 1  # runs right after the slave dispatch
+    interval = int(re.search(r"kSlaveDispatchInterval = (\d+);", src).group(1))
+    s.cmd("break SlaveCounterTask::Do", timeout=5)
+    s.cmd(f"break main.cxx:{line} if counter % {interval} == 0", timeout=5)
+    out = s.cmd("continue", timeout=15)
+    if "SIGINT" in out:
+        raise Skip("the slave's stop was reported before the master's breakpoint (timing); scenario not set up")
+    assert "main.cxx" in out or f":{line}" in out, f"expected the master breakpoint stop: {out!r}"
+    # The slave entered Do() and parked while the master sat on its breakpoint. That stop
+    # was never reported, so it must not be released silently on this continue.
+    s.cmd("delete", timeout=5)
+    out = s.cmd("continue", timeout=5)
+    _assert_slave_breakpoint_hit(s, out)
+
+
 # --------------------------------------------------------------------------
 # Monitor commands, timeouts
 # --------------------------------------------------------------------------
