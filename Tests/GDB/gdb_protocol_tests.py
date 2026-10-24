@@ -944,6 +944,9 @@ def test_kill_then_reconnect(s):
         s.packet("k", timeout=3)
     except RuntimeError:
         pass  # 'k' has no defined reply per the RSP spec; gdb may not print one.
+    # A raw `maint packet k` keeps gdb's connection open (a real `kill` closes it), and
+    # the proxy serves one client at a time -- drop it the way `kill` would.
+    s.kill_dirty()
     s2 = new_session()
     try:
         s2.connect(timeout=8)
