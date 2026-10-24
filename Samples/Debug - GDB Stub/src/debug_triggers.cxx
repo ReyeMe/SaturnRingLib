@@ -70,24 +70,28 @@ void CPUAddressError()
 
 void DMAAddressError()
 {
-    volatile uint32_t *SAR0 = reinterpret_cast<volatile uint32_t *>(0xFFFF8000U);
-    volatile uint32_t *DAR0 = reinterpret_cast<volatile uint32_t *>(0xFFFF8004U);
-    volatile uint32_t *TCR0 = reinterpret_cast<volatile uint32_t *>(0xFFFF8008U);
-    volatile uint32_t *CHCR0 = reinterpret_cast<volatile uint32_t *>(0xFFFF800CU);
-    volatile uint32_t *DMAOR = reinterpret_cast<volatile uint32_t *>(0xFFFF8040U);
+    // SH7604 DMAC channel 0 (same addresses as SGL's modules/sgl/IP/smpsys.c).
+    volatile uint32_t *SAR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF80U);
+    volatile uint32_t *DAR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF84U);
+    volatile uint32_t *TCR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF88U);
+    volatile uint32_t *CHCR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF8CU);
+    volatile uint32_t *DMAOR = reinterpret_cast<volatile uint32_t *>(0xFFFFFFB0U);
 
     // Scratch buffer in Work RAM — the destination side is kept valid;
     // only the source is misaligned to guarantee the address error.
-    static uint8_t scratch[16] = {};
+    alignas(4) static uint8_t scratch[16] = {};
+
+    (void)*DMAOR; // reading first lets the DMAOR write below clear a stale AE/NMIF flag
+    (void)*CHCR0;
+    *CHCR0 = 0U; // stop the channel; reading first lets the write clear a stale TE flag
 
     *SAR0 = reinterpret_cast<uint32_t>(&scratch[1]); // misaligned source
     *DAR0 = reinterpret_cast<uint32_t>(&scratch[8]); // aligned destination
     *TCR0 = 1U;                                      // transfer 1 unit
-    // CHCR0: TS=2 (32-bit), DM=01 (DAR increment), SM=01 (SAR increment),
-    //        IE=0, TE=0, DE=1 (enable channel)
-    *CHCR0 = 0x00000401U;
-    // DMAOR: enable DMA master
-    *DMAOR = 0x00000001U;
+    *DMAOR = 0x00000001U;                            // DME=1: DMAC on
+    // CHCR0: DM=01 (DAR increment), SM=01 (SAR increment), TS=10 (32-bit),
+    //        AR=1 (auto-request: start now, no external DREQ), IE=0, TE=0, DE=1 (enable channel)
+    *CHCR0 = 0x00005A01U;
     // The DMAC detects the misaligned SAR immediately and fires vector 10.
 }
 

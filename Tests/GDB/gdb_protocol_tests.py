@@ -693,6 +693,21 @@ def test_crash_addr_skip(s):
     )
 
 
+@test("exception vector: after monitor crash dma, continue keeps the main loop running")
+def test_crash_dma_then_continue(s):
+    s.cmd("monitor crash dma", timeout=5)
+    out = s.cmd("continue", timeout=10)
+    assert "SIGBUS" in out, f"expected the DMA address error to stop as SIGBUS: {out!r}"
+    # The queued touch only runs if the main loop really resumes after this stop.
+    s.cmd("set var g_testVariable = 41", timeout=5)
+    s.cmd("monitor touch", timeout=5)
+    out = s.cmd("continue", timeout=3)
+    assert "SIGBUS" not in out, f"the DMA address error fired again after continue: {out!r}"
+    s.interrupt_and_wait()
+    value = parse_hex(s.cmd("p/x g_testVariable", timeout=5))
+    assert value == 42, f"main loop did not run after the DMA error stop (g_testVariable={value})"
+
+
 # --------------------------------------------------------------------------
 # Slave CPU
 # --------------------------------------------------------------------------
