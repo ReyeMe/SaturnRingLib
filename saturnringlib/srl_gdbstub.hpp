@@ -1172,15 +1172,17 @@ namespace SRL
                 return false;
             }
             volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
-            const uint16_t original = *code;
+            // Recorded before the trap is written: a slave that hits it must already
+            // see it as the master's step trap (see slave_breakpoint_handler()).
+            g_step_data.address = address;
+            g_step_data.original_instruction = *code;
+            g_step_data.active = true;
             *code = SoftwareBreakInstruction;
             if (*code != SoftwareBreakInstruction)
             {
+                g_step_data.active = false;
                 return false; // read-only memory (BIOS ROM)
             }
-            g_step_data.address = address;
-            g_step_data.original_instruction = original;
-            g_step_data.active = true;
             PurgeCache();
             return true;
         }
@@ -3173,6 +3175,26 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
     // Illegal Instruction pushes the address of the faulting instruction
     // itself (unlike TRAPA, which pushes PC+2).
     const uint32_t bp_addr = SRL::GDBStub::SlaveSH2().pc;
+    if (SRL::GDBStub::find_breakpoint_slot(bp_addr) < 0)
+    {
+        // Not a GDB breakpoint, but maybe the master's single-step trap (kept out of the
+        // breakpoint table): wait for the master to finish its step and restore the
+        // instruction. Read through the cache-through mirror -- the master writes these.
+        volatile auto &step = *reinterpret_cast<volatile decltype(SRL::GDBStub::g_step_data) *>(
+            reinterpret_cast<uint32_t>(&SRL::GDBStub::g_step_data) | 0x20000000U);
+        while (step.active && step.address == bp_addr)
+        {
+            asm volatile("nop"); // spin -- the master removes its trap once its own step stops
+        }
+        // Not 0xFFFF any more (that trap, or a breakpoint removed after our cache fetched it):
+        // run the real instruction -- no stop, PC unchanged.
+        if (*reinterpret_cast<volatile uint16_t *>(bp_addr | 0x20000000U) != SRL::GDBStub::SoftwareBreakInstruction)
+        {
+            SRL::GDBStub::ForcePurgeCache();
+            return;
+        }
+    }
+
     if (SRL::GDBStub::find_breakpoint_slot(bp_addr) >= 0)
     {
         // One-shot: a GDB-inserted breakpoint is removed now, restoring the

@@ -739,6 +739,35 @@ def test_slave_breakpoint(s):
     assert pc == int(bp_addr.group(1), 16), f"slave pc {pc:#x} != breakpoint {bp_addr.group(1)}"
 
 
+def _slave_do_breakpoint_addr(s):
+    s.cmd("break SlaveCounterTask::Do", timeout=5)
+    bp_info = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", "", s.cmd("info breakpoints", timeout=5))
+    m = re.search(r"breakpoint\s+keep\s+y\s+(0x[0-9a-fA-F]+)", bp_info)
+    assert m, "could not read the breakpoint address from 'info breakpoints'"
+    return int(m.group(1), 16)
+
+
+@test("scenario: a slave that runs into the master's step trap waits it out instead of skipping it")
+def test_slave_hits_master_step_trap(s):
+    addr = _slave_do_breakpoint_addr(s)
+    s.cmd("delete", timeout=5)
+    original = parse_hex(s.cmd(f"p/x *(unsigned short *){addr:#x}", timeout=5))
+    # Plant a master step trap in slave code by hand, as a master stepi would.
+    s.cmd(f"set var SRL::GDBStub::g_step_data.address = {addr:#x}", timeout=5)
+    s.cmd(f"set var SRL::GDBStub::g_step_data.original_instruction = {original:#x}", timeout=5)
+    s.cmd("set var SRL::GDBStub::g_step_data.active = 1", timeout=5)
+    s.cmd(f"set var *(unsigned short *){addr:#x} = 0xffff", timeout=5)
+    out = s.cmd("continue", timeout=3)  # the slave's next job runs into the trap
+    assert "SIGINT" not in out, f"the slave reported the master's step trap as its own stop: {out!r}"
+    s.interrupt_and_wait()  # the master's next stop removes its trap, which releases the slave
+    restored = parse_hex(s.cmd(f"p/x *(unsigned short *){addr:#x}", timeout=5))
+    assert restored == original, f"instruction at {addr:#x} is {restored:#x}, expected {original:#x}"
+    # The slave ran on without skipping anything: its next Do() still stops exactly on the breakpoint.
+    assert _slave_do_breakpoint_addr(s) == addr
+    pc = _assert_slave_breakpoint_hit(s, s.cmd("continue", timeout=10))
+    assert pc == addr, f"slave pc {pc:#x} != breakpoint {addr:#x}"
+
+
 @test("scenario: a slave stop that happens while the master is halted is reported after continue")
 def test_slave_stop_during_master_halt(s):
     main_cxx = os.path.join(os.path.dirname(ELF_PATH), "..", "src", "main.cxx")
