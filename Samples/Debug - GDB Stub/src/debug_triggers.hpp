@@ -98,12 +98,12 @@ void CPUAddressError();
  * address that is 1-byte misaligned, then enable it.
  * The DMAC raises the exception before any data moves.
  *
- * DMAC register base: 0xFFFF8000
- *   SAR0  = 0xFFFF8000  (source address)
- *   DAR0  = 0xFFFF8004  (destination address)
- *   TCR0  = 0xFFFF8008  (transfer count)
- *   CHCR0 = 0xFFFF800C  (channel control)
- *   DMAOR = 0xFFFF8040  (DMA operation register)
+ * SH7604 DMAC channel 0 registers:
+ *   SAR0  = 0xFFFFFF80  (source address)
+ *   DAR0  = 0xFFFFFF84  (destination address)
+ *   TCR0  = 0xFFFFFF88  (transfer count)
+ *   CHCR0 = 0xFFFFFF8C  (channel control)
+ *   DMAOR = 0xFFFFFFB0  (DMA operation register)
  */
 void DMAAddressError();
 
