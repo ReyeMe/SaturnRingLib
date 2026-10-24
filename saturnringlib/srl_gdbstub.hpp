@@ -2060,6 +2060,11 @@ namespace SRL
             // breakpoint on every exit path from this function, same rationale
             // as CacheFlusher above (continue, step, detach, disconnect alike).
             SlaveReleaseGuard slave_release_guard;
+
+            // The caches don't snoop each other: drop any line the slave has written since
+            // (its saved registers, g_slave_ctx), so this halt never shows a stale copy.
+            ForcePurgeCache();
+
             constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (GdbFixedShPaddingRegisters * 4U)) * 2;
             static_assert(max_g_packet_hex_chars < 1024, "out_buf is too small for GDB 'g' packet");
             char in_buf[1024];
