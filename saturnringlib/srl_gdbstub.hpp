@@ -305,10 +305,17 @@ namespace SRL
 
             /** @brief Whether InstallSlaveExceptionHandler() has run on the slave */
             volatile bool HandlersInstalled;
+
+            /**
+             * @brief Master-only: set by Poll() when it reports a slave stop to GDB.
+             * SlaveReleaseGuard only releases a reported stop (or any, once the session ends);
+             * an unreported one stays parked for the next Poll() to report.
+             */
+            bool Reported;
         };
 
         /** @brief Current slave halt state */
-        inline static SlaveStatus g_slave = {false, false, false};
+        inline static SlaveStatus g_slave = {false, false, false, false};
 
         /**
          * @brief Cache-through view of a g_slave flag, for reads of a value the other CPU writes.
@@ -744,7 +751,8 @@ namespace SRL
         /**
          * @brief RAII guard that releases a slave halted at a breakpoint (see
          * InstallSlaveExceptionHandler()) on EVERY exit path from
-         * process_commands(), not just the 'c'/'s' ones.
+         * process_commands(), not just the 'c'/'s' ones -- once GDB has been
+         * told about that stop (g_slave.Reported) or the session is over.
          * @details Hardware-confirmed bug this fixes: handle_gdb_continue()/
          * handle_gdb_step() used to be the only places that cleared
          * g_slave.Stopped/set g_slave.Resume. 'D' (detach), 'k' (kill), and
@@ -768,8 +776,11 @@ namespace SRL
              */
             ~SlaveReleaseGuard()
             {
-                if (Uncached(g_slave.Stopped))
+                // A slave that stopped while the master was already halted was never
+                // reported to GDB: keep it parked so the next Poll() reports it.
+                if (Uncached(g_slave.Stopped) && (g_slave.Reported || !g_session.HasConnection))
                 {
+                    g_slave.Reported = false;
                     g_slave.Stopped = false;
                     g_slave.Resume = true;
                 }
@@ -3070,6 +3081,7 @@ namespace SRL
             // inspected via `monitor regs slave` / the slave pseudo-registers.
             if (Uncached(g_slave.Stopped))
             {
+                g_slave.Reported = true; // this halt tells GDB, so SlaveReleaseGuard may release it
                 g_stop.SignalOverride = 2U; // SIGINT
                 Break();
             }
