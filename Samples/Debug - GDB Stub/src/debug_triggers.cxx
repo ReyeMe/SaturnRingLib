@@ -99,7 +99,7 @@ void DMAAddressError()
 // SRL::GDBStub's own install_hardware_watchpoint()/remove_hardware_watchpoint() --
 // there is only one physical channel, so calling this while a GDB `watch`/hardware
 // breakpoint is active silently steals it out from under GDB (see
-// g_ubc_channel_a_active's doc comment in srl_gdbstub.hpp). Fine for this sample's
+// BreakpointStatus::UbcChannelAActive in srl_gdbstub.hpp). Fine for this sample's
 // own one-shot test trigger in isolation; avoid combining with GDB-side watchpoints.
 void UserBreakController()
 {
