@@ -1761,7 +1761,8 @@ namespace SRL
         /**
          * @brief Answers a `monitor <text>` command (qRcmd).
          * @details "regs slave" and "trace" are answered here; anything else is stored for
-         * user code (GetMonitorCommandCount() / GetLastMonitorCommand()).
+         * user code (GetMonitorCommandCount() / GetLastMonitorCommand()). Built-ins never
+         * touch that store, so they can't replace a user command still waiting for resume.
          * @param hex_payload The hex-encoded command text after "qRcmd,"
          */
         inline static void handle_monitor(const char *hex_payload)
@@ -1770,28 +1771,28 @@ namespace SRL
             while (hex_payload[hex_len] != '\0')
                 hex_len++;
             const size_t cmd_len = hex_len / 2;
-            if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_monitor.LastCommand))
+            char cmd[sizeof(g_monitor.LastCommand)];
+            if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(cmd))
             {
                 packet_put('\0', "E01", 3);
             }
-            else if (hex2mem_aligned(hex_payload, reinterpret_cast<uint32_t>(g_monitor.LastCommand), static_cast<int>(cmd_len)))
+            else if (hex2mem_aligned(hex_payload, reinterpret_cast<uint32_t>(cmd), static_cast<int>(cmd_len)))
             {
-                g_monitor.LastCommand[cmd_len] = '\0';
-                if (str_equals(g_monitor.LastCommand, "regs slave"))
+                cmd[cmd_len] = '\0';
+                if (str_equals(cmd, "regs slave"))
                 {
                     send_slave_regs_dump();
-                    packet_put('\0', "OK", 2);
                 }
-                else if (str_equals(g_monitor.LastCommand, "trace"))
+                else if (str_equals(cmd, "trace"))
                 {
                     send_halt_trace_dump();
-                    packet_put('\0', "OK", 2);
                 }
                 else
                 {
+                    g_monitor.LastCommand[append_str(g_monitor.LastCommand, 0, cmd)] = '\0';
                     g_monitor.CommandCount = g_monitor.CommandCount + 1;
-                    packet_put('\0', "OK", 2);
                 }
+                packet_put('\0', "OK", 2);
             }
             else
             {
@@ -1859,11 +1860,6 @@ namespace SRL
             {
             case 'g':
             {
-                if (GDBStub::MasterSH2().pc == 0)
-                {
-                    snapshot_polling_context();
-                }
-
                 // Real PR/R14 even inside SGL code without debug info: GDB's `bt` copes,
                 // but a zeroed PR broke every later command of the session.
                 SH2Context ctx_copy = GDBStub::MasterSH2();

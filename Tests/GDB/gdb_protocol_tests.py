@@ -901,6 +901,29 @@ def test_monitor_only_last_queued_command_wins(s):
     assert after == 6, f"expected the queued 'step' to win (g_testVariable=6), got {after}"
 
 
+@test("scenario: a built-in monitor command doesn't replace a user one queued before it")
+def test_monitor_builtin_keeps_queued_command(s):
+    s.cmd("break SteppableFunction", timeout=5)
+    s.cmd("monitor step", timeout=5)
+    s.cmd("monitor trace", timeout=5)  # answered by the stub itself, not queued
+    out = s.cmd("continue", timeout=10)
+    assert STOPPED_IN in out, f"the queued 'step' was lost to 'trace': {out!r}"
+
+
+@test("scenario: reading registers at a stop on address 0 keeps the real registers")
+def test_g_at_pc_zero_keeps_registers(s):
+    # A null function pointer call stops at pc 0; 'g' must not swap in the stub's own registers.
+    s.cmd("continue", timeout=2)
+    s.interrupt_and_wait()
+    pc = parse_hex(s.cmd("p/x $pc", timeout=5))
+    s.cmd("set $r1 = 0x1234abcd", timeout=5)
+    s.cmd("set $pc = 0", timeout=5)
+    s.cmd("maint flush register-cache", timeout=5)  # force a fresh 'g'
+    r1 = parse_hex(s.cmd("p/x $r1", timeout=5))
+    s.cmd(f"set $pc = {pc:#x}", timeout=5)
+    assert r1 == 0x1234ABCD, f"r1 read back as {r1:#x} after pc=0: 'g' replaced the registers"
+
+
 @test("scenario: Ctrl-C, backtrace, then a breakpoint still hits")
 def test_interrupt_bt_then_breakpoint(s):
     s.cmd("continue", timeout=2)
