@@ -392,11 +392,13 @@ namespace SRL
             return v < 10 ? '0' + v : 'a' + v - 10;
         }
 
-        /** @brief qSupported PacketSize feature string, must match kPacketDataMax + 1
+        /** @brief qSupported reply. PacketSize must match kPacketDataMax + 1.
          * @note GDB parses PacketSize as hex: "400" would mean 1024, making GDB request 512-byte 'm' reads the handler rejects.
+         * swbreak/hwbreak: Z1-Z4 are implemented via the UBC (see install_hardware_watchpoint).
+         * No qXfer:features target description: GDB's SH port ignores it.
          */
-        static constexpr char kPacketSizeStr[] = "PacketSize=190";
-        static_assert(kPacketDataMax + 1U == 0x190, "Update kPacketSizeStr (hex) if kPacketDataMax changes");
+        static constexpr char kQSupportedReply[] = "PacketSize=190;swbreak+;hwbreak+";
+        static_assert(kPacketDataMax + 1U == 0x190, "Update the PacketSize in kQSupportedReply (hex) if kPacketDataMax changes");
 
         /**
          * @brief Decodes a hex string into memory, using 32-/16-bit stores where
@@ -1477,7 +1479,7 @@ namespace SRL
             char buf[64];
             buf[0] = hexchar(signal >> 4);
             buf[1] = hexchar(signal & 0xF);
-            int len = 2;
+            size_t len = 2;
 
             if (signal == 5)
             {
@@ -1485,34 +1487,27 @@ namespace SRL
                 // finds no breakpoint there and silently continues.
                 if (g_stop.WasSwBreak)
                 {
-                    const char *swb = "swbreak:;";
-                    for (int i = 0; i < 9; ++i)
-                        buf[len++] = swb[i];
+                    len = append_str(buf, len, "swbreak:;");
                 }
                 else if (g_stop.WasUbcHit && g_breakpoints.UbcChannelAActive)
                 {
                     // GDB only reports a watchpoint hit when the stop reply names it.
                     static const char *const kUbcReason[] = {"hwbreak", "watch", "rwatch", "awatch"};
                     const uint32_t type = g_breakpoints.UbcType;
-                    len = static_cast<int>(append_str(buf, static_cast<size_t>(len), kUbcReason[(type >= 1U && type <= 4U) ? type - 1U : 0U]));
+                    len = append_str(buf, len, kUbcReason[(type >= 1U && type <= 4U) ? type - 1U : 0U]);
                     buf[len++] = ':';
                     if (type >= 2U)
                     {
-                        len = static_cast<int>(append_hex(buf, static_cast<size_t>(len), g_breakpoints.UbcAddress, 8));
+                        len = append_hex(buf, len, g_breakpoints.UbcAddress, 8);
                     }
                     buf[len++] = ';';
                 }
                 else
                 {
-                    const char *rsn = "reason:signal;";
-                    for (int i = 0; i < 14; ++i)
-                        buf[len++] = rsn[i];
+                    len = append_str(buf, len, "reason:signal;");
                 }
             }
-
-            const char *thread = "thread:1;";
-            for (int i = 0; i < 9; ++i)
-                buf[len++] = thread[i];
+            len = append_str(buf, len, "thread:1;");
 
             g_last_stop_signal = signal;
             packet_put('T', buf, len);
@@ -1807,9 +1802,8 @@ namespace SRL
         /**
          * @brief Answers a 'q' (general query) packet.
          * @param in_buf Received packet payload
-         * @param out_buf Reply buffer of kPacketBufSize bytes
          */
-        inline static void handle_query(const char *in_buf, char *out_buf)
+        inline static void handle_query(const char *in_buf)
         {
             if (starts_with(in_buf, "qSupported"))
             {
@@ -1819,28 +1813,7 @@ namespace SRL
                 clear_breakpoints(true);
                 remove_hardware_watchpoint(0U, 0U);
 
-                // Advertise swbreak and hwbreak (Z1-Z4 are implemented via the UBC,
-                // see install_hardware_watchpoint). No qXfer:features target description:
-                // GDB's SH port ignores it. PacketSize stays in sync with kPacketDataMax.
-                constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+";
-
-                static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
-                static_assert(max_qsupported_len < kPacketBufSize, "qSupported payload exceeds buffer");
-
-                size_t out_len = 0;
-                for (size_t i = 0; i < sizeof(kPacketSizeStr) - 1; ++i)
-                {
-                    if (out_len < kPacketBufSize - 1)
-                        out_buf[out_len++] = kPacketSizeStr[i];
-                }
-                for (const char *s = kFeaturesStr; *s; ++s)
-                {
-                    if (out_len < kPacketBufSize - 1)
-                        out_buf[out_len++] = *s;
-                }
-
-                out_buf[out_len] = '\0';
-                packet_put('\0', out_buf, out_len);
+                packet_put('\0', kQSupportedReply, sizeof(kQSupportedReply) - 1U);
                 g_session.HandshakeDone = true;
             }
             else if (starts_with(in_buf, "qfThreadInfo"))
@@ -2172,7 +2145,7 @@ namespace SRL
                     send_stop_signal(current_stop_signal());
                     break;
                 case 'q':
-                    handle_query(in_buf, out_buf);
+                    handle_query(in_buf);
                     break;
                 case 'H':
                     packet_put('\0', "OK", 2);
