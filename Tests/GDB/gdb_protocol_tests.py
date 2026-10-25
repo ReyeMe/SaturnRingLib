@@ -929,6 +929,30 @@ def test_stepi_over_handled_trapa(s):
     assert pc == trapa_pc + 2, f"after stepi pc is {pc:#x}, expected {trapa_pc + 2:#x}"
 
 
+@test("scenario: stepi through every branch kind lands where the CPU goes")
+def test_stepi_branch_kinds(s):
+    # StepBranches labels every landing point; a wrong decoder target lands elsewhere
+    # (or on _sb_fail) and info symbol shows a different name or a "+ N" offset.
+    expected = [
+        "sb_bt_taken", "sb_bf_not", "sb_bts_taken", "sb_bfs_taken", "sb_bfs_not",
+        "sb_bts_not", "sb_bf_taken", "sb_bt_not", "sb_bra_t", "sb_bsr_t", "sb_bsr_ret",
+        "sb_jmp_t", "sb_jsr_t", "sb_jsr_ret", "sb_braf_t", "sb_bsrf_t", "sb_bsrf_ret",
+        "sb_rte_push_sr", "sb_rte_push_pc", "sb_rte", "sb_rte_t",
+    ]
+    s.cmd("break *&_sb_start", timeout=5)  # sh-elf keeps the C underscore in GDB
+    s.cmd("monitor stepbranches", timeout=5)
+    out = s.cmd("continue", timeout=10)
+    assert "sb_start" in s.cmd("info symbol $pc", timeout=5), f"breakpoint on sb_start not hit: {out!r}"
+    s.cmd("delete", timeout=5)
+    for want in expected:
+        out = s.cmd("stepi", timeout=10)
+        assert "SIG" not in out or "SIGTRAP" in out, f"stepi to {want} raised a signal: {out!r}"
+        where = s.cmd("info symbol $pc", timeout=5)
+        m = re.search(r"_?(\w+)( \+ \d+)? in section", where)
+        got = m.group(1) + (m.group(2) or "") if m else where
+        assert got == want, f"stepi landed on {got!r}, expected {want!r} (stepi said {out!r})"
+
+
 @test("scenario: after a reserved-instruction crash, skipping it lets the program run on")
 def test_crash_recover(s):
     s.cmd("monitor crash reserved", timeout=5)

@@ -143,6 +143,13 @@ void Trapa35();
 void SteppableFunction();
 
 /**
+ * @brief Runs each SH-2 branch kind once (BT/BF and their /S forms taken and not
+ * taken, BRA, BSR, JMP, JSR, BRAF, BSRF, RTS, RTE), for the GDB suite to stepi through.
+ * @details Written in assembly (debug_triggers.cxx); every landing point has an sb_* label.
+ */
+extern "C" void StepBranches();
+
+/**
  * @brief Dispatches a `monitor <text>` command received via GDB's qRcmd.
  *
  * This lets the same test paths triggered by gamepad buttons also be

@@ -248,6 +248,7 @@ That stop location (inside the stub's own `snapshot_polling_context()`) is expec
 - `monitor <text>`: Sends the text to the target via `qRcmd`, decoded and dispatched by this sample's `HandleMonitorCommand()`. Lets you trigger any of the test paths below without a gamepad -- handy for scripted/headless testing over a raw `ftx -g` connection:
   - `monitor crash illegal|addr|reserved|slotillegal|slotreserved|genillegal|dma|ubc|trapa35` -- same as the B/A/C/X/Y/Z/L/START buttons.
   - `monitor step` -- same as D-Pad Up (`SteppableFunction()`).
+  - `monitor stepbranches` -- runs `StepBranches()`, one of each SH-2 branch kind, for `stepi` testing.
   - `monitor touch` -- same as D-Pad Down (increments `g_testVariable`, useful with `watch`).
   - The dispatch only happens once the target resumes (`continue`/detach), and only the *last* `monitor` command sent while stopped takes effect -- send one, `continue`, then repeat, rather than queuing several while paused.
 
