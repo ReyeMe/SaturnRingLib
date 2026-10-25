@@ -239,9 +239,9 @@ namespace SRL
              * "running" outside any real hardware exception). g_ctx in that case has
              * r0-r14 zeroed and a pc/pr that do not correspond to a real, resumable
              * instruction (see snapshot_polling_context()'s doc comment) -- the real
-             * CPU registers were never touched. handle_gdb_continue()/handle_gdb_step()
-             * must treat this as a no-op rather than using that data for breakpoint
-             * restore or step-trap placement, which would corrupt state using
+             * CPU registers were never touched. handle_gdb_step()
+             * must treat this as a no-op rather than using that data for
+             * step-trap placement, which would corrupt state using
              * garbage addresses/register values. Read-and-cleared by
              * handle_gdb_continue()/handle_gdb_step() so it never leaks into a
              * later, real exception-driven invocation.
@@ -362,29 +362,13 @@ namespace SRL
         };
 
         /**
-         * @brief Software breakpoint slots, step-over bookkeeping, and UBC ownership
+         * @brief Software breakpoint slots and UBC ownership
          * (everything behind the Z0-Z4 / z0-z4 packets).
          */
         struct BreakpointStatus
         {
             /** @brief Software breakpoint slots (Z0) */
             SoftwareBreakpoint Software[MaxSoftwareBreakpoints];
-
-            /**
-             * @brief Set when $c stepped over a software breakpoint; cleared after re-insertion.
-             * @details When set, the next process_commands() entry is silent (re-inserts BP, continues).
-             */
-            bool ResumingFromBreakpoint;
-
-            /**
-             * @brief Slot index of the BP that was stepped over, or -1.
-             * @details Constraint: If Poll() is called from user code and handles a 'z0' packet that deallocates
-             * this specific breakpoint slot before the step-over trap fires, the slot's active flag is cleared.
-             * However, the re-insertion handler will silently re-patch the freed address and set active=true
-             * on what should be a dead slot. Since process_commands is single-threaded, this race only
-             * occurs if user code calls Poll() between the continue and the trap.
-             */
-            int ResumeSlot;
 
             /**
              * @brief Whether a GDB watchpoint/hwbreak currently owns UBC channel A (Z1-Z4).
@@ -407,7 +391,7 @@ namespace SRL
         };
 
         /** @brief Current breakpoint state */
-        inline static BreakpointStatus g_breakpoints = {{}, false, -1, false, 0, 0};
+        inline static BreakpointStatus g_breakpoints = {{}, false, 0, 0};
 
         // --- Utility Functions ---
 
@@ -1897,11 +1881,6 @@ namespace SRL
             text[pos++] = g_step_data.active ? '1' : '0';
             text[pos++] = '\n';
 
-            // What handle_gdb_continue() would do right now, without doing it.
-            pos = append_str(text, pos, "would_step_over=");
-            text[pos++] = bp_slot >= 0 ? '1' : '0';
-            text[pos++] = '\n';
-
             if (is_valid_memory_range(GDBStub::MasterSH2().pc, 2U))
             {
                 uint16_t opcode = *reinterpret_cast<volatile uint16_t *>(GDBStub::MasterSH2().pc | 0x20000000U);
@@ -1976,46 +1955,14 @@ namespace SRL
 
         /**
          * @brief Prepares the CPU state for a GDB continue command ('c'/'C').
-         *
-         * Restores the original instruction if the CPU is currently halted on a
-         * software breakpoint, and sets up a silent step-over trap to re-insert
-         * the breakpoint after the instruction executes.
+         * @details No breakpoint step-over here: GDB removes the breakpoint at PC (z0)
+         * and steps past it itself before it continues. A slave parked at a breakpoint
+         * is released by SlaveReleaseGuard when process_commands() returns.
          */
         inline static void handle_gdb_continue()
         {
             g_stop.SignalOverride = 0;
-
-            // A slave parked at a breakpoint (see InstallSlaveExceptionHandler())
-            // is released by SlaveReleaseGuard when process_commands() returns --
-            // see that struct's doc comment for why this must happen on every
-            // exit path, not just this one.
-
-            // See handle_gdb_step() / g_stop.CtxIsFake: same hazard applies to
-            // continue's breakpoint-restore-and-step-over logic below.
-            if (g_stop.CtxIsFake)
-            {
-                g_stop.CtxIsFake = false;
-                return;
-            }
-
-            const int bp_slot = find_breakpoint_slot(g_ctx.pc);
-            if (bp_slot >= 0)
-            {
-                // Temporarily restore the original instruction so the CPU can execute it.
-                // We deliberately leave active = true so the slot remains owned throughout
-                // the step-over sequence — no interrupt between here and re-insertion can
-                // see a half-released slot with a valid address but active = false.
-                volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_ctx.pc | 0x20000000U);
-                *code = g_breakpoints.Software[bp_slot].original_instruction;
-                // active intentionally kept true; re-insertion handler will re-patch it.
-            }
-
-            if (bp_slot >= 0)
-            {
-                do_software_step();
-                g_breakpoints.ResumingFromBreakpoint = true;
-                g_breakpoints.ResumeSlot = bp_slot;
-            }
+            g_stop.CtxIsFake = false;
         }
 
         /**
@@ -2080,31 +2027,6 @@ namespace SRL
             *BRCR &= ~0xC000U;
 
             undo_software_step();
-
-            // --- Silent step-over: re-insert the breakpoint we temporarily removed for $c ---
-            if (g_breakpoints.ResumingFromBreakpoint)
-            {
-                g_breakpoints.ResumingFromBreakpoint = false;
-                if (g_breakpoints.ResumeSlot >= 0 && g_breakpoints.ResumeSlot < static_cast<int>(MaxSoftwareBreakpoints))
-                {
-                    const uint32_t bp_addr = g_breakpoints.Software[g_breakpoints.ResumeSlot].address;
-                    if ((bp_addr & 1U) == 0U && is_valid_memory_range(bp_addr, 2U))
-                    {
-                        volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(bp_addr | 0x20000000U);
-                        *code = SoftwareBreakInstruction;
-                        // active was kept true throughout; confirm the write then leave it true.
-                        PurgeCache();
-                    }
-                    else
-                    {
-                        // Address became invalid — release the slot cleanly.
-                        g_breakpoints.Software[g_breakpoints.ResumeSlot].active = false;
-                    }
-                }
-                g_breakpoints.ResumeSlot = -1;
-                // Resume transparent execution — do NOT report a stop to GDB.
-                return;
-            }
 
             // Drain any stale bytes that GDB sent before this trap fired.
             // Without this, GDB startup packets (including a continue) queued in
