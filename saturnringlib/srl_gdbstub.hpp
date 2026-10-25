@@ -2200,11 +2200,6 @@ namespace SRL
 
                 switch (in_buf[0])
                 {
-                case '!':
-                    // Enable extended-remote mode. We already tolerate vRun without this,
-                    // but acknowledging it properly avoids relying on that leniency.
-                    packet_put('\0', "OK", 2);
-                    break;
                 case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
                     g_stop.SignalOverride = 0;
                     clear_breakpoints(true);
@@ -2221,18 +2216,6 @@ namespace SRL
                     break;
                 case 'H':
                     packet_put('\0', "OK", 2);
-                    break;
-                case 'v':
-                    // vCont? (and any other v packet but vRun) gets the empty "not supported"
-                    // reply: GDB only uses vCont when the stub also offers C/S, and falls back
-                    // to plain c/s/C either way.
-                    if (starts_with(in_buf, "vRun"))
-                    {
-                        // Extended-remote run compatibility: treat like continue.
-                        handle_gdb_continue();
-                        return;
-                    }
-                    packet_put('\0', nullptr, 0);
                     break;
                 case 'g':
                 case 'G':
@@ -2271,6 +2254,8 @@ namespace SRL
                     handle_gdb_step();
                     return;
                 default:
+                    // Empty reply = "not supported". This covers every v packet: GDB falls back
+                    // from vCont to plain c/s/C, and extended-remote (!, vRun) is not supported.
                     packet_put('\0', nullptr, 0);
                     break;
                 }
