@@ -140,6 +140,77 @@ void SteppableFunction()
     SRL::Debug::Print(1, 29, "Steppable result: %d", d);
 }
 
+// Every instruction a stepi lands on has an sb_* label, so the test can check each
+// landing by name. Filler nops (fall-through paths that must NOT be taken) are unlabeled.
+// T and the registers are set before sb_start; the delay slots flip T to prove they ran.
+__asm__(
+    ".pushsection .text\n"
+    ".align 2\n"
+    ".global _StepBranches\n"
+    "_StepBranches:\n"
+    "    sts.l   pr,@-r15\n"
+    "    mov.l   .Lsb_jmp,r1\n"
+    "    mov     #2,r2\n"              // braf: pc+4+2 = sb_braf_t
+    "    mov     #4,r3\n"              // bsrf: pc+4+4 = sb_bsrf_t
+    "    mov.l   .Lsb_jsr,r4\n"
+    "    mov.l   .Lsb_rte,r5\n"
+    "    sett\n"
+    ".global _sb_start\n"
+    "_sb_start:       bt      _sb_bt_taken\n"   // T=1: taken
+    "                 nop\n"
+    "_sb_bt_taken:    bf      _sb_fail\n"       // T=1: not taken
+    "_sb_bf_not:      bt/s    _sb_bts_taken\n"  // T=1: taken
+    "                 clrt\n"                   // slot: T=0
+    "                 nop\n"
+    "_sb_bts_taken:   bf/s    _sb_bfs_taken\n"  // T=0: taken
+    "                 sett\n"                   // slot: T=1
+    "                 nop\n"
+    "_sb_bfs_taken:   bf/s    _sb_fail\n"       // T=1: not taken, the slot still runs
+    "                 clrt\n"                   // slot: T=0
+    "_sb_bfs_not:     bt/s    _sb_fail\n"       // T=0: not taken
+    "                 nop\n"
+    "_sb_bts_not:     bf      _sb_bf_taken\n"   // T=0: taken
+    "                 nop\n"
+    "_sb_bf_taken:    bt      _sb_fail\n"       // T=0: not taken
+    "_sb_bt_not:      bra     _sb_bra_t\n"
+    "                 nop\n"
+    "                 nop\n"
+    "_sb_bra_t:       bsr     _sb_bsr_t\n"
+    "                 nop\n"
+    "_sb_bsr_ret:     jmp     @r1\n"
+    "                 nop\n"
+    "                 nop\n"
+    "_sb_jmp_t:       jsr     @r4\n"
+    "                 nop\n"
+    "_sb_jsr_ret:     braf    r2\n"
+    "                 nop\n"
+    "                 nop\n"
+    "_sb_braf_t:      bsrf    r3\n"
+    "                 nop\n"
+    "_sb_bsrf_ret:    bra     _sb_rte_push_sr\n"
+    "                 nop\n"
+    "_sb_bsrf_t:      rts\n"
+    "                 nop\n"
+    "_sb_bsr_t:       rts\n"
+    "                 nop\n"
+    "_sb_jsr_t:       rts\n"
+    "                 nop\n"
+    "_sb_rte_push_sr: stc.l   sr,@-r15\n"       // RTE pops PC, then SR
+    "_sb_rte_push_pc: mov.l   r5,@-r15\n"
+    "_sb_rte:         rte\n"
+    "                 nop\n"
+    "                 nop\n"
+    "_sb_rte_t:       lds.l   @r15+,pr\n"
+    "                 rts\n"
+    "                 nop\n"
+    "_sb_fail:        bra     _sb_rte_t\n"
+    "                 nop\n"
+    ".align 2\n"
+    ".Lsb_jmp:        .long   _sb_jmp_t\n"
+    ".Lsb_jsr:        .long   _sb_jsr_t\n"
+    ".Lsb_rte:        .long   _sb_rte_t\n"
+    ".popsection\n");
+
 void HandleMonitorCommand(const char* cmd)
 {
     if (StrEquals(cmd, "crash illegal")) { CrashProgram(); }
@@ -152,6 +223,7 @@ void HandleMonitorCommand(const char* cmd)
     else if (StrEquals(cmd, "crash ubc")) { UserBreakController(); }
     else if (StrEquals(cmd, "crash trapa35")) { Trapa35(); }
     else if (StrEquals(cmd, "step")) { SteppableFunction(); }
+    else if (StrEquals(cmd, "stepbranches")) { StepBranches(); }
     else if (StrEquals(cmd, "touch")) { g_testVariable = g_testVariable + 1; }
     else
     {
@@ -160,7 +232,7 @@ void HandleMonitorCommand(const char* cmd)
         // send_slave_regs_dump()/send_halt_trace_dump())
         // and never reach this dispatcher.
         Log::LogPrint("monitor: unknown command '%s' -- try crash illegal|addr|reserved|"
-            "slotillegal|slotreserved|genillegal|dma|ubc|trapa35, step, touch, "
+            "slotillegal|slotreserved|genillegal|dma|ubc|trapa35, step, stepbranches, touch, "
             "regs slave, or trace", cmd);
     }
 }
