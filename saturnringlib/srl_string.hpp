@@ -1,6 +1,7 @@
 #pragma once
 #include <type_traits>
 #include <stdarg.h>
+#include <cstdint>
 extern "C" {
     int snprintf(char* buffer, size_t n, const char* fmt, ...);
     size_t	strlen(const char* str);
@@ -344,3 +345,93 @@ namespace SRL
 }
 
 #endif
+
+namespace SRL
+{
+    /**
+     * @brief Converts a hex character to its integer value.
+     * @param ch Character to convert ('0'-'9', 'a'-'f' or 'A'-'F')
+     * @return Value 0-15, or -1 if ch is not a hex digit
+     */
+    inline int hex(char ch)
+    {
+        if (ch >= 'a' && ch <= 'f')
+            return ch - 'a' + 10;
+        if (ch >= 'A' && ch <= 'F')
+            return ch - 'A' + 10;
+        if (ch >= '0' && ch <= '9')
+            return ch - '0';
+        return -1;
+    }
+
+    /**
+     * @brief Converts a 4-bit integer to its hex character equivalent.
+     * @param v Value to convert (only the low 4 bits are used)
+     * @return Lowercase hex digit character
+     */
+    inline char hexchar(int v)
+    {
+        v &= 0xf;
+        return v < 10 ? '0' + v : 'a' + v - 10;
+    }
+
+    /**
+     * @brief Decodes a hex string into memory, using 32-/16-bit stores where
+     * address and remaining length allow, falling back to byte stores only
+     * for the unaligned remainder.
+     * @details VDP RAM (e.g. VDP2 CRAM) drops single-byte writes: a byte-wise 'M' of
+     * 0xEC63 reads back as 0x0063. Whole aligned words/halfwords match its bus width.
+     * @param buf Hex string to decode (2 characters per byte)
+     * @param addr Destination address
+     * @param count Number of bytes to decode
+     * @return Pointer to the character following the decoded hex string, or nullptr on failure.
+     */
+    inline const char *hex2mem_aligned(const char *buf, uint32_t addr, int count)
+    {
+        // Validate all characters first to prevent partial memory corruption
+        for (int i = 0; i < count * 2; i++)
+        {
+            if (hex(buf[i]) < 0)
+                return nullptr;
+        }
+
+        int i = 0;
+        while (i < count)
+        {
+            const int remaining = count - i;
+            const uint32_t cur = addr + static_cast<uint32_t>(i);
+            if (remaining >= 4 && (cur & 3U) == 0U)
+            {
+                uint32_t v = 0;
+                for (int b = 0; b < 4; b++)
+                {
+                    const int h1 = hex(*buf++);
+                    const int h2 = hex(*buf++);
+                    v = (v << 8) | static_cast<uint32_t>((h1 << 4) | h2);
+                }
+                *reinterpret_cast<volatile uint32_t *>(cur) = v;
+                i += 4;
+            }
+            else if (remaining >= 2 && (cur & 1U) == 0U)
+            {
+                uint16_t v = 0;
+                for (int b = 0; b < 2; b++)
+                {
+                    const int h1 = hex(*buf++);
+                    const int h2 = hex(*buf++);
+                    v = static_cast<uint16_t>((v << 8) | static_cast<uint16_t>((h1 << 4) | h2));
+                }
+                *reinterpret_cast<volatile uint16_t *>(cur) = v;
+                i += 2;
+            }
+            else
+            {
+                const int h1 = hex(*buf++);
+                const int h2 = hex(*buf++);
+                *reinterpret_cast<volatile uint8_t *>(cur) = static_cast<uint8_t>((h1 << 4) | h2);
+                i += 1;
+            }
+        }
+        return buf;
+    }
+}
