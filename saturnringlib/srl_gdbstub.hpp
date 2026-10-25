@@ -1150,22 +1150,7 @@ namespace SRL
                 if (*code == SoftwareBreakInstruction)
                 {
                     GDBStub::MasterSH2().pc += 2U;
-                    return;
                 }
-            }
-
-            if (GDBStub::MasterSH2().pc < 2U)
-            {
-                return;
-            }
-
-            // Fallback: If we ever used TRAPA, the PC pushed is PC + 2.
-            const uint32_t trap_address = GDBStub::MasterSH2().pc - 2U;
-            if (find_breakpoint_slot(trap_address) >= 0 || (g_step_data.active && trap_address == g_step_data.address))
-            {
-                g_stop.WasSwBreak = true;
-                g_last_stop_signal = 5U; // SIGTRAP — GDB breakpoint or step trap, not a real crash
-                GDBStub::MasterSH2().pc = trap_address;
             }
         }
 
@@ -2304,7 +2289,7 @@ namespace SRL
                 vbr_table[9] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);    // CPU Address Error
                 vbr_table[10] = reinterpret_cast<uint32_t>(&srl_gdbstub_addrerr_thunk);   // DMA Address Error
                 vbr_table[12] = reinterpret_cast<uint32_t>(&srl_gdbstub_ubc_thunk);       // User Break Controller
-                vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #35 (Legacy/Fallback)
+                vbr_table[35] = reinterpret_cast<uint32_t>(&srl_gdbstub_exception_thunk); // TRAPA #35 -> SIGTRAP
 
                 ForcePurgeCache();
                 g_handlers_installed = true;
