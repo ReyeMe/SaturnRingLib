@@ -111,7 +111,7 @@ namespace SRL
 
         /**
          * @brief Slave SH-2 register state saved by the slave thunk at its last breakpoint.
-         * @details Exposed to GDB as the slave_* pseudo-registers and via `monitor regs slave`.
+         * @details Read by GDB through 'p'/'P' registers 23..45 and `monitor regs slave`.
          */
         __attribute__((used)) inline static SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
 
@@ -152,10 +152,8 @@ namespace SRL
         /**
          * @brief Last "monitor <text>" command received via qRcmd, and how many
          * have arrived.
-         * @details User code can poll GetMonitorCommandCount() to detect a new
-         * one and dispatch on GetLastMonitorCommand() -- this gives host-side
-         * tooling (or a script) a way to trigger sample behavior without a
-         * physical gamepad, e.g. `(gdb) monitor crash illegal`.
+         * @details User code polls GetMonitorCommandCount() and dispatches on
+         * GetLastMonitorCommand(), e.g. `(gdb) monitor crash illegal`.
          */
         struct MonitorStatus
         {
@@ -174,8 +172,6 @@ namespace SRL
 
         /**
          * @brief DevCart USB data transfer state: RX pushback byte and traffic counters.
-         * @note No default member initializers, same reason as DevCartStatus below.
-         * Defaults are given in g_transfer's initializer.
          */
         struct TransferStatus
         {
@@ -197,9 +193,6 @@ namespace SRL
 
         /**
          * @brief DevCart (USB cartridge) link status, as last observed by Init() / Poll().
-         * @note No default member initializers: GCC rejects them on a nested struct
-         * whose instance is a static member of the still-incomplete enclosing class.
-         * Defaults are given in g_devcart's initializer below.
          */
         struct DevCartStatus
         {
@@ -215,9 +208,7 @@ namespace SRL
         
         /**
          * @brief POSIX signal of the last stop: 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS.
-         * @details __asm__-named (like g_ctx) so the per-exception-type trampolines
-         * (srl_gdbstub_illegal_thunk / srl_gdbstub_addrerr_thunk) can write
-         * to it directly by a fixed symbol, without needing a C++-mangled name.
+         * @details __asm__-named so the tag thunks can write it by a fixed symbol.
          */
         __attribute__((used)) inline static volatile uint8_t g_last_stop_signal __asm__("srl_gdbstub_last_stop_signal") = 5;
 
@@ -232,18 +223,9 @@ namespace SRL
         {
             /**
              * @brief g_ctx is a synthetic snapshot, not a real exception frame.
-             * @details Set true by snapshot_polling_context() immediately before it calls
-             * process_commands() from Poll()'s out-of-band packet path (initial
-             * handshake, or a GDB packet arriving while the target is nominally
-             * "running" outside any real hardware exception). g_ctx in that case has
-             * r0-r14 zeroed and a pc/pr that do not correspond to a real, resumable
-             * instruction (see snapshot_polling_context()'s doc comment) -- the real
-             * CPU registers were never touched. handle_gdb_step()
-             * must treat this as a no-op rather than using that data for
-             * step-trap placement, which would corrupt state using
-             * garbage addresses/register values. Read-and-cleared by
-             * handle_gdb_continue()/handle_gdb_step() so it never leaks into a
-             * later, real exception-driven invocation.
+             * @details Set by snapshot_polling_context() when Poll() handles a packet while
+             * the target runs: r0-r14 are zero and pc/pr are not a resumable instruction, so
+             * handle_gdb_step() must not place a step trap from it. Cleared on resume.
              */
             volatile bool CtxIsFake;
 
@@ -284,15 +266,9 @@ namespace SRL
         {
             /**
              * @brief Slave halted at a breakpoint.
-             * @details Slave-side breakpoint support uses the slave's own
-             * illegal-instruction vector (see InstallSlaveExceptionHandler()).
-             * Set true by the slave's own illegal-instruction thunk when it hits a
-             * software breakpoint (or any illegal instruction) in slave-executed
-             * code. Poll() (which runs every VBlank on the master, independent of
-             * whatever the master's own C++ code is doing) bridges this into a
-             * normal master-side debug stop by calling Break() -- the same way a
-             * Ctrl-C byte already does from that exact call site. The slave itself
-             * just spins on Resume in the meantime.
+             * @details Set by slave_breakpoint_handler() (see InstallSlaveExceptionHandler()).
+             * Poll() turns it into a master stop via Break(), like Ctrl-C; the slave spins
+             * on Resume meanwhile.
              */
             volatile bool Stopped;
 
@@ -320,7 +296,7 @@ namespace SRL
          * @brief Cache-through view of a g_slave flag, for reads of a value the other CPU writes.
          * @details The two SH-2 caches don't snoop each other: a CPU polling a flag through
          * its cache keeps seeing its own stale copy (a tight spin never evicts the line),
-         * so the slave never saw Resume and stayed parked forever, wedging SGL's main loop.
+         * so the slave would never see Resume.
          * @param flag A g_slave member
          * @return The same flag through the 0x20000000 cache-through address
          */
@@ -371,14 +347,9 @@ namespace SRL
 
             /**
              * @brief Whether a GDB watchpoint/hwbreak currently owns UBC channel A (Z1-Z4).
-             * @warning The SH-2 has exactly one usable UBC channel (A), and this flag is the
-             * ONLY record of who owns it -- it cannot detect the hardware being reprogrammed
-             * by code that writes BARA/BAMRA/BBRA/BRCR directly instead of going through
-             * install_hardware_watchpoint()/remove_hardware_watchpoint() (e.g. a project's own
-             * UBC-based test trigger). If that happens while a GDB `watch`/`hwbreak` is active,
-             * GDB is left believing its watchpoint is still armed after the hardware has
-             * silently been repointed elsewhere. Project code that also needs the UBC should
-             * route through these two functions rather than programming the registers itself.
+             * @warning The only record of who owns the one UBC channel the stub uses: code that
+             * writes BARA/BAMRA/BBRA/BRCR itself silently steals a GDB watchpoint. Go through
+             * install_hardware_watchpoint()/remove_hardware_watchpoint() instead.
              */
             bool UbcChannelAActive;
 
@@ -456,17 +427,8 @@ namespace SRL
          * @brief Decodes a hex string into memory, using 32-/16-bit stores where
          * address and remaining length allow, falling back to byte stores only
          * for the unaligned remainder.
-         * @details Hardware-confirmed bug this fixes: plain hex2mem() above stores one
-         * byte at a time. That's fine for RAM, but VDP2 CRAM (and VDP RAM in
-         * general) does not reliably latch single-byte bus writes -- writing
-         * a 16-bit color value via GDB's 'M' packet (or `set *(unsigned
-         * short*)addr = val`, which GDB also sends as an 'M' packet) silently
-         * dropped the first byte and kept only the second, e.g. writing
-         * 0xEC63 read back as 0x0063. Confirmed on real hardware: the same
-         * corruption occurred whether targeting CRAM through a 16-bit or a
-         * 32-bit `set` expression, since both went through the byte-wise
-         * path. Composing and storing whole aligned words/halfwords at once
-         * matches the bus cycle width VDP RAM actually requires.
+         * @details VDP RAM (e.g. VDP2 CRAM) drops single-byte writes: a byte-wise 'M' of
+         * 0xEC63 reads back as 0x0063. Whole aligned words/halfwords match its bus width.
          * @param buf Hex string to decode (2 characters per byte)
          * @param addr Destination address
          * @param count Number of bytes to decode
@@ -703,8 +665,7 @@ namespace SRL
         inline static void ForcePurgeCache()
         {
             *reinterpret_cast<volatile uint8_t *>(0xFFFFFE92) |= 0x10;
-            // The SH-2 hardware manual requires waiting at least two instructions
-            // before accessing the cache after a purge. We add several NOPs to be safe.
+            // The cache must not be accessed for two instructions after a purge; 8 to be safe.
             asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop" ::: "memory"); // 8 nops -- pure delay, no register/memory effect
         }
 
@@ -736,21 +697,8 @@ namespace SRL
          * InstallSlaveExceptionHandler()) on EVERY exit path from
          * process_commands(), not just the 'c'/'s' ones -- once GDB has been
          * told about that stop (g_slave.Reported) or the session is over.
-         * @details Hardware-confirmed bug this fixes: handle_gdb_continue()/
-         * handle_gdb_step() used to be the only places that cleared
-         * g_slave.Stopped/set g_slave.Resume. 'D' (detach), 'k' (kill), and
-         * the packet_get()-failure/disconnect path all `return` without
-         * going through either -- including GDB's own implicit detach at the
-         * end of a batch-mode session (e.g. `gdb -batch -ex "target remote
-         * ..." -ex "monitor trace"`, used throughout this project's own
-         * testing). Any of those left the slave permanently parked in its
-         * spin-wait: the master resumes fine (RTE doesn't care about slave
-         * state), so Poll()/the main loop look completely healthy, but
-         * SlaveCounterTask::Do() never actually returns, so IsRunning()
-         * stays true forever and no further slave jobs are ever dispatched
-         * again -- confirmed by re-arming the exact same breakpoint address
-         * in a fresh session afterward and it never firing again, because
-         * the slave was never actually re-entering that code at all.
+         * @details 'D', 'k' and a disconnect also resume the master; without this the
+         * slave stays parked and no slave job is ever dispatched again.
          */
         struct SlaveReleaseGuard
         {
@@ -778,9 +726,7 @@ namespace SRL
         {
             /**
              * @brief Set for the entire duration of process_commands().
-             * @details Poll() checks this at entry and returns immediately if set -- see the
-             * comment there for why this exists and why blanket-masking interrupts
-             * (an earlier, now-reverted fix) was the wrong approach.
+             * @details Poll() skips its GDB work while this is set (see Poll()).
              */
             inline static volatile bool g_in_process_commands = false;
 
@@ -1185,34 +1131,10 @@ namespace SRL
                 g_last_stop_signal = 5U; // SIGTRAP
                 return;
             }
-            // SoftwareBreakInstruction (0xFFFF) is the SAME opcode CrashProgram() uses to
-            // deliberately trigger a real Illegal Instruction crash, so vector 4's thunk
-            // (srl_gdbstub_illegal_thunk) cannot tell "GDB's own breakpoint/step-trap fired"
-            // apart from "the user's code genuinely executed an illegal instruction" -- it
-            // unconditionally pre-sets g_last_stop_signal = SIGILL(4) before this function
-            // even runs. Every g_stop.WasSwBreak = true branch below IS one of our own traps
-            // (a GDB-inserted breakpoint or do_software_step()'s internal step trap), never
-            // a real crash, so it must be reported as SIGTRAP(5) -- overriding the thunk's
-            // pre-set value -- or GDB won't recognize it as its own breakpoint (no swbreak
-            // annotation in the T-packet, see send_stop_signal), and will treat a completely
-            // ordinary breakpoint hit as an unrecoverable program crash.
-            // SH-2 exception PC semantics:
-            //   - Illegal Instruction (0xFFFF): hardware pushes the address of the
-            //     faulting instruction itself (the 0xFFFF word), i.e. g_step_data.address.
-            //   - TRAPA #imm: hardware pushes PC+2 (past the trap), so we subtract 2.
-            //   - Slot illegal instruction (0xFFFF in a delay slot): hardware pushes the
-            //     branch destination, not the slot -- why steps never trap in a delay slot.
-            //
-            // Step trap or software breakpoint:
-            // PC pushed by hardware IS the faulting instruction address.
-            //
-            // EDGE CASE: If a user places a GDB software breakpoint exactly on a programmatic
-            // Break() call, this check matches first and returns early (PC is NOT advanced).
-            // When GDB removes the breakpoint, it restores the original instruction (0xFFFF).
-            // Upon resume, the CPU re-executes 0xFFFF and traps a second time. This time,
-            // find_breakpoint_slot() will fail, and the block below will correctly advance
-            // the PC past the Break(). This is acceptable as the user will just see two
-            // stops at the same address (one for their BP, one for the hardcoded Break).
+            // The illegal-instruction thunk tags every 0xFFFF as SIGILL. One of our own
+            // breakpoints or step traps must be reported as SIGTRAP instead, or GDB treats
+            // a normal breakpoint hit as a crash. The pushed PC is the 0xFFFF word itself.
+            // A GDB breakpoint placed on a Break() call stops twice there (BP, then Break()).
             if (find_breakpoint_slot(GDBStub::MasterSH2().pc) >= 0 || (g_step_data.active && GDBStub::MasterSH2().pc == g_step_data.address))
             {
                 g_stop.WasSwBreak = true;
@@ -1220,9 +1142,8 @@ namespace SRL
                 return;                  // PC is already exactly at the breakpoint.
             }
 
-            // If it is a programmatic Break() (0xFFFF) not inserted by GDB, we must advance the PC
-            // past it so that execution can resume cleanly on continue/step. We do NOT set g_stop.WasSwBreak
-            // to true, otherwise GDB will auto-continue over it because it isn't in its breakpoint list.
+            // A Break() (0xFFFF) GDB did not insert: step past it so continue/step can resume. Not
+            // WasSwBreak, or GDB would silently continue over a breakpoint it doesn't know.
             if (is_valid_memory_range(GDBStub::MasterSH2().pc, 2U))
             {
                 volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(GDBStub::MasterSH2().pc | 0x20000000U);
@@ -1253,12 +1174,8 @@ namespace SRL
          */
         inline static void snapshot_polling_context()
         {
-            // Fallback context used when we service GDB packets outside srl_gdbstub_exception_thunk.
-            // It keeps PC/SP/special registers valid so GDB does not see a null frame.
-            // We zero r0-r14 intentionally. The C++ compiler constantly clobbers these
-            // during the Poll() execution itself, so capturing them via inline asm
-            // would just yield meaningless compiler-generated garbage. Only the
-            // structural frame (SP, PC, PR, etc) is accurate.
+            // Context for packets serviced outside an exception, so GDB never sees a null frame.
+            // r0-r14 are zeroed: inside Poll() they only hold compiler temporaries.
             for (int i = 0; i < 16; ++i)
             {
                 GDBStub::MasterSH2().r[i] = 0;
@@ -1273,7 +1190,7 @@ namespace SRL
             uint32_t macl = 0;
             uint32_t sr = 0;
 
-            asm volatile("mov r15, %0" : "=r"(sp));     // sp = current r15 (this function's own live stack pointer, not the real caller's -- see the doc comment below on why that's fine here)
+            asm volatile("mov r15, %0" : "=r"(sp));     // sp = current r15 (this function's own stack pointer, not the caller's)
             asm volatile("mova 1f, r0\n\t"              // r0 = address of local label "1" (a fixed point a few instructions below, inside this same function)
                          "mov r0, %0\n\t"               // pc = r0 -- captures that fixed address as the "current PC", since there's no direct "read PC" instruction on SH-2
                          ".align 2\n\t"                 // realign after the mova/mov pair so label 1 lands on a valid instruction boundary
@@ -1298,33 +1215,15 @@ namespace SRL
             // attach reports it (e.g. SIGILL) and GDB resumes with an unsupported "C04".
             g_last_stop_signal = 5U; // SIGTRAP
 
-            // MasterSH2().pc above is the address of a label inside THIS function
-            // (captured via "mova 1f, r0") -- always the same fixed address
-            // regardless of where Poll()'s real caller actually is. It is not a
-            // valid resume point. Flag this so continue/step treat it as a no-op.
+            // pc is a label inside this function, not a resume point: continue/step must ignore it.
             g_stop.CtxIsFake = true;
         }
 
         /**
          * @brief Idle timeout (wait-loop iterations) applied after handshake when no packet arrives.
-         * @details MMIO reads (USB_FLAGS) have ~10 wait states on Saturn, so each loop
-         * iteration takes ~1-2 us.
-         *
-         * Hardware-confirmed bug this fixes: this same wait loop runs inside
-         * process_commands()'s packet loop -- i.e. while genuinely HALTED,
-         * mid-conversation with GDB, not just while polling during normal
-         * execution. The original 3,000,000-iteration value (~3-6 seconds) was
-         * sized for detecting a GDB process that crashed/was killed without
-         * cleanly detaching -- but it can't tell that apart from a developer
-         * just reading the stop message and typing a couple of commands.
-         * Confirmed directly: pausing as little as 1-3 seconds between a
-         * Ctrl-C/breakpoint/NMI stop and the next `continue` was enough to hit
-         * this timeout, silently resetting g_session.HasConnection/g_session.HandshakeDone
-         * and resuming the target out from under GDB, which was still sitting
-         * there expecting a reply to whatever it sent next -- exactly the
-         * "GDB shows the stop, but Continue does nothing" symptom reported
-         * after the Reset-button/NMI work. Bumped ~150x to give a realistic
-         * interactive debugging pause (several minutes) before giving up.
+         * @details Each iteration is ~1-2 us (USB_FLAGS has ~10 wait states), so this is several
+         * minutes. The loop also runs while halted, so it must outlast a developer thinking
+         * between commands: a few seconds resumed the target out from under GDB.
          */
         static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 450000000U;
 
@@ -1333,32 +1232,11 @@ namespace SRL
 
         /**
          * @brief Waits for USB RX data.
-         * @warning These IsConnected() guards (here, __gdb_wait_tx() below, and
-         * the drain loop in process_commands()) only cover software polling --
-         * hardware-confirmed on real Saturn hardware: physically unplugging the
-         * USB cable can still hang the console instantly, with no intervening
-         * frame, which points to the SH-2's Bus State Controller stalling on an
-         * external WAIT signal from the cart's CPLD/FTDI interface rather than
-         * any of these loops. No amount of guarding SRL::DevCart::CS0 call
-         * sites in this header can fix a stall that happens inside the bus
-         * cycle itself, before any instruction gets to run. See "Unplugging
-         * the USB cable mid-session hangs the console" in
-         * Samples/Debug - GDB Stub/readme.md for the full writeup.
-         * @details
-         * - Before first connection (g_session.HasConnection=false): waits indefinitely
-         *   so Break() before GDB attaches works correctly -- UNLESS the cable
-         *   is (or becomes) physically absent, in which case there is clearly
-         *   no debugger that could ever attach, so we bail out immediately.
-         *   Hardware-confirmed bug this fixes: with the cable unplugged, the
-         *   floating USB_FLAGS register can read as "RX pending", pulling
-         *   Poll() into process_commands() before any GDB session ever
-         *   existed (g_session.HasConnection still false). The disconnect check used
-         *   to live inside `if (g_session.HasConnection)`, so it never ran in that
-         *   case, and this loop had no other exit condition -- a permanent
-         *   hang that merely reconnecting the cable couldn't clear (nothing
-         *   was actively sending bytes to satisfy `IsRxfEmpty()`).
-         * - After connection established: also aborts on prolonged silence
-         *   (GDB process killed without sending D).
+         * @details Before GDB connects: waits forever (so Break() before attach works), but
+         * gives up at once if the cable is absent -- a floating USB_FLAGS reads as "RX pending".
+         * After the handshake: also gives up after GDB_RX_IDLE_TIMEOUT (GDB killed without D).
+         * @warning Unplugging the cable mid-bus-cycle can still hang the console; no software
+         * check can catch that (see the sample readme).
          * @return true if data is available, false if the session should be abandoned
          */
         inline static bool __gdb_wait_rx()
@@ -1389,9 +1267,7 @@ namespace SRL
 
         /**
          * @brief Waits for USB TX space.
-         * @details Same cable-unplug hazard/fix as __gdb_wait_rx() -- aborts on
-         * cable unplug regardless of connection state, and on prolonged silence
-         * once a session is established.
+         * @details Same exits as __gdb_wait_rx(): cable unplugged, or idle timeout after the handshake.
          * @return true if a byte can be written, false if the session should be abandoned
          */
         inline static bool __gdb_wait_tx()
@@ -1645,10 +1521,8 @@ namespace SRL
 
             if (signal == 5)
             {
-                // Only append "swbreak:;" if this was actually a GDB-managed software breakpoint
-                // or a single-step trap. If we append it for a programmatic Break() or a real crash
-                // using 0xFFFF, GDB will fail to find it in its list and auto-continue the target,
-                // resulting in an infinite loop.
+                // swbreak only for GDB's own breakpoints/step traps: on a Break() or a crash GDB
+                // finds no breakpoint there and silently continues.
                 if (g_stop.WasSwBreak)
                 {
                     const char *swb = "swbreak:;";
@@ -1716,14 +1590,8 @@ namespace SRL
         }
 
         /**
-         * @brief Sends `text` to the GDB console as one or more $O (console output)
-         * packets, hex-encoding and chunking it as needed to stay within the
-         * negotiated packet size. Used to implement built-in `monitor` diagnostic
-         * commands (e.g. "regs slave") whose formatted output is too large for a
-         * single hex-encoded qRcmd reply. Safe to call only while still inside the
-         * RSP command loop responding to a qRcmd request -- GDB keeps reading
-         * packets after `monitor` until it sees a non-'O' reply, so any number of
-         * $O packets sent here arrive before the final $OK.
+         * @brief Sends `text` to the GDB console as $O packets, chunked to the packet size.
+         * @details Only while answering a qRcmd: GDB prints $O packets until the final $OK.
          * @param text Text to print on the GDB console
          * @param len Length of text
          */
@@ -1769,20 +1637,9 @@ namespace SRL
 
         /**
          * @brief Fixed 'g' packet register count GDB's SH backend requires.
-         * @details Empirically confirmed on real hardware (gdb-multiarch 15.1 and this repo's
-         * bundled sh-elf-gdb 14.2): both have a HARD-CODED, non-negotiable 268-byte
-         * 'g' packet size for the "sh"/"sh2" architecture -- 23 real registers plus
-         * 44 padding slots that GDB's own static register table already reserves as
-         * blank/anonymous (verified via `maintenance print registers` after
-         * `set architecture sh2`). Neither client honors qXfer:features:read-declared
-         * register counts for this architecture (GDB prints "Target-supplied
-         * registers are not supported by the current architecture" and then rejects
-         * any 'g' reply whose length does not match its own fixed count exactly --
-         * not just longer ones). The default 'g'/'G' packet below therefore pads out
-         * to this fixed size instead of appending the slave pseudo-registers, so
-         * basic sessions (breakpoints, stepping, core registers, memory) work with
-         * stock GDB. Those pseudo-registers remain reachable via 'p'/'P' with the
-         * same indices (23..) despite this limitation.
+         * @details gdb-multiarch 15.1 and sh-elf-gdb 14.2 both hard-code a 268-byte 'g' packet
+         * for sh/sh2: 23 real registers plus 44 blank slots, and reject any other length. So
+         * 'g'/'G' pad to this size; the slave registers are only reachable via 'p'/'P' (23..45).
          */
         static constexpr size_t GdbFixedShRegisterCount = 67U;
 
@@ -1790,12 +1647,8 @@ namespace SRL
         static constexpr size_t GdbFixedShPaddingRegisters = GdbFixedShRegisterCount - 23U;
 
         /**
-         * @brief Built-in `monitor regs slave` command: dumps the slave SH-2 context
-         * (see g_slave_ctx above) to the GDB console via $O packets. Since GDB's SH
-         * architecture backend rejects this stub's target-supplied register
-         * description outright (see the GdbFixedShRegisterCount comment above), the
-         * slave_r0..slave_sr pseudo-registers are never reachable by name through
-         * GDB's Registers UI -- this command is the practical way to inspect them.
+         * @brief Built-in `monitor regs slave` command: prints g_slave_ctx to the GDB console.
+         * @details GDB's SH port has no names for the slave registers (see GdbFixedShRegisterCount).
          * @note Reads as all zero unless InstallSlaveExceptionHandler() has been
          * installed on the slave and the slave has hit at least one breakpoint.
          */
@@ -1844,13 +1697,9 @@ namespace SRL
         }
 
         /**
-         * @brief Built-in `monitor trace` command: dumps a full, read-only snapshot
-         * of the current halt state -- where we stopped, why, and what `continue`
-         * would decide to do about it -- WITHOUT mutating anything (no memory
-         * patches, no g_step_data changes). Meant to be run BEFORE continuing, to
-         * capture exactly what the stub sees for a specific stop that's hard to
-         * reproduce on demand (e.g. a Ctrl-C stop, which can land anywhere,
-         * including inside precompiled library code with no debug info).
+         * @brief Built-in `monitor trace` command: prints where and why the target stopped.
+         * @details Read-only (no memory patches, no g_step_data changes), so it can run before a
+         * continue to capture a stop that is hard to reproduce.
          */
         inline static void send_halt_trace_dump()
         {
@@ -1896,13 +1745,6 @@ namespace SRL
         }
 
         /**
-         * @brief Prepares the CPU state for a GDB single-step command ('s'/'S').
-         *
-         * Places a temporary software breakpoint on the next sequential instruction
-         * (or the branch target if the current instruction is a branch), ensuring
-         * the stub catches execution immediately after one instruction.
-         */
-        /**
          * @brief Applies the optional resume address of a 'c'/'C'/'s'/'S' packet to the master PC.
          * @details "caddr"/"saddr" have no separator; "Csig[;addr]"/"Ssig[;addr]" carry a
          * two-digit signal number (ignored -- we don't support signal delivery) before the
@@ -1927,22 +1769,16 @@ namespace SRL
             }
         }
 
+        /**
+         * @brief Prepares the CPU state for a GDB single-step command ('s'/'S').
+         * @details Places a step trap after the current instruction (see do_software_step()).
+         * A parked slave is just released (SlaveReleaseGuard): slave code can't be stepped.
+         */
         inline static void handle_gdb_step()
         {
             g_stop.SignalOverride = 0;
 
-            // A slave parked at a breakpoint (see InstallSlaveExceptionHandler())
-            // is released by SlaveReleaseGuard when process_commands() returns,
-            // regardless of which command got us there -- no single-step support
-            // for slave code, so 's' just resumes it same as 'c' would.
-
-            // See g_stop.CtxIsFake's declaration: if the current halt came from
-            // Poll()'s out-of-band snapshot path rather than a real exception,
-            // MasterSH2().pc is not a real instruction address and r0-r14 are zeroed --
-            // decoding an opcode there or planting a trap based on it would
-            // corrupt state. The real CPU registers were never touched, so the
-            // only correct behavior is to do nothing and let execution continue
-            // untouched wherever it actually is.
+            // No real instruction to step from a Poll() snapshot (see g_stop.CtxIsFake).
             if (g_stop.CtxIsFake)
             {
                 g_stop.CtxIsFake = false;
@@ -1965,46 +1801,22 @@ namespace SRL
         }
 
         /**
-         * @brief Core GDB Remote Serial Protocol (RSP) packet processor.
-         *
-         * This function reads and parses RSP packets ('g', 'G', 'm', 'M', 'z', 'Z', 'c', 's', etc.)
-         * from the USB FIFO. It reads/writes CPU state via the `g_ctx` global exception frame,
-         * manipulates software breakpoints, and responds to the debugger.
-         * It executes entirely from the SH-2 exception context.
-         * @note The exception thunk reaches this through the extern "C"
-         * srl_gdbstub_process_commands() trampoline (defined after the class):
-         * an __asm__ label on an in-class member function definition is
-         * silently ignored by GCC, so the member itself has no fixed symbol.
+         * @brief The RSP command loop for one halt: reads packets and answers them until
+         * GDB resumes (c/s), detaches, kills or disconnects. Runs in exception context.
+         * @note Reached through the extern "C" srl_gdbstub_process_commands() trampoline:
+         * GCC ignores an __asm__ label on an in-class member function.
          */
         inline static void process_commands()
         {
-            // Must be the very first thing: marks g_in_process_commands for the
-            // entire duration, so Poll() (see its top) knows to skip its
-            // GDB-related work if VBlank fires while we're already halted here.
-            //
-            // History: an earlier fix for the reentrancy bug this guards against
-            // used SR.IMASK to block VBlank outright for the whole halt. That
-            // caused a NEW, hardware-confirmed regression: VBlank's interrupt
-            // handler does other SGL-critical work beyond calling Poll() (frame
-            // timing, DMA, etc per "VblankHandling" elsewhere in this file), and
-            // starving that for any real inspection pause (confirmed with a
-            // 60-second halt) left the target unable to resume correctly at all
-            // -- worse than the bug it fixed. This flag is more surgical: VBlank
-            // still fires and does its other work every frame even while halted,
-            // only the specific re-entrant call into this function is skipped.
+            // First: VBlank keeps running while halted (SGL needs it), so a Poll() it calls
+            // must see this flag and skip its GDB work. Don't mask interrupts instead.
             ReentrancyGuard reentrancy_guard;
 
-            // CacheFlusher guarantees a single cache purge on every exit path from this
-            // function — continue, step, detach, disconnect, and early error returns alike.
-            // This is intentional: any return that follows a memory patch (breakpoint install/
-            // remove, M-packet write, or single-step trap placement) must have flushed before
-            // the CPU resumes executing the patched region. On disconnect/detach the flush is
-            // harmless. DO NOT remove this object or move it past the first PurgeCache() call.
+            // Purges the cache on every exit path, so patched code (breakpoints, 'M',
+            // step traps) is never run stale. Keep it before the first PurgeCache().
             CacheFlusher flusher;
 
-            // See SlaveReleaseGuard's doc comment: releases a slave parked at a
-            // breakpoint on every exit path from this function, same rationale
-            // as CacheFlusher above (continue, step, detach, disconnect alike).
+            // Releases a parked slave on every exit path (see SlaveReleaseGuard).
             SlaveReleaseGuard slave_release_guard;
 
             // The caches don't snoop each other: drop any line the slave has written since
@@ -2027,23 +1839,10 @@ namespace SRL
 
             undo_software_step();
 
-            // Drain any stale bytes that GDB sent before this trap fired.
-            // Without this, GDB startup packets (including a continue) queued in
-            // the FIFO while the Saturn was initialising would immediately resume
-            // the target upon the very first Break().
-            //
-            // Same cable-unplug hazard as __gdb_wait_rx()/__gdb_wait_tx() (see
-            // their doc comments): a disconnected/floating USB bus can make
-            // IsRxfEmpty() read as "never empty", so this drain must bail out
-            // on IsConnected()==false rather than spin forever trying to empty
-            // a FIFO that will never report empty. This is reached from Poll()'s
-            // pre-connection fallback path (snapshot_polling_context() +
-            // process_commands(), see Poll() below) BEFORE __gdb_wait_rx() is
-            // ever called, so fixing only that function left this loop hanging.
-            //
-            // Not on Poll()'s path (g_stop.CtxIsFake): there the pending bytes ARE the
-            // packet that brought us here (GDB's first qSupported) -- draining them cost
-            // every first connect after boot several NACKs/retransmits and desynced GDB.
+            // Before a session, drop stale bytes queued while the Saturn booted (a queued
+            // continue would resume the first Break() at once). Stop on unplug: a floating
+            // bus never reads empty. Not from Poll() (CtxIsFake): those bytes are GDB's
+            // first qSupported.
             if (!g_session.HasConnection && !g_stop.CtxIsFake)
             {
                 while (!SRL::DevCart::CS0::IsRxfEmpty())
@@ -2060,13 +1859,9 @@ namespace SRL
             // would arrive before its qSupported answer and shift every reply after it.
             else if (g_session.HandshakeDone && !g_stop.CtxIsFake)
             {
-                // If we are already connected and we just entered the trap handler
-                // (e.g. hit a breakpoint or Ctrl-C), we MUST notify GDB proactively.
+                // GDB is waiting on a c/s: report this stop.
                 send_stop_signal(current_stop_signal());
             }
-
-            // The stop reason is preserved until '?' arrives; g_stop.SignalOverride
-            // is cleared upon resume.
 
             while (true)
             {
@@ -2152,14 +1947,8 @@ namespace SRL
                     }
                     else if (starts_with(in_buf, "qRcmd,"))
                     {
-                        // GDB's `monitor <text>` command: qRcmd,<hex-encoded-ascii-text>.
-                        // A few built-in diagnostic commands ("regs slave", "trace")
-                        // are handled synchronously right here, replying with $O console-output
-                        // packets (see send_monitor_text) before the final OK, since their
-                        // data already lives in memory the stub can read itself. Everything
-                        // else is decoded into g_monitor.LastCommand and the counter is
-                        // bumped; user code polls GetMonitorCommandCount()/
-                        // GetLastMonitorCommand() to react (e.g. "crash illegal").
+                        // `monitor <text>` (hex-encoded). "regs slave" and "trace" are answered
+                        // here; anything else is stored for user code (GetLastMonitorCommand()).
                         const char *hex_payload = in_buf + 6;
                         size_t hex_len = 0;
                         while (hex_payload[hex_len] != '\0')
@@ -2224,35 +2013,14 @@ namespace SRL
                         snapshot_polling_context();
                     }
 
-                    // Send a copy of the context. We do NOT zero PR/R14 for Ctrl-C-family
-                    // stops here, despite an earlier version of this code doing so to stop
-                    // GDB from unwinding into SGL's no-debug-info interrupt wrapper.
-                    //
-                    // Hardware-confirmed regression that reverted it: reporting PR=0 (a
-                    // sentinel GDB reads as "no caller / invalid frame") is what actually
-                    // breaks GDB's client, not the reverse. Caught live on a real NMI-frozen
-                    // target: `monitor trace` (reading MasterSH2().pr directly, unaffected by this
-                    // masking) showed a real, valid PR, but GDB's own `print $pr` -- reading
-                    // the masked 'g' reply -- showed exactly 0. From that point on, EVERY
-                    // subsequent command in that GDB session failed with "Cannot evaluate
-                    // expression on the specified stack frame", including plain `monitor`
-                    // requests that never touch frame/expression logic at all -- meaning
-                    // GDB's client got stuck before it even sent anything further to the
-                    // target, blocking Continue along with everything else. Separately
-                    // confirmed: a real (unmasked) PR pointing into the same no-debug-info
-                    // library code did NOT cause GDB to hang or loop -- `bt` returned
-                    // promptly with "Backtrace stopped: frame did not save the PC". So this
-                    // masking was solving a problem GDB's current SH-2 backend already
-                    // handles fine on its own, while introducing a much worse one.
+                    // Real PR/R14 even inside SGL code without debug info: GDB's `bt` copes,
+                    // but a zeroed PR broke every later command of the session.
                     SH2Context ctx_copy = GDBStub::MasterSH2();
 
                     char *p_out = out_buf;
                     p_out = mem2hex((uint8_t *)&ctx_copy, p_out, sizeof(SH2Context));
 
-                    // Pad to the fixed size stock GDB's SH backend requires (see
-                    // GdbFixedShPaddingRegisters above) instead of appending the
-                    // slave pseudo-registers -- those remain reachable via 'p'/'P'
-                    // with the same register indices despite this limitation.
+                    // Pad to the fixed size GDB's SH port requires (see GdbFixedShRegisterCount).
                     for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i)
                     {
                         *p_out++ = '0';
@@ -2266,10 +2034,7 @@ namespace SRL
                 break;
                 case 'G':
                 {
-                    // The G packet payload must contain at least the core register set.
-                    // GDB reflects back the full g response -- including the trailing
-                    // zero-padding block -- so we accept any payload >= core size and
-                    // only write the first sizeof(SH2Context)*2 chars.
+                    // GDB echoes the padded 'g' reply: write the core registers, ignore the rest.
                     constexpr size_t core_len = sizeof(SH2Context) * 2;
                     size_t len = 0;
                     while (in_buf[1 + len] != '\0')
@@ -2343,11 +2108,8 @@ namespace SRL
                         break;
                     }
 
-                    // Read via the cache-through mirror (see install_software_breakpoint
-                    // and friends) so a value just patched through that same mirror --
-                    // e.g. a breakpoint installed earlier in this same halted session,
-                    // before the deferred CacheFlusher purge runs -- isn't masked by a
-                    // stale D-cache line still held under the plain (cached) alias.
+                    // Cache-through, like every patch: a breakpoint written this halt must not
+                    // be hidden by a stale cache line before CacheFlusher purges.
                     const int tx_len = static_cast<int>(mem2hex((uint8_t *)(addr | 0x20000000U), out_buf, static_cast<int>(length)) - out_buf);
                     packet_put('\0', out_buf, static_cast<size_t>(tx_len));
                 }
@@ -2375,12 +2137,7 @@ namespace SRL
                         break;
                     }
 
-                    // Write via the cache-through mirror, same as every other in-place
-                    // patch in this file (breakpoints, step traps) -- see the 'm' handler
-                    // just above for why the plain (cached) alias isn't safe here.
-                    // Uses hex2mem_aligned() rather than plain hex2mem(): this handler
-                    // can target VDP RAM (e.g. CRAM), which doesn't reliably latch
-                    // single-byte writes -- see hex2mem_aligned()'s doc comment.
+                    // Cache-through, and word-sized stores for VDP RAM (see hex2mem_aligned()).
                     if (hex2mem_aligned(p, addr | 0x20000000U, length))
                     {
                         PurgeCache();
@@ -2489,14 +2246,9 @@ namespace SRL
         // (thunk entry points are declared extern "C" at the top of this file)
 
         /**
-         * @brief Hook the SH-2 CPU exception vectors for the GDB stub.
-         *
-         * Relocates the Vector Base Register (VBR) from ROM to RAM if necessary,
-         * and installs `srl_gdbstub_exception_thunk` as the handler for critical
-         * CPU traps including Illegal Instruction, Address Errors and User Break.
-         *
-         * NMI (vector 11, the Saturn's physical Reset button) is deliberately left
-         * on whatever handler the BIOS/SGL installed.
+         * @brief Hooks the master's illegal-instruction, address-error, UBC and TRAPA #35
+         * vectors, first moving the vector table to RAM if VBR still points at the boot ROM.
+         * @details NMI (vector 11, the Reset button) is deliberately left to the BIOS/SGL.
          */
         inline static void InstallExceptionHandlers()
         {
@@ -2507,20 +2259,12 @@ namespace SRL
                 uint32_t current_vbr = 0;
                 asm volatile("stc vbr, %0" : "=r"(current_vbr)); // current_vbr = this CPU's (the master's) current VBR
 
-                // If VBR is still 0 (Boot ROM), we cannot write to it. We must relocate to RAM.
-                // We use 0x06000000 as a safe fallback and copy the Boot ROM vectors there to preserve the chain.
+                // VBR 0 is the read-only boot ROM: copy its table to RAM and point VBR there.
                 if (current_vbr == 0)
                 {
                     current_vbr = 0x06000000;
-                    // On the Saturn, physical address 0x00000000 maps to the Boot ROM.
-                    // We read from the cache-through mirror at 0x20000000 to ensure we bypass
-                    // the cache. Using the 0x20000000 mirror explicitly guarantees we read the
-                    // actual ROM vectors even if a dev environment mapped something else to
-                    // the cached address 0.
                     volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
                     volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(current_vbr | 0x20000000U);
-                    // The SH-2 exception vector table is exactly 256 bytes = 64 × uint32_t entries.
-                    // Copying 256 uint32_t would read 1024 bytes — 768 bytes past the table end.
                     for (int i = 0; i < 64; i++)
                     {
                         dst_table[i] = src_table[i];
@@ -2531,19 +2275,8 @@ namespace SRL
                 // Write directly to the Cache-Through mirror of the VBR table
                 volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(current_vbr | 0x20000000U);
 
-                // Patch our exceptions
-                // SH-2 exception vector layout from VBR:
-                //   Fixed exceptions (reset, NMI, etc): VBR + 0x000..0x07C  (indices 0..31)
-                //   TRAPA user vectors:                   VBR + 0x080..0x0FC  (indices 32..63)
-                //   Interrupts (SCU, on-chip peripherals): index 64 and up
-                //   TRAPA #N:                             VBR + N*4 (N is the vector; 32..63 are free for users)
-                // The "illegal opcode" family and "address error" family route through
-                // their own tiny trampolines so GDB is told SIGILL/SIGBUS instead of a
-                // generic SIGTRAP for these -- see srl_gdbstub_illegal_thunk /
-                // srl_gdbstub_addrerr_thunk's doc comment. UBC break and TRAPA #35 are
-                // genuinely trap/breakpoint-like, so they keep reporting SIGTRAP as
-                // before and go straight to the shared thunk. NMI (vector 11) is not
-                // hooked.
+                // Vectors 0-31 are CPU exceptions, 32-63 TRAPA #N. Each exception family goes
+                // through its tag thunk so GDB sees SIGILL/SIGBUS/hwbreak; TRAPA #35 reports SIGTRAP.
                 vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Illegal Instruction
                 vbr_table[5] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Reserved Instruction
                 vbr_table[6] = reinterpret_cast<uint32_t>(&srl_gdbstub_illegal_thunk);    // Slot Illegal Instruction
@@ -2613,11 +2346,7 @@ namespace SRL
             g_transfer.PollFallbackCount = 0;
             g_session.LastCommand[0] = '\0';
             g_transfer.UngetChar = -1;
-            // Use CS0 USB_FLAGS readability as the proxy for cart detection.
-            // Do NOT read CS1 registers here: on USBGamers carts the CS1 space
-            // may not be decoded, causing the SH-2 bus to hang (bus error).
-            // HasWascaSignature() checks CS1 CPLD magic bytes (0x24000001/03);
-            // IsPortAvailable() only reads CS0 USB_FLAGS which is always safe.
+            // Detect the cart through CS0 only: reading CS1 can hang the bus on USBGamers carts.
             g_devcart.Ready = SRL::DevCart::CS0::IsPortAvailable(); // CS0-only check
             g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
 
@@ -2707,22 +2436,10 @@ namespace SRL
 
         /**
          * @brief Returns how many `monitor <text>` commands have been received via qRcmd.
-         * @details Compare against a locally-cached value each frame to detect a new
-         * command, then dispatch on GetLastMonitorCommand(). This lets a GDB `monitor`
-         * command (or any scripted qRcmd sender) trigger sample/test behavior without
-         * needing a physical gamepad.
-         *
-         * @warning qRcmd is processed entirely on the target while it is stopped
-         * (inside process_commands()'s packet loop), so user code only sees this
-         * counter change once execution actually resumes via 'c'/'D'. If multiple
-         * `monitor` commands are sent before that happens, edge-triggered polling
-         * of this counter only observes ONE change and dispatches whatever
-         * GetLastMonitorCommand() holds at that point -- earlier commands sent
-         * while still stopped are silently coalesced away, not queued. Confirmed
-         * on real hardware: two `monitor touch` calls sent back-to-back while
-         * stopped only incremented the target variable once after resuming.
-         * Send one `monitor` command, `continue`, then repeat if you need each
-         * one to take effect individually.
+         * @details Compare against a cached value each frame to detect a new command, then
+         * dispatch on GetLastMonitorCommand().
+         * @warning Commands arrive while the target is stopped, so several sent before one
+         * `continue` are seen as one: only the last takes effect. They are not queued.
          * @return Number of non-built-in monitor commands received
          */
         inline static uint32_t GetMonitorCommandCount()
@@ -2742,10 +2459,7 @@ namespace SRL
         /**
          * @brief Returns how many times the slave's illegal-instruction
          * (breakpoint) handler has fired.
-         * @details Reads shared Work RAM, so this is safe to call from the
-         * master even though the counter is incremented by code running on
-         * the slave. Zero unless InstallSlaveExceptionHandler() has been
-         * installed on the slave.
+         * @details Zero unless InstallSlaveExceptionHandler() ran on the slave.
          * @return Number of times the slave breakpoint handler has fired
          */
         inline static uint32_t GetSlaveBreakpointCount()
@@ -2760,35 +2474,12 @@ namespace SRL
          * @warning MUST be called from code running ON THE SLAVE SH-2 (e.g. via
          * SRL::Slave::ExecuteOnSlave / InstallSlaveExceptionTask below).
          *
-         * @note A slave breakpoint used to stop all further slave dispatch. That was a cache
-         * bug, not SGL: the two SH-2 caches don't see each other's writes, so the slave
-         * spun forever on a stale g_slave.Resume. The cross-CPU flags are now read through
-         * the cache-through mirror (see Uncached()), and dispatch resumes normally.
-         *
-         * Software breakpoints set via GDB's normal 'Z0' packet are just a
-         * 0xFFFF memory patch and work regardless of which CPU's code they
-         * land in; without this handler, the slave executing one takes an
-         * unhandled exception on its unconfigured boot-ROM default vector
-         * and never returns (see "don't set breakpoints inside code that
-         * runs on the slave" in Samples/Debug - GDB Stub/readme.md for the
-         * hardware-confirmed symptom this replaces).
-         *
-         * @warning No single-step or step-over support for slave code: a
-         * breakpoint hit here is one-shot (see slave_breakpoint_handler())
-         * -- it's automatically removed the moment it's hit, so resuming
-         * doesn't immediately re-fault on the same patched instruction. Set
-         * it again with a fresh 'break'/'Z0' if you need it to fire again.
-         * There is also no real multi-thread RSP support: a slave stop halts
-         * the whole session the same way Ctrl-C does, and the slave's saved
-         * state is inspected via the existing `monitor regs slave` / slave
-         * pseudo-registers, not by switching GDB threads.
-         *
-         * @note Hardware-confirmed: by the time this runs, SGL has already relocated
-         * the slave's VBR (~0x06000400, not 0), so the `if (vbr == 0)` copy below is
-         * skipped and vector 4 is patched straight into SGL's live table. The master
-         * used to see this task's `running` flag stuck at true afterwards; that was
-         * the same stale-cache read, fixed in ITask (srl_slave.hpp), which now reads
-         * its flags cache-through.
+         * @details A breakpoint (0xFFFF) in slave code otherwise lands on the slave's
+         * unconfigured boot-ROM vector and never returns. Under SGL the slave's VBR is
+         * already in RAM (~0x06000400), so vector 4 is patched in SGL's live table.
+         * @warning Slave breakpoints are one-shot (removed when hit) and slave code can't be
+         * stepped. GDB sees one CPU: a slave stop halts the session like Ctrl-C, and the
+         * slave's state is read with `monitor regs slave`.
          */
         inline static void InstallSlaveExceptionHandler()
         {
@@ -2797,11 +2488,7 @@ namespace SRL
 
             if (vbr == 0)
             {
-                // The slave boots with VBR == 0, same as the master. Relocate to a
-                // slave-private area distinct from the master's own relocation
-                // target (0x06000000, see InstallExceptionHandlers()) so the two
-                // CPUs never overwrite each other's copy of the boot ROM vector
-                // table.
+                // Boot ROM VBR: relocate to a table distinct from the master's 0x06000000.
                 vbr = 0x06010000U;
                 volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
                 volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
@@ -2844,24 +2531,13 @@ namespace SRL
 
         /**
          * @brief Enter the GDB stub via software trap (Illegal Instruction).
-         *
-         * IMPORTANT: The __attribute__((noinline)) is load-bearing.
-         * When this function executes, it triggers an exception via the 0xFFFF instruction.
-         * The GDB stub's `adjust_pc_for_software_breakpoint()` handles this exception by
-         * advancing the program counter by 2 bytes (`g_ctx.pc += 2U`).
-         * If this function were inlined, `g_ctx.pc += 2U` would incorrectly skip the actual user
-         * instruction immediately following the `Break()` call. By forcing this to not be inlined,
-         * the instruction following `0xFFFF` is this function's `rts` (Return from Subroutine).
-         * The `+= 2U` safely skips the `0xFFFF` and lands on `rts`, returning to the caller.
+         * @warning noinline is load-bearing: the stub resumes 2 bytes past the 0xFFFF, which
+         * must land on this function's own rts, not on the caller's next instruction.
          */
         __attribute__((noinline)) inline static void Break()
         {
-            // Force a breakpoint exception.
-            // Using Illegal Instruction (0xFFFF) which reliably vectors to VBR[4].
-            // SGL frequently overwrites TRAPA vectors (32-63) causing them to be ignored.
-            // The illegal-instruction thunk tags every 0xFFFF as SIGILL; report an
-            // explicit Break() as SIGTRAP instead, unless the caller (Poll()) already
-            // chose a signal. See StopStatus::SignalOverride.
+            // 0xFFFF is tagged SIGILL by its thunk: report SIGTRAP unless Poll() already chose
+            // a signal (see StopStatus::SignalOverride). Not TRAPA: SGL overwrites those vectors.
             if (g_stop.SignalOverride == 0)
             {
                 g_stop.SignalOverride = 5U; // SIGTRAP
@@ -2875,26 +2551,15 @@ namespace SRL
          */
         __attribute__((noinline)) inline static void Poll()
         {
-            // If we're called reentrantly while the CPU is already halted inside
-            // process_commands() (e.g. VBlank firing while mid-conversation with
-            // GDB after a breakpoint/Ctrl-C stop), skip our GDB-related work
-            // entirely and let the interrupt handler's OTHER work (whatever
-            // called us) proceed normally. See ReentrancyGuard's doc comment.
-            // Any pending RX byte is simply left in the FIFO for a later, safe
-            // (non-reentrant) Poll() call to pick up -- nothing is lost.
+            // Called from VBlank while halted in process_commands(): do nothing, so the
+            // halt's own packet loop keeps the FIFO (see ReentrancyGuard).
             if (ReentrancyGuard::IsInProcessCommands())
             {
                 return;
             }
 
-            // Bridge a slave-side breakpoint (see InstallSlaveExceptionHandler())
-            // into a normal master-side debug stop -- Poll() runs every VBlank
-            // independent of whatever the master's own C++ code is doing (e.g.
-            // stuck in a bounded wait for a slave job), so this is reached
-            // promptly regardless. Reported as SIGINT, same as Ctrl-C:
-            // there's no meaningful call stack to show on the master side for
-            // an async event like this -- the interesting state is the slave's,
-            // inspected via `monitor regs slave` / the slave pseudo-registers.
+            // Turn a slave breakpoint into a master stop, reported as SIGINT like Ctrl-C:
+            // the master's own stack says nothing about it (use `monitor regs slave`).
             if (Uncached(g_slave.Stopped))
             {
                 g_slave.Reported = true; // this halt tells GDB, so SlaveReleaseGuard may release it
@@ -2919,15 +2584,7 @@ namespace SRL
                 else
                 {
                     // Active session while target runs: only Ctrl-C should interrupt.
-                    // Read the FIFO byte directly rather than via
-                    // SRL::DevCart::CS0::Read() -- that wrapper calls WaitRxf()
-                    // with no poll limit (unconditional, no cable-unplug check),
-                    // an entirely separate hang hazard from __gdb_wait_rx()'s
-                    // (see its doc comment): if the cable is pulled between the
-                    // rxPending check above and here, this would otherwise spin
-                    // forever with zero escape. We already confirmed data is
-                    // pending via rxPending, matching __gdb_getc()'s own
-                    // direct-read pattern below.
+                    // Direct FIFO read, not CS0::Read(): its WaitRxf() spins forever on unplug.
                     const uint8_t ch = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
                     g_transfer.RxDetectCount = g_transfer.RxDetectCount + 1;
 
@@ -2973,14 +2630,10 @@ extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
 }
 
 /**
- * @details Called by srl_gdbstub_slave_illegal_thunk (below) on the slave SH-2,
- * AFTER the thunk has already snapshotted the slave's full register state into
- * SRL::GDBStub::g_slave_ctx. Removes the hit breakpoint (one-shot), flags the
- * stop for Poll() on the master via g_slave.Stopped, then spins until the master
- * sets g_slave.Resume. See SRL::GDBStub::InstallSlaveExceptionHandler()'s doc
- * comment for the overall design (this is the slave-side half of that mechanism).
- * @note Both g_slave flags are read through Uncached(): a spin on the cached
- * copy never sees the master's Resume, which left the slave parked forever.
+ * @details Called by srl_gdbstub_slave_illegal_thunk on the slave, after it saved the
+ * slave's registers into g_slave_ctx. Removes the hit breakpoint (one-shot), raises
+ * g_slave.Stopped for Poll() on the master, then spins until g_slave.Resume.
+ * @note g_slave flags are read through Uncached(): the caches don't snoop each other.
  */
 extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
 {
@@ -3013,17 +2666,12 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
 
     if (SRL::GDBStub::find_breakpoint_slot(bp_addr) >= 0)
     {
-        // One-shot: a GDB-inserted breakpoint is removed now, restoring the
-        // original instruction, and PC stays on it so that instruction still
-        // runs on resume -- there's no step-over support for slave code.
-        // Re-add it with a fresh 'break'/'Z0' if you need it to fire again.
+        // One-shot: remove it so the real instruction runs on resume (no slave step-over).
         SRL::GDBStub::remove_software_breakpoint(bp_addr);
     }
     else
     {
-        // A 0xFFFF compiled into the code (e.g. Break()) has no original
-        // instruction to restore: step over it, the same way
-        // adjust_pc_for_software_breakpoint() does for the master.
+        // A 0xFFFF compiled into the code (e.g. Break()): step past it, as on the master.
         SRL::GDBStub::SlaveSH2().pc += 2U;
     }
 
@@ -3044,37 +2692,21 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
     // Returning here lets srl_gdbstub_slave_illegal_thunk restore registers and rte.
 }
 
-// Exception thunks. Every instruction is commented individually since this is
-// the one piece of the whole file where getting a single line wrong is a silent,
-// hard-to-diagnose miscompile of the debug story itself (wrong register values
-// shown to GDB, or a corrupted resume) rather than a normal bug.
+// Exception thunks. Every instruction is commented: a wrong line here silently shows
+// GDB wrong registers or corrupts the resume.
 //
 // SRL_GDBSTUB_CONTEXT_THUNK name, ctx, handler: saves every register into the
-// SH2Context at `ctx`, calls `handler`, then restores the (possibly GDB-edited)
-// context and returns from the exception. Expanded twice: the master thunk
-// (g_ctx, the RSP command processor) and the slave thunk installed by
-// InstallSlaveExceptionHandler() on the slave's Illegal Instruction vector
-// (g_slave_ctx, slave_breakpoint_handler -- the slave's own halt/spin-wait/resume
-// logic, since the slave has no direct link to the debugger).
-// SH2Context field offsets in play throughout (see the struct above):
-// r[0..15] at bytes 0..60, then pc=64, pr=68, gbr=72, vbr=76, mach=80,
-// macl=84, sr=88 -- i.e. "@(N*4, r0)" for N<16 is r[N], and "@(64,r0)" is
-// the start of the pc/pr/gbr/vbr/mach/macl/sr block, indexed from there.
+// SH2Context at `ctx`, calls `handler`, restores the (possibly GDB-edited) context
+// and returns from the exception. Used for the master (g_ctx, process_commands) and
+// the slave (g_slave_ctx, slave_breakpoint_handler). SH2Context offsets: r[N] at N*4,
+// then pc=64, pr=68, gbr=72, vbr=76, mach=80, macl=84, sr=88.
 //
-// SRL_GDBSTUB_TAG_THUNK name, var, value: per-exception-family entry stub. The
-// SH-2 has no on-chip "cause" register and every exception vector transfers
-// control to a fixed address with no argument-passing convention, so the only
-// way to tell GDB which exception family fired (illegal opcode vs misaligned
-// access vs UBC hit, rather than always a generic SIGTRAP) is a tiny stub per
-// family that stores `value` into the byte `var` before falling through into
-// the master context thunk. r0 and r1 are the only registers touched, and both
-// are saved to the stack and restored before the branch, so the context thunk's
-// own "mov.l r0, @-r15" (its first instruction, which captures the TRUE
-// pre-exception r0) sees an untouched value, and r15 is back where the CPU left it.
+// SRL_GDBSTUB_TAG_THUNK name, var, value: the SH-2 has no "cause" register, so each
+// exception family gets a stub that stores `value` into the byte `var`, then jumps to
+// the master context thunk with every register (r0/r1 saved and restored) untouched.
 //
-// One __asm__ statement: GCC may reorder separate top-level asm statements, and
-// a macro must be defined before it is used. .purgem keeps the names free for
-// any other translation unit's asm that ends up in the same assembler file.
+// One __asm__ statement, since GCC may reorder separate top-level asm; .purgem frees the
+// names for other translation units' asm in the same assembler file.
 __asm__(
     ".macro SRL_GDBSTUB_CONTEXT_THUNK name, ctx, handler\n"
     ".weak \\name\n"
