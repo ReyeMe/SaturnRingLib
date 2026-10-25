@@ -123,14 +123,12 @@ void DMAAddressError();
 void UserBreakController();
 
 /**
- * @brief Vector 35 -- TRAPA #35 (legacy/fallback software breakpoint)
+ * @brief Vector 35 -- TRAPA #35
  *
  * Executes the TRAPA instruction with immediate value 35.
  * The SH-2 pushes PC+2 and SR onto the stack and vectors through
  * VBR + 35 * 4 = VBR + 0x08C (TRAPA #N uses vector N).
- * Note: PC pushed is the instruction AFTER the trapa, not the trapa
- * itself -- adjust_pc_for_software_breakpoint handles this via the
- * TRAPA fallback path (subtracting 2).
+ * The stub reports it as SIGTRAP at the instruction AFTER the trapa.
  */
 void Trapa35();
 
