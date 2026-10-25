@@ -399,31 +399,6 @@ namespace SRL
         static_assert(kPacketDataMax + 1U == 0x190, "Update kPacketSizeStr (hex) if kPacketDataMax changes");
 
         /**
-         * @brief Decodes a hex string into memory, one byte store at a time.
-         * @param buf Hex string to decode (2 characters per byte)
-         * @param mem Destination buffer
-         * @param count Number of bytes to decode
-         * @return Pointer to the character following the decoded hex string, or nullptr on failure.
-         */
-        inline static const char *hex2mem(const char *buf, uint8_t *mem, int count)
-        {
-            // Validate all characters first to prevent partial memory corruption
-            for (int i = 0; i < count * 2; i++)
-            {
-                if (hex(buf[i]) < 0)
-                    return nullptr;
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                int h1 = hex(*buf++);
-                int h2 = hex(*buf++);
-                *mem++ = (h1 << 4) | h2;
-            }
-            return buf;
-        }
-
-        /**
          * @brief Decodes a hex string into memory, using 32-/16-bit stores where
          * address and remaining length allow, falling back to byte stores only
          * for the unaligned remainder.
@@ -1804,7 +1779,7 @@ namespace SRL
             {
                 packet_put('\0', "E01", 3);
             }
-            else if (hex2mem(hex_payload, reinterpret_cast<uint8_t *>(g_monitor.LastCommand), static_cast<int>(cmd_len)))
+            else if (hex2mem_aligned(hex_payload, reinterpret_cast<uint32_t>(g_monitor.LastCommand), static_cast<int>(cmd_len)))
             {
                 g_monitor.LastCommand[cmd_len] = '\0';
                 if (str_equals(g_monitor.LastCommand, "regs slave"))
@@ -1948,7 +1923,7 @@ namespace SRL
                 {
                     packet_put('\0', "E01", 3);
                 }
-                else if (hex2mem(&in_buf[1], (uint8_t *)&g_ctx, sizeof(SH2Context)))
+                else if (hex2mem_aligned(&in_buf[1], reinterpret_cast<uint32_t>(&g_ctx), sizeof(SH2Context)))
                 {
                     packet_put('\0', "OK", 2);
                 }
@@ -1981,7 +1956,7 @@ namespace SRL
                 {
                     reg = register_slot(reg_idx);
                 }
-                if (reg != nullptr && hex2mem(ptr + 1, reinterpret_cast<uint8_t *>(reg), 4))
+                if (reg != nullptr && hex2mem_aligned(ptr + 1, reinterpret_cast<uint32_t>(reg), 4))
                 {
                     packet_put('\0', "OK", 2);
                 }
