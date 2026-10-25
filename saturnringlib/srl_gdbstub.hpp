@@ -3044,78 +3044,102 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
     // Returning here lets srl_gdbstub_slave_illegal_thunk restore registers and rte.
 }
 
-// Every instruction below is commented individually since this is the one
-// piece of the whole file where getting a single line wrong is a silent,
-// hard-to-diagnose miscompile of the debug story itself (wrong register
-// values shown to GDB, or a corrupted resume) rather than a normal bug.
+// Exception thunks. Every instruction is commented individually since this is
+// the one piece of the whole file where getting a single line wrong is a silent,
+// hard-to-diagnose miscompile of the debug story itself (wrong register values
+// shown to GDB, or a corrupted resume) rather than a normal bug.
+//
+// SRL_GDBSTUB_CONTEXT_THUNK name, ctx, handler: saves every register into the
+// SH2Context at `ctx`, calls `handler`, then restores the (possibly GDB-edited)
+// context and returns from the exception. Expanded twice: the master thunk
+// (g_ctx, the RSP command processor) and the slave thunk installed by
+// InstallSlaveExceptionHandler() on the slave's Illegal Instruction vector
+// (g_slave_ctx, slave_breakpoint_handler -- the slave's own halt/spin-wait/resume
+// logic, since the slave has no direct link to the debugger).
 // SH2Context field offsets in play throughout (see the struct above):
 // r[0..15] at bytes 0..60, then pc=64, pr=68, gbr=72, vbr=76, mach=80,
 // macl=84, sr=88 -- i.e. "@(N*4, r0)" for N<16 is r[N], and "@(64,r0)" is
 // the start of the pc/pr/gbr/vbr/mach/macl/sr block, indexed from there.
+//
+// SRL_GDBSTUB_TAG_THUNK name, var, value: per-exception-family entry stub. The
+// SH-2 has no on-chip "cause" register and every exception vector transfers
+// control to a fixed address with no argument-passing convention, so the only
+// way to tell GDB which exception family fired (illegal opcode vs misaligned
+// access vs UBC hit, rather than always a generic SIGTRAP) is a tiny stub per
+// family that stores `value` into the byte `var` before falling through into
+// the master context thunk. r0 and r1 are the only registers touched, and both
+// are saved to the stack and restored before the branch, so the context thunk's
+// own "mov.l r0, @-r15" (its first instruction, which captures the TRUE
+// pre-exception r0) sees an untouched value, and r15 is back where the CPU left it.
+//
+// One __asm__ statement: GCC may reorder separate top-level asm statements, and
+// a macro must be defined before it is used. .purgem keeps the names free for
+// any other translation unit's asm that ends up in the same assembler file.
 __asm__(
-    ".weak _srl_gdbstub_exception_thunk\n"
-    ".global _srl_gdbstub_exception_thunk\n"
+    ".macro SRL_GDBSTUB_CONTEXT_THUNK name, ctx, handler\n"
+    ".weak \\name\n"
+    ".global \\name\n"
     ".align 2\n"
-    "_srl_gdbstub_exception_thunk:\n"
+    "\\name:\n"
     "mov.l r0, @-r15\n"        // push r0 (predecrement r15, store) -- stash the CPU's true pre-exception r0 so it isn't lost to the scratch use below
-    "stc.l gbr, @-r15\n"       // push gbr the same way -- stash it too, restored into g_ctx a few lines down
-    "mov.l 1f, r0\n"           // r0 = &g_ctx (address loaded from the literal pool at label 1, below)
-    "mov.l r14, @(14*4, r0)\n" // g_ctx.r[14] = r14
-    "mov.l r13, @(13*4, r0)\n" // g_ctx.r[13] = r13
-    "mov.l r12, @(12*4, r0)\n" // g_ctx.r[12] = r12
-    "mov.l r11, @(11*4, r0)\n" // g_ctx.r[11] = r11
-    "mov.l r10, @(10*4, r0)\n" // g_ctx.r[10] = r10
-    "mov.l r9,  @(9*4,  r0)\n" // g_ctx.r[9] = r9
-    "mov.l r8,  @(8*4,  r0)\n" // g_ctx.r[8] = r8
-    "mov.l r7,  @(7*4,  r0)\n" // g_ctx.r[7] = r7
-    "mov.l r6,  @(6*4,  r0)\n" // g_ctx.r[6] = r6
-    "mov.l r5,  @(5*4,  r0)\n" // g_ctx.r[5] = r5
-    "mov.l r4,  @(4*4,  r0)\n" // g_ctx.r[4] = r4
-    "mov.l r3,  @(3*4,  r0)\n" // g_ctx.r[3] = r3
-    "mov.l r2,  @(2*4,  r0)\n" // g_ctx.r[2] = r2
-    "mov.l r1,  @(1*4,  r0)\n" // g_ctx.r[1] = r1 -- r0 itself is saved later, once it's no longer needed as the g_ctx pointer
+    "stc.l gbr, @-r15\n"       // push gbr the same way -- stash it too, restored into ctx a few lines down
+    "mov.l 1f, r0\n"           // r0 = &ctx (address loaded from the literal pool at label 1, below)
+    "mov.l r14, @(14*4, r0)\n" // ctx.r[14] = r14
+    "mov.l r13, @(13*4, r0)\n" // ctx.r[13] = r13
+    "mov.l r12, @(12*4, r0)\n" // ctx.r[12] = r12
+    "mov.l r11, @(11*4, r0)\n" // ctx.r[11] = r11
+    "mov.l r10, @(10*4, r0)\n" // ctx.r[10] = r10
+    "mov.l r9,  @(9*4,  r0)\n" // ctx.r[9] = r9
+    "mov.l r8,  @(8*4,  r0)\n" // ctx.r[8] = r8
+    "mov.l r7,  @(7*4,  r0)\n" // ctx.r[7] = r7
+    "mov.l r6,  @(6*4,  r0)\n" // ctx.r[6] = r6
+    "mov.l r5,  @(5*4,  r0)\n" // ctx.r[5] = r5
+    "mov.l r4,  @(4*4,  r0)\n" // ctx.r[4] = r4
+    "mov.l r3,  @(3*4,  r0)\n" // ctx.r[3] = r3
+    "mov.l r2,  @(2*4,  r0)\n" // ctx.r[2] = r2
+    "mov.l r1,  @(1*4,  r0)\n" // ctx.r[1] = r1 -- r0 itself is saved later, once it's no longer needed as the ctx pointer
     "mov r15, r1\n"            // r1 = current r15 (post both of our pushes above, i.e. pre-exception SP minus 16: 8 for the hardware's own PC/SR push, 8 for ours)
     "add #16, r1\n"            // r1 = pre-exception SP exactly -- undoes both pushes, giving GDB the SP the interrupted code actually had, not our exception-frame SP
-    "mov.l r1, @(15*4, r0)\n"  // g_ctx.r[15] = r1 (the reconstructed, user-visible stack pointer)
+    "mov.l r1, @(15*4, r0)\n"  // ctx.r[15] = r1 (the reconstructed, user-visible stack pointer)
     "mov.l @r15+, r1\n"        // pop our earlier gbr push back into r1, r15 += 4 (now pointing just past our two pushes)
     "mov.l @r15+, r2\n"        // pop our earlier r0 push into r2, r15 += 4 -- r15 is now exactly where the CPU's own exception entry left it, pointing at its PC/SR frame
-    "mov.l r2, @r0\n"          // g_ctx.r[0] = r2 (the true pre-exception r0, recovered from the stack)
-    "mov r0, r2\n"             // r2 = r0 (= &g_ctx) -- r0 keeps pointing at g_ctx's base for the rest of this thunk
-    "add #64, r2\n"            // r2 = &g_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block, everything below is offset from here
-    "mov.l r1, @(2*4, r2)\n"   // g_ctx.gbr = r1 (the gbr value popped a few lines up; offset 8 from &g_ctx.pc lands on .gbr)
-    "mov.l @r15, r1\n"         // r1 = *r15, i.e. the CPU's own hardware-pushed PC (peek, not pop -- we overwrite it in place later so `rte` can pick up a possibly-modified value)
-    "mov.l r1, @r2\n"          // g_ctx.pc = r1
+    "mov.l r2, @r0\n"          // ctx.r[0] = r2 (the true pre-exception r0, recovered from the stack)
+    "mov r0, r2\n"             // r2 = r0 (= &ctx) -- r0 keeps pointing at ctx's base for the rest of this thunk
+    "add #64, r2\n"            // r2 = &ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block, everything below is offset from here
+    "mov.l r1, @(2*4, r2)\n"   // ctx.gbr = r1 (the gbr value popped a few lines up; offset 8 from &ctx.pc lands on .gbr)
+    "mov.l @r15, r1\n"         // r1 = *r15, i.e. the CPU's own hardware-pushed PC (peek, not pop -- we overwrite it in place later so `rte` can pick up a possibly-modified value); for Illegal Instruction this is the 0xFFFF opcode's own address
+    "mov.l r1, @r2\n"          // ctx.pc = r1
     "mov.l @(4, r15), r1\n"    // r1 = *(r15+4), the CPU's own hardware-pushed SR (same peek-not-pop reasoning)
-    "mov.l r1, @(24, r2)\n"    // g_ctx.sr = r1 (offset 24 from &g_ctx.pc lands on .sr)
+    "mov.l r1, @(24, r2)\n"    // ctx.sr = r1 (offset 24 from &ctx.pc lands on .sr)
     "sts pr, r1\n"             // r1 = current PR -- exceptions don't auto-save PR the way they do PC/SR, so this captures whatever the interrupted code's own return address was
-    "mov.l r1, @(1*4, r2)\n"   // g_ctx.pr = r1
+    "mov.l r1, @(1*4, r2)\n"   // ctx.pr = r1
     "stc vbr, r1\n"            // r1 = current VBR
-    "mov.l r1, @(3*4, r2)\n"   // g_ctx.vbr = r1
+    "mov.l r1, @(3*4, r2)\n"   // ctx.vbr = r1
     "sts mach, r1\n"           // r1 = MACH (multiply/accumulate high word)
-    "mov.l r1, @(4*4, r2)\n"   // g_ctx.mach = r1
+    "mov.l r1, @(4*4, r2)\n"   // ctx.mach = r1
     "sts macl, r1\n"           // r1 = MACL (multiply/accumulate low word)
-    "mov.l r1, @(5*4, r2)\n"   // g_ctx.macl = r1 -- full context snapshot is now complete
-    "mov.l 2f, r1\n"           // r1 = &process_commands (literal pool label 2)
-    "jsr @r1\n"                // call process_commands() -- PR is set to the address right after this delay slot, i.e. the next instruction
-    "nop\n"                    // jsr's mandatory delay slot (executes before the call target starts; nothing needed here). process_commands() now owns the CPU until it decides to return -- the entire GDB session for this halt happens inside that call
-    "mov.l 1f, r0\n"           // r0 = &g_ctx again -- reload since r0 isn't guaranteed preserved across the call above
-    "mov r0, r2\n"             // r2 = r0 (= &g_ctx)
-    "add #64, r2\n"            // r2 = &g_ctx.pc again, for the restore half
-    "mov.l @(1*4, r2), r1\n"   // r1 = g_ctx.pr (possibly rewritten by process_commands(), e.g. by single-step bookkeeping)
+    "mov.l r1, @(5*4, r2)\n"   // ctx.macl = r1 -- full context snapshot is now complete
+    "mov.l 2f, r1\n"           // r1 = &handler (literal pool label 2)
+    "jsr @r1\n"                // call handler -- PR is set to the address right after this delay slot, i.e. the next instruction
+    "nop\n"                    // jsr's mandatory delay slot (executes before the call target starts; nothing needed here). The handler owns the CPU until it decides to return -- for the master, the entire GDB session for this halt happens inside that call
+    "mov.l 1f, r0\n"           // r0 = &ctx again -- reload since r0 isn't guaranteed preserved across the call above
+    "mov r0, r2\n"             // r2 = r0 (= &ctx)
+    "add #64, r2\n"            // r2 = &ctx.pc again, for the restore half
+    "mov.l @(1*4, r2), r1\n"   // r1 = ctx.pr (possibly rewritten by the handler, e.g. by single-step bookkeeping)
     "lds r1, pr\n"             // PR = r1
-    "mov.l @(3*4, r2), r1\n"   // r1 = g_ctx.vbr
+    "mov.l @(3*4, r2), r1\n"   // r1 = ctx.vbr
     "ldc r1, vbr\n"            // VBR = r1
-    "mov.l @(4*4, r2), r1\n"   // r1 = g_ctx.mach
+    "mov.l @(4*4, r2), r1\n"   // r1 = ctx.mach
     "lds r1, mach\n"           // MACH = r1
-    "mov.l @(5*4, r2), r1\n"   // r1 = g_ctx.macl
+    "mov.l @(5*4, r2), r1\n"   // r1 = ctx.macl
     "lds r1, macl\n"           // MACL = r1
-    "mov.l @(2*4, r2), r1\n"   // r1 = g_ctx.gbr
+    "mov.l @(2*4, r2), r1\n"   // r1 = ctx.gbr
     "ldc r1, gbr\n"            // GBR = r1
-    "mov.l @(24, r2), r1\n"    // r1 = g_ctx.sr (possibly rewritten by GDB/process_commands() -- e.g. to change the interrupt mask across a step)
+    "mov.l @(24, r2), r1\n"    // r1 = ctx.sr (possibly rewritten by GDB/the handler -- e.g. to change the interrupt mask across a step)
     "mov.l r1, @(4, r15)\n"    // overwrite the hardware's own pushed SR slot on the stack with r1, so the `rte` below resumes with this (possibly new) SR
-    "mov.l @r2, r1\n"          // r1 = g_ctx.pc (possibly rewritten -- this is how GDB redirects execution, e.g. a step-trap target or a `jump`)
+    "mov.l @r2, r1\n"          // r1 = ctx.pc (possibly rewritten -- this is how GDB redirects execution, e.g. a step-trap target or a `jump`)
     "mov.l r1, @r15\n"         // overwrite the hardware's own pushed PC slot with r1, so `rte` resumes at this (possibly new) address
-    "mov.l @(14*4, r0), r14\n" // restore r14 from g_ctx.r[14] (possibly rewritten by GDB)
+    "mov.l @(14*4, r0), r14\n" // restore r14 from ctx.r[14] (possibly rewritten by GDB)
     "mov.l @(13*4, r0), r13\n" // restore r13
     "mov.l @(12*4, r0), r12\n" // restore r12
     "mov.l @(11*4, r0), r11\n" // restore r11
@@ -3130,179 +3154,39 @@ __asm__(
     "mov.l @(2*4,  r0), r2\n"  // restore r2
     "mov.l @(1*4,  r0), r1\n"  // restore r1
     // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
-    // STILL holds the base pointer to g_ctx (loaded before the epilogue).
+    // STILL holds the base pointer to ctx (loaded before the epilogue).
     // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n" // restore r0 itself, last, from g_ctx.r[0] (offset 0) -- r0 is both the value being restored and the pointer used to fetch it, hence "last"
+    "mov.l @r0, r0\n" // restore r0 itself, last, from ctx.r[0] (offset 0) -- r0 is both the value being restored and the pointer used to fetch it, hence "last"
     "rte\n"           // return from exception: on the SH-2 this pops SR then PC off the stack -- the very slots we overwrote above, so this resumes at the (possibly GDB-redirected) address with the (possibly GDB-redirected) SR
     "nop\n"           // rte's mandatory delay slot -- still executes in the pre-return context before control actually transfers
     ".align 4\n"
-    "1: .long srl_gdbstub_ctx\n"              // literal pool: address of g_ctx
-    "2: .long _srl_gdbstub_process_commands\n" // literal pool: address of the srl_gdbstub_process_commands() trampoline
-);
+    "1: .long \\ctx\n"         // literal pool: address of the context struct
+    "2: .long \\handler\n"     // literal pool: address of the handler
+    ".endm\n"
 
-// Per-exception-family entry trampolines. The SH-2 has no on-chip "cause"
-// register and every exception vector transfers control to a fixed address
-// with no argument-passing convention, so the only way to tell GDB which
-// exception family actually fired (illegal opcode vs misaligned access,
-// rather than always reporting a generic SIGTRAP) is to give each family
-// its own tiny entry stub that tags g_last_stop_signal before falling
-// through into the real (shared, much larger) context-save thunk above.
-//
-// Each stub is careful to leave every register exactly as the CPU's own
-// exception entry left it before reaching srl_gdbstub_exception_thunk: r0
-// and r1 are the only registers touched, and both are saved to the stack
-// and restored before the branch, so the shared thunk's own "mov.l r0,
-// @-r15" (its first instruction, which captures the TRUE pre-exception r0
-// into g_ctx) sees an untouched value. The temporary push/pop is balanced,
-// so r15 is also back where the CPU left it by the time of the branch.
-__asm__(
-    ".weak _srl_gdbstub_illegal_thunk\n"
-    ".global _srl_gdbstub_illegal_thunk\n"
+    ".macro SRL_GDBSTUB_TAG_THUNK name, var, value\n"
+    ".weak \\name\n"
+    ".global \\name\n"
     ".align 2\n"
-    "_srl_gdbstub_illegal_thunk:\n"
-    "mov.l r0, @-r15\n"                  // push r0 -- only r0/r1 are used as scratch here, and both are restored before falling into the shared thunk, so it sees them untouched
+    "\\name:\n"
+    "mov.l r0, @-r15\n"                  // push r0 -- only r0/r1 are used as scratch here, and both are restored before falling into the context thunk, so it sees them untouched
     "mov.l r1, @-r15\n"                  // push r1
-    "mov.l 1f, r0\n"                     // r0 = &g_last_stop_signal (literal pool label 1)
-    "mov #4, r1\n"                       // SIGILL
-    "mov.b r1, @r0\n"                    // g_last_stop_signal = SIGILL(4) -- tags this halt's reported signal before the shared thunk (which doesn't know which vector fired) takes over
+    "mov.l 1f, r0\n"                     // r0 = &var (literal pool label 1)
+    "mov #\\value, r1\n"                 // r1 = value
+    "mov.b r1, @r0\n"                    // var = value -- tags this halt before the context thunk (which doesn't know which vector fired) takes over
     "mov.l @r15+, r1\n"                  // pop r1 back
-    "mov.l @r15+, r0\n"                  // pop r0 back -- r15 is now exactly where the CPU's own exception entry left it, as the shared thunk expects
-    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
+    "mov.l @r15+, r0\n"                  // pop r0 back -- r15 is now exactly where the CPU's own exception entry left it, as the context thunk expects
+    "bra _srl_gdbstub_exception_thunk\n" // branch into the master context thunk
     "nop\n"                              // bra's mandatory delay slot
     ".align 4\n"
-    "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
-);
+    "1: .long \\var\n"                   // literal pool: address of var
+    ".endm\n"
 
-__asm__(
-    ".weak _srl_gdbstub_addrerr_thunk\n"
-    ".global _srl_gdbstub_addrerr_thunk\n"
-    ".align 2\n"
-    "_srl_gdbstub_addrerr_thunk:\n"
-    "mov.l r0, @-r15\n"                  // push r0 -- same save/restore-around-the-tag pattern as srl_gdbstub_illegal_thunk above
-    "mov.l r1, @-r15\n"                  // push r1
-    "mov.l 1f, r0\n"                     // r0 = &g_last_stop_signal (literal pool label 1)
-    "mov #10, r1\n"                      // SIGBUS
-    "mov.b r1, @r0\n"                    // g_last_stop_signal = SIGBUS(10) -- CPU/DMA address-error family reports as a bus error, not a generic trap
-    "mov.l @r15+, r1\n"                  // pop r1 back
-    "mov.l @r15+, r0\n"                  // pop r0 back -- restores the exact pre-tag CPU state the shared thunk expects
-    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
-    "nop\n"                              // bra's mandatory delay slot
-    ".align 4\n"
-    "1: .long srl_gdbstub_last_stop_signal\n" // literal pool: address of g_last_stop_signal
-);
-
-__asm__(
-    ".weak _srl_gdbstub_ubc_thunk\n"
-    ".global _srl_gdbstub_ubc_thunk\n"
-    ".align 2\n"
-    "_srl_gdbstub_ubc_thunk:\n"
-    "mov.l r0, @-r15\n"                  // push r0 -- same save/restore-around-the-tag pattern as the thunks above
-    "mov.l r1, @-r15\n"                  // push r1
-    "mov.l 1f, r0\n"                     // r0 = &g_ubc_hit (literal pool label 1)
-    "mov #1, r1\n"                       // 1 = this stop is a UBC hit
-    "mov.b r1, @r0\n"                    // g_ubc_hit = 1 -- lets process_commands() report it as hwbreak/watch, which the shared thunk can't tell apart
-    "mov.l @r15+, r1\n"                  // pop r1 back
-    "mov.l @r15+, r0\n"                  // pop r0 back -- the shared thunk sees the untouched pre-exception state
-    "bra _srl_gdbstub_exception_thunk\n" // branch into the shared context-save/process_commands()/restore thunk
-    "nop\n"                              // bra's mandatory delay slot
-    ".align 4\n"
-    "1: .long srl_gdbstub_ubc_hit\n"     // literal pool: address of g_ubc_hit
-);
-
-// Slave-side breakpoint thunk, installed by
-// SRL::GDBStub::InstallSlaveExceptionHandler() onto the slave SH-2's own
-// Illegal Instruction vector (4). Byte-for-byte the same register
-// save/restore sequence as _srl_gdbstub_exception_thunk -- only the two
-// referenced symbols differ:
-// it snapshots into srl_gdbstub_slave_ctx (same struct, same address) and
-// calls slave_breakpoint_handler (the slave's own halt/spin-wait/resume
-// logic, not the master's RSP command processor -- the slave has no direct
-// link to the debugger). See that thunk's comments for the full
-// explanation; only the two literal-pool symbols at the bottom differ.
-__asm__(
-    ".weak _srl_gdbstub_slave_illegal_thunk\n"
-    ".global _srl_gdbstub_slave_illegal_thunk\n"
-    ".align 2\n"
-    "_srl_gdbstub_slave_illegal_thunk:\n"
-    "mov.l r0, @-r15\n"        // push r0 -- stash the slave's true pre-exception r0
-    "stc.l gbr, @-r15\n"       // push gbr
-    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx (literal pool label 1)
-    "mov.l r14, @(14*4, r0)\n" // g_slave_ctx.r[14] = r14
-    "mov.l r13, @(13*4, r0)\n" // g_slave_ctx.r[13] = r13
-    "mov.l r12, @(12*4, r0)\n" // g_slave_ctx.r[12] = r12
-    "mov.l r11, @(11*4, r0)\n" // g_slave_ctx.r[11] = r11
-    "mov.l r10, @(10*4, r0)\n" // g_slave_ctx.r[10] = r10
-    "mov.l r9,  @(9*4,  r0)\n" // g_slave_ctx.r[9] = r9
-    "mov.l r8,  @(8*4,  r0)\n" // g_slave_ctx.r[8] = r8
-    "mov.l r7,  @(7*4,  r0)\n" // g_slave_ctx.r[7] = r7
-    "mov.l r6,  @(6*4,  r0)\n" // g_slave_ctx.r[6] = r6
-    "mov.l r5,  @(5*4,  r0)\n" // g_slave_ctx.r[5] = r5
-    "mov.l r4,  @(4*4,  r0)\n" // g_slave_ctx.r[4] = r4
-    "mov.l r3,  @(3*4,  r0)\n" // g_slave_ctx.r[3] = r3
-    "mov.l r2,  @(2*4,  r0)\n" // g_slave_ctx.r[2] = r2
-    "mov.l r1,  @(1*4,  r0)\n" // g_slave_ctx.r[1] = r1
-    "mov r15, r1\n"            // r1 = current r15 (pre-exception SP minus 16: 8 for hardware's PC/SR push, 8 for ours)
-    "add #16, r1\n"            // r1 = pre-exception SP exactly
-    "mov.l r1, @(15*4, r0)\n"  // g_slave_ctx.r[15] = r1
-    "mov.l @r15+, r1\n"        // pop our gbr push back into r1
-    "mov.l @r15+, r2\n"        // pop our r0 push into r2 -- r15 now sits at the hardware's own PC/SR frame
-    "mov.l r2, @r0\n"          // g_slave_ctx.r[0] = r2 (the true pre-exception r0)
-    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"            // r2 = &g_slave_ctx.pc -- base of the pc/pr/gbr/vbr/mach/macl/sr block
-    "mov.l r1, @(2*4, r2)\n"   // g_slave_ctx.gbr = r1
-    "mov.l @r15, r1\n"         // r1 = hardware-pushed PC (peek) -- this is the address of the 0xFFFF breakpoint opcode itself, since Illegal Instruction pushes the faulting instruction's own address
-    "mov.l r1, @r2\n"          // g_slave_ctx.pc = r1
-    "mov.l @(4, r15), r1\n"    // r1 = hardware-pushed SR (peek)
-    "mov.l r1, @(24, r2)\n"    // g_slave_ctx.sr = r1
-    "sts pr, r1\n"             // r1 = current PR (the interrupted code's own return address)
-    "mov.l r1, @(1*4, r2)\n"   // g_slave_ctx.pr = r1
-    "stc vbr, r1\n"            // r1 = current VBR
-    "mov.l r1, @(3*4, r2)\n"   // g_slave_ctx.vbr = r1
-    "sts mach, r1\n"           // r1 = MACH
-    "mov.l r1, @(4*4, r2)\n"   // g_slave_ctx.mach = r1
-    "sts macl, r1\n"           // r1 = MACL
-    "mov.l r1, @(5*4, r2)\n"   // g_slave_ctx.macl = r1 -- snapshot complete
-    "mov.l 2f, r1\n"           // r1 = &slave_breakpoint_handler (literal pool label 2)
-    "jsr @r1\n"                // call slave_breakpoint_handler() -- the slave's own halt/spin-wait/one-shot-remove/resume logic; the slave has no direct link to the debugger, so this does NOT process RSP commands itself
-    "nop\n"                    // jsr's mandatory delay slot
-    "mov.l 1f, r0\n"           // r0 = &g_slave_ctx again (reload; not guaranteed preserved across the call)
-    "mov r0, r2\n"             // r2 = r0 (= &g_slave_ctx)
-    "add #64, r2\n"            // r2 = &g_slave_ctx.pc again, for the restore half
-    "mov.l @(1*4, r2), r1\n"   // r1 = g_slave_ctx.pr
-    "lds r1, pr\n"             // PR = r1
-    "mov.l @(3*4, r2), r1\n"   // r1 = g_slave_ctx.vbr
-    "ldc r1, vbr\n"            // VBR = r1
-    "mov.l @(4*4, r2), r1\n"   // r1 = g_slave_ctx.mach
-    "lds r1, mach\n"           // MACH = r1
-    "mov.l @(5*4, r2), r1\n"   // r1 = g_slave_ctx.macl
-    "lds r1, macl\n"           // MACL = r1
-    "mov.l @(2*4, r2), r1\n"   // r1 = g_slave_ctx.gbr
-    "ldc r1, gbr\n"            // GBR = r1
-    "mov.l @(24, r2), r1\n"    // r1 = g_slave_ctx.sr
-    "mov.l r1, @(4, r15)\n"    // overwrite the hardware's pushed SR slot on the stack with r1
-    "mov.l @r2, r1\n"          // r1 = g_slave_ctx.pc -- for a GDB breakpoint, slave_breakpoint_handler() restored the original instruction and left PC on it, so it runs now; for a compiled-in 0xFFFF it advanced PC past it
-    "mov.l r1, @r15\n"         // overwrite the hardware's pushed PC slot with r1
-    "mov.l @(14*4, r0), r14\n" // restore r14 from g_slave_ctx.r[14]
-    "mov.l @(13*4, r0), r13\n" // restore r13
-    "mov.l @(12*4, r0), r12\n" // restore r12
-    "mov.l @(11*4, r0), r11\n" // restore r11
-    "mov.l @(10*4, r0), r10\n" // restore r10
-    "mov.l @(9*4,  r0), r9\n"  // restore r9
-    "mov.l @(8*4,  r0), r8\n"  // restore r8
-    "mov.l @(7*4,  r0), r7\n"  // restore r7
-    "mov.l @(6*4,  r0), r6\n"  // restore r6
-    "mov.l @(5*4,  r0), r5\n"  // restore r5
-    "mov.l @(4*4,  r0), r4\n"  // restore r4
-    "mov.l @(3*4,  r0), r3\n"  // restore r3
-    "mov.l @(2*4,  r0), r2\n"  // restore r2
-    "mov.l @(1*4,  r0), r1\n"  // restore r1
-    // CRITICAL: r0 must be restored LAST, and this instruction assumes r0
-    // STILL holds the base pointer to g_slave_ctx (loaded before the epilogue).
-    // Do NOT reorder this or use r0 as a scratch register above!
-    "mov.l @r0, r0\n" // restore r0 itself, last, from g_slave_ctx.r[0]
-    "rte\n"           // return from exception: resumes at the PC written above
-    "nop\n"           // rte's mandatory delay slot
-    ".align 4\n"
-    "1: .long srl_gdbstub_slave_ctx\n"      // literal pool: address of g_slave_ctx
-    "2: .long _slave_breakpoint_handler\n"  // literal pool: address of slave_breakpoint_handler()
+    "SRL_GDBSTUB_CONTEXT_THUNK _srl_gdbstub_exception_thunk, srl_gdbstub_ctx, _srl_gdbstub_process_commands\n"
+    "SRL_GDBSTUB_TAG_THUNK _srl_gdbstub_illegal_thunk, srl_gdbstub_last_stop_signal, 4\n"  // SIGILL
+    "SRL_GDBSTUB_TAG_THUNK _srl_gdbstub_addrerr_thunk, srl_gdbstub_last_stop_signal, 10\n" // SIGBUS: CPU/DMA address errors
+    "SRL_GDBSTUB_TAG_THUNK _srl_gdbstub_ubc_thunk, srl_gdbstub_ubc_hit, 1\n"               // lets process_commands() report a hwbreak/watch hit
+    "SRL_GDBSTUB_CONTEXT_THUNK _srl_gdbstub_slave_illegal_thunk, srl_gdbstub_slave_ctx, _slave_breakpoint_handler\n"
+    ".purgem SRL_GDBSTUB_CONTEXT_THUNK\n"
+    ".purgem SRL_GDBSTUB_TAG_THUNK\n"
 );
