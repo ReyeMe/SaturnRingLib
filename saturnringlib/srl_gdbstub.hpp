@@ -117,9 +117,8 @@ namespace SRL
 
         // State grouped by topic below. Members referenced by name from the
         // __asm__ thunks at the bottom of this file (g_ctx, g_slave_ctx,
-        // g_last_stop_signal and the thunk/slave
-        // counters) stay standalone: each needs its own fixed symbol, which a
-        // struct field cannot have.
+        // g_last_stop_signal, g_ubc_hit) stay standalone: each needs its own
+        // fixed symbol, which a struct field cannot have.
         //
         // None of these nested structs use default member initializers: GCC
         // rejects them on a nested struct whose instance is a static member of
@@ -127,7 +126,7 @@ namespace SRL
         // instance's initializer instead.
 
         /** @brief Number of times the master exception thunk has been entered (diagnostic) */
-        __attribute__((used)) inline static volatile uint32_t g_exception_thunk_count __asm__("srl_gdbstub_thunk_count") = 0;
+        inline static volatile uint32_t g_exception_thunk_count = 0;
 
         /**
          * @brief GDB Remote Serial Protocol session state.
@@ -331,7 +330,7 @@ namespace SRL
         }
 
         /** @brief Number of times the slave's illegal-instruction thunk has fired (diagnostic) */
-        __attribute__((used)) inline static volatile uint32_t g_slave_bp_count __asm__("srl_gdbstub_slave_bp_count") = 0;
+        inline static volatile uint32_t g_slave_bp_count = 0;
 
         /**
          * @brief Opcode patched in for software breakpoints and step traps (Illegal Instruction).
@@ -2967,6 +2966,7 @@ namespace SRL
  */
 extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
 {
+    SRL::GDBStub::g_exception_thunk_count = SRL::GDBStub::g_exception_thunk_count + 1; // diagnostic: every real halt bumps this
     // A real exception: drop a fake-context flag left by a Poll() session that ended without c/s.
     SRL::GDBStub::g_stop.CtxIsFake = false;
     SRL::GDBStub::process_commands();
@@ -2984,6 +2984,7 @@ extern "C" __attribute__((used)) inline void srl_gdbstub_process_commands(void)
  */
 extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
 {
+    SRL::GDBStub::g_slave_bp_count = SRL::GDBStub::g_slave_bp_count + 1; // diagnostic: every slave thunk entry bumps this
     // The master wrote the breakpoint table; drop any stale copy in the slave's cache first.
     SRL::GDBStub::ForcePurgeCache();
 
@@ -3094,10 +3095,6 @@ __asm__(
     "mov.l r1, @(4*4, r2)\n"   // g_ctx.mach = r1
     "sts macl, r1\n"           // r1 = MACL (multiply/accumulate low word)
     "mov.l r1, @(5*4, r2)\n"   // g_ctx.macl = r1 -- full context snapshot is now complete
-    "mov.l 3f, r1\n"           // r1 = &g_exception_thunk_count (literal pool label 3)
-    "mov.l @r1, r2\n"          // r2 = current thunk-entry counter value
-    "add #1, r2\n"             // r2 += 1
-    "mov.l r2, @r1\n"          // g_exception_thunk_count = r2 -- diagnostic: every real halt of any kind bumps this
     "mov.l 2f, r1\n"           // r1 = &process_commands (literal pool label 2)
     "jsr @r1\n"                // call process_commands() -- PR is set to the address right after this delay slot, i.e. the next instruction
     "nop\n"                    // jsr's mandatory delay slot (executes before the call target starts; nothing needed here). process_commands() now owns the CPU until it decides to return -- the entire GDB session for this halt happens inside that call
@@ -3141,7 +3138,6 @@ __asm__(
     ".align 4\n"
     "1: .long srl_gdbstub_ctx\n"              // literal pool: address of g_ctx
     "2: .long _srl_gdbstub_process_commands\n" // literal pool: address of the srl_gdbstub_process_commands() trampoline
-    "3: .long srl_gdbstub_thunk_count\n"      // literal pool: address of g_exception_thunk_count
 );
 
 // Per-exception-family entry trampolines. The SH-2 has no on-chip "cause"
@@ -3216,17 +3212,13 @@ __asm__(
 // Slave-side breakpoint thunk, installed by
 // SRL::GDBStub::InstallSlaveExceptionHandler() onto the slave SH-2's own
 // Illegal Instruction vector (4). Byte-for-byte the same register
-// save/restore sequence as _srl_gdbstub_exception_thunk -- only the three
+// save/restore sequence as _srl_gdbstub_exception_thunk -- only the two
 // referenced symbols differ:
-// it snapshots into srl_gdbstub_slave_ctx (same struct, same address),
+// it snapshots into srl_gdbstub_slave_ctx (same struct, same address) and
 // calls slave_breakpoint_handler (the slave's own halt/spin-wait/resume
 // logic, not the master's RSP command processor -- the slave has no direct
-// link to the debugger), and counts into srl_gdbstub_slave_bp_count.
-// Same instruction-by-instruction commentary as _srl_gdbstub_exception_thunk
-// above (byte-for-byte the same save/call/restore sequence, retargeted at
-// g_slave_ctx / slave_breakpoint_handler / the slave breakpoint counter) --
-// see that thunk's comments for the full explanation; only the three
-// literal-pool symbols at the bottom differ.
+// link to the debugger). See that thunk's comments for the full
+// explanation; only the two literal-pool symbols at the bottom differ.
 __asm__(
     ".weak _srl_gdbstub_slave_illegal_thunk\n"
     ".global _srl_gdbstub_slave_illegal_thunk\n"
@@ -3270,10 +3262,6 @@ __asm__(
     "mov.l r1, @(4*4, r2)\n"   // g_slave_ctx.mach = r1
     "sts macl, r1\n"           // r1 = MACL
     "mov.l r1, @(5*4, r2)\n"   // g_slave_ctx.macl = r1 -- snapshot complete
-    "mov.l 3f, r1\n"           // r1 = &g_slave_bp_count (literal pool label 3)
-    "mov.l @r1, r2\n"          // r2 = current slave-breakpoint-hit counter value
-    "add #1, r2\n"             // r2 += 1
-    "mov.l r2, @r1\n"          // g_slave_bp_count = r2 -- diagnostic: every slave breakpoint hit bumps this
     "mov.l 2f, r1\n"           // r1 = &slave_breakpoint_handler (literal pool label 2)
     "jsr @r1\n"                // call slave_breakpoint_handler() -- the slave's own halt/spin-wait/one-shot-remove/resume logic; the slave has no direct link to the debugger, so this does NOT process RSP commands itself
     "nop\n"                    // jsr's mandatory delay slot
@@ -3317,5 +3305,4 @@ __asm__(
     ".align 4\n"
     "1: .long srl_gdbstub_slave_ctx\n"      // literal pool: address of g_slave_ctx
     "2: .long _slave_breakpoint_handler\n"  // literal pool: address of slave_breakpoint_handler()
-    "3: .long srl_gdbstub_slave_bp_count\n" // literal pool: address of g_slave_bp_count
 );
