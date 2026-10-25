@@ -5,6 +5,7 @@
 #include <srl_system.hpp>
 #include <srl_log.hpp>
 #include <srl_slave.hpp>
+#include <srl_string.hpp>
 #include <cstdint>
 #include <cstddef>
 
@@ -363,34 +364,7 @@ namespace SRL
         /** @brief Current breakpoint state */
         inline static BreakpointStatus g_breakpoints = {{}, false, 0, 0};
 
-        // --- Utility Functions ---
-
-        /**
-         * @brief Converts a hex character to its integer value.
-         * @param ch Character to convert ('0'-'9', 'a'-'f' or 'A'-'F')
-         * @return Value 0-15, or -1 if ch is not a hex digit
-         */
-        inline static int hex(char ch)
-        {
-            if (ch >= 'a' && ch <= 'f')
-                return ch - 'a' + 10;
-            if (ch >= 'A' && ch <= 'F')
-                return ch - 'A' + 10;
-            if (ch >= '0' && ch <= '9')
-                return ch - '0';
-            return -1;
-        }
-
-        /**
-         * @brief Converts a 4-bit integer to its hex character equivalent.
-         * @param v Value to convert (only the low 4 bits are used)
-         * @return Lowercase hex digit character
-         */
-        inline static char hexchar(int v)
-        {
-            v &= 0xf;
-            return v < 10 ? '0' + v : 'a' + v - 10;
-        }
+        // --- Utility Functions --- (hex, hexchar, hex2mem_aligned live in srl_string.hpp)
 
         /** @brief qSupported reply. PacketSize must match kPacketDataMax + 1.
          * @note GDB parses PacketSize as hex: "400" would mean 1024, making GDB request 512-byte 'm' reads the handler rejects.
@@ -399,66 +373,6 @@ namespace SRL
          */
         static constexpr char kQSupportedReply[] = "PacketSize=190;swbreak+;hwbreak+";
         static_assert(kPacketDataMax + 1U == 0x190, "Update the PacketSize in kQSupportedReply (hex) if kPacketDataMax changes");
-
-        /**
-         * @brief Decodes a hex string into memory, using 32-/16-bit stores where
-         * address and remaining length allow, falling back to byte stores only
-         * for the unaligned remainder.
-         * @details VDP RAM (e.g. VDP2 CRAM) drops single-byte writes: a byte-wise 'M' of
-         * 0xEC63 reads back as 0x0063. Whole aligned words/halfwords match its bus width.
-         * @param buf Hex string to decode (2 characters per byte)
-         * @param addr Destination address
-         * @param count Number of bytes to decode
-         * @return Pointer to the character following the decoded hex string, or nullptr on failure.
-         */
-        inline static const char *hex2mem_aligned(const char *buf, uint32_t addr, int count)
-        {
-            // Validate all characters first to prevent partial memory corruption
-            for (int i = 0; i < count * 2; i++)
-            {
-                if (hex(buf[i]) < 0)
-                    return nullptr;
-            }
-
-            int i = 0;
-            while (i < count)
-            {
-                const int remaining = count - i;
-                const uint32_t cur = addr + static_cast<uint32_t>(i);
-                if (remaining >= 4 && (cur & 3U) == 0U)
-                {
-                    uint32_t v = 0;
-                    for (int b = 0; b < 4; b++)
-                    {
-                        const int h1 = hex(*buf++);
-                        const int h2 = hex(*buf++);
-                        v = (v << 8) | static_cast<uint32_t>((h1 << 4) | h2);
-                    }
-                    *reinterpret_cast<volatile uint32_t *>(cur) = v;
-                    i += 4;
-                }
-                else if (remaining >= 2 && (cur & 1U) == 0U)
-                {
-                    uint16_t v = 0;
-                    for (int b = 0; b < 2; b++)
-                    {
-                        const int h1 = hex(*buf++);
-                        const int h2 = hex(*buf++);
-                        v = static_cast<uint16_t>((v << 8) | static_cast<uint16_t>((h1 << 4) | h2));
-                    }
-                    *reinterpret_cast<volatile uint16_t *>(cur) = v;
-                    i += 2;
-                }
-                else
-                {
-                    const int h1 = hex(*buf++);
-                    const int h2 = hex(*buf++);
-                    *reinterpret_cast<volatile uint8_t *>(cur) = static_cast<uint8_t>((h1 << 4) | h2);
-                    i += 1;
-                }
-            }
-            return buf;
-        }
 
         /**
          * @brief Encodes memory into a hex string.
