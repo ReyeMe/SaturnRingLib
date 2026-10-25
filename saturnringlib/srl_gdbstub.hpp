@@ -1800,6 +1800,334 @@ namespace SRL
             g_stop.CtxIsFake = false;
         }
 
+        /** @brief Size of process_commands()'s packet buffers, which the handlers below write into */
+        static constexpr size_t kPacketBufSize = 1024U;
+
+        /**
+         * @brief Answers a `monitor <text>` command (qRcmd).
+         * @details "regs slave" and "trace" are answered here; anything else is stored for
+         * user code (GetMonitorCommandCount() / GetLastMonitorCommand()).
+         * @param hex_payload The hex-encoded command text after "qRcmd,"
+         */
+        inline static void handle_monitor(const char *hex_payload)
+        {
+            size_t hex_len = 0;
+            while (hex_payload[hex_len] != '\0')
+                hex_len++;
+            const size_t cmd_len = hex_len / 2;
+            if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_monitor.LastCommand))
+            {
+                packet_put('\0', "E01", 3);
+            }
+            else if (hex2mem(hex_payload, reinterpret_cast<uint8_t *>(g_monitor.LastCommand), static_cast<int>(cmd_len)))
+            {
+                g_monitor.LastCommand[cmd_len] = '\0';
+                if (str_equals(g_monitor.LastCommand, "regs slave"))
+                {
+                    send_slave_regs_dump();
+                    packet_put('\0', "OK", 2);
+                }
+                else if (str_equals(g_monitor.LastCommand, "trace"))
+                {
+                    send_halt_trace_dump();
+                    packet_put('\0', "OK", 2);
+                }
+                else
+                {
+                    g_monitor.CommandCount = g_monitor.CommandCount + 1;
+                    packet_put('\0', "OK", 2);
+                }
+            }
+            else
+            {
+                packet_put('\0', "E01", 3);
+            }
+        }
+
+        /**
+         * @brief Answers a 'q' (general query) packet.
+         * @param in_buf Received packet payload
+         * @param out_buf Reply buffer of kPacketBufSize bytes
+         */
+        inline static void handle_query(const char *in_buf, char *out_buf)
+        {
+            if (starts_with(in_buf, "qSupported"))
+            {
+                // A new GDB session starts with no breakpoints: drop any that a GDB which
+                // died while the target ran (no D/k) left patched in -- they would keep
+                // firing, with GDB silently resuming from stops it never asked for.
+                clear_breakpoints(true);
+                remove_hardware_watchpoint(0U, 0U);
+
+                // Advertise swbreak and hwbreak (Z1-Z4 are implemented via the UBC,
+                // see install_hardware_watchpoint). No qXfer:features target description:
+                // GDB's SH port ignores it. PacketSize stays in sync with kPacketDataMax.
+                constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+";
+
+                static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
+                static_assert(max_qsupported_len < kPacketBufSize, "qSupported payload exceeds buffer");
+
+                size_t out_len = 0;
+                for (size_t i = 0; i < sizeof(kPacketSizeStr) - 1; ++i)
+                {
+                    if (out_len < kPacketBufSize - 1)
+                        out_buf[out_len++] = kPacketSizeStr[i];
+                }
+                for (const char *s = kFeaturesStr; *s; ++s)
+                {
+                    if (out_len < kPacketBufSize - 1)
+                        out_buf[out_len++] = *s;
+                }
+
+                out_buf[out_len] = '\0';
+                packet_put('\0', out_buf, out_len);
+                g_session.HandshakeDone = true;
+            }
+            else if (starts_with(in_buf, "qfThreadInfo"))
+            {
+                // Single-thread target.
+                packet_put('\0', "m1", 2);
+            }
+            else if (starts_with(in_buf, "qsThreadInfo"))
+            {
+                packet_put('\0', "l", 1);
+            }
+            else if (starts_with(in_buf, "qAttached"))
+            {
+                packet_put('\0', "1", 1);
+            }
+            else if (starts_with(in_buf, "qOffsets"))
+            {
+                constexpr const char offsets[] = "Text=0;Data=0;Bss=0";
+                packet_put('\0', offsets, sizeof(offsets) - 1);
+            }
+            else if (starts_with(in_buf, "qC"))
+            {
+                packet_put('\0', "QC1", 3);
+            }
+            else if (starts_with(in_buf, "qRcmd,"))
+            {
+                handle_monitor(in_buf + 6);
+            }
+            else
+            {
+                packet_put('\0', nullptr, 0);
+            }
+        }
+
+        /**
+         * @brief Answers the register packets: 'g' (read all), 'G' (write all), 'p' (read one), 'P' (write one).
+         * @param in_buf Received packet payload
+         * @param out_buf Reply buffer of kPacketBufSize bytes
+         */
+        inline static void handle_registers(const char *in_buf, char *out_buf)
+        {
+            switch (in_buf[0])
+            {
+            case 'g':
+            {
+                if (GDBStub::MasterSH2().pc == 0)
+                {
+                    snapshot_polling_context();
+                }
+
+                // Real PR/R14 even inside SGL code without debug info: GDB's `bt` copes,
+                // but a zeroed PR broke every later command of the session.
+                SH2Context ctx_copy = GDBStub::MasterSH2();
+
+                constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (GdbFixedShPaddingRegisters * 4U)) * 2;
+                static_assert(max_g_packet_hex_chars < kPacketBufSize, "out_buf is too small for GDB 'g' packet");
+                char *p_out = out_buf;
+                p_out = mem2hex((uint8_t *)&ctx_copy, p_out, sizeof(SH2Context));
+
+                // Pad to the fixed size GDB's SH port requires (see GdbFixedShRegisterCount).
+                for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i)
+                {
+                    *p_out++ = '0';
+                    *p_out++ = '0';
+                }
+                *p_out = '\0';
+
+                const int tx_len = static_cast<int>(p_out - out_buf);
+                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                return;
+            }
+            case 'G':
+            {
+                // GDB echoes the padded 'g' reply: write the core registers, ignore the rest.
+                constexpr size_t core_len = sizeof(SH2Context) * 2;
+                size_t len = 0;
+                while (in_buf[1 + len] != '\0')
+                    len++;
+                if (len < core_len)
+                {
+                    packet_put('\0', "E01", 3);
+                }
+                else if (hex2mem(&in_buf[1], (uint8_t *)&g_ctx, sizeof(SH2Context)))
+                {
+                    packet_put('\0', "OK", 2);
+                }
+                else
+                {
+                    packet_put('\0', "E01", 3);
+                }
+                return;
+            }
+            case 'p':
+            {
+                uint32_t reg_idx = 0;
+                const char *ptr = &in_buf[1];
+                uint32_t *reg = parse_hex_u32_until(ptr, '\0', reg_idx, ptr) ? register_slot(reg_idx) : nullptr;
+                if (reg == nullptr)
+                {
+                    packet_put('\0', "E01", 3);
+                    return;
+                }
+                const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg), out_buf, 4) - out_buf);
+                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                return;
+            }
+            default: // 'P'
+            {
+                uint32_t reg_idx = 0;
+                const char *ptr = &in_buf[1];
+                uint32_t *reg = nullptr;
+                if (parse_hex_u32_until(ptr, '=', reg_idx, ptr) && *ptr == '=')
+                {
+                    reg = register_slot(reg_idx);
+                }
+                if (reg != nullptr && hex2mem(ptr + 1, reinterpret_cast<uint8_t *>(reg), 4))
+                {
+                    packet_put('\0', "OK", 2);
+                }
+                else
+                {
+                    packet_put('\0', "E01", 3);
+                }
+                return;
+            }
+            }
+        }
+
+        /**
+         * @brief Answers the memory packets: 'm' (read) and 'M' (write).
+         * @details Both go through the cache-through mirror, like every patch: a breakpoint
+         * written this halt must not be hidden by a stale cache line before CacheFlusher purges.
+         * @param in_buf Received packet payload
+         * @param out_buf Reply buffer of kPacketBufSize bytes
+         */
+        inline static void handle_memory(const char *in_buf, char *out_buf)
+        {
+            const bool is_write = in_buf[0] == 'M';
+            const char *bad = is_write ? "E02" : "E01";
+            uint32_t addr = 0, length = 0;
+            const char *p = &in_buf[1];
+            if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
+            {
+                packet_put('\0', bad, 3);
+                return;
+            }
+            ++p; // skip ','
+            if (!parse_hex_u32_until(p, is_write ? ':' : '\0', length, p) || (is_write && *p != ':'))
+            {
+                packet_put('\0', bad, 3);
+                return;
+            }
+            // 511 keeps an 'm' reply (2 hex chars per byte + NUL) within out_buf.
+            if (length > 511U || !is_valid_memory_range(addr, length))
+            {
+                packet_put('\0', bad, 3);
+                return;
+            }
+            static_assert(511U * 2U + 1U <= kPacketBufSize, "out_buf is too small for a 511-byte 'm' reply");
+
+            if (!is_write)
+            {
+                const int tx_len = static_cast<int>(mem2hex((uint8_t *)(addr | 0x20000000U), out_buf, static_cast<int>(length)) - out_buf);
+                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                return;
+            }
+
+            ++p; // skip ':'
+            // Word-sized stores where possible, for VDP RAM (see hex2mem_aligned()).
+            if (hex2mem_aligned(p, addr | 0x20000000U, length))
+            {
+                PurgeCache();
+                packet_put('\0', "OK", 2);
+            }
+            else
+            {
+                packet_put('\0', "E01", 3);
+            }
+        }
+
+        /**
+         * @brief Answers 'Z'/'z' (insert/remove breakpoint or watchpoint): Z[type],addr,kind.
+         * @details Type 0 is a software breakpoint, 1-4 the UBC (hbreak, write/read/access watch).
+         * @param in_buf Received packet payload
+         */
+        inline static void handle_breakpoint_packet(const char *in_buf)
+        {
+            const char type_char = in_buf[1];
+            if ((type_char < '0' || type_char > '4') || in_buf[2] != ',')
+            {
+                packet_put('\0', nullptr, 0); // Not supported type or bad format
+                return;
+            }
+
+            const uint32_t wp_type = static_cast<uint32_t>(type_char - '0');
+
+            uint32_t addr = 0;
+            const char *p = &in_buf[3];
+            if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
+            {
+                packet_put('\0', "E03", 3);
+                return;
+            }
+
+            ++p; // skip ','
+            uint32_t kind = 0;
+            const char *end = p;
+            if (!parse_hex_u32_until(p, '\0', kind, end))
+            {
+                packet_put('\0', "E03", 3);
+                return;
+            }
+
+            bool ok = false;
+            if (in_buf[0] == 'Z')
+            {
+                if (wp_type == 0)
+                {
+                    // SH-2 instructions are 16-bit (kind normally 2).
+                    if (kind == 0U || kind == 2U)
+                    {
+                        ok = install_software_breakpoint(addr);
+                    }
+                }
+                else
+                {
+                    ok = install_hardware_watchpoint(addr, wp_type);
+                }
+            }
+            else
+            {
+                if (wp_type == 0)
+                {
+                    if (kind == 0U || kind == 2U)
+                    {
+                        ok = remove_software_breakpoint(addr);
+                    }
+                }
+                else
+                {
+                    ok = remove_hardware_watchpoint(addr, wp_type);
+                }
+            }
+
+            packet_put('\0', ok ? "OK" : "E03", ok ? 2 : 3);
+        }
+
         /**
          * @brief The RSP command loop for one halt: reads packets and answers them until
          * GDB resumes (c/s), detaches, kills or disconnects. Runs in exception context.
@@ -1823,10 +2151,8 @@ namespace SRL
             // (its saved registers, g_slave_ctx), so this halt never shows a stale copy.
             ForcePurgeCache();
 
-            constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (GdbFixedShPaddingRegisters * 4U)) * 2;
-            static_assert(max_g_packet_hex_chars < 1024, "out_buf is too small for GDB 'g' packet");
-            char in_buf[1024];
-            char out_buf[1024];
+            char in_buf[kPacketBufSize];
+            char out_buf[kPacketBufSize];
 
             SRL::Logger::Log::LogPrint("[GDBStub] process_commands() entered. PC: 0x%08lX",
                                        static_cast<unsigned long>(GDBStub::MasterSH2().pc));
@@ -1891,106 +2217,11 @@ namespace SRL
                     send_stop_signal(current_stop_signal());
                     break;
                 case 'q':
-                    if (starts_with(in_buf, "qSupported"))
-                    {
-                        // A new GDB session starts with no breakpoints: drop any that a GDB which
-                        // died while the target ran (no D/k) left patched in -- they would keep
-                        // firing, with GDB silently resuming from stops it never asked for.
-                        clear_breakpoints(true);
-                        remove_hardware_watchpoint(0U, 0U);
-
-                        // Advertise swbreak and hwbreak (Z1-Z4 are implemented via the UBC,
-                        // see install_hardware_watchpoint). No qXfer:features target description:
-                        // GDB's SH port ignores it. PacketSize stays in sync with kPacketDataMax.
-                        constexpr const char kFeaturesStr[] = ";swbreak+;hwbreak+";
-
-                        static constexpr size_t max_qsupported_len = (sizeof(kPacketSizeStr) - 1) + (sizeof(kFeaturesStr) - 1);
-                        static_assert(max_qsupported_len < sizeof(out_buf), "qSupported payload exceeds buffer");
-
-                        size_t out_len = 0;
-                        for (size_t i = 0; i < sizeof(kPacketSizeStr) - 1; ++i)
-                        {
-                            if (out_len < sizeof(out_buf) - 1)
-                                out_buf[out_len++] = kPacketSizeStr[i];
-                        }
-                        for (const char *s = kFeaturesStr; *s; ++s)
-                        {
-                            if (out_len < sizeof(out_buf) - 1)
-                                out_buf[out_len++] = *s;
-                        }
-
-                        out_buf[out_len] = '\0';
-                        packet_put('\0', out_buf, out_len);
-                        g_session.HandshakeDone = true;
-                    }
-                    else if (starts_with(in_buf, "qfThreadInfo"))
-                    {
-                        // Single-thread target.
-                        packet_put('\0', "m1", 2);
-                    }
-                    else if (starts_with(in_buf, "qsThreadInfo"))
-                    {
-                        packet_put('\0', "l", 1);
-                    }
-                    else if (starts_with(in_buf, "qAttached"))
-                    {
-                        packet_put('\0', "1", 1);
-                    }
-                    else if (starts_with(in_buf, "qOffsets"))
-                    {
-                        constexpr const char offsets[] = "Text=0;Data=0;Bss=0";
-                        packet_put('\0', offsets, sizeof(offsets) - 1);
-                    }
-                    else if (starts_with(in_buf, "qC"))
-                    {
-                        packet_put('\0', "QC1", 3);
-                    }
-                    else if (starts_with(in_buf, "qRcmd,"))
-                    {
-                        // `monitor <text>` (hex-encoded). "regs slave" and "trace" are answered
-                        // here; anything else is stored for user code (GetLastMonitorCommand()).
-                        const char *hex_payload = in_buf + 6;
-                        size_t hex_len = 0;
-                        while (hex_payload[hex_len] != '\0')
-                            hex_len++;
-                        const size_t cmd_len = hex_len / 2;
-                        if (hex_len == 0 || (hex_len & 1U) != 0U || cmd_len >= sizeof(g_monitor.LastCommand))
-                        {
-                            packet_put('\0', "E01", 3);
-                        }
-                        else if (hex2mem(hex_payload, reinterpret_cast<uint8_t *>(g_monitor.LastCommand), static_cast<int>(cmd_len)))
-                        {
-                            g_monitor.LastCommand[cmd_len] = '\0';
-                            if (str_equals(g_monitor.LastCommand, "regs slave"))
-                            {
-                                send_slave_regs_dump();
-                                packet_put('\0', "OK", 2);
-                            }
-                            else if (str_equals(g_monitor.LastCommand, "trace"))
-                            {
-                                send_halt_trace_dump();
-                                packet_put('\0', "OK", 2);
-                            }
-                            else
-                            {
-                                g_monitor.CommandCount = g_monitor.CommandCount + 1;
-                                packet_put('\0', "OK", 2);
-                            }
-                        }
-                        else
-                        {
-                            packet_put('\0', "E01", 3);
-                        }
-                    }
-                    else
-                    {
-                        packet_put('\0', nullptr, 0);
-                    }
+                    handle_query(in_buf, out_buf);
                     break;
                 case 'H':
                     packet_put('\0', "OK", 2);
                     break;
-
                 case 'v':
                     // vCont? (and any other v packet but vRun) gets the empty "not supported"
                     // reply: GDB only uses vCont when the stub also offers C/S, and falls back
@@ -2001,218 +2232,22 @@ namespace SRL
                         handle_gdb_continue();
                         return;
                     }
-                    else
-                    {
-                        packet_put('\0', nullptr, 0);
-                    }
+                    packet_put('\0', nullptr, 0);
                     break;
                 case 'g':
-                {
-                    if (GDBStub::MasterSH2().pc == 0)
-                    {
-                        snapshot_polling_context();
-                    }
-
-                    // Real PR/R14 even inside SGL code without debug info: GDB's `bt` copes,
-                    // but a zeroed PR broke every later command of the session.
-                    SH2Context ctx_copy = GDBStub::MasterSH2();
-
-                    char *p_out = out_buf;
-                    p_out = mem2hex((uint8_t *)&ctx_copy, p_out, sizeof(SH2Context));
-
-                    // Pad to the fixed size GDB's SH port requires (see GdbFixedShRegisterCount).
-                    for (size_t i = 0; i < GdbFixedShPaddingRegisters * 4U; ++i)
-                    {
-                        *p_out++ = '0';
-                        *p_out++ = '0';
-                    }
-                    *p_out = '\0';
-
-                    const int tx_len = static_cast<int>(p_out - out_buf);
-                    packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                }
-                break;
                 case 'G':
-                {
-                    // GDB echoes the padded 'g' reply: write the core registers, ignore the rest.
-                    constexpr size_t core_len = sizeof(SH2Context) * 2;
-                    size_t len = 0;
-                    while (in_buf[1 + len] != '\0')
-                        len++;
-                    if (len < core_len)
-                    {
-                        packet_put('\0', "E01", 3);
-                    }
-                    else if (hex2mem(&in_buf[1], (uint8_t *)&g_ctx, sizeof(SH2Context)))
-                    {
-                        packet_put('\0', "OK", 2);
-                    }
-                    else
-                    {
-                        packet_put('\0', "E01", 3);
-                    }
-                }
-                break;
-                case 'p': // Read a single register
-                {
-                    uint32_t reg_idx = 0;
-                    const char *ptr = &in_buf[1];
-                    uint32_t *reg = parse_hex_u32_until(ptr, '\0', reg_idx, ptr) ? register_slot(reg_idx) : nullptr;
-                    if (reg == nullptr)
-                    {
-                        packet_put('\0', "E01", 3);
-                        break;
-                    }
-                    const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg), out_buf, 4) - out_buf);
-                    packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                }
-                break;
-                case 'P': // Write a single register
-                {
-                    uint32_t reg_idx = 0;
-                    const char *ptr = &in_buf[1];
-                    uint32_t *reg = nullptr;
-                    if (parse_hex_u32_until(ptr, '=', reg_idx, ptr) && *ptr == '=')
-                    {
-                        reg = register_slot(reg_idx);
-                    }
-                    if (reg != nullptr && hex2mem(ptr + 1, reinterpret_cast<uint8_t *>(reg), 4))
-                    {
-                        packet_put('\0', "OK", 2);
-                    }
-                    else
-                    {
-                        packet_put('\0', "E01", 3);
-                    }
-                }
-                break;
+                case 'p':
+                case 'P':
+                    handle_registers(in_buf, out_buf);
+                    break;
                 case 'm':
-                {
-                    uint32_t addr = 0, length = 0;
-                    const char *ptr = &in_buf[1];
-                    if (!parse_hex_u32_until(ptr, ',', addr, ptr) || *ptr != ',')
-                    {
-                        packet_put('\0', "E01", 3);
-                        break;
-                    }
-                    ++ptr; // skip ','
-                    if (!parse_hex_u32_until(ptr, '\0', length, ptr))
-                    {
-                        packet_put('\0', "E01", 3);
-                        break;
-                    }
-                    // Keep response within local buffer limits (hex encoding = 2x bytes + NUL).
-                    if (length > 511U || !is_valid_memory_range(addr, length))
-                    {
-                        packet_put('\0', "E01", 3);
-                        break;
-                    }
-
-                    // Cache-through, like every patch: a breakpoint written this halt must not
-                    // be hidden by a stale cache line before CacheFlusher purges.
-                    const int tx_len = static_cast<int>(mem2hex((uint8_t *)(addr | 0x20000000U), out_buf, static_cast<int>(length)) - out_buf);
-                    packet_put('\0', out_buf, static_cast<size_t>(tx_len));
-                }
-                break;
                 case 'M':
-                {
-                    uint32_t addr = 0, length = 0;
-                    const char *p = &in_buf[1];
-                    if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
-                    {
-                        packet_put('\0', "E02", 3);
-                        break;
-                    }
-                    ++p; // skip ','
-                    if (!parse_hex_u32_until(p, ':', length, p) || *p != ':')
-                    {
-                        packet_put('\0', "E02", 3);
-                        break;
-                    }
-                    ++p; // skip ':'
-
-                    if (length > 511U || !is_valid_memory_range(addr, length))
-                    {
-                        packet_put('\0', "E02", 3);
-                        break;
-                    }
-
-                    // Cache-through, and word-sized stores for VDP RAM (see hex2mem_aligned()).
-                    if (hex2mem_aligned(p, addr | 0x20000000U, length))
-                    {
-                        PurgeCache();
-                        packet_put('\0', "OK", 2);
-                    }
-                    else
-                    {
-                        packet_put('\0', "E01", 3);
-                    }
-                }
-                break;
+                    handle_memory(in_buf, out_buf);
+                    break;
                 case 'Z':
                 case 'z':
-                {
-                    // RSP breakpoints/watchpoints: Z[type],addr,kind / z[type],addr,kind
-                    const char type_char = in_buf[1];
-                    if ((type_char < '0' || type_char > '4') || in_buf[2] != ',')
-                    {
-                        packet_put('\0', nullptr, 0); // Not supported type or bad format
-                        break;
-                    }
-
-                    const uint32_t wp_type = static_cast<uint32_t>(type_char - '0');
-
-                    uint32_t addr = 0;
-                    const char *p = &in_buf[3];
-                    if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
-                    {
-                        packet_put('\0', "E03", 3);
-                        break;
-                    }
-
-                    ++p; // skip ','
-                    uint32_t kind = 0;
-                    const char *end = p;
-                    if (!parse_hex_u32_until(p, '\0', kind, end))
-                    {
-                        packet_put('\0', "E03", 3);
-                        break;
-                    }
-
-                    bool ok = false;
-                    if (in_buf[0] == 'Z')
-                    {
-                        if (wp_type == 0)
-                        {
-                            // SH-2 instructions are 16-bit (kind normally 2).
-                            if (kind == 0U || kind == 2U)
-                            {
-                                ok = install_software_breakpoint(addr);
-                            }
-                        }
-                        else
-                        {
-                            ok = install_hardware_watchpoint(addr, wp_type);
-                        }
-                    }
-                    else
-                    {
-                        if (wp_type == 0)
-                        {
-                            if (kind == 0U || kind == 2U)
-                            {
-                                ok = remove_software_breakpoint(addr);
-                            }
-                        }
-                        else
-                        {
-                            ok = remove_hardware_watchpoint(addr, wp_type);
-                        }
-                    }
-
-                    packet_put('\0', ok ? "OK" : "E03", ok ? 2 : 3);
-                }
-                break;
+                    handle_breakpoint_packet(in_buf);
+                    break;
                 case 'D': // Detach
                     packet_put('\0', "OK", 2);
                     g_stop.SignalOverride = 0;
@@ -2220,8 +2255,7 @@ namespace SRL
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
                     return;
-                case 'T': // Is thread alive?
-                    // Report thread as alive for single-thread target.
+                case 'T': // Is thread alive? Single-thread target: always.
                     packet_put('\0', "OK", 2);
                     break;
                 case 'c':
