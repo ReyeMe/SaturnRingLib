@@ -631,6 +631,13 @@ def test_raw_breakpoint_slots_full(s):
             s.packet(f"z0,{a:x},2")
 
 
+@test("raw qRcmd: a 31-character monitor command is accepted, a 32-character one refused")
+def test_raw_qrcmd_length_limit(s):
+    ok_cmd, long_cmd = "x" * 31, "x" * 32
+    assert s.packet("qRcmd," + ok_cmd.encode().hex()) == "OK", "31-char command refused"
+    assert s.packet("qRcmd," + long_cmd.encode().hex()) == "E01", "32-char command not refused"
+
+
 @test("software breakpoint in BIOS ROM is refused (E03), not silently accepted")
 def test_breakpoint_in_rom_refused(s):
     rom_addr = 0x800  # BIOS ROM: the 0xFFFF patch can't stick

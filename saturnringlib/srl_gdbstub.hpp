@@ -148,8 +148,8 @@ namespace SRL
             /** @brief Number of RSP packets received */
             volatile uint32_t CommandCount;
 
-            /** @brief Most recently received RSP packet (truncated to 63 chars) */
-            char LastCommand[64];
+            /** @brief Most recently received RSP packet (truncated to 31 chars) */
+            char LastCommand[32];
         };
 
         /** @brief Current GDB session state */
@@ -163,8 +163,8 @@ namespace SRL
          */
         struct MonitorStatus
         {
-            /** @brief Text of the most recent non-built-in monitor command */
-            char LastCommand[64];
+            /** @brief Text of the most recent non-built-in monitor command (31 chars max; longer gets E01) */
+            char LastCommand[32];
 
             /** @brief Number of non-built-in monitor commands received */
             volatile uint32_t CommandCount;
@@ -341,12 +341,12 @@ namespace SRL
 
         /**
          * @brief Records a received RSP packet in g_session and marks the session as connected.
-         * @param cmd Packet payload (truncated to 63 characters)
+         * @param cmd Packet payload (truncated to fit g_session.LastCommand)
          */
         inline static void record_command(const char *cmd)
         {
             size_t i = 0;
-            while (i < 63 && cmd[i] != '\0')
+            while (i < sizeof(g_session.LastCommand) - 1U && cmd[i] != '\0')
             {
                 g_session.LastCommand[i] = cmd[i];
                 ++i;
@@ -2047,7 +2047,7 @@ namespace SRL
         }
 
         /**
-         * @brief Returns the most recently received RSP packet (truncated to 63 chars).
+         * @brief Returns the most recently received RSP packet (truncated to 31 chars).
          * @return Null-terminated packet payload, empty if none
          */
         inline static const char *GetLastCommand()
