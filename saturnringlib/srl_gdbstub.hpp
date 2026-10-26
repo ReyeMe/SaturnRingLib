@@ -422,7 +422,7 @@ namespace SRL
          * @brief Checks if a memory range is valid for access, preventing bus errors.
          * @param addr Start address
          * @param length Length of the range in bytes
-         * @return true if the range does not wrap around and stays below 0xF0000000
+         * @return true if the range does not wrap around, stays below 0xF0000000 and avoids the cart's USB FIFO and CS1
          */
         inline static bool is_valid_memory_range(uint32_t addr, uint32_t length)
         {
@@ -446,7 +446,15 @@ namespace SRL
                 return false;
             }
 
-            return true;
+            // The cart's USB data byte (a read eats a byte GDB sent, a write sends GDB a stray one)
+            // and CS1 (the CPLD: reading it can hang the bus on USBGamers carts), at either the
+            // cached or the cache-through address.
+            const auto touches = [addr, end](uint32_t lo, uint32_t hi)
+            {
+                return (addr <= hi && end >= lo) || (addr <= (hi & ~0x20000000U) && end >= (lo & ~0x20000000U));
+            };
+            return !touches(SRL::DevCart::CS0::UsbFifo, SRL::DevCart::CS0::UsbFifo) &&
+                   !touches(SRL::DevCart::CS1::CpldBaseAddr, SRL::DevCart::CS1::CpldBaseAddr + 0x00FFFFFFU);
         }
 
         /**
@@ -718,9 +726,9 @@ namespace SRL
          */
         inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type)
         {
-            if (g_breakpoints.UbcChannelAActive)
+            if (g_breakpoints.UbcChannelAActive || type < 1U || type > 4U)
             {
-                return false; // Only one channel supported currently
+                return false; // one channel only
             }
 
             volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
@@ -734,26 +742,11 @@ namespace SRL
             // BBRA bits 7-6 select the bus cycle to compare: 00 = never break,
             // 01 = CPU cycles. Leaving them at 00 is why no hbreak/watchpoint ever fired.
             constexpr uint16_t kBreakOnCpuCycles = 0x0040U;
-            uint16_t bbra_val = 0;
-            switch (type)
-            {
-            case 1:
-                bbra_val = 0x0014U;
-                break; // HW breakpoint (instruction fetch, read: a 00 read/write field never breaks)
-            case 2:
-                bbra_val = 0x0028U;
-                break; // Write watchpoint
-            case 3:
-                bbra_val = 0x0024U;
-                break; // Read watchpoint
-            case 4:
-                bbra_val = 0x002CU;
-                break; // Access watchpoint (Read/Write)
-            default:
-                return false;
-            }
+            // Bits 5-4 fetch/data, 3-2 read/write, by Z type 1-4: hbreak (fetch, read: a 00
+            // read/write field never breaks), write, read, access watchpoint.
+            static constexpr uint16_t kBbraByType[] = {0x0014U, 0x0028U, 0x0024U, 0x002CU};
 
-            *BBRA = kBreakOnCpuCycles | bbra_val;
+            *BBRA = kBreakOnCpuCycles | kBbraByType[type - 1U];
             *BRCR = 0x0000U;                  // independent channels, break before the instruction runs
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
 
@@ -765,14 +758,11 @@ namespace SRL
 
         /**
          * @brief Disables the User Break Controller (UBC) hardware watchpoint.
-         * @param address Unused: there is only one UBC channel to disable
-         * @param type Unused: there is only one UBC channel to disable
+         * @details There is only one UBC channel, so whatever it holds is removed.
          * @return true if a watchpoint was active and is now disabled, false if none was active
          */
-        inline static bool remove_hardware_watchpoint(uint32_t address, uint32_t type)
+        inline static bool remove_hardware_watchpoint()
         {
-            (void)address;
-            (void)type;
             if (!g_breakpoints.UbcChannelAActive)
             {
                 return false;
@@ -1027,35 +1017,17 @@ namespace SRL
                 GDBStub::MasterSH2().r[i] = 0;
             }
 
-            uint32_t sp = 0;
-            uint32_t pc = 0;
-            uint32_t pr = 0;
-            uint32_t gbr = 0;
-            uint32_t vbr = 0;
-            uint32_t mach = 0;
-            uint32_t macl = 0;
-            uint32_t sr = 0;
-
-            asm volatile("mov r15, %0" : "=r"(sp));     // sp = current r15 (this function's own stack pointer, not the caller's)
-            asm volatile("mova 1f, r0\n\t"              // r0 = address of local label "1" (a fixed point a few instructions below, inside this same function)
-                         "mov r0, %0\n\t"               // pc = r0 -- captures that fixed address as the "current PC", since there's no direct "read PC" instruction on SH-2
-                         ".align 2\n\t"                 // realign after the mova/mov pair so label 1 lands on a valid instruction boundary
-                         "1:\n\t" : "=r"(pc) : : "r0"); // label 1 itself -- purely a marker for mova to compute the address of, emits no code
-            asm volatile("sts pr, %0" : "=r"(pr));      // pr = current PR (procedure register / return address)
-            asm volatile("stc gbr, %0" : "=r"(gbr));    // gbr = current GBR
-            asm volatile("stc vbr, %0" : "=r"(vbr));    // vbr = current VBR
-            asm volatile("sts mach, %0" : "=r"(mach));  // mach = current MACH
-            asm volatile("sts macl, %0" : "=r"(macl));  // macl = current MACL
-            asm volatile("stc sr, %0" : "=r"(sr));      // sr = current SR
-
-            GDBStub::MasterSH2().r[15] = sp;
-            GDBStub::MasterSH2().pc = pc;
-            GDBStub::MasterSH2().pr = pr;
-            GDBStub::MasterSH2().gbr = gbr;
-            GDBStub::MasterSH2().vbr = vbr;
-            GDBStub::MasterSH2().mach = mach;
-            GDBStub::MasterSH2().macl = macl;
-            GDBStub::MasterSH2().sr = sr;
+            asm volatile("mov r15, %0" : "=r"(g_ctx.r[15]));     // this function's own stack pointer, not the caller's
+            asm volatile("mova 1f, r0\n\t"                       // r0 = address of local label "1", a fixed point inside this function
+                         "mov r0, %0\n\t"                        // pc = r0: SH-2 has no "read PC" instruction
+                         ".align 2\n\t"                          // so label 1 lands on a valid instruction boundary
+                         "1:\n\t" : "=r"(g_ctx.pc) : : "r0");    // label 1 only marks the address, emits no code
+            asm volatile("sts pr, %0" : "=r"(g_ctx.pr));
+            asm volatile("stc gbr, %0" : "=r"(g_ctx.gbr));
+            asm volatile("stc vbr, %0" : "=r"(g_ctx.vbr));
+            asm volatile("sts mach, %0" : "=r"(g_ctx.mach));
+            asm volatile("sts macl, %0" : "=r"(g_ctx.macl));
+            asm volatile("stc sr, %0" : "=r"(g_ctx.sr));
 
             // Not a crash: drop the signal left by any earlier crash stop, or a fresh
             // attach reports it (e.g. SIGILL) and GDB resumes with an unsupported "C04".
@@ -1640,7 +1612,7 @@ namespace SRL
                 // died while the target ran (no D/k) left patched in -- they would keep
                 // firing, with GDB silently resuming from stops it never asked for.
                 clear_breakpoints(true);
-                remove_hardware_watchpoint(0U, 0U);
+                remove_hardware_watchpoint();
 
                 packet_put('\0', kQSupportedReply, sizeof(kQSupportedReply) - 1U);
                 g_session.HandshakeDone = true;
@@ -1878,7 +1850,7 @@ namespace SRL
                 }
                 else
                 {
-                    ok = remove_hardware_watchpoint(addr, wp_type);
+                    ok = remove_hardware_watchpoint();
                 }
             }
 
@@ -1964,7 +1936,7 @@ namespace SRL
                     // Drop everything GDB armed, as a new session's qSupported does.
                     g_stop.SignalOverride = 0;
                     clear_breakpoints(true);
-                    remove_hardware_watchpoint(0U, 0U);
+                    remove_hardware_watchpoint();
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
                     return;
