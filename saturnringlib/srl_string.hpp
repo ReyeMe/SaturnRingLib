@@ -434,4 +434,23 @@ namespace SRL
         }
         return buf;
     }
+
+    /**
+     * @brief Encodes memory into a hex string.
+     * @param mem Source buffer
+     * @param buf Destination string, must hold count * 2 + 1 characters
+     * @param count Number of bytes to encode
+     * @return Pointer to the null terminator of the resulting string.
+     */
+    inline char *mem2hex(const uint8_t *mem, char *buf, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            *buf++ = hexchar(*mem >> 4);
+            *buf++ = hexchar(*mem & 0xF);
+            mem++;
+        }
+        *buf = 0;
+        return buf;
+    }
 }

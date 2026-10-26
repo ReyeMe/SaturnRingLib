@@ -345,25 +345,6 @@ namespace SRL
         static_assert(kPacketDataMax + 1U == 0x190, "Update the PacketSize in kQSupportedReply (hex) if kPacketDataMax changes");
 
         /**
-         * @brief Encodes memory into a hex string.
-         * @param mem Source buffer
-         * @param buf Destination string, must hold count * 2 + 1 characters
-         * @param count Number of bytes to encode
-         * @return Pointer to the null terminator of the resulting string.
-         */
-        inline static char *mem2hex(const uint8_t *mem, char *buf, int count)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                *buf++ = hexchar(*mem >> 4);
-                *buf++ = hexchar(*mem & 0xF);
-                mem++;
-            }
-            *buf = 0;
-            return buf;
-        }
-
-        /**
          * @brief Records a received RSP packet in g_session and marks the session as connected.
          * @param cmd Packet payload (truncated to 63 characters)
          */
