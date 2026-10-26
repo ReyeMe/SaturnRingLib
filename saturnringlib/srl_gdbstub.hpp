@@ -291,8 +291,8 @@ namespace SRL
          */
         static constexpr uint16_t SoftwareBreakInstruction = 0xFFFFU;
 
-        /** @brief Number of software breakpoint slots */
-        static constexpr size_t MaxSoftwareBreakpoints = 32;
+        /** @brief Number of software breakpoint slots (8 bytes of RAM each; more gets GDB's "Cannot insert breakpoint") */
+        static constexpr size_t MaxSoftwareBreakpoints = 16;
 
         /** @brief Maximum RSP packet payload length; advertised to GDB as PacketSize (this + 1) */
         static constexpr size_t kPacketDataMax = 399U;

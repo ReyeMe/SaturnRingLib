@@ -615,6 +615,22 @@ def test_breakpoint_removed_before_hit(s):
     assert not re.search(r"Breakpoint|SteppableFunction", out), f"deleted breakpoint still fired: {out!r}"
 
 
+@test("software breakpoint slots: 16 are accepted, the 17th is refused, removing one frees it")
+def test_raw_breakpoint_slots_full(s):
+    # Raw Z0s on SteppableFunction's code: it doesn't run while we're halted, and all go before continuing.
+    base = parse_hex(s.cmd("p/x (int)&SteppableFunction", timeout=5))
+    addrs = [base + 2 * i for i in range(17)]
+    try:
+        for a in addrs[:16]:
+            assert s.packet(f"Z0,{a:x},2") == "OK", f"breakpoint at {a:#x} refused before the table was full"
+        assert s.packet(f"Z0,{addrs[16]:x},2") == "E03", "a 17th breakpoint must be refused"
+        assert s.packet(f"z0,{addrs[0]:x},2") == "OK"
+        assert s.packet(f"Z0,{addrs[16]:x},2") == "OK", "removing a breakpoint did not free its slot"
+    finally:
+        for a in addrs:
+            s.packet(f"z0,{a:x},2")
+
+
 @test("software breakpoint in BIOS ROM is refused (E03), not silently accepted")
 def test_breakpoint_in_rom_refused(s):
     rom_addr = 0x800  # BIOS ROM: the 0xFFFF patch can't stick
