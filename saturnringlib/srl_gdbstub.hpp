@@ -298,46 +298,36 @@ namespace SRL
         static constexpr size_t kPacketDataMax = 399U;
 
         /**
-         * @brief Tracks the state of a single software breakpoint.
-         */
-        struct SoftwareBreakpoint
-        {
-            /** @brief Address of the patched instruction */
-            uint32_t address;
-
-            /** @brief Instruction that was at address before it was replaced by SoftwareBreakInstruction */
-            uint16_t original_instruction;
-
-            /** @brief Whether this slot is in use */
-            bool active;
-        };
-
-        /**
          * @brief Software breakpoint slots and UBC ownership
          * (everything behind the Z0-Z4 / z0-z4 packets).
+         * @details Parallel arrays, not a struct per slot: no padding between slots.
          */
         struct BreakpointStatus
         {
-            /** @brief Software breakpoint slots (Z0) */
-            SoftwareBreakpoint Software[MaxSoftwareBreakpoints];
+            /**
+             * @brief Patched address per software breakpoint slot (Z0); 0 = free slot.
+             * @details 0 is boot ROM, where an install always fails, so no breakpoint is ever at 0.
+             */
+            uint32_t Address[MaxSoftwareBreakpoints];
+
+            /** @brief Instruction each slot's SoftwareBreakInstruction replaced */
+            uint16_t Original[MaxSoftwareBreakpoints];
+
+            /** @brief Address UBC channel A was armed with */
+            uint32_t UbcAddress;
 
             /**
-             * @brief Whether a GDB watchpoint/hwbreak currently owns UBC channel A (Z1-Z4).
+             * @brief Z-packet type UBC channel A is armed with (1 = hbreak, 2/3/4 = write/read/access
+             * watch), or 0 when no GDB watchpoint/hwbreak owns it.
              * @warning The only record of who owns the one UBC channel the stub uses: code that
              * writes BARA/BAMRA/BBRA/BRCR itself silently steals a GDB watchpoint. Go through
              * install_hardware_watchpoint()/remove_hardware_watchpoint() instead.
              */
-            bool UbcChannelAActive;
-
-            /** @brief Z-packet type channel A was armed with (1 = hbreak, 2/3/4 = write/read/access watch) */
-            uint32_t UbcType;
-
-            /** @brief Address channel A was armed with */
-            uint32_t UbcAddress;
+            uint8_t UbcType;
         };
 
         /** @brief Current breakpoint state */
-        inline static BreakpointStatus g_breakpoints = {{}, false, 0, 0};
+        inline static BreakpointStatus g_breakpoints = {{}, {}, 0, 0};
 
         // --- Utility Functions --- (hex, hexchar, hex2mem_aligned live in srl_string.hpp)
 
@@ -481,13 +471,13 @@ namespace SRL
         /**
          * @brief Finds the software breakpoint slot for a given address.
          * @param address Breakpoint address
-         * @return The slot index, or -1 if not found.
+         * @return The slot index, or -1 if not found (always for 0, which marks a free slot).
          */
         inline static int find_breakpoint_slot(uint32_t address)
         {
-            for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
+            for (size_t i = 0; address != 0U && i < MaxSoftwareBreakpoints; ++i)
             {
-                if (g_breakpoints.Software[i].active && g_breakpoints.Software[i].address == address)
+                if (g_breakpoints.Address[i] == address)
                 {
                     return static_cast<int>(i);
                 }
@@ -503,7 +493,7 @@ namespace SRL
         {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
             {
-                if (!g_breakpoints.Software[i].active)
+                if (g_breakpoints.Address[i] == 0U)
                 {
                     return static_cast<int>(i);
                 }
@@ -618,20 +608,18 @@ namespace SRL
         {
             for (size_t i = 0; i < MaxSoftwareBreakpoints; ++i)
             {
-                if (!g_breakpoints.Software[i].active)
+                if (g_breakpoints.Address[i] == 0U)
                 {
                     continue;
                 }
 
                 if (restore_memory)
                 {
-                    volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_breakpoints.Software[i].address | 0x20000000U);
-                    *code = g_breakpoints.Software[i].original_instruction;
+                    volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(g_breakpoints.Address[i] | 0x20000000U);
+                    *code = g_breakpoints.Original[i];
                 }
 
-                g_breakpoints.Software[i].active = false;
-                g_breakpoints.Software[i].address = 0;
-                g_breakpoints.Software[i].original_instruction = 0;
+                g_breakpoints.Address[i] = 0U;
             }
             if (restore_memory)
             {
@@ -670,9 +658,8 @@ namespace SRL
             {
                 return false; // read-only memory (BIOS ROM): GDB reports "Cannot insert breakpoint"
             }
-            g_breakpoints.Software[slot].address = address;
-            g_breakpoints.Software[slot].original_instruction = original;
-            g_breakpoints.Software[slot].active = true;
+            g_breakpoints.Original[slot] = original; // before Address: a set Address marks the slot in use
+            g_breakpoints.Address[slot] = address;
             PurgeCache();
             return true;
         }
@@ -696,10 +683,8 @@ namespace SRL
             }
 
             volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
-            *code = g_breakpoints.Software[slot].original_instruction;
-            g_breakpoints.Software[slot].active = false;
-            g_breakpoints.Software[slot].address = 0;
-            g_breakpoints.Software[slot].original_instruction = 0;
+            *code = g_breakpoints.Original[slot];
+            g_breakpoints.Address[slot] = 0U;
             PurgeCache();
             return true;
         }
@@ -712,7 +697,7 @@ namespace SRL
          */
         inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type)
         {
-            if (g_breakpoints.UbcChannelAActive || type < 1U || type > 4U)
+            if (g_breakpoints.UbcType != 0U || type < 1U || type > 4U)
             {
                 return false; // one channel only
             }
@@ -736,9 +721,8 @@ namespace SRL
             *BRCR = 0x0000U;                  // independent channels, break before the instruction runs
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
 
-            g_breakpoints.UbcChannelAActive = true;
-            g_breakpoints.UbcType = type;
             g_breakpoints.UbcAddress = address;
+            g_breakpoints.UbcType = static_cast<uint8_t>(type);
             return true;
         }
 
@@ -749,7 +733,7 @@ namespace SRL
          */
         inline static bool remove_hardware_watchpoint()
         {
-            if (!g_breakpoints.UbcChannelAActive)
+            if (g_breakpoints.UbcType == 0U)
             {
                 return false;
             }
@@ -757,7 +741,7 @@ namespace SRL
             volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
             *BBRA = 0x0000U; // no break condition: this, not BRCR, is what disarms channel A
             *BRCR = 0x0000U;
-            g_breakpoints.UbcChannelAActive = false;
+            g_breakpoints.UbcType = 0U;
             return true;
         }
 
@@ -1275,12 +1259,12 @@ namespace SRL
                 {
                     len = append_str(buf, len, "swbreak:;");
                 }
-                else if (g_stop.WasUbcHit && g_breakpoints.UbcChannelAActive)
+                else if (g_stop.WasUbcHit && g_breakpoints.UbcType != 0U)
                 {
                     // GDB only reports a watchpoint hit when the stop reply names it.
                     static const char *const kUbcReason[] = {"hwbreak", "watch", "rwatch", "awatch"};
-                    const uint32_t type = g_breakpoints.UbcType;
-                    len = append_str(buf, len, kUbcReason[(type >= 1U && type <= 4U) ? type - 1U : 0U]);
+                    const uint32_t type = g_breakpoints.UbcType; // 1-4: install_hardware_watchpoint() checks
+                    len = append_str(buf, len, kUbcReason[type - 1U]);
                     buf[len++] = ':';
                     if (type >= 2U)
                     {
@@ -2088,7 +2072,7 @@ namespace SRL
 
             g_stop.SignalOverride = 0;
             g_last_stop_signal = 5;
-            g_breakpoints.UbcChannelAActive = false;
+            g_breakpoints.UbcType = 0U;
             clear_breakpoints(false);
 
             SRL::Logger::Log::LogPrint("[GDBStub] DevCart port: %d", g_devcart_port_available ? 1 : 0);

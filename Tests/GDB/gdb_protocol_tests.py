@@ -945,8 +945,12 @@ def test_g_at_pc_zero_keeps_registers(s):
     s.cmd("set $pc = 0", timeout=5)
     s.cmd("maint flush register-cache", timeout=5)  # force a fresh 'g'
     r1 = parse_hex(s.cmd("p/x $r1", timeout=5))
+    # Free breakpoint slots hold address 0: a stop at 0 must never look like a GDB breakpoint,
+    # or it is reported as swbreak and GDB silently resumes past a null-pointer crash.
+    trace = s.cmd("monitor trace", timeout=5)
     s.cmd(f"set $pc = {pc:#x}", timeout=5)
     assert r1 == 0x1234ABCD, f"r1 read back as {r1:#x} after pc=0: 'g' replaced the registers"
+    assert "bp_slot=ffffffff" in trace, f"pc 0 matched a free breakpoint slot: {trace!r}"
 
 
 @test("scenario: Ctrl-C, backtrace, then a breakpoint still hits")
