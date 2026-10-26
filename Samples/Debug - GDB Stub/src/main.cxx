@@ -181,17 +181,12 @@ int main()
         SRL::Debug::Print(1, 14, "GDB session: %s", gdbConnected ? "active" : "waiting");
         SRL::Debug::Print(1, 15, "GDB handlers: %s", SRL::GDBStub::IsHandlersInstalled() ? "installed" : "pending");
         SRL::Debug::Print(1, 16, "GDB thunk count: %u", static_cast<unsigned int>(SRL::GDBStub::GetExceptionThunkCount()));
-        SRL::Debug::Print(1, 17, "GDB RX bytes:    %u", static_cast<unsigned int>(SRL::GDBStub::GetRxDetectCount()));
-        SRL::Debug::Print(1, 18, "GDB TX bytes:    %u", static_cast<unsigned int>(SRL::GDBStub::GetTxByteCount()));
         SRL::Debug::Print(1, 19, "GDB cmd count:   %u", static_cast<unsigned int>(SRL::GDBStub::GetCommandCount()));
         char lastGdbCmd[26];
         TruncateForDisplay(lastGdbCmd, sizeof(lastGdbCmd),
             SRL::GDBStub::GetLastCommand()[0] ? SRL::GDBStub::GetLastCommand() : "<none>");
         SRL::Debug::Print(1, 20, "Last GDB cmd: %s", lastGdbCmd);
-        SRL::Debug::Print(1, 21, "DevCart probe:   %s", SRL::GDBStub::IsDevCartReady() ? "ok" : "failed");
         SRL::Debug::Print(1, 22, "Port avail:      %s", SRL::GDBStub::IsDevCartPortAvailable() ? "yes" : "no");
-        // Row 23 is intentionally unused (USB_FLAGS removed from the display).
-        SRL::Debug::Print(1, 24, "Poll fallback:   %u", static_cast<unsigned int>(SRL::GDBStub::GetPollFallbackCount()));
         SRL::Debug::Print(1, 25, "TestVar (watch me): %d", static_cast<int>(g_testVariable));
         char lastMonitorCmd[22];
         TruncateForDisplay(lastMonitorCmd, sizeof(lastMonitorCmd),
