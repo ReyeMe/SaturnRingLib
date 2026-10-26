@@ -538,6 +538,15 @@ def test_register_write_roundtrip(s):
     assert written == 0xdeadbeef, hex(written)
 
 
+@test("memory at the cart's USB FIFO and CS1 is refused, and the session stays usable")
+def test_devcart_ranges_refused(s):
+    # FIFO first: on a stub without the check, CS1 could hang the bus before the assert.
+    for addr in ("0x22100000", "0x02100000", "0x24000000", "0x04000000"):
+        out = s.cmd(f"x/4xb {addr}", timeout=5)
+        assert "Cannot access memory" in out, f"x/4xb {addr} was not refused: {out!r}"
+    assert "0x" in s.cmd("p/x $pc", timeout=5), "session unusable after the refused reads"
+
+
 @test("G (write all registers) round-trips byte-for-byte via raw packet")
 def test_raw_g_write_roundtrip(s):
     before = s.packet("g")
