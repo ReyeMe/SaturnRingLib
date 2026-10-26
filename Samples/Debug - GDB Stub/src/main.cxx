@@ -19,7 +19,7 @@ using namespace SRL::Math::Types;
  * SRL_DEBUG_MAX_PRINT_LENGTH-sized static buffer -- printing a %s argument
  * longer than what's left of that buffer after the rest of the line's literal
  * text corrupts whatever static memory follows it. GDB command/monitor text
- * (up to 63 chars, see g_session.LastCommand/g_monitor.LastCommand) routinely
+ * (up to 31 chars, see g_session.LastCommand/g_monitor.LastCommand) routinely
  * exceeds that budget, so it must be truncated here at the call site before
  * being handed to Print -- %.Ns precision is not supported by that formatter
  * (it silently drops the value instead of truncating it), so this can't be
