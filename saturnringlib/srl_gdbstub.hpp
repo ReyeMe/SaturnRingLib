@@ -9,6 +9,11 @@
 #include <cstdint>
 #include <cstddef>
 
+// The stub only exists in DEBUG builds, which are -O0 so the game's code is easy to step.
+// Nobody steps the stub, so build it for size: 18.3 KB at -O0, 6.8 KB at -Os.
+#pragma GCC push_options
+#pragma GCC optimize("Os")
+
 extern "C"
 {
     // Entry points shared between SRL::GDBStub and the hand-written __asm__
@@ -1333,7 +1338,7 @@ namespace SRL
          */
         inline static void send_monitor_text(const char *text, size_t len)
         {
-            constexpr size_t kChunkRaw = kPacketDataMax / 2U;
+            constexpr size_t kChunkRaw = 64U; // small on purpose: this sits on the halted game's stack
             char hexbuf[kChunkRaw * 2U + 1U];
             size_t off = 0;
             while (off < len)
@@ -1390,7 +1395,7 @@ namespace SRL
          */
         inline static void send_slave_regs_dump()
         {
-            char text[320];
+            char text[272]; // 264 chars max
             size_t pos = 0;
 
             pos = append_str(text, pos, "slave r0-r7 : ");
@@ -1439,7 +1444,7 @@ namespace SRL
          */
         inline static void send_halt_trace_dump()
         {
-            char text[400];
+            char text[160]; // 147 chars max
             size_t pos = 0;
 
             pos = append_str(text, pos, "pc=");
@@ -1536,8 +1541,12 @@ namespace SRL
             g_stop.CtxIsFake = false;
         }
 
-        /** @brief Size of process_commands()'s packet buffers, which the handlers below write into */
-        static constexpr size_t kPacketBufSize = 1024U;
+        /**
+         * @brief Size of process_commands()'s one packet buffer, shared by request and reply.
+         * @details The largest packet is GDB's 'G' (1 + 268 * 2 chars); every other request is
+         * bounded by PacketSize. Handlers read the whole request before writing the reply.
+         */
+        static constexpr size_t kPacketBufSize = 544U;
 
         /**
          * @brief Answers a `monitor <text>` command (qRcmd).
@@ -1632,12 +1641,11 @@ namespace SRL
 
         /**
          * @brief Answers the register packets: 'g' (read all), 'G' (write all), 'p' (read one), 'P' (write one).
-         * @param in_buf Received packet payload
-         * @param out_buf Reply buffer of kPacketBufSize bytes
+         * @param buf Received packet payload, overwritten by the reply (kPacketBufSize bytes)
          */
-        inline static void handle_registers(const char *in_buf, char *out_buf)
+        inline static void handle_registers(char *buf)
         {
-            switch (in_buf[0])
+            switch (buf[0])
             {
             case 'g':
             {
@@ -1646,8 +1654,8 @@ namespace SRL
                 SH2Context ctx_copy = GDBStub::MasterSH2();
 
                 constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (GdbFixedShPaddingRegisters * 4U)) * 2;
-                static_assert(max_g_packet_hex_chars < kPacketBufSize, "out_buf is too small for GDB 'g' packet");
-                char *p_out = out_buf;
+                static_assert(1U + max_g_packet_hex_chars < kPacketBufSize, "buf is too small for GDB's 'g' reply and 'G' request");
+                char *p_out = buf;
                 p_out = mem2hex((uint8_t *)&ctx_copy, p_out, sizeof(SH2Context));
 
                 // Pad to the fixed size GDB's SH port requires (see GdbFixedShRegisterCount).
@@ -1658,8 +1666,8 @@ namespace SRL
                 }
                 *p_out = '\0';
 
-                const int tx_len = static_cast<int>(p_out - out_buf);
-                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                const int tx_len = static_cast<int>(p_out - buf);
+                packet_put('\0', buf, static_cast<size_t>(tx_len));
                 return;
             }
             case 'G':
@@ -1667,13 +1675,13 @@ namespace SRL
                 // GDB echoes the padded 'g' reply: write the core registers, ignore the rest.
                 constexpr size_t core_len = sizeof(SH2Context) * 2;
                 size_t len = 0;
-                while (in_buf[1 + len] != '\0')
+                while (buf[1 + len] != '\0')
                     len++;
                 if (len < core_len)
                 {
                     packet_put('\0', "E01", 3);
                 }
-                else if (hex2mem_aligned(&in_buf[1], reinterpret_cast<uint32_t>(&g_ctx), sizeof(SH2Context)))
+                else if (hex2mem_aligned(&buf[1], reinterpret_cast<uint32_t>(&g_ctx), sizeof(SH2Context)))
                 {
                     packet_put('\0', "OK", 2);
                 }
@@ -1686,21 +1694,21 @@ namespace SRL
             case 'p':
             {
                 uint32_t reg_idx = 0;
-                const char *ptr = &in_buf[1];
+                const char *ptr = &buf[1];
                 uint32_t *reg = parse_hex_u32_until(ptr, '\0', reg_idx, ptr) ? register_slot(reg_idx) : nullptr;
                 if (reg == nullptr)
                 {
                     packet_put('\0', "E01", 3);
                     return;
                 }
-                const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg), out_buf, 4) - out_buf);
-                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                const int tx_len = static_cast<int>(mem2hex(reinterpret_cast<uint8_t *>(reg), buf, 4) - buf);
+                packet_put('\0', buf, static_cast<size_t>(tx_len));
                 return;
             }
             default: // 'P'
             {
                 uint32_t reg_idx = 0;
-                const char *ptr = &in_buf[1];
+                const char *ptr = &buf[1];
                 uint32_t *reg = nullptr;
                 if (parse_hex_u32_until(ptr, '=', reg_idx, ptr) && *ptr == '=')
                 {
@@ -1723,15 +1731,14 @@ namespace SRL
          * @brief Answers the memory packets: 'm' (read) and 'M' (write).
          * @details Both go through the cache-through mirror, like every patch: a breakpoint
          * written this halt must not be hidden by a stale cache line before CacheFlusher purges.
-         * @param in_buf Received packet payload
-         * @param out_buf Reply buffer of kPacketBufSize bytes
+         * @param buf Received packet payload, overwritten by the reply (kPacketBufSize bytes)
          */
-        inline static void handle_memory(const char *in_buf, char *out_buf)
+        inline static void handle_memory(char *buf)
         {
-            const bool is_write = in_buf[0] == 'M';
+            const bool is_write = buf[0] == 'M';
             const char *bad = is_write ? "E02" : "E01";
             uint32_t addr = 0, length = 0;
-            const char *p = &in_buf[1];
+            const char *p = &buf[1];
             if (!parse_hex_u32_until(p, ',', addr, p) || *p != ',')
             {
                 packet_put('\0', bad, 3);
@@ -1743,18 +1750,19 @@ namespace SRL
                 packet_put('\0', bad, 3);
                 return;
             }
-            // 511 keeps an 'm' reply (2 hex chars per byte + NUL) within out_buf.
-            if (length > 511U || !is_valid_memory_range(addr, length))
+            // GDB keeps 'm'/'M' within PacketSize (kPacketDataMax + 1), so at most this many bytes.
+            constexpr uint32_t kMaxMemBytes = kPacketDataMax / 2U;
+            if (length > kMaxMemBytes || !is_valid_memory_range(addr, length))
             {
                 packet_put('\0', bad, 3);
                 return;
             }
-            static_assert(511U * 2U + 1U <= kPacketBufSize, "out_buf is too small for a 511-byte 'm' reply");
+            static_assert(kMaxMemBytes * 2U + 1U <= kPacketBufSize, "buf is too small for an 'm' reply");
 
             if (!is_write)
             {
-                const int tx_len = static_cast<int>(mem2hex((uint8_t *)(addr | 0x20000000U), out_buf, static_cast<int>(length)) - out_buf);
-                packet_put('\0', out_buf, static_cast<size_t>(tx_len));
+                const int tx_len = static_cast<int>(mem2hex((uint8_t *)(addr | 0x20000000U), buf, static_cast<int>(length)) - buf);
+                packet_put('\0', buf, static_cast<size_t>(tx_len));
                 return;
             }
 
@@ -1861,8 +1869,7 @@ namespace SRL
             // (its saved registers, g_slave_ctx), so this halt never shows a stale copy.
             ForcePurgeCache();
 
-            char in_buf[kPacketBufSize];
-            char out_buf[kPacketBufSize];
+            char in_buf[kPacketBufSize]; // request, then reply (see kPacketBufSize)
 
             SRL::Logger::Log::LogPrint("[GDBStub] process_commands() entered. PC: 0x%08lX",
                                        static_cast<unsigned long>(GDBStub::MasterSH2().pc));
@@ -1901,7 +1908,6 @@ namespace SRL
 
             while (true)
             {
-                out_buf[0] = 0;
                 if (!packet_get(in_buf, sizeof(in_buf)))
                 {
                     // USB disconnected while waiting for a packet -- stop processing.
@@ -1936,11 +1942,11 @@ namespace SRL
                 case 'G':
                 case 'p':
                 case 'P':
-                    handle_registers(in_buf, out_buf);
+                    handle_registers(in_buf);
                     break;
                 case 'm':
                 case 'M':
-                    handle_memory(in_buf, out_buf);
+                    handle_memory(in_buf);
                     break;
                 case 'Z':
                 case 'z':
@@ -2496,3 +2502,5 @@ __asm__(
     ".purgem SRL_GDBSTUB_CONTEXT_THUNK\n"
     ".purgem SRL_GDBSTUB_TAG_THUNK\n"
 );
+
+#pragma GCC pop_options
