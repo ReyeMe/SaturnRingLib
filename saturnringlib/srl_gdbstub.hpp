@@ -1957,9 +1957,14 @@ namespace SRL
 
                 switch (in_buf[0])
                 {
+                case 'D': // Detach: OK, then the same cleanup as kill.
+                    packet_put('\0', "OK", 2);
+                    [[fallthrough]];
                 case 'k': // Kill: no defined reply per the RSP spec -- just clean up.
+                    // Drop everything GDB armed, as a new session's qSupported does.
                     g_stop.SignalOverride = 0;
                     clear_breakpoints(true);
+                    remove_hardware_watchpoint(0U, 0U);
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
                     return;
@@ -1988,13 +1993,6 @@ namespace SRL
                 case 'z':
                     handle_breakpoint_packet(in_buf);
                     break;
-                case 'D': // Detach
-                    packet_put('\0', "OK", 2);
-                    g_stop.SignalOverride = 0;
-                    clear_breakpoints(true);
-                    g_session.HandshakeDone = false;
-                    g_session.HasConnection = false;
-                    return;
                 case 'T': // Is thread alive? Single-thread target: always.
                     packet_put('\0', "OK", 2);
                     break;
@@ -2022,6 +2020,30 @@ namespace SRL
         // (thunk entry points are declared extern "C" at the top of this file)
 
         /**
+         * @brief Returns the calling CPU's vector table address, first copying the 64-entry
+         * table to `ram_table` and pointing VBR there if VBR is still 0 (the read-only boot ROM).
+         * @param ram_table RAM address for the copy, distinct per CPU
+         * @return The live vector table address
+         */
+        inline static uint32_t vbr_in_ram(uint32_t ram_table)
+        {
+            uint32_t vbr = 0;
+            asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's current VBR
+            if (vbr == 0)
+            {
+                volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
+                volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(ram_table | 0x20000000U);
+                for (int i = 0; i < 64; i++)
+                {
+                    dst_table[i] = src_table[i];
+                }
+                vbr = ram_table;
+                asm volatile("ldc %0, vbr" ::"r"(vbr)); // point this CPU at the freshly-copied RAM table
+            }
+            return vbr;
+        }
+
+        /**
          * @brief Hooks the master's illegal-instruction, address-error, UBC and TRAPA #35
          * vectors, first moving the vector table to RAM if VBR still points at the boot ROM.
          * @details NMI (vector 11, the Reset button) is deliberately left to the BIOS/SGL.
@@ -2031,25 +2053,8 @@ namespace SRL
             SRL::Logger::Log::LogPrint("[GDBStub] InstallExceptionHandlers() start");
             if (!g_handlers_installed)
             {
-                // Read the current VBR
-                uint32_t current_vbr = 0;
-                asm volatile("stc vbr, %0" : "=r"(current_vbr)); // current_vbr = this CPU's (the master's) current VBR
-
-                // VBR 0 is the read-only boot ROM: copy its table to RAM and point VBR there.
-                if (current_vbr == 0)
-                {
-                    current_vbr = 0x06000000;
-                    volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
-                    volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(current_vbr | 0x20000000U);
-                    for (int i = 0; i < 64; i++)
-                    {
-                        dst_table[i] = src_table[i];
-                    }
-                    asm volatile("ldc %0, vbr" ::"r"(current_vbr)); // VBR = current_vbr (0x06000000) -- point the CPU at the freshly-copied RAM table
-                }
-
                 // Write directly to the Cache-Through mirror of the VBR table
-                volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(current_vbr | 0x20000000U);
+                volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(vbr_in_ram(0x06000000U) | 0x20000000U);
 
                 // Vectors 0-31 are CPU exceptions, 32-63 TRAPA #N. Each exception family goes
                 // through its tag thunk so GDB sees SIGILL/SIGBUS/hwbreak; TRAPA #35 reports SIGTRAP.
@@ -2218,23 +2223,8 @@ namespace SRL
          */
         inline static void InstallSlaveExceptionHandler()
         {
-            uint32_t vbr = 0;
-            asm volatile("stc vbr, %0" : "=r"(vbr)); // vbr = this CPU's (the slave's) current VBR
-
-            if (vbr == 0)
-            {
-                // Boot ROM VBR: relocate to a table distinct from the master's 0x06000000.
-                vbr = 0x06010000U;
-                volatile uint32_t *src_table = reinterpret_cast<volatile uint32_t *>(0x20000000U);
-                volatile uint32_t *dst_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
-                for (int i = 0; i < 64; i++)
-                {
-                    dst_table[i] = src_table[i];
-                }
-                asm volatile("ldc %0, vbr" ::"r"(vbr)); // VBR = vbr (0x06010000) -- point the slave at its freshly-copied (or already-relocated) RAM table
-            }
-
-            volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(vbr | 0x20000000U);
+            // A table distinct from the master's 0x06000000 if the slave is still on the boot ROM.
+            volatile uint32_t *vbr_table = reinterpret_cast<volatile uint32_t *>(vbr_in_ram(0x06010000U) | 0x20000000U);
             vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_illegal_thunk);
 
             ForcePurgeCache();
