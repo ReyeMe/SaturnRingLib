@@ -171,41 +171,11 @@ namespace SRL
         /** @brief Whether InstallExceptionHandlers() has patched the master's vector table */
         inline static bool g_handlers_installed = false;
 
-        /**
-         * @brief DevCart USB data transfer state: RX pushback byte and traffic counters.
-         */
-        struct TransferStatus
-        {
-            /** @brief Byte pushed back to be returned by the next __gdb_getc(), or -1 if none */
-            int UngetChar;
+        /** @brief Byte pushed back to be returned by the next __gdb_getc(), or -1 if none */
+        inline static int g_unget_char = -1;
 
-            /** @brief Incremented each time the stub reads a byte from DevCart RX */
-            volatile uint32_t RxDetectCount;
-
-            /** @brief Incremented each time the stub writes a byte to DevCart TX */
-            volatile uint32_t TxByteCount;
-
-            /** @brief Incremented when Poll() handles RX data itself, outside of an exception */
-            volatile uint32_t PollFallbackCount;
-        };
-
-        /** @brief Current data transfer state */
-        inline static TransferStatus g_transfer = {-1, 0, 0, 0};
-
-        /**
-         * @brief DevCart (USB cartridge) link status, as last observed by Init() / Poll().
-         */
-        struct DevCartStatus
-        {
-            /** @brief Cart detected at Init() (CS0 USB_FLAGS readable) */
-            bool Ready;
-
-            /** @brief USB port currently available, refreshed on every Poll() */
-            bool PortAvailable;
-        };
-
-        /** @brief Current DevCart link status */
-        inline static DevCartStatus g_devcart = {false, false};
+        /** @brief DevCart USB port available, as last seen by Init() / Poll() */
+        inline static bool g_devcart_port_available = false;
         
         /**
          * @brief POSIX signal of the last stop: 5=SIGTRAP, 2=SIGINT, 4=SIGILL, 10=SIGBUS.
@@ -1096,75 +1066,34 @@ namespace SRL
         }
 
         /**
-         * @brief Idle timeout (wait-loop iterations) applied after handshake when no packet arrives.
+         * @brief Idle timeout (wait-loop iterations) applied after the handshake while waiting on USB.
          * @details Each iteration is ~1-2 us (USB_FLAGS has ~10 wait states), so this is several
          * minutes. The loop also runs while halted, so it must outlast a developer thinking
          * between commands: a few seconds resumed the target out from under GDB.
          */
-        static constexpr uint32_t GDB_RX_IDLE_TIMEOUT = 450000000U;
-
-        /** @brief Idle timeout (wait-loop iterations) for TX space, same rationale as GDB_RX_IDLE_TIMEOUT */
-        static constexpr uint32_t GDB_TX_IDLE_TIMEOUT = 450000000U;
+        static constexpr uint32_t GDB_IDLE_TIMEOUT = 450000000U;
 
         /**
-         * @brief Waits for USB RX data.
+         * @brief Waits while the DevCart FIFO is busy (RX empty or TX full).
          * @details Before GDB connects: waits forever (so Break() before attach works), but
          * gives up at once if the cable is absent -- a floating USB_FLAGS reads as "RX pending".
-         * After the handshake: also gives up after GDB_RX_IDLE_TIMEOUT (GDB killed without D).
+         * After the handshake: also gives up after GDB_IDLE_TIMEOUT (GDB killed without D).
          * @warning Unplugging the cable mid-bus-cycle can still hang the console; no software
          * check can catch that (see the sample readme).
-         * @return true if data is available, false if the session should be abandoned
+         * @param busy SRL::DevCart::CS0::IsRxfEmpty or SRL::DevCart::CS0::IsTxeFull
+         * @return true once the FIFO is ready, false if the session should be abandoned
          */
-        inline static bool __gdb_wait_rx()
+        inline static bool __gdb_wait_usb(bool (*busy)())
         {
             uint32_t idle = 0;
-            while (SRL::DevCart::CS0::IsRxfEmpty())
+            while (busy())
             {
-                // Abort immediately on cable unplug, connected or not.
-                if (!SRL::DevCart::CS0::IsConnected())
+                if (!SRL::DevCart::CS0::IsConnected() ||
+                    (g_session.HasConnection && g_session.HandshakeDone && ++idle > GDB_IDLE_TIMEOUT))
                 {
                     g_session.HasConnection = false;
                     g_session.HandshakeDone = false;
                     return false;
-                }
-                // After handshake, apply idle timeout for dead GDB processes.
-                if (g_session.HasConnection && g_session.HandshakeDone)
-                {
-                    if (++idle > GDB_RX_IDLE_TIMEOUT)
-                    {
-                        g_session.HasConnection = false;
-                        g_session.HandshakeDone = false;
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        /**
-         * @brief Waits for USB TX space.
-         * @details Same exits as __gdb_wait_rx(): cable unplugged, or idle timeout after the handshake.
-         * @return true if a byte can be written, false if the session should be abandoned
-         */
-        inline static bool __gdb_wait_tx()
-        {
-            uint32_t idle = 0;
-            while (SRL::DevCart::CS0::IsTxeFull())
-            {
-                if (!SRL::DevCart::CS0::IsConnected())
-                {
-                    g_session.HasConnection = false;
-                    g_session.HandshakeDone = false;
-                    return false;
-                }
-                if (g_session.HasConnection && g_session.HandshakeDone)
-                {
-                    if (++idle > GDB_TX_IDLE_TIMEOUT)
-                    {
-                        g_session.HasConnection = false;
-                        g_session.HandshakeDone = false;
-                        return false;
-                    }
                 }
             }
             return true;
@@ -1176,18 +1105,17 @@ namespace SRL
          */
         inline static int __gdb_getc()
         {
-            if (g_transfer.UngetChar != -1)
+            if (g_unget_char != -1)
             {
-                int c = g_transfer.UngetChar;
-                g_transfer.UngetChar = -1;
+                int c = g_unget_char;
+                g_unget_char = -1;
                 return c;
             }
-            if (!__gdb_wait_rx())
+            if (!__gdb_wait_usb(SRL::DevCart::CS0::IsRxfEmpty))
             {
                 return -1; // disconnected
             }
             const uint8_t c = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
-            g_transfer.RxDetectCount = g_transfer.RxDetectCount + 1;
             return static_cast<int>(c);
         }
 
@@ -1198,12 +1126,11 @@ namespace SRL
          */
         inline static bool __gdb_putc(uint8_t value)
         {
-            if (!__gdb_wait_tx())
+            if (!__gdb_wait_usb(SRL::DevCart::CS0::IsTxeFull))
             {
                 return false; // disconnected
             }
             *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo) = value;
-            g_transfer.TxByteCount = g_transfer.TxByteCount + 1;
             return true;
         }
 
@@ -1286,7 +1213,7 @@ namespace SRL
                     }
                     else if (ch == '$')
                     {
-                        g_transfer.UngetChar = '$';
+                        g_unget_char = '$';
                         return;
                     }
                 }
@@ -1294,7 +1221,7 @@ namespace SRL
         }
 
         /**
-         * @brief Receives one GDB RSP packet, acknowledges it and strips any sequence id.
+         * @brief Receives one GDB RSP packet and acknowledges it.
          * @details NACKs ('-') and waits for a retransmission on a bad checksum or
          * an oversized packet. The packet is also recorded via record_command().
          * @param buffer Destination for the null-terminated payload
@@ -1363,19 +1290,6 @@ namespace SRL
 
                 uint8_t ack = '+';
                 __gdb_putc(ack);
-
-                // Strip sequence id prefix (XX:payload → payload).
-                // Ensure XX are valid hex digits so we don't accidentally truncate valid packets (e.g. M<addr>:).
-                if (len >= 3 && buffer[2] == ':' && hex(buffer[0]) >= 0 && hex(buffer[1]) >= 0)
-                {
-                    size_t i = 0;
-                    while (buffer[3 + i] != '\0')
-                    {
-                        buffer[i] = buffer[3 + i];
-                        ++i;
-                    }
-                    buffer[i] = '\0';
-                }
 
                 record_command(buffer);
                 return true;
@@ -2203,22 +2117,17 @@ namespace SRL
             g_session.HandshakeDone = false;
             g_session.CommandCount = 0;
             g_exception_thunk_count = 0;
-            g_transfer.RxDetectCount = 0;
-            g_transfer.TxByteCount = 0;
-            g_transfer.PollFallbackCount = 0;
             g_session.LastCommand[0] = '\0';
-            g_transfer.UngetChar = -1;
+            g_unget_char = -1;
             // Detect the cart through CS0 only: reading CS1 can hang the bus on USBGamers carts.
-            g_devcart.Ready = SRL::DevCart::CS0::IsPortAvailable(); // CS0-only check
-            g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
+            g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
 
             g_stop.SignalOverride = 0;
             g_last_stop_signal = 5;
             g_breakpoints.UbcChannelAActive = false;
             clear_breakpoints(false);
 
-            SRL::Logger::Log::LogPrint("[GDBStub] DevCart ready: %d, Port: %d",
-                                       g_devcart.Ready ? 1 : 0, g_devcart.PortAvailable ? 1 : 0);
+            SRL::Logger::Log::LogPrint("[GDBStub] DevCart port: %d", g_devcart_port_available ? 1 : 0);
 
             InstallExceptionHandlers(); // no-op if already installed
             SRL::Logger::Log::LogPrint("[GDBStub] Init() end");
@@ -2252,48 +2161,12 @@ namespace SRL
         }
 
         /**
-         * @brief Returns how many RX bytes were consumed by the stub from DevCart.
-         * @return Number of bytes read from DevCart RX
-         */
-        inline static uint32_t GetRxDetectCount()
-        {
-            return g_transfer.RxDetectCount;
-        }
-
-        /**
-         * @brief Returns how many TX bytes were written by the stub to DevCart.
-         * @return Number of bytes written to DevCart TX
-         */
-        inline static uint32_t GetTxByteCount()
-        {
-            return g_transfer.TxByteCount;
-        }
-
-        /**
-         * @brief Returns how many times Poll() processed RX data itself, outside of an exception.
-         * @return Number of times Poll() handled RX data itself
-         */
-        inline static uint32_t GetPollFallbackCount()
-        {
-            return g_transfer.PollFallbackCount;
-        }
-
-        /**
-         * @brief Returns true when the DevCart was detected at Init() (CS0 USB_FLAGS readable; CS1 is deliberately not probed).
-         * @return true if the DevCart was detected at Init()
-         */
-        inline static bool IsDevCartReady()
-        {
-            return g_devcart.Ready;
-        }
-
-        /**
          * @brief Returns true when the DevCart USB port reported available at the last Poll().
          * @return true if the DevCart USB port was available at the last Poll()
          */
         inline static bool IsDevCartPortAvailable()
         {
-            return g_devcart.PortAvailable;
+            return g_devcart_port_available;
         }
 
         /**
@@ -2430,7 +2303,7 @@ namespace SRL
             }
 
             const uint8_t usbFlags = SRL::DevCart::CS0::ReadFlags();
-            g_devcart.PortAvailable = SRL::DevCart::CS0::IsPortAvailable();
+            g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
 
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::Rxf) == 0;
             if (rxPending)
@@ -2440,7 +2313,6 @@ namespace SRL
                     // During initial attach/handshake, do not consume RX bytes here.
                     // Let process_commands() read the full '$...#xx' packet intact.
                     snapshot_polling_context();
-                    g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                     process_commands();
                 }
                 else
@@ -2448,21 +2320,18 @@ namespace SRL
                     // Active session while target runs: only Ctrl-C should interrupt.
                     // Direct FIFO read, not CS0::Read(): its WaitRxf() spins forever on unplug.
                     const uint8_t ch = *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo);
-                    g_transfer.RxDetectCount = g_transfer.RxDetectCount + 1;
 
                     if (ch == 0x03U)
                     {
                         record_command("<Ctrl-C>");
                         g_stop.SignalOverride = 2U; // SIGINT
-                        g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                         Break();
                     }
                     else if (ch == '$')
                     {
                         // Preserve packet start byte and process packet without forcing a trap.
-                        g_transfer.UngetChar = '$';
+                        g_unget_char = '$';
                         snapshot_polling_context();
-                        g_transfer.PollFallbackCount = g_transfer.PollFallbackCount + 1;
                         process_commands();
                     }
                 }
