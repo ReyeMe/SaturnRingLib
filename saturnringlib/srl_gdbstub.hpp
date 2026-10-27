@@ -2235,8 +2235,18 @@ namespace SRL
                 Break();
             }
 
+            // One slow bus read of USB_FLAGS per Poll(), tested three ways.
             const uint8_t usbFlags = SRL::DevCart::CS0::ReadFlags();
-            g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable();
+            g_devcart_port_available = SRL::DevCart::CS0::IsPortAvailable(usbFlags);
+
+            // Hardware-level disconnect: clear session state. A floating bus can also read as
+            // "RX pending", so this goes first.
+            if (!SRL::DevCart::CS0::IsConnected(usbFlags))
+            {
+                g_session.HasConnection = false;
+                g_session.HandshakeDone = false;
+                return;
+            }
 
             const bool rxPending = (usbFlags & SRL::DevCart::CS0::USBFlags::Rxf) == 0;
             if (rxPending)
@@ -2268,13 +2278,6 @@ namespace SRL
                         process_commands();
                     }
                 }
-            }
-
-            // Hardware-level disconnect: clear session state.
-            if (!SRL::DevCart::CS0::IsConnected())
-            {
-                g_session.HasConnection = false;
-                g_session.HandshakeDone = false;
             }
         }
     };

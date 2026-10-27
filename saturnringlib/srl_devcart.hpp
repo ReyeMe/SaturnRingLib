@@ -256,20 +256,20 @@ namespace SRL
              * This function checks the `UsbFlags` register. It assumes the device is
              * connected if the reserved bits (those not in `AllFlags`) are all zero. This
              * is a common way to detect hardware presence on embedded systems.
+             * @param Flags A UsbFlags value already read (one slow bus access); read now if omitted
              * @return true If connected, false otherwise
              */
-            static inline bool IsConnected()
+            static inline bool IsConnected(const uint8_t Flags = ReadFlags())
             {
-                const uint8_t Flags = ReadFlags();
                 // SatCom-compatible test: bits 7..2 must be low when FTDI is USB powered.
                 return (Flags & 0xFCU) == 0;
             }
 
             /** @brief Returns true when USB dev cart flag register pattern looks valid
+             * @param Flags A UsbFlags value already read (one slow bus access); read now if omitted
              */
-            static inline bool IsPortAvailable()
+            static inline bool IsPortAvailable(const uint8_t Flags = ReadFlags())
             {
-                const uint8_t Flags = ReadFlags();
                 // SatCom-compatible availability test: reserved bits 6..2 should stay low.
                 return (Flags & 0x7CU) == 0;
             }
