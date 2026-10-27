@@ -1095,6 +1095,16 @@ def test_stepi_after_detached_attach(s):
         s2.close()
 
 
+@test("scenario: stepi right after attaching to a running game stops instead of running free")
+def test_stepi_from_attach(s):
+    # The session attached via Poll()'s placeholder context: there is no real instruction to
+    # step, but GDB must still get a stop (it used to wait forever while the game ran on).
+    out = s.cmd("stepi", timeout=10)
+    assert "(gdb)" in out, f"stepi never stopped -- the target ran free: {out!r}"
+    assert "SIGILL" not in out, f"stepi reported a fake crash: {out!r}"
+    _hit_steppable(s)  # and the session keeps working
+
+
 @test("scenario: raw k (kill) leaves the stub healthy for an immediate, independent reconnect")
 def test_kill_then_reconnect(s):
     try:

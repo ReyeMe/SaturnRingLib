@@ -221,10 +221,13 @@ namespace SRL
 
             /** @brief The current stop is a hit of GDB's UBC breakpoint/watchpoint (reported as hwbreak/watch) */
             bool WasUbcHit;
+
+            /** @brief GDB asked to step from the Poll() placeholder: serve_from_poll() stops for real instead */
+            bool StepFromPlaceholder;
         };
 
         /** @brief Current stop state */
-        inline static StopStatus g_stop = {false, false, 0, false};
+        inline static StopStatus g_stop = {false, false, 0, false, false};
 
         /**
          * @brief Signal to report to GDB for the current stop.
@@ -1503,10 +1506,12 @@ namespace SRL
         {
             g_stop.SignalOverride = 0;
 
-            // No real instruction to step from a Poll() snapshot (see g_stop.CtxIsFake).
+            // No real instruction to step from a Poll() snapshot (see g_stop.CtxIsFake): resume,
+            // then stop for real at once (serve_from_poll()), which answers GDB's step.
             if (g_stop.CtxIsFake)
             {
                 g_stop.CtxIsFake = false;
+                g_stop.StepFromPlaceholder = true;
                 return;
             }
 
@@ -2017,6 +2022,22 @@ namespace SRL
             SRL::Logger::Log::LogPrint("[GDBStub] InstallExceptionHandlers() end");
         }
 
+        /**
+         * @brief Serves GDB from Poll(), outside any exception, on a placeholder context.
+         * @details A step from that placeholder has no real instruction to step, so it becomes a
+         * real stop (Break()) once the packet loop returns: GDB gets the stop reply it waits for.
+         */
+        inline static void serve_from_poll()
+        {
+            snapshot_polling_context();
+            process_commands();
+            if (g_stop.StepFromPlaceholder)
+            {
+                g_stop.StepFromPlaceholder = false;
+                Break();
+            }
+        }
+
     public:
 
         /**
@@ -2255,8 +2276,7 @@ namespace SRL
                 {
                     // During initial attach/handshake, do not consume RX bytes here.
                     // Let process_commands() read the full '$...#xx' packet intact.
-                    snapshot_polling_context();
-                    process_commands();
+                    serve_from_poll();
                 }
                 else
                 {
@@ -2274,8 +2294,7 @@ namespace SRL
                     {
                         // Preserve packet start byte and process packet without forcing a trap.
                         g_unget_char = '$';
-                        snapshot_polling_context();
-                        process_commands();
+                        serve_from_poll();
                     }
                 }
             }
