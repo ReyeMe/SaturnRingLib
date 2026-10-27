@@ -643,8 +643,13 @@ namespace SRL
                 return false;
             }
 
+            volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
             if (find_breakpoint_slot(address) >= 0)
             {
+                // Already ours, but a slave hit may have disarmed it in memory (see
+                // slave_breakpoint_handler()): re-arm it.
+                *code = SoftwareBreakInstruction;
+                PurgeCache();
                 return true;
             }
 
@@ -654,7 +659,6 @@ namespace SRL
                 return false;
             }
 
-            volatile uint16_t *code = reinterpret_cast<volatile uint16_t *>(address | 0x20000000U);
             const uint16_t original = *code;
             *code = SoftwareBreakInstruction;
             if (*code != SoftwareBreakInstruction)
@@ -2181,7 +2185,7 @@ namespace SRL
          * @details A breakpoint (0xFFFF) in slave code otherwise lands on the slave's
          * unconfigured boot-ROM vector and never returns. Under SGL the slave's VBR is
          * already in RAM (~0x06000400), so vector 4 is patched in SGL's live table.
-         * @warning Slave breakpoints are one-shot (removed when hit) and slave code can't be
+         * @warning Slave breakpoints are one-shot (disarmed when hit until GDB re-inserts them) and slave code can't be
          * stepped. GDB sees one CPU: a slave stop halts the session like Ctrl-C, and the
          * slave's state is read with `monitor regs slave`.
          */
@@ -2350,10 +2354,13 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
         }
     }
 
-    if (SRL::GDBStub::find_breakpoint_slot(bp_addr) >= 0)
+    const int slot = SRL::GDBStub::find_breakpoint_slot(bp_addr);
+    if (slot >= 0)
     {
-        // One-shot: remove it so the real instruction runs on resume (no slave step-over).
-        SRL::GDBStub::remove_software_breakpoint(bp_addr);
+        // One-shot: put the real instruction back so it runs on resume (no slave step-over).
+        // The slot stays: a master still holding the 0xFFFF in its own cache (the caches don't
+        // snoop) then stops on it as this breakpoint, not as a fake SIGILL. GDB's z0 frees it.
+        *reinterpret_cast<volatile uint16_t *>(bp_addr | 0x20000000U) = SRL::GDBStub::g_breakpoints.Original[slot];
     }
     else
     {
