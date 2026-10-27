@@ -67,6 +67,8 @@ The `.vscode/tasks.json` file provides these tasks:
 
 > Note: If using Docker, set `"miDebuggerServerAddress": "host.docker.internal:1234"`. Use `sh-elf-gdb` instead of `gdb-multiarch` if that is your installed SH-2 GDB executable.
 
+> Tip: the sample's `launch.json` also runs `mem 0x06000000 0x06100000 rw cache` (and the same for low work RAM, `0x00200000 0x00300000`). Without it GDB fetches memory one value per packet, about 3 ms each: `x/4096xw` takes about 12 s instead of about 1 s. GDB drops the cache on every resume, so values never go stale across a `continue`. In a CLI session, run the same two `mem` commands after `target remote`. Don't mark hardware registers as cached.
+
 ## 1.2 Debugging with VS Code: A Walkthrough
 
 This walks through an actual debug session using the VS Code UI, rather than

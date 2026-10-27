@@ -420,8 +420,11 @@ def test_raw_qsupported(s):
 def test_raw_qsupported_packet_size(s):
     reply = s.packet("qSupported")
     size = int(re.search(r"PacketSize=([0-9a-fA-F]+)", reply).group(1), 16)
-    # GDB reads PacketSize as hex and sizes 'm' reads to PacketSize/2 bytes; the stub caps 'm' at 511.
-    assert size // 2 <= 511, f"PacketSize={size:#x} lets GDB request reads the stub rejects"
+    # GDB reads PacketSize as hex and sizes 'm' reads to exactly PacketSize/2 bytes: that read must work.
+    n = size // 2
+    data = s.packet(f"m6004000,{n:x}")
+    assert len(data) == 2 * n and re.fullmatch(r"[0-9a-f]+", data), \
+        f"PacketSize={size:#x}: a {n}-byte read (what GDB sends) got {data[:20]!r}..."
 
 
 @test("raw qXfer:features:read is not supported (GDB's SH port ignores target.xml)")
@@ -564,6 +567,17 @@ def test_memory_read_known_global(s):
     cli_val = parse_hex(s.cmd("p/x g_testVariable", timeout=5))
     raw_val = int(s.packet(f"m{addr:x},4"), 16)
     assert raw_val == (cli_val & 0xffffffff), f"cli={cli_val:#x} raw={raw_val:#x}"
+
+
+@test("GDB dumps a 4 KB block to a file (full PacketSize/2 reads)")
+def test_dump_memory(s):
+    import os
+    path = "/tmp/gdb_stub_dump_test.bin"
+    if os.path.exists(path):
+        os.remove(path)
+    out = s.cmd(f"dump binary memory {path} 0x06004000 0x06005000", timeout=30)
+    assert "Cannot access memory" not in out, out
+    assert os.path.getsize(path) == 4096, f"dump wrote {os.path.getsize(path)} bytes"
 
 
 @test("GDB reads a 600-byte block in one command (PacketSize regression)")

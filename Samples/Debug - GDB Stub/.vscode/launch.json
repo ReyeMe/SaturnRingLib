@@ -40,6 +40,16 @@
                     "description": "Enable pretty printing",
                     "text": "set print pretty on",
                     "ignoreFailures": true
+                },
+                {
+                    "description": "Cache work RAM reads (64-byte blocks instead of one packet per word; dropped on every resume)",
+                    "text": "mem 0x06000000 0x06100000 rw cache",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Cache low work RAM reads too",
+                    "text": "mem 0x00200000 0x00300000 rw cache",
+                    "ignoreFailures": true
                 }
             ]
         },
@@ -81,6 +91,16 @@
                 {
                     "description": "Enable pretty printing",
                     "text": "set print pretty on",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Cache work RAM reads (64-byte blocks instead of one packet per word; dropped on every resume)",
+                    "text": "mem 0x06000000 0x06100000 rw cache",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Cache low work RAM reads too",
+                    "text": "mem 0x00200000 0x00300000 rw cache",
                     "ignoreFailures": true
                 }
             ]
