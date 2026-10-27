@@ -1,8 +1,6 @@
 #pragma once
 
 #include <srl_devcart.hpp>
-#include <srl_interrupt.hpp>
-#include <srl_system.hpp>
 #include <srl_log.hpp>
 #include <srl_slave.hpp>
 #include <srl_string.hpp>
@@ -10,7 +8,7 @@
 #include <cstddef>
 
 // The stub only exists in DEBUG builds, which are -O0 so the game's code is easy to step.
-// Nobody steps the stub, so build it for size: 18.3 KB at -O0, 6.8 KB at -Os.
+// Nobody steps the stub, so build it for size: 18.3 KB at -O0, 8.8 KB at -Os.
 #pragma GCC push_options
 #pragma GCC optimize("Os")
 
@@ -251,14 +249,8 @@ namespace SRL
              */
             volatile bool Stopped;
 
-            /**
-             * @brief Master sets this (via handle_gdb_continue()/handle_gdb_step(),
-             * same as any other resume) to release a slave halted in Stopped.
-             */
+            /** @brief Set by SlaveReleaseGuard as the master resumes, to release a slave halted in Stopped */
             volatile bool Resume;
-
-            /** @brief Whether InstallSlaveExceptionHandler() has run on the slave */
-            volatile bool HandlersInstalled;
 
             /**
              * @brief Master-only: set by Poll() when it reports a slave stop to GDB.
@@ -269,7 +261,7 @@ namespace SRL
         };
 
         /** @brief Current slave halt state */
-        inline static SlaveStatus g_slave = {false, false, false, false};
+        inline static SlaveStatus g_slave = {false, false, false};
 
         /**
          * @brief Cache-through view of a g_slave flag, for reads of a value the other CPU writes.
@@ -294,7 +286,7 @@ namespace SRL
          */
         static constexpr uint16_t SoftwareBreakInstruction = 0xFFFFU;
 
-        /** @brief Number of software breakpoint slots (8 bytes of RAM each; more gets GDB's "Cannot insert breakpoint") */
+        /** @brief Number of software breakpoint slots (6 bytes of RAM each; more gets GDB's "Cannot insert breakpoint") */
         static constexpr size_t MaxSoftwareBreakpoints = 16;
 
         /** @brief Maximum RSP packet payload length; advertised to GDB as PacketSize (this + 1) */
@@ -332,7 +324,7 @@ namespace SRL
         /** @brief Current breakpoint state */
         inline static BreakpointStatus g_breakpoints = {{}, {}, 0, 0};
 
-        // --- Utility Functions --- (hex, hexchar, hex2mem_aligned live in srl_string.hpp)
+        // --- Utility Functions --- (hex, hexchar, hex2mem_aligned, mem2hex live in srl_string.hpp)
 
         /** @brief qSupported reply. PacketSize must match kPacketDataMax + 1.
          * @note GDB parses PacketSize as hex: "400" would mean 1024, making GDB request 512-byte 'm' reads the handler rejects.
@@ -1322,7 +1314,7 @@ namespace SRL
         }
 
         /**
-         * @brief Sends `text` to the GDB console as $O packets, chunked to the packet size.
+         * @brief Sends `text` to the GDB console as $O packets, in 64-byte chunks.
          * @details Only while answering a qRcmd: GDB prints $O packets until the final $OK.
          * @param text Text to print on the GDB console
          * @param len Length of text
@@ -1474,31 +1466,6 @@ namespace SRL
             text[pos++] = '\n';
 
             send_monitor_text(text, pos);
-        }
-
-        /**
-         * @brief Applies the optional resume address of a 'c'/'C'/'s'/'S' packet to the master PC.
-         * @details "caddr"/"saddr" have no separator; "Csig[;addr]"/"Ssig[;addr]" carry a
-         * two-digit signal number (ignored -- we don't support signal delivery) before the
-         * optional ';addr'. No address (the common case) or a parse failure leaves PC untouched.
-         * @param packet Null-terminated packet payload, starting with the command letter
-         */
-        inline static void apply_resume_address(const char *packet)
-        {
-            const char *p = &packet[1];
-            if (packet[0] == 'C' || packet[0] == 'S')
-            {
-                if (hex(p[0]) >= 0 && hex(p[1]) >= 0)
-                    p += 2;
-                if (*p == ';')
-                    ++p;
-            }
-            uint32_t addr = 0;
-            const char *end = p;
-            if (*p != '\0' && parse_hex_u32_until(p, '\0', addr, end))
-            {
-                GDBStub::MasterSH2().pc = addr;
-            }
         }
 
         /**
@@ -1950,14 +1917,13 @@ namespace SRL
                     break;
                 case 'c':
                 case 'C':
-                    // GDB sends "C sig" to resume after a stop it believes was a
-                    // signal (e.g. SIGILL); without this it waits forever on the empty reply.
-                    apply_resume_address(in_buf);
+                    // GDB sends "C sig" to resume after a stop it believes was a signal (e.g.
+                    // SIGILL); without this it waits forever on the empty reply. The signal is
+                    // ignored, and GDB never adds a resume address (it sets the PC with P first).
                     handle_gdb_continue();
                     return;
                 case 's':
                 case 'S':
-                    apply_resume_address(in_buf);
                     handle_gdb_step();
                     return;
                 default:
@@ -2196,7 +2162,6 @@ namespace SRL
             vbr_table[4] = reinterpret_cast<uint32_t>(&srl_gdbstub_slave_illegal_thunk);
 
             ForcePurgeCache();
-            g_slave.HandlersInstalled = true;
         }
 
         /**
