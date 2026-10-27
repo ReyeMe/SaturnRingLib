@@ -790,6 +790,22 @@ def _slave_do_breakpoint_addr(s):
     return int(m.group(1), 16)
 
 
+@test("scenario: a breakpoint a slave hit (disarmed, slot kept) is re-armed by the next Z0")
+def test_slave_hit_breakpoint_rearms(s):
+    # Raw Z0: GDB doesn't know it, so it never removes it on the stop -- the next Z0 must
+    # still put 0xFFFF back, though the stub kept the slot when the slave disarmed it.
+    addr = _slave_do_breakpoint_addr(s)
+    s.cmd("delete", timeout=5)
+    try:
+        assert s.packet(f"Z0,{addr:x},2") == "OK"
+        _assert_slave_breakpoint_hit(s, s.cmd("continue", timeout=10))
+        assert s.packet(f"m{addr:x},2") != "ffff", "the slave hit did not disarm the breakpoint"
+        assert s.packet(f"Z0,{addr:x},2") == "OK"
+        assert s.packet(f"m{addr:x},2") == "ffff", "the next Z0 did not re-arm the breakpoint"
+    finally:
+        s.packet(f"z0,{addr:x},2")
+
+
 @test("scenario: a slave that runs into the master's step trap waits it out instead of skipping it")
 def test_slave_hits_master_step_trap(s):
     addr = _slave_do_breakpoint_addr(s)
