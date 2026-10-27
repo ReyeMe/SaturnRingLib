@@ -1734,8 +1734,8 @@ namespace SRL
                 packet_put('\0', bad, 3);
                 return;
             }
-            // GDB keeps 'm'/'M' within PacketSize (kPacketDataMax + 1), so at most this many bytes.
-            constexpr uint32_t kMaxMemBytes = kPacketDataMax / 2U;
+            // GDB sizes 'm' reads to exactly PacketSize / 2 bytes (a 400-char reply): that, no more.
+            constexpr uint32_t kMaxMemBytes = (kPacketDataMax + 1U) / 2U;
             if (length > kMaxMemBytes || !is_valid_memory_range(addr, length))
             {
                 packet_put('\0', bad, 3);
