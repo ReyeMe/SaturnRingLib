@@ -112,7 +112,7 @@ namespace SRL
         __attribute__((used)) inline static SH2Context g_ctx __asm__("srl_gdbstub_ctx") = {};
 
         /// Slave SH-2 register state saved by the slave thunk at its last breakpoint.
-        /// Read by GDB through 'p'/'P' registers 23..45 and `monitor regs slave`.
+        /// Read by GDB as thread 2's registers, through 'p'/'P' registers 23..45 and `monitor regs slave`.
         __attribute__((used)) inline static SH2Context g_slave_ctx __asm__("srl_gdbstub_slave_ctx") = {};
 
         // State grouped by topic below. Members referenced by name from the
@@ -195,8 +195,8 @@ namespace SRL
             /// Signal to report for this stop instead of g_last_stop_signal, or 0 for none.
             /// Every stop that goes through Break() executes 0xFFFF, so the
             /// illegal-instruction thunk always tags it SIGILL. Callers that know
-            /// better set this first: Poll() sets SIGINT (2) for Ctrl-C and slave
-            /// breakpoint stops, and Break() itself sets SIGTRAP (5) if nothing set
+            /// better set this first: Poll() sets SIGINT (2) for Ctrl-C, and Break()
+            /// itself sets SIGTRAP (5, also used for slave stops) if nothing set
             /// it already. A genuine illegal instruction leaves it at 0 and is still
             /// reported as SIGILL. Cleared on resume.
             volatile uint8_t SignalOverride;
@@ -226,8 +226,8 @@ namespace SRL
         {
             /// Slave halted at a breakpoint.
             /// Set by slave_breakpoint_handler() (see InstallSlaveExceptionHandler()).
-            /// Poll() turns it into a master stop via Break(), like Ctrl-C; the slave spins
-            /// on Resume meanwhile.
+            /// Poll() turns it into a master halt via Break() that reports it as thread 2's
+            /// stop; the slave spins on Resume meanwhile.
             volatile bool Stopped;
 
             /// Set by SlaveReleaseGuard as the master resumes, to release a slave halted in Stopped
@@ -241,6 +241,19 @@ namespace SRL
 
         /// Current slave halt state
         inline static SlaveStatus g_slave = {false, false, false};
+
+        /// GDB thread ids: the master is thread 1, a slave parked at a breakpoint is thread 2.
+        static constexpr uint32_t MasterThread = 1U;
+        static constexpr uint32_t SlaveThread = 2U;
+
+        /// Thread whose registers 'g'/'G'/'p'/'P' 0-22 address, set by GDB's "Hg".
+        inline static uint32_t g_reg_thread = MasterThread;
+
+        /// Thread GDB sees as stopped: the slave from its report until it is released.
+        inline static uint32_t stop_thread()
+        {
+            return g_slave.Reported ? SlaveThread : MasterThread;
+        }
 
         /// Cache-through view of a g_slave flag, for reads of a value the other CPU writes.
         /// The two SH-2 caches don't snoop each other: a CPU polling a flag through
@@ -685,10 +698,13 @@ namespace SRL
 
             /// Whether a step trap is currently in memory
             bool active;
+
+            /// The trap steps the slave (see step_slave()), not the master
+            bool slave;
         };
 
         /// Current single-step state
-        inline static StepData g_step_data = {0, 0, false};
+        inline static StepData g_step_data = {0, 0, false, false};
 
         /// Removes the temporary software step trap and restores the original instruction.
         inline static void undo_software_step()
@@ -703,11 +719,12 @@ namespace SRL
         }
 
         /// Places a temporary software step trap to catch execution after one instruction.
-        inline static void do_software_step()
+        /// @param ctx The stepping CPU's saved registers (g_ctx or g_slave_ctx)
+        inline static void do_software_step(const SH2Context &ctx)
         {
             undo_software_step();
 
-            uint32_t pc = GDBStub::MasterSH2().pc;
+            uint32_t pc = ctx.pc;
             if ((pc & 1U) != 0U || !is_valid_memory_range(pc, 2U))
             {
                 return;
@@ -725,7 +742,7 @@ namespace SRL
             { // BT label, BT/S label
                 is_branch = true;
                 has_delay_slot = ((opcode & 0xff00U) == 0x8d00U);
-                if ((GDBStub::MasterSH2().sr & 1U) != 0U)
+                if ((ctx.sr & 1U) != 0U)
                 {
                     int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
                     branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
@@ -739,7 +756,7 @@ namespace SRL
             { // BF label, BF/S label
                 is_branch = true;
                 has_delay_slot = ((opcode & 0xff00U) == 0x8f00U);
-                if ((GDBStub::MasterSH2().sr & 1U) == 0U)
+                if ((ctx.sr & 1U) == 0U)
                 {
                     int8_t disp8 = static_cast<int8_t>(opcode & 0xffU);
                     branch_target = pc + (static_cast<int>(disp8) << 1) + 4U;
@@ -759,29 +776,29 @@ namespace SRL
             { // JMP @Rm, JSR @Rm
                 is_branch = true;
                 uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                branch_target = GDBStub::MasterSH2().r[reg_idx];
+                branch_target = ctx.r[reg_idx];
             }
             else if ((opcode & 0xf0ffU) == 0x0023U)
             { // BRAF Rm
                 is_branch = true;
                 uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
+                branch_target = pc + 4U + ctx.r[reg_idx];
             }
             else if ((opcode & 0xf0ffU) == 0x0003U)
             { // BSRF Rm
                 is_branch = true;
                 uint32_t reg_idx = (opcode & 0x0f00U) >> 8;
-                branch_target = pc + 4U + GDBStub::MasterSH2().r[reg_idx];
+                branch_target = pc + 4U + ctx.r[reg_idx];
             }
             else if (opcode == 0x000bU)
             { // RTS
                 is_branch = true;
-                branch_target = GDBStub::MasterSH2().pr;
+                branch_target = ctx.pr;
             }
             else if (opcode == 0x002bU)
             { // RTE
                 is_branch = true;
-                uint32_t sp = GDBStub::MasterSH2().r[15];
+                uint32_t sp = ctx.r[15];
                 if (is_valid_memory_range(sp, 8U))
                 {
                     branch_target = *reinterpret_cast<volatile uint32_t *>(sp | 0x20000000U);
@@ -790,7 +807,7 @@ namespace SRL
             else if ((opcode & 0xff00U) == 0xc300U)
             { // TRAPA #imm
                 // TRAPA #imm jumps through VBR + imm*4 (imm IS the vector number).
-                const uint32_t vec_addr = GDBStub::MasterSH2().vbr + ((opcode & 0xffU) * 4U);
+                const uint32_t vec_addr = ctx.vbr + ((opcode & 0xffU) * 4U);
                 if (is_valid_memory_range(vec_addr, 4U))
                 {
                     const uint32_t handler = *reinterpret_cast<volatile uint32_t *>(vec_addr | 0x20000000U);
@@ -1136,9 +1153,10 @@ namespace SRL
 
         /// Sends a 'T' stop-reply packet to GDB.
         /// Adds "swbreak:;" for GDB-managed software breakpoints and step
-        /// traps, "reason:signal;" for other SIGTRAP stops, and "thread:1;".
+        /// traps, "reason:signal;" for other SIGTRAP stops, and the stopped thread (stop_thread()).
         inline static void send_stop_signal(uint8_t signal)
         {
+            const bool slave = stop_thread() == SlaveThread;
             char buf[64];
             buf[0] = hexchar(signal >> 4);
             buf[1] = hexchar(signal & 0xF);
@@ -1148,11 +1166,13 @@ namespace SRL
             {
                 // swbreak only for GDB's own breakpoints/step traps: on a Break() or a crash GDB
                 // finds no breakpoint there and silently continues.
-                if (g_stop.WasSwBreak)
+                // Never for the slave: it already put the instruction back, and GDB ignores a
+                // swbreak with no breakpoint in memory. A plain SIGTRAP still matches GDB's by PC.
+                if (!slave && g_stop.WasSwBreak)
                 {
                     len = append_str(buf, len, "swbreak:;");
                 }
-                else if (g_stop.WasUbcHit && g_breakpoints.UbcType[g_stop.UbcChannel] != 0U)
+                else if (!slave && g_stop.WasUbcHit && g_breakpoints.UbcType[g_stop.UbcChannel] != 0U)
                 {
                     // GDB only reports a watchpoint hit when the stop reply names it.
                     static const char *const kUbcReason[] = {"hwbreak", "watch", "rwatch", "awatch"};
@@ -1170,7 +1190,8 @@ namespace SRL
                     len = append_str(buf, len, "reason:signal;");
                 }
             }
-            len = append_str(buf, len, "thread:1;");
+            len = append_str(buf, len, slave ? "thread:2;" : "thread:1;");
+            g_reg_thread = stop_thread(); // GDB assumes the stub's Hg thread is now the stopped one
 
             g_last_stop_signal = signal;
             packet_put('T', buf, len);
@@ -1216,7 +1237,13 @@ namespace SRL
 
         // --- Core Handler ---
 
-        /// Maps a GDB register number to its slot: 0-22 in g_ctx, 23-45 in g_slave_ctx.
+        /// Registers of the thread GDB selected with "Hg" (see g_reg_thread).
+        inline static SH2Context &selected_ctx()
+        {
+            return g_reg_thread == SlaveThread ? g_slave_ctx : g_ctx;
+        }
+
+        /// Maps a GDB register number to its slot: 0-22 in selected_ctx(), 23-45 in g_slave_ctx.
         /// SH2Context is laid out in GDB's order (r0-r15, pc, pr, gbr, vbr, mach, macl, sr),
         /// which is also why the 'g' packet can dump it whole.
         /// @return The register, or nullptr when reg_idx is out of range
@@ -1226,7 +1253,7 @@ namespace SRL
             static_assert(kRegsPerCpu == 23U, "SH2Context must stay in GDB's 23-register order");
             if (reg_idx < kRegsPerCpu)
             {
-                return reinterpret_cast<uint32_t *>(&g_ctx) + reg_idx;
+                return reinterpret_cast<uint32_t *>(&selected_ctx()) + reg_idx;
             }
             if (reg_idx < 2U * kRegsPerCpu)
             {
@@ -1238,7 +1265,7 @@ namespace SRL
         /// Fixed 'g' packet register count GDB's SH backend requires.
         /// gdb-multiarch 15.1 and sh-elf-gdb 14.2 both hard-code a 268-byte 'g' packet
         /// for sh/sh2: 23 real registers plus 44 blank slots, and reject any other length. So
-        /// 'g'/'G' pad to this size; the slave registers are only reachable via 'p'/'P' (23..45).
+        /// 'g'/'G' pad to this size; the slave's are thread 2's ("Hg2"), or 'p'/'P' 23..45.
         static constexpr size_t GdbFixedShRegisterCount = 67U;
 
         /// Number of blank registers padded after the 23 real ones in a 'g' reply
@@ -1338,9 +1365,9 @@ namespace SRL
             send_monitor_text(text, pos);
         }
 
-        /// Prepares the CPU state for a GDB single-step command ('s'/'S').
+        /// Prepares the CPU state for a GDB single-step command ('s'/'S') of the master.
         /// Places a step trap after the current instruction (see do_software_step()).
-        /// A parked slave is just released (SlaveReleaseGuard): slave code can't be stepped.
+        /// A parked slave is just released (SlaveReleaseGuard); stepping the slave is step_slave().
         inline static void handle_gdb_step()
         {
             g_stop.SignalOverride = 0;
@@ -1354,7 +1381,32 @@ namespace SRL
                 return;
             }
 
-            do_software_step();
+            do_software_step(g_ctx);
+        }
+
+        /// Steps the parked slave one instruction while the master stays halted, then reports
+        /// its stop as thread 2. Same step trap as the master's (do_software_step()); the slave
+        /// parks on it in slave_breakpoint_handler(). Ctrl-C or an unplug ends the wait if the
+        /// slave never reaches it (e.g. a trap that could not be patched into ROM).
+        inline static void step_slave()
+        {
+            g_step_data.slave = true;
+            do_software_step(g_slave_ctx);
+            g_slave.Stopped = false;
+            g_slave.Resume = true;
+            while (!Uncached(g_slave.Stopped))
+            {
+                if (!SRL::DevCart::CS0::IsConnected() ||
+                    (!SRL::DevCart::CS0::IsRxfEmpty() && *(volatile uint8_t *)(SRL::DevCart::CS0::UsbFifo) == 0x03U))
+                {
+                    break;
+                }
+            }
+            ForcePurgeCache(); // the slave just rewrote g_slave_ctx
+            undo_software_step();
+            g_step_data.slave = false;
+            g_slave.Reported = Uncached(g_slave.Stopped);
+            send_stop_signal(g_slave.Reported ? 5U : 2U); // SIGTRAP on thread 2, else SIGINT on the master
         }
 
         /// Prepares the CPU state for a GDB continue command ('c'/'C').
@@ -1428,8 +1480,11 @@ namespace SRL
             }
             else if (starts_with(in_buf, "qfThreadInfo"))
             {
-                // Single-thread target.
-                packet_put('\0', "m1", 2);
+                // The slave is a thread only while parked: its registers are stale otherwise.
+                if (Uncached(g_slave.Stopped))
+                    packet_put('\0', "m1,2", 4);
+                else
+                    packet_put('\0', "m1", 2);
             }
             else if (starts_with(in_buf, "qsThreadInfo"))
             {
@@ -1468,7 +1523,7 @@ namespace SRL
             {
                 // Real PR/R14 even inside SGL code without debug info: GDB's `bt` copes,
                 // but a zeroed PR broke every later command of the session.
-                SH2Context ctx_copy = GDBStub::MasterSH2();
+                SH2Context ctx_copy = selected_ctx();
 
                 constexpr size_t max_g_packet_hex_chars = (sizeof(SH2Context) + (GdbFixedShPaddingRegisters * 4U)) * 2;
                 static_assert(1U + max_g_packet_hex_chars < kPacketBufSize, "buf is too small for GDB's 'g' reply and 'G' request");
@@ -1498,7 +1553,7 @@ namespace SRL
                 {
                     packet_put('\0', "E01", 3);
                 }
-                else if (hex2mem_aligned(&buf[1], reinterpret_cast<uint32_t>(&g_ctx), sizeof(SH2Context)))
+                else if (hex2mem_aligned(&buf[1], reinterpret_cast<uint32_t>(&selected_ctx()), sizeof(SH2Context)))
                 {
                     packet_put('\0', "OK", 2);
                 }
@@ -1722,8 +1777,19 @@ namespace SRL
                     handle_query(in_buf);
                     break;
                 case 'H':
+                {
+                    // "Hg<tid>" picks whose registers 'g'/'p' read; 0 or -1 (any) means the
+                    // stopped thread. "Hc" is ignored: vCont names the thread to step.
+                    uint32_t tid = 0;
+                    const char *end = nullptr;
+                    if (in_buf[1] == 'g')
+                    {
+                        const bool named = parse_hex_u32_until(&in_buf[2], '\0', tid, end) && (tid == MasterThread || tid == SlaveThread);
+                        g_reg_thread = named ? tid : stop_thread();
+                    }
                     packet_put('\0', "OK", 2);
                     break;
+                }
                 case 'g':
                 case 'G':
                 case 'p':
@@ -1738,9 +1804,15 @@ namespace SRL
                 case 'z':
                     handle_breakpoint_packet(in_buf);
                     break;
-                case 'T': // Is thread alive? Single-thread target: always.
-                    packet_put('\0', "OK", 2);
+                case 'T': // Is thread alive? The master always; the slave while parked.
+                {
+                    uint32_t tid = 0;
+                    const char *end = nullptr;
+                    const bool alive = parse_hex_u32_until(&in_buf[1], '\0', tid, end) &&
+                                       (tid == MasterThread || (tid == SlaveThread && Uncached(g_slave.Stopped)));
+                    packet_put('\0', alive ? "OK" : "E01", alive ? 2 : 3);
                     break;
+                }
                 case 'c':
                 case 'C':
                     // GDB sends "C sig" to resume after a stop it believes was a signal (e.g.
@@ -1752,9 +1824,37 @@ namespace SRL
                 case 'S':
                     handle_gdb_step();
                     return;
+                case 'v':
+                    if (starts_with(in_buf, "vCont?"))
+                    {
+                        packet_put('\0', "vCont;c;C;s;S", 13);
+                        break;
+                    }
+                    if (starts_with(in_buf, "vCont;"))
+                    {
+                        // Only the first action counts: GDB puts the one naming a thread first
+                        // ("vCont;s:2;c"). A continue resumes both CPUs, whatever it names.
+                        if (in_buf[6] != 's' && in_buf[6] != 'S')
+                        {
+                            handle_gdb_continue();
+                            return;
+                        }
+                        const char *p = &in_buf[7];
+                        while (*p != '\0' && *p != ';' && *p != ':')
+                            ++p;
+                        uint32_t tid = 0;
+                        const char *end = nullptr;
+                        if (*p == ':' && parse_hex_u32_until(p + 1, ';', tid, end) && tid == SlaveThread && Uncached(g_slave.Stopped))
+                        {
+                            step_slave();
+                            break;
+                        }
+                        handle_gdb_step();
+                        return;
+                    }
+                    [[fallthrough]];
                 default:
-                    // Empty reply = "not supported". This covers every v packet: GDB falls back
-                    // from vCont to plain c/s/C, and extended-remote (!, vRun) is not supported.
+                    // Empty reply = "not supported", e.g. extended-remote (!, vRun).
                     packet_put('\0', nullptr, 0);
                     break;
                 }
@@ -1971,9 +2071,10 @@ namespace SRL
          * @details A breakpoint (0xFFFF) in slave code otherwise lands on the slave's
          * unconfigured boot-ROM vector and never returns. Under SGL the slave's VBR is
          * already in RAM (~0x06000400), so vector 4 is patched in SGL's live table.
-         * @warning Slave breakpoints are one-shot (disarmed when hit until GDB re-inserts them) and slave code can't be
-         * stepped. GDB sees one CPU: a slave stop halts the session like Ctrl-C, and the
-         * slave's state is read with `monitor regs slave`.
+         * @details GDB sees the slave as thread 2 while it is parked at a breakpoint: a slave
+         * stop halts both CPUs and GDB switches to thread 2, which can be stepped (step_slave()).
+         * The hit breakpoint is disarmed in memory until GDB re-inserts it, which GDB does
+         * itself when it steps over it on continue.
          */
         inline static void InstallSlaveExceptionHandler()
         {
@@ -2036,13 +2137,11 @@ namespace SRL
                 return;
             }
 
-            // Turn a slave breakpoint into a master stop, reported as SIGINT like Ctrl-C:
-            // the master's own stack says nothing about it (use `monitor regs slave`).
+            // Turn a slave breakpoint into a master halt that reports it as thread 2's stop.
             if (Uncached(g_slave.Stopped))
             {
                 g_slave.Reported = true; // this halt tells GDB, so SlaveReleaseGuard may release it
-                g_stop.SignalOverride = 2U; // SIGINT
-                Break();
+                Break();                 // SIGTRAP
             }
 
             // One slow bus read of USB_FLAGS per Poll(), tested three ways.
@@ -2119,13 +2218,16 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
     // Illegal Instruction pushes the address of the faulting instruction
     // itself (unlike TRAPA, which pushes PC+2).
     const uint32_t bp_addr = SRL::GDBStub::SlaveSH2().pc;
-    if (SRL::GDBStub::find_breakpoint_slot(bp_addr) < 0)
+    // Step traps are kept out of the breakpoint table. Read through the cache-through
+    // mirror -- the master writes these.
+    volatile auto &step = *reinterpret_cast<volatile decltype(SRL::GDBStub::g_step_data) *>(
+        reinterpret_cast<uint32_t>(&SRL::GDBStub::g_step_data) | 0x20000000U);
+    // Our own step trap (step_slave()): stop on it, PC unchanged; the master removes it.
+    const bool slave_step = step.active && step.slave && step.address == bp_addr;
+    if (!slave_step && SRL::GDBStub::find_breakpoint_slot(bp_addr) < 0)
     {
-        // Not a GDB breakpoint, but maybe the master's single-step trap (kept out of the
-        // breakpoint table): wait for the master to finish its step and restore the
-        // instruction. Read through the cache-through mirror -- the master writes these.
-        volatile auto &step = *reinterpret_cast<volatile decltype(SRL::GDBStub::g_step_data) *>(
-            reinterpret_cast<uint32_t>(&SRL::GDBStub::g_step_data) | 0x20000000U);
+        // Not a GDB breakpoint, but maybe the master's single-step trap: wait for the
+        // master to finish its step and restore the instruction.
         while (step.active && step.address == bp_addr)
         {
             asm volatile("nop"); // spin -- the master removes its trap once its own step stops
@@ -2147,7 +2249,7 @@ extern "C" __attribute__((used)) inline void slave_breakpoint_handler(void)
         // snoop) then stops on it as this breakpoint, not as a fake SIGILL. GDB's z0 frees it.
         *reinterpret_cast<volatile uint16_t *>(bp_addr | 0x20000000U) = SRL::GDBStub::g_breakpoints.Original[slot];
     }
-    else
+    else if (!slave_step)
     {
         // A 0xFFFF compiled into the code (e.g. Break()): step past it, as on the master.
         SRL::GDBStub::SlaveSH2().pc += 2U;
