@@ -6,30 +6,11 @@ using namespace SRL::Logger;
 
 volatile int32_t g_testVariable = 0;
 
-/**
- * @brief Compares two NUL-terminated strings for exact equality.
- */
-static bool StrEquals(const char* a, const char* b)
-{
-    while (*a != '\0' && *b != '\0')
-    {
-        if (*a != *b) { return false; }
-        ++a;
-        ++b;
-    }
-
-    return *a == *b;
-}
-
 [[noreturn]] void CrashProgram()
 {
     SRL::Debug::Print(1, 27, "*** CRASH TRIGGERED ***");
-    SRL::Core::Synchronize();
-    // Emit 0xFFFF — the SH-2 Illegal Instruction opcode.
-    // The GDB stub's exception thunk catches this and enters the RSP command loop.
+    SRL::Core::Synchronize(); // show the message before the CPU stops
     asm volatile(".word 0xFFFF" ::: "memory");
-    // Tells the compiler that execution will never pass this point, preventing
-    // it from generating a function epilogue or expecting a return value.
     __builtin_unreachable();
 }
 
@@ -41,8 +22,8 @@ void ReservedInstruction()
 void SlotIllegalInstruction()
 {
     asm volatile(
-        "bra 1f\n\t"       // branch with delay slot
-        ".word 0xFFFF\n\t" // illegal instruction IN the delay slot → vector 6
+        "bra 1f\n\t"
+        ".word 0xFFFF\n\t" // runs in the delay slot of the bra
         "1:\n\t" ::: "memory");
 }
 
@@ -55,74 +36,59 @@ void SlotReservedInstruction()
 {
     asm volatile(
         "bra 1f\n\t"
-        ".word 0xFFFD\n\t" // reserved instruction in delay slot → vector 8
+        ".word 0xFFFD\n\t" // runs in the delay slot of the bra
         "1:\n\t" ::: "memory");
 }
 
 void CPUAddressError()
 {
     volatile uint8_t buf[8] = {};
-    // Offset by 1 guarantees the pointer is never 4-byte aligned.
-    volatile uint32_t *misaligned =
+    volatile uint32_t *misaligned = // buf + 1 is never 4-byte aligned
         reinterpret_cast<volatile uint32_t *>(&buf[1]);
     (void)*misaligned;
 }
 
 void DMAAddressError()
 {
-    // SH7604 DMAC channel 0 (same addresses as SGL's modules/sgl/IP/smpsys.c).
+    // SH7604 DMAC channel 0 registers.
     volatile uint32_t *SAR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF80U);
     volatile uint32_t *DAR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF84U);
     volatile uint32_t *TCR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF88U);
     volatile uint32_t *CHCR0 = reinterpret_cast<volatile uint32_t *>(0xFFFFFF8CU);
     volatile uint32_t *DMAOR = reinterpret_cast<volatile uint32_t *>(0xFFFFFFB0U);
 
-    // Scratch buffer in Work RAM — the destination side is kept valid;
-    // only the source is misaligned to guarantee the address error.
     alignas(4) static uint8_t scratch[16] = {};
 
-    (void)*DMAOR; // reading first lets the DMAOR write below clear a stale AE/NMIF flag
+    // Status flags clear only on a write that follows a read.
+    (void)*DMAOR;
     (void)*CHCR0;
-    *CHCR0 = 0U; // stop the channel; reading first lets the write clear a stale TE flag
+    *CHCR0 = 0U; // stop the channel
 
     *SAR0 = reinterpret_cast<uint32_t>(&scratch[1]); // misaligned source
     *DAR0 = reinterpret_cast<uint32_t>(&scratch[8]); // aligned destination
     *TCR0 = 1U;                                      // transfer 1 unit
     *DMAOR = 0x00000001U;                            // DME=1: DMAC on
-    // CHCR0: DM=01 (DAR increment), SM=01 (SAR increment), TS=10 (32-bit),
-    //        AR=1 (auto-request: start now, no external DREQ), IE=0, TE=0, DE=1 (enable channel)
-    *CHCR0 = 0x00005A01U;
-    // The DMAC detects the misaligned SAR immediately and fires vector 10.
+    // CHCR0: increment both addresses, 32-bit units, auto-request (start now), enable.
+    *CHCR0 = 0x00005A01U; // the misaligned source raises vector 10 at once
 }
 
-// @warning Programs the UBC (channel A) directly instead of going through
-// SRL::GDBStub's own install_hardware_watchpoint()/remove_hardware_watchpoint() --
-// it takes channel A, so calling this while a GDB `watch`/hardware breakpoint holds
-// channel A silently steals it out from under GDB (see
-// BreakpointStatus::UbcType in srl_gdbstub.hpp). Fine for this sample's
-// own one-shot test trigger in isolation; avoid combining with GDB-side watchpoints.
+// Writes UBC channel A directly, so it replaces any GDB `watch` or `hbreak` that uses channel A.
 void UserBreakController()
 {
     volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
-    volatile uint32_t *BAMRA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF44U); // both halves: the stub masks low bits
+    volatile uint32_t *BAMRA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF44U);
     volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
     volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U);
 
-    // Capture the return address: whatever called this function will
-    // be the first instruction executed after we re-enable the CPU.
+    // PR holds the return address: the break fires there, back in the caller.
     uint32_t return_pc = 0;
     asm volatile("sts pr, %0" : "=r"(return_pc));
 
-    *BARA = return_pc; // break exactly at the return site
-    *BAMRA = 0x0000U;  // no address masking — exact match
-    // BBRA: CPU cycles (bits 7-6 = 01), instruction fetch (5-4 = 01), read (3-2 = 01); a 00 field never breaks
-    *BBRA = 0x0054U;
-    // BRCR: SH7604 mode (UMD, as the GDB stub uses), independent channels, break before the instruction runs
-    *BRCR = 0x1000U;
-
-    // The break fires on the instruction fetch at return_pc,
-    // i.e. the first instruction the caller executes after this returns.
-    asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
+    *BARA = return_pc;
+    *BAMRA = 0x0000U; // exact address match
+    *BBRA = 0x0054U;  // CPU cycle, instruction fetch, read
+    *BRCR = 0x1000U;  // SH7604 mode, break before the instruction runs
+    asm volatile("nop" ::: "memory"); // let the BRCR write land before returning
 }
 
 void Trapa35()
@@ -140,9 +106,8 @@ void SteppableFunction()
     SRL::Debug::Print(1, 29, "Steppable result: %d", d);
 }
 
-// Every instruction a stepi lands on has an sb_* label, so the test can check each
-// landing by name. Filler nops (fall-through paths that must NOT be taken) are unlabeled.
-// T and the registers are set before sb_start; the delay slots flip T to prove they ran.
+// Every instruction a stepi lands on has an sb_* label, so the test checks each landing by name.
+// Unlabeled nops are paths that must not be taken. Delay slots flip T to prove they ran.
 __asm__(
     ".pushsection .text\n"
     ".align 2\n"
@@ -213,24 +178,21 @@ __asm__(
 
 void HandleMonitorCommand(const char* cmd)
 {
-    if (StrEquals(cmd, "crash illegal")) { CrashProgram(); }
-    else if (StrEquals(cmd, "crash addr")) { CPUAddressError(); }
-    else if (StrEquals(cmd, "crash reserved")) { ReservedInstruction(); }
-    else if (StrEquals(cmd, "crash slotillegal")) { SlotIllegalInstruction(); }
-    else if (StrEquals(cmd, "crash slotreserved")) { SlotReservedInstruction(); }
-    else if (StrEquals(cmd, "crash genillegal")) { GeneralIllegalInstruction(); }
-    else if (StrEquals(cmd, "crash dma")) { DMAAddressError(); }
-    else if (StrEquals(cmd, "crash ubc")) { UserBreakController(); }
-    else if (StrEquals(cmd, "crash trapa35")) { Trapa35(); }
-    else if (StrEquals(cmd, "step")) { SteppableFunction(); }
-    else if (StrEquals(cmd, "stepbranches")) { StepBranches(); }
-    else if (StrEquals(cmd, "touch")) { g_testVariable = g_testVariable + 1; }
+    if (strcmp(cmd, "crash illegal") == 0) { CrashProgram(); }
+    else if (strcmp(cmd, "crash addr") == 0) { CPUAddressError(); }
+    else if (strcmp(cmd, "crash reserved") == 0) { ReservedInstruction(); }
+    else if (strcmp(cmd, "crash slotillegal") == 0) { SlotIllegalInstruction(); }
+    else if (strcmp(cmd, "crash slotreserved") == 0) { SlotReservedInstruction(); }
+    else if (strcmp(cmd, "crash genillegal") == 0) { GeneralIllegalInstruction(); }
+    else if (strcmp(cmd, "crash dma") == 0) { DMAAddressError(); }
+    else if (strcmp(cmd, "crash ubc") == 0) { UserBreakController(); }
+    else if (strcmp(cmd, "crash trapa35") == 0) { Trapa35(); }
+    else if (strcmp(cmd, "step") == 0) { SteppableFunction(); }
+    else if (strcmp(cmd, "stepbranches") == 0) { StepBranches(); }
+    else if (strcmp(cmd, "touch") == 0) { g_testVariable = g_testVariable + 1; }
     else
     {
-        // "regs slave" and "trace" aren't handled here -- they're
-        // intercepted directly in srl_gdbstub.hpp's qRcmd handler (see
-        // send_slave_regs_dump()/send_halt_trace_dump())
-        // and never reach this dispatcher.
+        // "regs slave" and "trace" are answered by the stub itself and never get here.
         Log::LogPrint("monitor: unknown command '%s' -- try crash illegal|addr|reserved|"
             "slotillegal|slotreserved|genillegal|dma|ubc|trapa35, step, stepbranches, touch, "
             "regs slave, or trace", cmd);

@@ -3,158 +3,56 @@
 #include <srl.hpp>
 
 /**
- * @brief GDB-stub exercise triggers: deliberate SH-2 exceptions (one per
- * vector this sample's readme documents), a clean single-step target, a
- * watchpoint-friendly global, and the `monitor <text>` dispatcher that lets
- * any of these be fired headlessly over GDB's qRcmd channel instead of
- * requiring a human at the gamepad. The Slave-CPU dispatch smoke test lives
- * in its own compilation unit, slave_counter_task.hpp/.cxx.
- *
- * Split into its own compilation unit (separate from main.cxx and the
- * VDP1/VDP2 demo in vdp_demo.hpp/.cxx) specifically to prove the GDB
- * stub -- breakpoints, memory/register access, symbol resolution -- works
- * correctly across a multi-file build, not just when everything lives in
- * one translation unit.
+ * @brief Things to debug: one function per SH-2 exception vector, a function to
+ * single-step, a variable to watch, and the `monitor <text>` dispatcher that
+ * fires them from GDB.
  */
 
 /**
- * @brief Exercises GDB memory writes ('M'/'P') and hardware watchpoints
- * ('Z2'/'Z3'/'Z4', i.e. GDB's `watch`/`rwatch`/`awatch`).
- *
- * From GDB: `watch g_testVariable` then `continue`, then press D-Pad Down
- * (or `monitor touch`) to trigger the watchpoint. Or confirm memory writes
- * land with `set variable g_testVariable = 99` followed by `p g_testVariable`.
+ * @brief Variable to watch and write from GDB.
+ * @details Try `watch g_testVariable`, `continue`, then press D-Pad Down
+ * (or `monitor touch`). Or `set variable g_testVariable = 99`.
  */
 extern volatile int32_t g_testVariable;
 
-/**
- * @brief Deliberately triggers an Illegal Instruction exception.
- *
- * Emits the SH-2 Illegal Instruction opcode (0xFFFF). The GDB stub's
- * exception thunk catches this and enters the RSP command loop, allowing
- * post-mortem inspection of the register state and call stack.
- */
+/** @brief Vector 4, Illegal Instruction: executes opcode 0xFFFF. */
 [[noreturn]] void CrashProgram();
 
-/**
- * @brief Vector 5 -- Reserved Instruction
- *
- * Opcodes in the reserved space (not the same encoding table as
- * "illegal"). 0xFFFD is one such reserved slot on SH-2.
- * PC pushed = address of the reserved word.
- */
+/** @brief Vector 5, Reserved Instruction: executes reserved opcode 0xFFFD. */
 void ReservedInstruction();
 
-/**
- * @brief Vector 6 -- Slot Illegal Instruction
- *
- * An illegal opcode placed in the delay slot of a branch.
- * The branch itself (BRA here) is valid; the word after it is not.
- * PC pushed = address of the delay slot word.
- */
+/** @brief Vector 6, Slot Illegal Instruction: an illegal opcode in a branch delay slot. */
 void SlotIllegalInstruction();
 
-/**
- * @brief Vector 7 -- General Illegal Instruction
- *
- * Triggered by executing a privileged instruction (e.g. LDC SR)
- * from user mode, or certain other encoding violations.
- * On the Saturn the CPU is always in privileged mode, so the most
- * reliable way to hit this is a truly undefined secondary opcode.
- * 0xFFFC sits in a general-illegal slot on SH-2.
- */
+/** @brief Vector 7, General Illegal Instruction: executes undefined opcode 0xFFFC. */
 void GeneralIllegalInstruction();
 
-/**
- * @brief Vector 8 -- Slot Reserved Instruction
- *
- * A reserved opcode in the delay slot of a branch.
- * Same structure as vector 6 but uses a reserved (not illegal) word.
- */
+/** @brief Vector 8, Slot Reserved Instruction: a reserved opcode in a branch delay slot. */
 void SlotReservedInstruction();
 
 /**
- * @brief Vector 9 -- CPU Address Error
- *
- * SH-2 requires:  32-bit accesses aligned to 4 bytes
- *                 16-bit accesses aligned to 2 bytes
- * Misaligning either raises this exception.
- * The faulting address is latched in the TEA register (0xFFFFFFE4).
- *
- * @note Hardware-confirmed this does NOT actually fault on this
- * hardware/config -- SRL::GDBStub::GetExceptionThunkCount() stays at 0
- * after calling this, even though the misaligned volatile read is issued
- * exactly as written. Pre-existing, unrelated to the GDB stub packet
- * handling itself; kept here undisturbed pending further investigation.
+ * @brief Vector 9, CPU Address Error: a 32-bit read from an address not aligned to 4.
+ * @note Does not fault on the test hardware (the exception thunk count stays at 0).
  */
 void CPUAddressError();
 
-/**
- * @brief Vector 10 -- DMA Address Error
- *
- * Triggered when the DMAC is programmed with a source or destination
- * address that violates the transfer-width alignment rules.
- * We configure DMAC channel 0 to transfer a 32-bit word to/from an
- * address that is 1-byte misaligned, then enable it.
- * The DMAC raises the exception before any data moves.
- *
- * SH7604 DMAC channel 0 registers:
- *   SAR0  = 0xFFFFFF80  (source address)
- *   DAR0  = 0xFFFFFF84  (destination address)
- *   TCR0  = 0xFFFFFF88  (transfer count)
- *   CHCR0 = 0xFFFFFF8C  (channel control)
- *   DMAOR = 0xFFFFFFB0  (DMA operation register)
- */
+/** @brief Vector 10, DMA Address Error: starts DMAC channel 0 with a misaligned source. */
 void DMAAddressError();
 
-/**
- * @brief Vector 12 -- User Break Controller (UBC)
- *
- * The SH-2 UBC is a hardware breakpoint unit with two channels (A/B).
- * We configure channel A to break on the very next instruction fetch
- * by setting the break address to the return address of this function.
- *
- * UBC registers:
- *   BARA  = 0xFFFFFF40  break address A
- *   BAMRA = 0xFFFFFF44  break address mask A (0 = exact match)
- *   BBRA  = 0xFFFFFF48  break bus cycle A
- *   BRCR  = 0xFFFFFF78  break control (0xFFFFFF60 is BARBH, channel B)
- */
+/** @brief Vector 12, User Break: sets UBC channel A to break where this function returns to. */
 void UserBreakController();
 
-/**
- * @brief Vector 35 -- TRAPA #35
- *
- * Executes the TRAPA instruction with immediate value 35.
- * The SH-2 pushes PC+2 and SR onto the stack and vectors through
- * VBR + 35 * 4 = VBR + 0x08C (TRAPA #N uses vector N).
- * The stub reports it as SIGTRAP at the instruction AFTER the trapa.
- */
+/** @brief Vector 35, TRAPA #35: GDB reports SIGTRAP at the instruction after the trapa. */
 void Trapa35();
 
-/**
- * @brief A handful of simple, sequential statements with no branches or
- * varargs, meant as a clean target for exercising GDB's software single-step
- * ('s'/'vCont;s', i.e. `step`/`next`). The stub's do_software_step()
- * implements single-step by decoding the current instruction and placing a
- * temporary trap at the next one; this function gives an easy line-by-line
- * target to confirm that actually lands correctly.
- */
+/** @brief Straight-line code with no branches: an easy target for `step` and `next`. */
 void SteppableFunction();
 
 /**
- * @brief Runs each SH-2 branch kind once (BT/BF and their /S forms taken and not
- * taken, BRA, BSR, JMP, JSR, BRAF, BSRF, RTS, RTE), for the GDB suite to stepi through.
- * @details Written in assembly (debug_triggers.cxx); every landing point has an sb_* label.
+ * @brief Runs every SH-2 branch kind once, for the test suite to `stepi` through.
+ * @details Written in assembly; every instruction a step lands on has an sb_* label.
  */
 extern "C" void StepBranches();
 
-/**
- * @brief Dispatches a `monitor <text>` command received via GDB's qRcmd.
- *
- * This lets the same test paths triggered by gamepad buttons also be
- * triggered headlessly -- e.g. `(gdb) monitor crash illegal` -- so hardware
- * regression testing can be scripted instead of requiring a human at the
- * controller.
- */
+/** @brief Runs the trigger named by a `monitor <text>` command, e.g. `monitor crash illegal`. */
 void HandleMonitorCommand(const char* cmd);

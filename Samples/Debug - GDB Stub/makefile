@@ -10,13 +10,9 @@ SRL_MALLOC_METHOD = SIMPLE
 SRL_LOG_LEVEL = NONE          	# Maximum log level to display
 SRL_LOG_OUTPUT = DEV_CART    	# Log output method (DEV_CART, EMULATOR, NONE)
 
-# Enable debug symbol
+# Debug symbols, no optimization: every source line maps to code GDB can stop on
 DEBUG = 1
 USER_FLAGS = -g -O0
-# -Islavelib: slave_counter_task.hpp now lives in slavelib/ (its .cxx is
-# built separately there into libslavetask.a, see slavelib/Makefile), so
-# main.cxx's unchanged `#include "slave_counter_task.hpp"` needs this to
-# still resolve.
 SRL_CUSTOM_CCFLAGS = $(USER_FLAGS)
 
 # Sound driver specific configuration
