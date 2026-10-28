@@ -3,53 +3,21 @@
 #include <srl.hpp>
 
 /**
- * @brief Task run on the Slave SH-2, used to exercise SRL::Slave::ExecuteOnSlave().
- *
- * @note History: SRL::GDBStub used to ship InstallSlaveFreezeHandler(), which
- * froze the slave during master debug stops through the slave's FRT input-capture
- * interrupt. It was removed because it never worked in a program that also uses
- * SRL::Slave::ExecuteOnSlave(), in either ordering -- real-hardware testing of
- * this sample confirmed it two different ways:
- *   1. Redispatching this task every frame (an early version of this sample):
- *      the handler's hit counter -- which should tick up by exactly one
- *      per debug stop -- incremented only for the first stop or two after
- *      boot, then went permanently silent.
- *   2. Dispatching this task a fixed 5 times at startup ONLY, then installing
- *      the freeze handler last and never touching SRL::Slave again: this
- *      does NOT fix it either. The counter read exactly 5 (matching
- *      the dispatch count, not any debug stop) immediately after boot, then
- *      stayed at 5 across 8 further real Ctrl-C-triggered debug stops --
- *      it tracks past SRL::Slave activity, not live freeze pulses.
- *
- * The working theory: SGL's slSlaveFunc uses the slave's FRT input-capture
- * interrupt to wake the slave for each dispatched job, and appears to leave
- * the slave's on-chip TIER.ICIE (interrupt enable) bit disabled once it has
- * no more queued work. That bit lives in the slave's own private on-chip
- * peripheral space -- the master cannot poke it directly across the bus, and
- * the only sanctioned way to run code on the slave that could re-arm it is
- * SRL::Slave::ExecuteOnSlave() itself, which reopens the same conflict.
- * There is no ordering or dispatch-count workaround found so far; a real fix
- * would need either a from-scratch (non-SGL) slave wake-up path or a way to
- * safely coexist with SGL's own internal use of the interrupt.
- *
- * This task is kept here purely to demonstrate SRL::Slave::ExecuteOnSlave()
- * itself working (it does, reliably) -- see main.cxx for how it's dispatched.
+ * @brief Small job run on the slave SH-2 with SRL::Slave::ExecuteOnSlave().
+ * @details Set `break SlaveCounterTask::Do` to stop on the slave; GDB shows it as thread 2.
  */
 class SlaveCounterTask : public SRL::Types::ITask
 {
 public:
     SlaveCounterTask() : counter(0), primeCount(0) {}
 
+    /** @brief Number of jobs completed. */
     uint32_t GetCounter() const
     {
         return this->counter;
     }
 
-    /**
-     * @brief Result of Do()'s workload: how many primes below kPrimeRange
-     * were found on the most recent call. Exposed mainly so there's a
-     * visible, changing result of the computation, not just a job count.
-     */
+    /** @brief Result of the last job: the number of primes below 500. */
     uint32_t GetPrimeCount() const
     {
         return this->primeCount;
@@ -59,6 +27,7 @@ protected:
     void Do() override;
 
 private:
+    // volatile: written by the slave, read by the master.
     volatile uint32_t counter;
     volatile uint32_t primeCount;
 };
