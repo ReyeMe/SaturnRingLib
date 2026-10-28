@@ -43,6 +43,8 @@
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
                     "-File",
                     "./../../tools/scripts/upload_to_saturn.ps1"
                 ],
@@ -93,6 +95,8 @@
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
                     "-File",
                     "./../../tools/scripts/start_ftx.ps1",
                     "./BuildDrop/Debug_GDBStub.elf"
@@ -135,6 +139,8 @@
                 "command": "powershell",
                 "args": [
                     "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
                     "-File",
                     "./../../tools/scripts/connect_gdb.ps1"
                 ],
