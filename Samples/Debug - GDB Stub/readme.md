@@ -151,7 +151,7 @@ Make sure these tools are installed and available in `PATH` before starting:
 
 Make sure these tools are installed and available in `PATH` before starting:
 
-- [`ftx`](https://github.com/willll/ftx) (USBGamers uploader)
+- [`ftx`](https://github.com/willll/ftx) (USBGamers uploader), v1.2 or later (`setup_compiler.bat` installs it): older versions hold each GDB reply in the FTDI chip for up to 16 ms, about 13x slower, and queue a second GDB client silently instead of refusing it
 - `gdb-multiarch` or `sh-elf-gdb` (debugger)
 
 Quick sanity checks:
