@@ -464,9 +464,14 @@ def test_raw_t(s):
     assert s.packet("T01") == "OK"
 
 
-@test("raw vCont? is not supported (GDB falls back to c/s/C)")
+@test("raw vCont? offers c/C/s/S (GDB names the thread to step)")
 def test_raw_vcont_query(s):
-    assert s.packet("vCont?") == ""
+    assert s.packet("vCont?") == "vCont;c;C;s;S"
+
+
+@test("raw T reports the slave thread dead while it isn't parked")
+def test_raw_t_slave_not_parked(s):
+    assert s.packet("T2") == "E01"
 
 
 @test("raw ? reports the initial stop signal")
@@ -799,11 +804,10 @@ def test_crash_dma_then_continue(s):
 # --------------------------------------------------------------------------
 
 def _assert_slave_breakpoint_hit(s, out):
-    # A slave breakpoint is reported the same way as Ctrl-C: SIGINT, with the
-    # master frame in SRL::GDBStub::Break() (Poll() bridges the slave's stop).
-    # The real confirmation is `monitor regs slave`'s live pc.
-    assert re.search(r"SIGINT|Interrupt", out, re.IGNORECASE), (
-        f"expected the documented SIGINT/Break() stop reply, got: {out!r}"
+    # A slave breakpoint is reported as thread 2's stop, so GDB shows the slave's frame.
+    # `monitor regs slave`'s live pc confirms it independently of GDB's thread view.
+    assert re.search(r"Thread 2", out) and "SlaveCounterTask::Do" in out, (
+        f"expected a thread 2 stop in SlaveCounterTask::Do, got: {out!r}"
     )
     regs = s.cmd("monitor regs slave", timeout=5)
     m = re.search(r"pc=([0-9a-fA-F]+)", regs)
@@ -860,7 +864,7 @@ def test_slave_hits_master_step_trap(s):
     s.cmd("set var SRL::GDBStub::g_step_data.active = 1", timeout=5)
     s.cmd(f"set var *(unsigned short *){addr:#x} = 0xffff", timeout=5)
     out = s.cmd("continue", timeout=3)  # the slave's next job runs into the trap
-    assert "SIGINT" not in out, f"the slave reported the master's step trap as its own stop: {out!r}"
+    assert "Thread 2" not in out, f"the slave reported the master's step trap as its own stop: {out!r}"
     s.interrupt_and_wait()  # the master's next stop removes its trap, which releases the slave
     restored = parse_hex(s.cmd(f"p/x *(unsigned short *){addr:#x}", timeout=5))
     assert restored == original, f"instruction at {addr:#x} is {restored:#x}, expected {original:#x}"
@@ -868,6 +872,33 @@ def test_slave_hits_master_step_trap(s):
     assert _slave_do_breakpoint_addr(s) == addr
     pc = _assert_slave_breakpoint_hit(s, s.cmd("continue", timeout=10))
     assert pc == addr, f"slave pc {pc:#x} != breakpoint {addr:#x}"
+
+
+@test("scenario: a slave breakpoint keeps firing across continues (GDB steps the slave over it)")
+def test_slave_breakpoint_refires(s):
+    addr = _slave_do_breakpoint_addr(s)
+    for _ in range(3):
+        pc = _assert_slave_breakpoint_hit(s, s.cmd("continue", timeout=10))
+        assert pc == addr, f"slave pc {pc:#x} != breakpoint {addr:#x}"
+    assert "SlaveCounterTask::Do" in s.cmd("bt 1", timeout=5)
+
+
+@test("scenario: next on the slave thread steps slave code while the master stays put")
+def test_slave_next(s):
+    _slave_do_breakpoint_addr(s)
+    _assert_slave_breakpoint_hit(s, s.cmd("continue", timeout=10))
+    assert s.packet("qfThreadInfo") == "m1,2"
+    s.cmd("delete", timeout=5)
+    start = parse_hex(s.cmd("p/x $pc", timeout=5))
+    out = s.cmd("next", timeout=10)
+    assert "Thread 1" not in out, f"next switched to the master: {out!r}"
+    after = parse_hex(s.cmd("p/x $pc", timeout=5))
+    assert after != start, f"next did not move the slave (pc {after:#x})"
+    regs = s.cmd("monitor regs slave", timeout=5)
+    m = re.search(r"pc=([0-9a-fA-F]+)", regs)
+    assert m and int(m.group(1), 16) == after, f"thread 2 pc {after:#x} is not the slave's: {regs!r}"
+    s.cmd("thread 1", timeout=5)
+    assert parse_hex(s.cmd("p/x $pc", timeout=5)) != after, "thread 1 shows the slave's pc"
 
 
 @test("scenario: a slave stop that happens while the master is halted is reported after continue")
@@ -879,7 +910,7 @@ def test_slave_stop_during_master_halt(s):
     s.cmd("break SlaveCounterTask::Do", timeout=5)
     s.cmd(f"break main.cxx:{line} if counter % {interval} == 0", timeout=5)
     out = s.cmd("continue", timeout=15)
-    if "SIGINT" in out:
+    if "SlaveCounterTask::Do" in out:
         raise Skip("the slave's stop was reported before the master's breakpoint (timing); scenario not set up")
     assert "main.cxx" in out or f":{line}" in out, f"expected the master breakpoint stop: {out!r}"
     # The slave entered Do() and parked while the master sat on its breakpoint. That stop
