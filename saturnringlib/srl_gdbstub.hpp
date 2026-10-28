@@ -594,24 +594,29 @@ namespace SRL
             return true;
         }
 
-        /// Configures the User Break Controller (UBC) for a hardware watchpoint.
-        /// @param address Address to watch (exact match)
+        /// Configures the User Break Controller (UBC) for a hardware breakpoint/watchpoint.
+        /// @param address Address to break on, or start of the watched range
         /// @param type RSP Z-packet type: 1 = hardware breakpoint, 2 = write, 3 = read, 4 = access watchpoint
-        /// @return true if UBC channel A was programmed, false if it is already in use or type is unsupported
-        inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type)
+        /// @param length Watched bytes (the Z packet's kind): a power of two, aligned to itself
+        /// @return true if UBC channel A was programmed; false if it is in use, or type/length is unsupported
+        inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type, uint32_t length)
         {
-            if (g_breakpoints.UbcType != 0U || type < 1U || type > 4U)
+            // The address mask covers [address, address + length) exactly only for a power-of-two
+            // length aligned to itself; anything else is refused (GDB says so) rather than half-watched.
+            const uint32_t mask = type == 1U ? 0U : length - 1U;
+            if (g_breakpoints.UbcType != 0U || type < 1U || type > 4U ||
+                (type != 1U && (length == 0U || (length & mask) != 0U || (address & mask) != 0U)))
             {
-                return false; // one channel only
+                return false; // one channel only: channel B never fired on this hardware
             }
 
             volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
-            volatile uint16_t *BAMRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF44U);
+            volatile uint32_t *BAMRA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF44U);
             volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
             volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
 
             *BARA = address;
-            *BAMRA = 0x0000U; // exact match
+            *BAMRA = mask; // 1 bits are not compared
 
             // BBRA bits 7-6 select the bus cycle to compare: 00 = never break,
             // 01 = CPU cycles. Leaving them at 00 is why no hbreak/watchpoint ever fired.
@@ -1598,7 +1603,7 @@ namespace SRL
             bool ok = false;
             if (wp_type != 0)
             {
-                ok = insert ? install_hardware_watchpoint(addr, wp_type) : remove_hardware_watchpoint();
+                ok = insert ? install_hardware_watchpoint(addr, wp_type, kind) : remove_hardware_watchpoint();
             }
             else if (kind == 0U || kind == 2U) // SH-2 instructions are 16-bit (kind normally 2)
             {

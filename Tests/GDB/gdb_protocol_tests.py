@@ -686,6 +686,37 @@ TESTS.append(("hardware watchpoint (access) fires on g_testVariable",
               _watchpoint_test("awatch", needs_touch=True)))
 
 
+@test("watchpoint lengths: an aligned power-of-two range is watched whole, others are refused")
+def test_watch_lengths(s):
+    addr = parse_hex(s.cmd("p/x &g_testVariable", timeout=5))
+    assert s.packet(f"Z2,{addr + 1:x},2") == "E03", "an unaligned range must be refused"
+    assert s.packet(f"Z2,{addr:x},3") == "E03", "a non-power-of-two length must be refused"
+    # A range that starts before g_testVariable: only a mask over the whole range sees its write.
+    n = 8
+    while addr & ~(n - 1) == addr:
+        n *= 2
+    base = addr & ~(n - 1)
+    s.cmd(f"watch -l *(char(*)[{n}]){base:#x}", timeout=5)
+    s.cmd("monitor touch", timeout=5)
+    out = s.cmd("continue", timeout=10)
+    assert "watchpoint" in out.lower(), f"a write inside the watched range was missed: {out!r}"
+
+
+@test("scenario: call runs a function from GDB, and return pops a frame")
+def test_call_and_return(s):
+    _hit_steppable(s)
+    s.cmd("delete", timeout=5)
+    s.cmd("set var g_testVariable = 0", timeout=5)
+    s.cmd("call SteppableFunction()", timeout=20)
+    assert parse_hex(s.cmd("p/x g_testVariable", timeout=5)) == 6, "the called function did not run"
+    assert STOPPED_IN in s.cmd("bt 1", timeout=10), "call did not come back to the original stop"
+    out = s.cmd("return", timeout=10)
+    if "(y or n)" in out:
+        out = s.cmd("y", timeout=10)
+    assert "HandleMonitorCommand" in out, f"return did not pop to the caller: {out!r}"
+    assert "Continuing" in s.cmd("continue", timeout=3)
+
+
 @test("single-step walks SteppableFunction's statements to the expected result")
 def test_single_step(s):
     _hit_steppable(s)
