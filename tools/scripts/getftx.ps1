@@ -94,7 +94,7 @@ function DownloadFile($url, $targetFile)
 if ($args.Length -ne 1)
 {
     write-host "Usage: $($MyInvocation.MyCommand.Name) <version>"
-    write-host "Example: $($MyInvocation.MyCommand.Name) v0.98"
+    write-host "Example: $($MyInvocation.MyCommand.Name) v1.2"
     Write-Host -NoNewLine 'Press any key to continue...';
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown');
     Write-Host ""

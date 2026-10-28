@@ -4,7 +4,7 @@ version=$1
 
 if [ -z "$version" ]; then
     echo "Usage: $0 <version>"
-    echo "Example: $0 v0.98"
+    echo "Example: $0 v1.2"
     exit 1
 fi
 
