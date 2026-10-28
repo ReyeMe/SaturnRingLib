@@ -702,6 +702,18 @@ def test_watch_lengths(s):
     assert "watchpoint" in out.lower(), f"a write inside the watched range was missed: {out!r}"
 
 
+@test("scenario: a hardware breakpoint and a watchpoint armed together (two UBC channels) both fire")
+def test_two_ubc_channels(s):
+    s.cmd("hbreak SteppableFunction", timeout=5)  # channel A
+    s.cmd("watch g_testVariable", timeout=5)      # channel B
+    s.cmd("monitor touch", timeout=5)
+    out = s.cmd("continue", timeout=10)
+    assert "watchpoint" in out.lower() and "g_testVariable" in out, f"channel B watch did not fire: {out!r}"
+    s.cmd("monitor step", timeout=5)
+    out = s.cmd("continue", timeout=10)
+    assert STOPPED_IN in out, f"channel A hbreak did not fire: {out!r}"
+
+
 @test("scenario: call runs a function from GDB, and return pops a frame")
 def test_call_and_return(s):
     _hit_steppable(s)

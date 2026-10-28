@@ -97,14 +97,14 @@ void DMAAddressError()
 
 // @warning Programs the UBC (channel A) directly instead of going through
 // SRL::GDBStub's own install_hardware_watchpoint()/remove_hardware_watchpoint() --
-// there is only one physical channel, so calling this while a GDB `watch`/hardware
-// breakpoint is active silently steals it out from under GDB (see
+// it takes channel A, so calling this while a GDB `watch`/hardware breakpoint holds
+// channel A silently steals it out from under GDB (see
 // BreakpointStatus::UbcType in srl_gdbstub.hpp). Fine for this sample's
 // own one-shot test trigger in isolation; avoid combining with GDB-side watchpoints.
 void UserBreakController()
 {
     volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
-    volatile uint16_t *BAMRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF44U);
+    volatile uint32_t *BAMRA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF44U); // both halves: the stub masks low bits
     volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
     volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U);
 
@@ -117,8 +117,8 @@ void UserBreakController()
     *BAMRA = 0x0000U;  // no address masking — exact match
     // BBRA: CPU cycles (bits 7-6 = 01), instruction fetch (5-4 = 01), read (3-2 = 01); a 00 field never breaks
     *BBRA = 0x0054U;
-    // BRCR: independent channels, break before the instruction runs
-    *BRCR = 0x0000U;
+    // BRCR: SH7604 mode (UMD, as the GDB stub uses), independent channels, break before the instruction runs
+    *BRCR = 0x1000U;
 
     // The break fires on the instruction fetch at return_pc,
     // i.e. the first instruction the caller executes after this returns.

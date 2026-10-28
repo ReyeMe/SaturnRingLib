@@ -206,10 +206,13 @@ namespace SRL
 
             /// GDB asked to step from the Poll() placeholder: serve_from_poll() stops for real instead
             bool StepFromPlaceholder;
+
+            /// UBC channel (0 = A, 1 = B) that fired, when WasUbcHit
+            uint8_t UbcChannel;
         };
 
         /// Current stop state
-        inline static StopStatus g_stop = {false, false, 0, false, false};
+        inline static StopStatus g_stop = {false, false, 0, false, false, 0};
 
         /// Signal to report to GDB for the current stop.
         /// @return g_stop.SignalOverride if set, otherwise g_last_stop_signal
@@ -276,19 +279,19 @@ namespace SRL
             /// Instruction each slot's SoftwareBreakInstruction replaced
             uint16_t Original[MaxSoftwareBreakpoints];
 
-            /// Address UBC channel A was armed with
-            uint32_t UbcAddress;
+            /// Address each UBC channel (A, B) was armed with
+            uint32_t UbcAddress[2];
 
-            /// Z-packet type UBC channel A is armed with (1 = hbreak, 2/3/4 = write/read/access
-            /// watch), or 0 when no GDB watchpoint/hwbreak owns it.
-            /// @warning The only record of who owns the one UBC channel the stub uses: code that
-            /// writes BARA/BAMRA/BBRA/BRCR itself silently steals a GDB watchpoint. Go through
+            /// Z-packet type each UBC channel (A, B) is armed with (1 = hbreak, 2/3/4 =
+            /// write/read/access watch), or 0 when no GDB watchpoint/hwbreak owns it.
+            /// @warning The only record of who owns the UBC channels: code that writes the UBC
+            /// registers itself silently steals a GDB watchpoint. Go through
             /// install_hardware_watchpoint()/remove_hardware_watchpoint() instead.
-            uint8_t UbcType;
+            uint8_t UbcType[2];
         };
 
         /// Current breakpoint state
-        inline static BreakpointStatus g_breakpoints = {{}, {}, 0, 0};
+        inline static BreakpointStatus g_breakpoints = {{}, {}, {}, {}};
 
         // --- Utility Functions --- (hex, hexchar, hex2mem_aligned, mem2hex live in srl_string.hpp)
 
@@ -594,29 +597,35 @@ namespace SRL
             return true;
         }
 
-        /// Configures the User Break Controller (UBC) for a hardware breakpoint/watchpoint.
+        /// Arms a free User Break Controller (UBC) channel (A or B) for a hardware breakpoint/watchpoint.
         /// @param address Address to break on, or start of the watched range
         /// @param type RSP Z-packet type: 1 = hardware breakpoint, 2 = write, 3 = read, 4 = access watchpoint
         /// @param length Watched bytes (the Z packet's kind): a power of two, aligned to itself
-        /// @return true if UBC channel A was programmed; false if it is in use, or type/length is unsupported
+        /// @return true if a channel was armed; false if both are in use, or type/length is unsupported
         inline static bool install_hardware_watchpoint(uint32_t address, uint32_t type, uint32_t length)
         {
             // The address mask covers [address, address + length) exactly only for a power-of-two
             // length aligned to itself; anything else is refused (GDB says so) rather than half-watched.
             const uint32_t mask = type == 1U ? 0U : length - 1U;
-            if (g_breakpoints.UbcType != 0U || type < 1U || type > 4U ||
-                (type != 1U && (length == 0U || (length & mask) != 0U || (address & mask) != 0U)))
+            if (type < 1U || type > 4U || (type != 1U && (length == 0U || (length & mask) != 0U || (address & mask) != 0U)))
             {
-                return false; // one channel only: channel B never fired on this hardware
+                return false;
+            }
+            const uint32_t ch = g_breakpoints.UbcType[0] == 0U ? 0U : 1U;
+            if (g_breakpoints.UbcType[ch] != 0U)
+            {
+                return false; // both channels in use
             }
 
-            volatile uint32_t *BARA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF40U);
-            volatile uint32_t *BAMRA = reinterpret_cast<volatile uint32_t *>(0xFFFFFF44U);
-            volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
-            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
+            // Channel B's registers sit 0x20 above channel A's (BARA/BAMRA/BBRA at 0xFFFFFF40/44/48).
+            const uint32_t base = 0xFFFFFF40U + ch * 0x20U;
+            volatile uint32_t *BAR = reinterpret_cast<volatile uint32_t *>(base);
+            volatile uint32_t *BAMR = reinterpret_cast<volatile uint32_t *>(base + 4U);
+            volatile uint16_t *BBR = reinterpret_cast<volatile uint16_t *>(base + 8U);
+            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U);
 
-            *BARA = address;
-            *BAMRA = mask; // 1 bits are not compared
+            *BAR = address;
+            *BAMR = mask; // 1 bits are not compared
 
             // BBRA bits 7-6 select the bus cycle to compare: 00 = never break,
             // 01 = CPU cycles. Leaving them at 00 is why no hbreak/watchpoint ever fired.
@@ -625,30 +634,44 @@ namespace SRL
             // read/write field never breaks), write, read, access watchpoint.
             static constexpr uint16_t kBbraByType[] = {0x0014U, 0x0028U, 0x0024U, 0x002CU};
 
-            *BBRA = kBreakOnCpuCycles | kBbraByType[type - 1U];
-            *BRCR = 0x0000U;                  // independent channels, break before the instruction runs
+            *BBR = kBreakOnCpuCycles | kBbraByType[type - 1U];
+            // UMD (bit 12): SH7604 mode. The power-on SH7000-compatible mode has no channel B and
+            // sets no match flags. Otherwise 0: independent channels, break before execution.
+            *BRCR = 0x1000U;
             asm volatile("nop" ::: "memory"); // ensure BRCR write is committed
 
-            g_breakpoints.UbcAddress = address;
-            g_breakpoints.UbcType = static_cast<uint8_t>(type);
+            g_breakpoints.UbcAddress[ch] = address;
+            g_breakpoints.UbcType[ch] = static_cast<uint8_t>(type);
             return true;
         }
 
-        /// Disables the User Break Controller (UBC) hardware watchpoint.
-        /// There is only one UBC channel, so whatever it holds is removed.
-        /// @return true if a watchpoint was active and is now disabled, false if none was active
-        inline static bool remove_hardware_watchpoint()
+        /// Disarms the UBC channel holding this hardware breakpoint/watchpoint.
+        /// @return true if one matched and is now disarmed, false if none did
+        inline static bool remove_hardware_watchpoint(uint32_t address, uint32_t type)
         {
-            if (g_breakpoints.UbcType == 0U)
+            for (uint32_t ch = 0; ch < 2U; ++ch)
             {
-                return false;
+                if (g_breakpoints.UbcType[ch] == type && g_breakpoints.UbcAddress[ch] == address)
+                {
+                    // No break condition: this, not BRCR, is what disarms a channel.
+                    *reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U + ch * 0x20U) = 0x0000U;
+                    g_breakpoints.UbcType[ch] = 0U;
+                    return true;
+                }
             }
-            volatile uint16_t *BBRA = reinterpret_cast<volatile uint16_t *>(0xFFFFFF48U);
-            volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
-            *BBRA = 0x0000U; // no break condition: this, not BRCR, is what disarms channel A
-            *BRCR = 0x0000U;
-            g_breakpoints.UbcType = 0U;
-            return true;
+            return false;
+        }
+
+        /// Disarms every GDB hardware breakpoint/watchpoint (session start and end).
+        inline static void clear_hardware_watchpoints()
+        {
+            for (uint32_t ch = 0; ch < 2U; ++ch)
+            {
+                if (g_breakpoints.UbcType[ch] != 0U)
+                {
+                    remove_hardware_watchpoint(g_breakpoints.UbcAddress[ch], g_breakpoints.UbcType[ch]);
+                }
+            }
         }
 
         /// Tracks the state of a single-step operation.
@@ -841,6 +864,8 @@ namespace SRL
                 // UBC break (vector 12): the hardware PC is already right for GDB.
                 g_ubc_hit = 0U;
                 g_stop.WasUbcHit = true;
+                // BRCR's CPU-cycle match flag tells the channels apart: CMFCB (bit 7) is channel B.
+                g_stop.UbcChannel = (*reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U) & 0x0080U) != 0U ? 1U : 0U;
                 g_last_stop_signal = 5U; // SIGTRAP
                 return;
             }
@@ -1127,16 +1152,16 @@ namespace SRL
                 {
                     len = append_str(buf, len, "swbreak:;");
                 }
-                else if (g_stop.WasUbcHit && g_breakpoints.UbcType != 0U)
+                else if (g_stop.WasUbcHit && g_breakpoints.UbcType[g_stop.UbcChannel] != 0U)
                 {
                     // GDB only reports a watchpoint hit when the stop reply names it.
                     static const char *const kUbcReason[] = {"hwbreak", "watch", "rwatch", "awatch"};
-                    const uint32_t type = g_breakpoints.UbcType; // 1-4: install_hardware_watchpoint() checks
+                    const uint32_t type = g_breakpoints.UbcType[g_stop.UbcChannel]; // 1-4: install_hardware_watchpoint() checks
                     len = append_str(buf, len, kUbcReason[type - 1U]);
                     buf[len++] = ':';
                     if (type >= 2U)
                     {
-                        len = append_hex(buf, len, g_breakpoints.UbcAddress, 8);
+                        len = append_hex(buf, len, g_breakpoints.UbcAddress[g_stop.UbcChannel], 8);
                     }
                     buf[len++] = ';';
                 }
@@ -1396,7 +1421,7 @@ namespace SRL
                 // died while the target ran (no D/k) left patched in -- they would keep
                 // firing, with GDB silently resuming from stops it never asked for.
                 clear_breakpoints(true);
-                remove_hardware_watchpoint();
+                clear_hardware_watchpoints();
 
                 packet_put('\0', kQSupportedReply, sizeof(kQSupportedReply) - 1U);
                 g_session.HandshakeDone = true;
@@ -1603,7 +1628,7 @@ namespace SRL
             bool ok = false;
             if (wp_type != 0)
             {
-                ok = insert ? install_hardware_watchpoint(addr, wp_type, kind) : remove_hardware_watchpoint();
+                ok = insert ? install_hardware_watchpoint(addr, wp_type, kind) : remove_hardware_watchpoint(addr, wp_type);
             }
             else if (kind == 0U || kind == 2U) // SH-2 instructions are 16-bit (kind normally 2)
             {
@@ -1639,9 +1664,9 @@ namespace SRL
 
             adjust_pc_for_software_breakpoint();
 
-            // Clear the UBC channel A match flags (CMFCA/CMFPA, bits 15-14) in BRCR.
+            // Clear both UBC channels' match flags in BRCR (CMFCA/CMFPA bits 15-14, CMFCB/CMFPB 7-6).
             volatile uint16_t *BRCR = reinterpret_cast<volatile uint16_t *>(0xFFFFFF78U); // not 0xFFFFFF60: that's BARBH
-            *BRCR &= ~0xC000U;
+            *BRCR &= ~0xC0C0U;
 
             undo_software_step();
 
@@ -1686,7 +1711,7 @@ namespace SRL
                     // Drop everything GDB armed, as a new session's qSupported does.
                     g_stop.SignalOverride = 0;
                     clear_breakpoints(true);
-                    remove_hardware_watchpoint();
+                    clear_hardware_watchpoints();
                     g_session.HandshakeDone = false;
                     g_session.HasConnection = false;
                     return;
@@ -1858,7 +1883,7 @@ namespace SRL
 
             g_stop.SignalOverride = 0;
             g_last_stop_signal = 5;
-            g_breakpoints.UbcType = 0U;
+            g_breakpoints.UbcType[0] = g_breakpoints.UbcType[1] = 0U;
             clear_breakpoints(false);
 
             SRL::Logger::Log::LogPrint("[GDBStub] DevCart port: %d", g_devcart_port_available ? 1 : 0);
