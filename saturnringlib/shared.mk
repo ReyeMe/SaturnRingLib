@@ -113,6 +113,16 @@ ifneq ($(strip ${SRL_LOG_OUTPUT}),)
 	CCFLAGS += -DSRL_LOG_OUTPUT=$(strip ${SRL_LOG_OUTPUT})
 endif
 
+# Function profiler (srl_profiler.hpp): instruments SRL_PROFILE_SOURCES, all of SOURCES by default.
+# SRL, SGL and libstdc++ headers are excluded, so their inline code counts as the caller's own time.
+# Run "make clean" after changing these: objects don't track their flags.
+ifeq ($(strip ${SRL_PROFILER}), 1)
+	CCFLAGS += -DSRL_PROFILER
+	SRL_PROFILE_SOURCES ?= $(SOURCES)
+	SRL_PROFILE_OBJECTS = $(addsuffix .o,$(basename $(strip ${SRL_PROFILE_SOURCES})))
+$(SRL_PROFILE_OBJECTS): CCFLAGS += -finstrument-functions -finstrument-functions-exclude-file-list=$(SDK_ROOT)/,/include/c++/
+endif
+
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
 	CCFLAGS += -DSRL_USE_SGL_SOUND_DRIVER=$(strip ${SRL_USE_SGL_SOUND_DRIVER})
 	LIBS += $(SGLLDIR)/LIBSND.A

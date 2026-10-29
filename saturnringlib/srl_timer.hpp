@@ -106,8 +106,9 @@ namespace SRL
         };
     private:
         /// @cond Internal
-        // Grant access to TimerTest for testing
+        // Grant access to TimerTest for testing, and to Profiler for the tick rate
         friend class TimerTest;
+        friend class Profiler;
         /// @endcond
 #ifdef SRL_MODE_PAL
         static constexpr float Base26MhzCPUFrequency = 26874100;  ///< PAL 26MHz base frequency
@@ -679,6 +680,7 @@ namespace SRL
         // Grant access to Core and TimerTest for testing and core access (hidden from Doxygen)
         friend class Core;
         friend class TimerTest;
+        friend class Profiler; // reads the FRT and overflow counter directly, with interrupts masked
         /// @endcond
 
         /** @name Hardware Configuration
