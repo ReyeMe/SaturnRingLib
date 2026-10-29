@@ -73,3 +73,7 @@ Compiler/
 
 # MAC Related garbage
 **/.DS_Store
+
+# Profiler hardware test outputs
+/Tests/Profiler/prof.bin
+/Tests/Profiler/ftx_profiler.log

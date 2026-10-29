@@ -19,6 +19,10 @@
 #ifdef DEBUG
     #include "srl_gdbstub.hpp"
 #endif
+
+#ifdef SRL_PROFILER
+    #include "srl_profiler.hpp"
+#endif
         
 /** @brief Selects default resolution based on an option in the makefile
  */
@@ -122,6 +126,11 @@ namespace SRL
             // Initialize timer system
             SRL::Timer::Init();
 
+#ifdef SRL_PROFILER
+            // Needs the timer; starts recording.
+            SRL::Profiler::Init();
+#endif
+
 #ifdef DEBUG
 			// Initialize GDB stub only if we are debugging.
 			SRL::GDBStub::Init();
@@ -141,6 +150,10 @@ namespace SRL
 
             // Update timer delta values
             SRL::Timer::Update();
+
+#ifdef SRL_PROFILER
+            SRL::Profiler::OnFrame();
+#endif
 
 #ifdef DEBUG
 			// Poll GDB stub.
