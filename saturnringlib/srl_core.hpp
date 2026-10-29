@@ -20,9 +20,8 @@
     #include "srl_gdbstub.hpp"
 #endif
 
-#ifdef SRL_PROFILER
-    #include "srl_profiler.hpp"
-#endif
+// Always included: SRL_PROF_SCOPE/SRL_PROF_MARK compile to nothing without SRL_PROFILER.
+#include "srl_profiler.hpp"
         
 /** @brief Selects default resolution based on an option in the makefile
  */
@@ -61,6 +60,7 @@ namespace SRL
          */
         inline static void VblankHandling()
         {
+            SRL_PROF_MARK("VBlank");
             slGetStatus();
             SRL::Input::Gun::VblankRefresh();
             Core::OnVblank.Invoke();
@@ -143,7 +143,13 @@ namespace SRL
         inline static void Synchronize()
         {
             Core::OnBeforeSync.Invoke();
-            slSynch();
+
+            {
+                // Time spent waiting for the frame to end
+                SRL_PROF_SCOPE("slSynch");
+                slSynch();
+            }
+
             SRL::Input::Management::RefreshPeripherals();
             SRL::Input::Gun::Synchronize();
             Core::OnAfterSync.Invoke();
