@@ -17,7 +17,10 @@
  *  including SGL and functions built without hooks.
  *
  *  Timeline: SRL_PROF_SCOPE("name") and SRL_PROF_MARK("name") record timestamped events
- *  in a ring buffer, as do VBlank and the wait inside SRL::Core::Synchronize().
+ *  in a ring buffer, as do VBlank, the wait inside SRL::Core::Synchronize(), the end of
+ *  each VDP1 frame (sprite draw end interrupt), VDP1 frames not finished by the next
+ *  VBlank, and the end of each SCU DMA transfer (chained in front of SGL's handlers).
+ *  With the sampler on, it also counts which VDP1 command is being drawn (COPR).
  *
  *  Everything lives in the global `g_srl_prof`. Two ways to get it out:
  *  - GDB: `source tools/scripts/srl_prof.gdb`, then `srl-prof-dump prof.bin`;
@@ -73,6 +76,11 @@
     #define SRL_PROFILER_MAX_BINS 16384
 #endif
 
+#ifndef SRL_PROFILER_MAX_VDP1_COMMANDS
+    /** @brief VDP1 command slots counted by the sampler (4 bytes each); slot n is at VRAM n * 32. */
+    #define SRL_PROFILER_MAX_VDP1_COMMANDS 2048
+#endif
+
 namespace SRL
 {
     /** @brief Everything the profiler records, laid out for the PC-side reader.
@@ -86,6 +94,7 @@ namespace SRL
         static constexpr uint32_t StackCapacity = 64;
         static constexpr uint32_t EventCapacity = SRL_PROFILER_MAX_EVENTS;
         static constexpr uint32_t HistCapacity = SRL_PROFILER_SAMPLE_HZ != 0 ? SRL_PROFILER_MAX_BINS : 1;
+        static constexpr uint32_t Vdp1HistCapacity = SRL_PROFILER_SAMPLE_HZ != 0 ? SRL_PROFILER_MAX_VDP1_COMMANDS : 1;
 
         static_assert((FuncCapacity & (FuncCapacity - 1)) == 0, "SRL_PROFILER_MAX_FUNCS must be a power of two");
         static_assert((ArcCapacity & (ArcCapacity - 1)) == 0, "SRL_PROFILER_MAX_ARCS must be a power of two");
@@ -135,7 +144,7 @@ namespace SRL
         struct Header
         {
             char Magic[4];            ///< "SRLP"
-            uint32_t Version;         ///< Layout version (3)
+            uint32_t Version;         ///< Layout version (4)
             uint32_t SelfAddress;     ///< &g_srl_prof, so the PC can check the ELF matches the dump
             uint32_t TickHz;          ///< FRT ticks per second
             uint32_t HookCostQ16;     ///< Cost of one enter + exit hook pair, in ticks, 16.16 fixed point
@@ -161,7 +170,11 @@ namespace SRL
             uint32_t Samples;         ///< PC samples taken since the last Reset()
             uint32_t SamplesOutside;  ///< ... of which outside the program's code (BIOS, data)
             uint32_t SlaveReady;      ///< 1 once the slave's FRT and tables are set up
-            uint32_t Reserved[5];
+            uint32_t Vdp1DrawEnds;    ///< VDP1 sprite draw end interrupts since the last Reset()
+            uint32_t Vdp1Missed;      ///< VBlanks where VDP1 had not finished the previous frame
+            uint32_t Vdp1HistCapacity;///< Slots in Vdp1Histogram[]
+            uint32_t Vdp1Samples;     ///< PC samples taken while VDP1 was drawing
+            uint32_t Reserved;
         };
 
         Header Head;
@@ -169,6 +182,7 @@ namespace SRL
         CpuTables Slave; ///< Accessed through the cache-through mirror: both CPUs use it
         Event Events[EventCapacity];
         uint32_t Histogram[HistCapacity]; ///< Samples per bin since the last report
+        uint32_t Vdp1Histogram[Vdp1HistCapacity]; ///< Samples per VDP1 command slot (COPR / 4) since the last report
     };
 
     static_assert(sizeof(ProfilerBlock::Header) == 128, "profiler header must stay 128 bytes");
@@ -241,8 +255,9 @@ namespace SRL
         enum class PacketType : uint8_t
         {
             Events = 1,   ///< Event records
-            Tables = 2,   ///< Header, then per CPU: drop counters, used function rows, used arc rows
-            Histogram = 3 ///< Non-zero PC histogram bins since the last report
+            Tables = 2,    ///< Header, then per CPU: drop counters, used function rows, used arc rows
+            Histogram = 3, ///< Non-zero PC histogram bins since the last report
+            Vdp1 = 4       ///< Non-zero VDP1 command slots since the last report, each with its 32-byte command
         };
 
         inline static CpuState masterState = {};
@@ -253,6 +268,7 @@ namespace SRL
         inline static uint32_t sampleInterval = 0;
         inline static uint32_t nextCompare = 0;
         inline static uint32_t jitter = 0xACE1;
+        inline static void (*sglDmaHandlers[3])() = {}; ///< SGL's SCU DMA end routines, level 0 to 2
 
         /** @brief Rows probed before a lookup gives up and counts the event as dropped. */
         static constexpr uint32_t MaxProbes = 8;
@@ -271,6 +287,21 @@ namespace SRL
 
         /** @brief Vector of the FRT compare-match interrupt. */
         static constexpr uint32_t SampleVector = 0x65;
+
+        /** @brief VDP1 registers (read-only ones) and command table. */
+        static constexpr uintptr_t Vdp1Edsr = 0x25D00010; ///< bit 0: previous frame drawn, bit 1: current frame drawn
+        static constexpr uintptr_t Vdp1Copr = 0x25D00014; ///< address of the command being drawn / 8
+        static constexpr uintptr_t Vdp1Vram = 0x25C00000;
+
+        /** @brief SCU interrupt status register: write 0 to a bit to clear it. */
+        static constexpr uintptr_t ScuIst = 0x25FE00A4;
+
+        /** @brief SCU sprite draw end interrupt: vector and status/mask bit. */
+        static constexpr uint32_t SpriteEndVector = 0x4D;
+        static constexpr uint32_t SpriteEndBit = 1U << 13;
+
+        /** @brief SCU DMA end vectors, level 0 to 2. */
+        static constexpr uint32_t DmaEndVectors[3] = {0x4B, 0x4A, 0x49};
 
         /** @brief Longest wait for room in the DevCart FIFO before a report is abandoned (~10 ms). */
         static constexpr uint16_t SendTimeoutTicks = 2000;
@@ -639,6 +670,101 @@ namespace SRL
             {
                 head.SamplesOutside++;
             }
+
+            // While VDP1 draws (current frame not done), count the command it is on.
+            if ((*reinterpret_cast<volatile uint16_t *>(Vdp1Edsr) & 0x2U) == 0)
+            {
+                const uint32_t slot = static_cast<uint32_t>(*reinterpret_cast<volatile uint16_t *>(Vdp1Copr)) >> 2;
+                head.Vdp1Samples++;
+
+                if (slot < ProfilerBlock::Vdp1HistCapacity)
+                {
+                    g_srl_prof.Vdp1Histogram[slot]++;
+                }
+            }
+        }
+
+        /** @brief Called by SRL::Core's VBlank handler: marks the frame, checks VDP1 finished the last one. */
+        __attribute__((no_instrument_function)) static void OnVblank()
+        {
+            ProfilerBlock::Header &head = g_srl_prof.Head;
+
+            if (head.Enabled == 0 || !Profiler::IsMaster())
+            {
+                return;
+            }
+
+            const uint32_t edsr = *reinterpret_cast<volatile uint16_t *>(Vdp1Edsr);
+            const uint32_t sr = Profiler::MaskInterrupts();
+            const uint32_t now = Profiler::Now();
+            Profiler::PushEvent(EventType::Instant, "VBlank", now);
+
+            // After the frame change, bit 0 says whether the frame VDP1 was drawing got finished.
+            // Only once VDP1 has finished a frame at least once: before that it may not draw at all.
+            if ((edsr & 0x1U) == 0 && head.Vdp1DrawEnds != 0)
+            {
+                head.Vdp1Missed++;
+                Profiler::PushEvent(EventType::Instant, "VDP1 missed frame", now);
+            }
+
+            Profiler::RestoreInterrupts(sr);
+        }
+
+        /** @brief SCU sprite draw end routine (called by the BIOS dispatcher, like a function). */
+        __attribute__((no_instrument_function)) static void OnSpriteEnd()
+        {
+            // Write 0 to its status bit only: 1s leave the other pending interrupts alone.
+            *reinterpret_cast<volatile uint32_t *>(ScuIst) = ~SpriteEndBit;
+
+            if (g_srl_prof.Head.Enabled == 0)
+            {
+                return;
+            }
+
+            const uint32_t sr = Profiler::MaskInterrupts();
+            g_srl_prof.Head.Vdp1DrawEnds++;
+            Profiler::PushEvent(EventType::Instant, "VDP1 draw end", Profiler::Now());
+            Profiler::RestoreInterrupts(sr);
+        }
+
+        /** @brief SCU DMA end routines: mark the end, then run SGL's routine. */
+        __attribute__((no_instrument_function)) static void OnDma0End()
+        {
+            Profiler::Event(EventType::Instant, "SCU DMA 0 end");
+            Profiler::sglDmaHandlers[0]();
+        }
+
+        __attribute__((no_instrument_function)) static void OnDma1End()
+        {
+            Profiler::Event(EventType::Instant, "SCU DMA 1 end");
+            Profiler::sglDmaHandlers[1]();
+        }
+
+        __attribute__((no_instrument_function)) static void OnDma2End()
+        {
+            Profiler::Event(EventType::Instant, "SCU DMA 2 end");
+            Profiler::sglDmaHandlers[2]();
+        }
+
+        /** @brief Hooks the SCU sprite draw end and DMA end interrupts.
+         *  @details SCU vectors jump to a BIOS dispatcher that calls the routine registered with
+         *  System::SetInterruptHandler() as a plain function. SGL registers DMA end routines
+         *  but none for sprite draw end, so that one is enabled here.
+         */
+        __attribute__((no_instrument_function)) static void InstallVdp1AndDmaHooks()
+        {
+            using Type = System::InterruptType;
+            void (*const ours[3])() = {&Profiler::OnDma0End, &Profiler::OnDma1End, &Profiler::OnDma2End};
+
+            for (uint32_t level = 0; level < 3; level++)
+            {
+                const Type type = static_cast<Type>(Profiler::DmaEndVectors[level]);
+                Profiler::sglDmaHandlers[level] = reinterpret_cast<void (*)()>(System::GetInterruptHandler(type));
+                System::SetInterruptHandler(type, reinterpret_cast<void *>(ours[level]));
+            }
+
+            System::SetInterruptHandler(static_cast<Type>(SpriteEndVector), reinterpret_cast<void *>(&Profiler::OnSpriteEnd));
+            System::ChangeInterruptMask(~SpriteEndBit, 0);
         }
 
 #if SRL_PROFILER_SAMPLE_HZ != 0
@@ -910,6 +1036,51 @@ namespace SRL
             out.End();
         }
 
+        /** @brief Sends the VDP1 command slots that got samples, each with its command, and takes
+         *  the sent counts off them.
+         *  @details The command is read now: SGL rebuilds the table every frame, so a slot holds
+         *  the same command only while the scene doesn't change its drawing order.
+         */
+        __attribute__((no_instrument_function)) static void SendVdp1(Sender &out)
+        {
+            uint32_t used = 0;
+
+            for (const uint32_t count : g_srl_prof.Vdp1Histogram)
+            {
+                used += count != 0 ? 1 : 0;
+            }
+
+            out.Begin(PacketType::Vdp1, 4 + used * 40);
+            out.Word(used);
+
+            for (uint32_t i = 0, sent = 0; i < ProfilerBlock::Vdp1HistCapacity && sent < used; i++)
+            {
+                const uint32_t count = g_srl_prof.Vdp1Histogram[i];
+
+                if (count != 0)
+                {
+                    out.Word(i);
+                    out.Word(count);
+
+                    // VDP1 VRAM is read 16 bits at a time.
+                    const volatile uint16_t *command = reinterpret_cast<const volatile uint16_t *>(Vdp1Vram + i * 32);
+
+                    for (uint32_t half = 0; half < 16; half += 2)
+                    {
+                        out.Word((static_cast<uint32_t>(command[half]) << 16) | command[half + 1]);
+                    }
+
+                    sent++;
+
+                    const uint32_t sr = Profiler::MaskInterrupts();
+                    g_srl_prof.Vdp1Histogram[i] -= count;
+                    Profiler::RestoreInterrupts(sr);
+                }
+            }
+
+            out.End();
+        }
+
         /** @brief Called by SRL::Core::Synchronize() once per frame. */
         __attribute__((no_instrument_function)) static void OnFrame()
         {
@@ -981,7 +1152,7 @@ namespace SRL
             head.Magic[1] = 'R';
             head.Magic[2] = 'L';
             head.Magic[3] = 'P';
-            head.Version = 3;
+            head.Version = 4;
             head.SelfAddress = reinterpret_cast<uint32_t>(&g_srl_prof);
             head.TickHz = Tickstamp::GetSecondsDivider();
             head.FuncCapacity = ProfilerBlock::FuncCapacity;
@@ -989,6 +1160,7 @@ namespace SRL
             head.StackCapacity = ProfilerBlock::StackCapacity;
             head.EventCapacity = ProfilerBlock::EventCapacity;
             head.HistCapacity = ProfilerBlock::HistCapacity;
+            head.Vdp1HistCapacity = ProfilerBlock::Vdp1HistCapacity;
             head.ReportFrames = SRL_PROFILER_REPORT_FRAMES;
 
             head.Enabled = 1;
@@ -1002,6 +1174,8 @@ namespace SRL
             for (uint32_t wait = 0; !slaveSetup.IsDone() && wait < 5000000U; wait++)
             {
             }
+
+            Profiler::InstallVdp1AndDmaHooks();
 
 #if SRL_PROFILER_SAMPLE_HZ != 0
             Profiler::StartSampler();
@@ -1042,12 +1216,20 @@ namespace SRL
                 bin = 0;
             }
 
+            for (uint32_t &slot : g_srl_prof.Vdp1Histogram)
+            {
+                slot = 0;
+            }
+
             head.Frames = 0;
             head.ElapsedTicks = 0;
             head.EventCount = 0;
             head.DroppedEvents = 0;
             head.Samples = 0;
             head.SamplesOutside = 0;
+            head.Vdp1DrawEnds = 0;
+            head.Vdp1Missed = 0;
+            head.Vdp1Samples = 0;
             Profiler::masterState.Depth = 0;
             Profiler::Uncached(&Profiler::slaveState)->Depth = 0;
             Profiler::resetTicks = Profiler::Now();
@@ -1122,6 +1304,7 @@ namespace SRL
             if (head.SampleHz != 0)
             {
                 Profiler::SendHistogram(out);
+                Profiler::SendVdp1(out);
             }
 
             sr = Profiler::MaskInterrupts();

@@ -60,7 +60,10 @@ namespace SRL
          */
         inline static void VblankHandling()
         {
-            SRL_PROF_MARK("VBlank");
+#ifdef SRL_PROFILER
+            // VBlank mark, and whether VDP1 finished the last frame
+            SRL::Profiler::OnVblank();
+#endif
             slGetStatus();
             SRL::Input::Gun::VblankRefresh();
             Core::OnVblank.Invoke();

@@ -7,6 +7,8 @@ srl_prof_capture.py. Usage:
     srl_prof.py program.elf prof.bin --format folded              # stacks for flamegraph.pl / speedscope
     srl_prof.py program.elf capture.bin --format perfetto -o trace.json   # open in ui.perfetto.dev
     srl_prof.py program.elf capture.bin --format gmon -o gmon.out # then: sh-elf-gprof program.elf gmon.out
+    srl_prof.py program.elf capture.bin --format vdp1             # VDP1 frame times and costliest commands
+A GDB dump has no VDP1 commands: add --vram vram.bin (from srl-prof-dump-vram) to decode them.
 """
 
 import argparse
@@ -22,19 +24,20 @@ FUNC = struct.Struct(">4I")
 ARC = struct.Struct(">3I")
 EVENT = struct.Struct(">2I")
 CPU_COUNTERS = struct.Struct(">4I")
-VERSION = 3
+VERSION = 4
 
 HEADER_FIELDS = ("version", "self_address", "tick_hz", "hook_cost_q16", "enabled", "frames",
                  "elapsed_ticks", "func_capacity", "arc_capacity", "stack_capacity", "event_capacity",
                  "event_count", "dropped_events", "report_frames", "reports", "dropped_reports",
                  "report_bytes", "report_ticks", "sample_hz", "hist_capacity", "hist_low", "hist_shift",
                  "hist_bins", "samples", "samples_outside", "slave_ready",
-                 "reserved0", "reserved1", "reserved2", "reserved3", "reserved4")
+                 "vdp1_draw_ends", "vdp1_missed", "vdp1_hist_capacity", "vdp1_samples", "reserved")
 CPU_FIELDS = ("dropped_funcs", "dropped_arcs", "dropped_depth", "mismatched_exits")
 CPUS = ("master", "slave")
 
 SYNC = b"\xa5\x5a"
-PACKET_EVENTS, PACKET_TABLES, PACKET_HISTOGRAM = 1, 2, 3
+PACKET_EVENTS, PACKET_TABLES, PACKET_HISTOGRAM, PACKET_VDP1 = 1, 2, 3, 4
+VDP1_COMMAND_SIZE = 32
 EVENT_BEGIN, EVENT_END, EVENT_INSTANT = 1, 2, 3
 
 
@@ -82,7 +85,8 @@ def parse_block(data):
     """Reads a GDB dump of g_srl_prof. Returns the profile dict (see load())."""
     head = parse_header(data)
     cpu_size = CPU_COUNTERS.size + head["func_capacity"] * FUNC.size + head["arc_capacity"] * ARC.size
-    expected = (HEADER.size + 2 * cpu_size + head["event_capacity"] * EVENT.size + head["hist_capacity"] * 4)
+    expected = (HEADER.size + 2 * cpu_size + head["event_capacity"] * EVENT.size + head["hist_capacity"] * 4
+                + head["vdp1_hist_capacity"] * 4)
     if len(data) < expected:
         raise ValueError(f"dump is {len(data)} bytes, header says {expected}")
     profile = {"head": head, "stats": None}
@@ -93,6 +97,10 @@ def parse_block(data):
     offset += head["event_capacity"] * EVENT.size
     bins = struct.unpack_from(f">{head['hist_bins']}I", data, offset) if head["sample_hz"] else ()
     profile["hist"] = {i: n for i, n in enumerate(bins) if n}
+    offset += head["hist_capacity"] * 4
+    slots = struct.unpack_from(f">{head['vdp1_hist_capacity']}I", data, offset) if head["sample_hz"] else ()
+    profile["vdp1"] = {i: n for i, n in enumerate(slots) if n}
+    profile["vdp1_commands"] = {}  # not in the block: see --vram
     return profile
 
 
@@ -114,6 +122,8 @@ def parse_stream(data):
     profile = None
     events = []
     hist = {}
+    vdp1 = {}
+    vdp1_commands = {}
     pos = 0
     while True:
         start = data.find(SYNC, pos)
@@ -128,7 +138,7 @@ def parse_stream(data):
         length = struct.unpack_from(">I", data, start + 3)[0]
         end = start + 7 + length + 2
         payload = data[start + 7:start + 7 + length]
-        if (kind not in (PACKET_EVENTS, PACKET_TABLES, PACKET_HISTOGRAM) or end > len(data)
+        if (kind not in (PACKET_EVENTS, PACKET_TABLES, PACKET_HISTOGRAM, PACKET_VDP1) or end > len(data)
                 or fletcher16(payload) != struct.unpack_from(">H", data, end - 2)[0]):
             # Not a packet, or a cut one: look for the next sync right after this one.
             stats["bad_packets"] += 1
@@ -146,23 +156,32 @@ def parse_stream(data):
                 funcs, arcs, offset = parse_rows(payload, offset + CPU_COUNTERS.size + 8, func_count, arc_count)
                 profile[name] = dict(counters, funcs=funcs, arcs=arcs)
             stats["reports"] += 1
-        else:
+        elif kind == PACKET_HISTOGRAM:
             _, _, count = struct.unpack_from(">3I", payload, 0)
             for i in range(count):
                 index, n = struct.unpack_from(">2I", payload, 12 + 8 * i)
                 hist[index] = hist.get(index, 0) + n
+        else:
+            count = struct.unpack_from(">I", payload, 0)[0]
+            for i in range(count):
+                offset = 4 + i * (8 + VDP1_COMMAND_SIZE)
+                slot, n = struct.unpack_from(">2I", payload, offset)
+                vdp1[slot] = vdp1.get(slot, 0) + n
+                vdp1_commands[slot] = payload[offset + 8:offset + 8 + VDP1_COMMAND_SIZE]
         pos = end
     if profile is None:
         raise ValueError(f"no complete report in the capture ({stats})")
-    profile.update(events=events, hist=hist, stats=stats)
+    profile.update(events=events, hist=hist, vdp1=vdp1, vdp1_commands=vdp1_commands, stats=stats)
     return profile
 
 
 def load(path):
     """Reads a GDB dump or a captured stream.
 
-    Returns {"head", "master", "slave", "events", "hist", "stats"}: each CPU is a dict of its drop
-    counters plus "funcs" and "arcs"; "hist" maps histogram bin -> samples; "stats" is None for a dump.
+    Returns {"head", "master", "slave", "events", "hist", "vdp1", "vdp1_commands", "stats"}: each CPU is
+    a dict of its drop counters plus "funcs" and "arcs"; "hist" maps histogram bin -> samples; "vdp1"
+    maps VDP1 command slot -> samples and "vdp1_commands" slot -> its 32 bytes (streams only);
+    "stats" is None for a dump.
     """
     with open(path, "rb") as f:
         data = f.read()
@@ -360,7 +379,12 @@ def perfetto_trace(head, events, syms):
     trace = [
         {"name": "process_name", "ph": "M", "pid": 1, "args": {"name": "Saturn"}},
         {"name": "thread_name", "ph": "M", "pid": 1, "tid": 1, "args": {"name": "Master SH-2"}},
+        {"name": "thread_name", "ph": "M", "pid": 1, "tid": 2, "args": {"name": "VDP1"}},
+        {"name": "thread_name", "ph": "M", "pid": 1, "tid": 3, "args": {"name": "SCU DMA"}},
     ]
+    for start, end, finished in vdp1_frames(events, syms):
+        trace.append({"name": "VDP1 drawing" if finished else "VDP1 drawing (cut at VBlank)", "ph": "X",
+                      "ts": (start - t0) * us_per_tick, "dur": (end - start) * us_per_tick, "pid": 1, "tid": 2})
     open_scopes = []
     for ticks, kind, name in items:
         ts = (ticks - t0) * us_per_tick
@@ -376,8 +400,91 @@ def perfetto_trace(head, events, syms):
                 if top == name:
                     break
         elif kind == EVENT_INSTANT:
-            trace.append({"name": name, "ph": "i", "s": "t", "ts": ts, "pid": 1, "tid": 1})
+            tid = 2 if name.startswith("VDP1") else 3 if name.startswith("SCU DMA") else 1
+            trace.append({"name": name, "ph": "i", "s": "t", "ts": ts, "pid": 1, "tid": tid})
     return {"traceEvents": trace, "displayTimeUnit": "ms"}
+
+
+VDP1_COMMANDS = {0: "normal sprite", 1: "scaled sprite", 2: "distorted sprite", 3: "distorted sprite",
+                 4: "polygon", 5: "polyline", 6: "line", 7: "polyline", 8: "user clip", 9: "system clip",
+                 10: "local coordinates", 11: "user clip"}
+VDP1_COLOR_MODES = {0: "4bpp bank", 1: "4bpp lookup", 2: "8bpp 64", 3: "8bpp 128", 4: "8bpp 256", 5: "RGB"}
+
+
+def decode_vdp1_command(command):
+    """One-line description of a 32-byte VDP1 command (types, size, texture, screen area)."""
+    ctrl, _, pmod, colr, srca, size = struct.unpack_from(">6H", command, 0)
+    coords = struct.unpack_from(">8h", command, 12)
+    if ctrl & 0x8000:
+        return "end of list"
+    kind = VDP1_COMMANDS.get(ctrl & 0xF, f"command {ctrl & 0xF}")
+    parts = [kind]
+    if (ctrl & 0xF) <= 3:
+        parts.append(f"{((size >> 8) & 0x3F) * 8}x{size & 0xFF} texture at 0x{srca * 8:05x}, "
+                     f"{VDP1_COLOR_MODES.get((pmod >> 3) & 7, 'mode ?')}")
+    elif (ctrl & 0xF) <= 7:
+        parts.append(f"color 0x{colr:04x}")
+    if (ctrl & 0xF) == 0:
+        parts.append(f"at ({coords[0]}, {coords[1]})")
+    elif (ctrl & 0xF) == 1:
+        parts.append(f"from ({coords[0]}, {coords[1]})")
+    elif (ctrl & 0xF) in (2, 3, 4, 5, 7):
+        x, y = coords[0::2], coords[1::2]
+        parts.append(f"covering ({min(x)}, {min(y)})-({max(x)}, {max(y)})")
+    if pmod & 0x7:
+        parts.append("half-transparent" if pmod & 0x7 == 3 else f"color calc {pmod & 7}")
+    return ", ".join(parts)
+
+
+def vdp1_frames(events, syms):
+    """VDP1 frames from the timeline: (start, end, finished) ticks.
+
+    Each VBlank is a frame change, where VDP1 starts a new frame. A frame ends at the sprite
+    draw end interrupt, or is cut at the next VBlank when the Saturn marked "VDP1 missed frame"
+    there: the frame change drops what VDP1 had not drawn. VBlanks with neither (VDP1 idle,
+    e.g. a 30 fps program) make no frame.
+    """
+    frames, start, previous = [], None, None
+    for ticks, kind, name in timeline(events, syms):
+        if name == "VBlank":
+            previous, start = start, ticks
+        elif name == "VDP1 missed frame" and previous is not None:
+            frames.append((previous, ticks, False))
+            previous = None
+        elif name == "VDP1 draw end" and start is not None:
+            frames.append((start, ticks, True))
+            start = None
+    return frames
+
+
+def print_vdp1(profile, syms, top, out=sys.stdout, vram=None):
+    head = profile["head"]
+    ms_per_tick = 1000.0 / head["tick_hz"]
+    frames = vdp1_frames(profile["events"], syms)
+    print(f"VDP1: {head['vdp1_draw_ends']} frames drawn, {head['vdp1_missed']} cut unfinished by the next VBlank "
+          f"(since the last reset)", file=out)
+    times = sorted((end - start) * ms_per_tick for start, end, finished in frames if finished)
+    if times:
+        print(f"draw time (VBlank to draw end) over {len(times)} finished frames on the timeline: mean "
+              f"{sum(times) / len(times):.2f} ms, median {times[len(times) // 2]:.2f} ms, max {times[-1]:.2f} ms; "
+              f"{len(frames) - len(times)} cut", file=out)
+    slots = profile["vdp1"]
+    if not slots:
+        print("no VDP1 command samples (needs SRL_PROFILER_SAMPLE_HZ)", file=out)
+        return
+    total = sum(slots.values())
+    commands = dict(profile["vdp1_commands"])
+    if vram:
+        for slot in slots:
+            commands.setdefault(slot, vram[slot * VDP1_COMMAND_SIZE:(slot + 1) * VDP1_COMMAND_SIZE])
+    print(f"\n{head['vdp1_samples']} PC samples landed while VDP1 drew; by command slot:", file=out)
+    print(f"{'%':>6} {'samples':>9} {'slot':>5}  command", file=out)
+    for slot, count in sorted(slots.items(), key=lambda kv: kv[1], reverse=True)[:top]:
+        command = commands.get(slot)
+        text = decode_vdp1_command(command) if command and len(command) == VDP1_COMMAND_SIZE else "(no command: use --vram)"
+        if text == "end of list":
+            text += " (frame changed, VDP1 not drawing the new one yet)"
+        print(f"{100.0 * count / total:6.1f} {count:9d} {slot:5d}  {text}", file=out)
 
 
 def check_elf(head, syms):
@@ -447,7 +554,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("elf", help="the program's .elf (with symbols)")
     parser.add_argument("data", help="GDB dump (srl-prof-dump) or capture (srl_prof_capture.py)")
-    parser.add_argument("--format", choices=("flat", "folded", "perfetto", "gmon"), default="flat")
+    parser.add_argument("--format", choices=("flat", "folded", "perfetto", "gmon", "vdp1"), default="flat")
+    parser.add_argument("--vram", help="VDP1 VRAM dump (srl-prof-dump-vram) to decode commands of a GDB dump")
     parser.add_argument("--cpu", choices=CPUS, default="master", help="CPU for folded and gmon")
     parser.add_argument("-o", "--output", help="write here instead of stdout (required for gmon)")
     parser.add_argument("--top", type=int, default=40, help="rows in the flat profile")
@@ -476,6 +584,9 @@ def main():
     try:
         if args.format == "flat":
             print_flat(profile, syms, args.top, out)
+        elif args.format == "vdp1":
+            vram = open(args.vram, "rb").read() if args.vram else None
+            print_vdp1(profile, syms, args.top, out, vram)
         elif args.format == "folded":
             print("\n".join(folded_lines(head, cpu["funcs"], cpu["arcs"], syms)), file=out)
         else:

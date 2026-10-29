@@ -8,11 +8,14 @@ known busy times (Samples/Debug - Profiler/src/workload.hpp), on both SH-2s:
            (no GDB), checks the timeline, writes a Perfetto trace and a gmon.out
   sampler  also builds with SRL_PROFILER_SAMPLE_HZ=16000: checks the sample rate, the
            functions' sample shares, and that sh-elf-gprof reads the sampled gmon.out
+  vdp1     same build, 15 s through the sample's VDP1 load steps (0 to 16 full-screen
+           polygons): checks VDP1 draw times grow with the load, missed frames, the
+           costliest VDP1 command, SCU DMA marks, and the VDP1 track of the Perfetto trace
 
 Needs the real rig (ftx, usbreset, gdb-multiarch, sh-elf-gprof on PATH, e.g. inside the
 toolchain container), like Tests/GDB/run_gdb_tests.sh.
 
-Usage: run_profiler_test.py [--mode gdb|stream|sampler|all] [--psu-ip IP] [--seconds N]
+Usage: run_profiler_test.py [--mode gdb|stream|sampler|vdp1|all] [--psu-ip IP] [--seconds N]
 """
 
 import argparse
@@ -290,9 +293,69 @@ def run_sampler(args, checks):
     check_gprof(profile, syms, checks, os.path.join(HERE, "gmon_sampled.out"), sampled=True)
 
 
+def run_vdp1(args, checks):
+    print("=== vdp1: VDP1 load steps, streamed with the sampler on ===")
+    build(REPORT_FRAMES, SAMPLE_HZ)
+    seconds = max(args.seconds, 15.0)  # one full cycle of the six 2-second load steps
+    profile = capture_stream(argparse.Namespace(**dict(vars(args), seconds=seconds)), "profiler vdp1")
+    head = profile["head"]
+    syms = srl_prof.Symbols.from_elf(ELF)
+    srl_prof.print_vdp1(profile, syms, top=8)
+    print()
+
+    checks.check(head["vdp1_draw_ends"] > 0, f"sprite draw end interrupt fired {head['vdp1_draw_ends']} times "
+                                             f"(vector 0x4D, SCU bit 13)")
+
+    # Split VDP1 frames by load step, from the "VDP1 load N" marks the sample leaves.
+    ms_per_tick = 1000.0 / head["tick_hz"]
+    items = srl_prof.timeline(profile["events"], syms)
+    steps = [(t, int(name.split()[-1])) for t, kind, name in items
+             if kind == srl_prof.EVENT_INSTANT and name.startswith("VDP1 load ")]
+    missed = [t for t, kind, name in items if name == "VDP1 missed frame"]
+    per_step, missed_per_step = {}, {}
+    # Skip the first frames of each step: VDP1 still draws what was queued before the change.
+    settle = 4 * 3500
+    for start, end, finished in srl_prof.vdp1_frames(profile["events"], syms):
+        step = [n for t, n in steps if t < start - settle]
+        if finished and step and not [t for t, n in steps if start - settle <= t <= end]:
+            per_step.setdefault(step[-1], []).append((end - start) * ms_per_tick)
+    for t in missed:
+        step = [n for st, n in steps if st < t - settle]
+        if step and not [st for st, n in steps if t - settle <= st <= t]:
+            missed_per_step[step[-1]] = missed_per_step.get(step[-1], 0) + 1
+    for n in sorted(per_step):
+        times = per_step[n]
+        print(f"  {n:2d} polygons: {len(times):3d} frames, VDP1 {sum(times) / len(times):6.2f} ms on average, "
+              f"{missed_per_step.get(n, 0)} missed VBlanks")
+
+    means = {n: sum(t) / len(t) for n, t in per_step.items()}
+    checks.check(all(n in means for n in (0, 1, 2, 4)), f"VDP1 frames seen for loads {sorted(means)}")
+    light = [n for n in (0, 1, 2, 4) if n in means]
+    checks.check(all(means[a] < means[b] for a, b in zip(light, light[1:])),
+                 "VDP1 draw time grows with the polygon count: " +
+                 ", ".join(f"{n}: {means[n]:.2f} ms" for n in light))
+    checks.check(sum(missed_per_step.get(n, 0) for n in (0, 1, 2, 4)) == 0, "no missed frames with 0 to 4 polygons")
+    checks.check(missed_per_step.get(16, 0) > 0, f"missed frames with 16 polygons: {missed_per_step.get(16, 0)}")
+
+    slots = sorted(profile["vdp1"].items(), key=lambda kv: kv[1], reverse=True)
+    top = srl_prof.decode_vdp1_command(profile["vdp1_commands"][slots[0][0]]) if slots else "none"
+    checks.check(top.startswith("polygon") and "(-160, -120)-(159, 119)" in top,
+                 f"costliest VDP1 command is a full-screen polygon: {top}")
+
+    dma = sum(1 for t, kind, name in items if name.startswith("SCU DMA"))
+    checks.check(dma > 0, f"{dma} SCU DMA end marks")
+
+    trace = srl_prof.perfetto_trace(head, profile["events"], syms)
+    with open(os.path.join(HERE, "trace_vdp1.json"), "w") as f:
+        json.dump(trace, f)
+    slices = sum(1 for e in trace["traceEvents"] if e.get("name") == "VDP1 drawing")
+    cut = sum(1 for e in trace["traceEvents"] if e.get("name") == "VDP1 drawing (cut at VBlank)")
+    checks.check(slices > 60 and cut > 60, f"Perfetto trace_vdp1.json: {slices} VDP1 frames, {cut} cut at VBlank")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=("gdb", "stream", "sampler", "all"), default="all")
+    parser.add_argument("--mode", choices=("gdb", "stream", "sampler", "vdp1", "all"), default="all")
     parser.add_argument("--psu-ip", help="network PSU used to power-cycle the console before upload")
     parser.add_argument("--seconds", type=float, default=8.0, help="how long to let the sample run")
     parser.add_argument("--port", type=int, default=1234)
@@ -305,6 +368,8 @@ def main():
         run_stream(args, checks)
     if args.mode in ("sampler", "all"):
         run_sampler(args, checks)
+    if args.mode in ("vdp1", "all"):
+        run_vdp1(args, checks)
 
     print("ALL PASS" if not checks.failures else f"FAILED ({len(checks.failures)}):")
     for failure in checks.failures:
