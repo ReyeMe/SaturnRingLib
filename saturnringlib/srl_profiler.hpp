@@ -1,27 +1,41 @@
 #pragma once
 
-#include "srl_timer.hpp"
-#include <cstdint>
-
 /** @file srl_profiler.hpp
- *  @brief Function-level CPU profiler for the master SH-2 (milestone 1 of the profiler design).
+ *  @brief CPU profiler for the master SH-2: per-function times and a per-frame event timeline.
  *
- *  @details Built when the makefile sets `SRL_PROFILER = 1`. Files listed in
- *  `SRL_PROFILE_SOURCES` (default: all of `SOURCES`) are compiled with
- *  `-finstrument-functions`, so GCC calls the hooks below on entry and exit of
- *  each of their functions. The hooks keep a shadow call stack and add each
- *  call's time into two tables that live in the global `g_srl_prof`:
- *  - one row per function: calls, total ticks, self ticks;
- *  - one row per caller -> callee pair: call count.
+ *  @details Built when the makefile sets `SRL_PROFILER = 1`; otherwise only the
+ *  SRL_PROF_SCOPE() / SRL_PROF_MARK() macros exist, and they compile to nothing.
  *
- *  Times are FRT ticks (PHI/128, about 4.5 us). Nothing leaves the Saturn by itself:
- *  pull the block with GDB (`source tools/scripts/srl_prof.gdb`, then
- *  `srl-prof-dump prof.bin`) and read it with `tools/scripts/srl_prof.py`.
+ *  Function times: files listed in `SRL_PROFILE_SOURCES` (default: all of `SOURCES`)
+ *  are compiled with `-finstrument-functions`, so GCC calls the hooks below on entry
+ *  and exit of each of their functions. The hooks keep a shadow call stack and add each
+ *  call's time into two tables: one row per function (calls, total ticks, own ticks)
+ *  and one row per caller -> callee pair (call count).
  *
- *  @note Only the master CPU is profiled; calls made on the slave are ignored.
+ *  Timeline: SRL_PROF_SCOPE("name") and SRL_PROF_MARK("name") record timestamped events
+ *  in a ring buffer, as do VBlank and the wait inside SRL::Core::Synchronize().
+ *
+ *  Everything lives in the global `g_srl_prof`. Two ways to get it out:
+ *  - GDB: `source tools/scripts/srl_prof.gdb`, then `srl-prof-dump prof.bin`;
+ *  - streaming: with `SRL_PROFILER_REPORT_FRAMES = N`, Report() sends it over the DevCart
+ *    every N frames (never while GDB is connected); `tools/scripts/srl_prof_capture.py`
+ *    records it through `ftx -g`.
+ *  Then read it with `tools/scripts/srl_prof.py`.
+ *
+ *  Times are FRT ticks (PHI/128, about 4.8 us).
+ *  @note Only the master CPU is profiled; calls and events on the slave are ignored.
  *  @note Time spent halted in GDB counts too: a breakpoint inside a profiled
  *  function inflates it.
  */
+
+#ifdef SRL_PROFILER
+
+#include "srl_timer.hpp"
+#include "srl_devcart.hpp"
+#ifdef DEBUG
+    #include "srl_gdbstub.hpp"
+#endif
+#include <cstdint>
 
 #ifndef SRL_PROFILER_MAX_FUNCS
     /** @brief Function table rows (power of two). */
@@ -31,6 +45,16 @@
 #ifndef SRL_PROFILER_MAX_ARCS
     /** @brief Caller -> callee table rows (power of two). */
     #define SRL_PROFILER_MAX_ARCS 1024
+#endif
+
+#ifndef SRL_PROFILER_MAX_EVENTS
+    /** @brief Timeline events kept between two reports (8 bytes each). */
+    #define SRL_PROFILER_MAX_EVENTS 4096
+#endif
+
+#ifndef SRL_PROFILER_REPORT_FRAMES
+    /** @brief Frames between two streamed reports; 0 = no streaming (GDB only). */
+    #define SRL_PROFILER_REPORT_FRAMES 0
 #endif
 
 namespace SRL
@@ -44,6 +68,7 @@ namespace SRL
         static constexpr uint32_t FuncCapacity = SRL_PROFILER_MAX_FUNCS;
         static constexpr uint32_t ArcCapacity = SRL_PROFILER_MAX_ARCS;
         static constexpr uint32_t StackCapacity = 64;
+        static constexpr uint32_t EventCapacity = SRL_PROFILER_MAX_EVENTS;
 
         static_assert((FuncCapacity & (FuncCapacity - 1)) == 0, "SRL_PROFILER_MAX_FUNCS must be a power of two");
         static_assert((ArcCapacity & (ArcCapacity - 1)) == 0, "SRL_PROFILER_MAX_ARCS must be a power of two");
@@ -68,11 +93,21 @@ namespace SRL
             uint32_t Count;
         };
 
-        /** @brief 64-byte header. */
+        /** @brief One timeline event.
+         *  @details Word = type << 28 | (address of the name's string literal & 0x0FFFFFFF):
+         *  the PC reads the name from the ELF.
+         */
+        struct Event
+        {
+            uint32_t Word;
+            uint32_t Ticks;
+        };
+
+        /** @brief 96-byte header. */
         struct Header
         {
             char Magic[4];            ///< "SRLP"
-            uint32_t Version;         ///< Layout version (1)
+            uint32_t Version;         ///< Layout version (2)
             uint32_t SelfAddress;     ///< &g_srl_prof, so the PC can check the ELF matches the dump
             uint32_t TickHz;          ///< FRT ticks per second
             uint32_t HookCostQ16;     ///< Cost of one enter + exit hook pair, in ticks, 16.16 fixed point
@@ -82,19 +117,28 @@ namespace SRL
             uint32_t FuncCapacity;
             uint32_t ArcCapacity;
             uint32_t StackCapacity;
+            uint32_t EventCapacity;
             uint32_t DroppedFuncs;    ///< Exits not recorded: function table full
             uint32_t DroppedArcs;     ///< Calls not recorded: arc table full
             uint32_t DroppedDepth;    ///< Calls deeper than StackCapacity, not timed
             uint32_t MismatchedExits; ///< Exits that did not match the shadow stack (stack was reset)
+            uint32_t EventCount;      ///< Events in Events[] (since the last report)
+            uint32_t DroppedEvents;   ///< Events not recorded: buffer full
+            uint32_t ReportFrames;    ///< SRL_PROFILER_REPORT_FRAMES
+            uint32_t Reports;         ///< Reports sent completely
+            uint32_t DroppedReports;  ///< Reports skipped (no DevCart) or cut short (nobody reading)
+            uint32_t ReportBytes;     ///< Size of the last complete report
+            uint32_t ReportTicks;     ///< Time the last complete report took to send
             uint32_t Reserved;
         };
 
         Header Head;
         Func Funcs[FuncCapacity];
         Arc Arcs[ArcCapacity];
+        Event Events[EventCapacity];
     };
 
-    static_assert(sizeof(ProfilerBlock::Header) == 64, "profiler header must stay 64 bytes");
+    static_assert(sizeof(ProfilerBlock::Header) == 96, "profiler header must stay 96 bytes");
 }
 
 /** @brief The profiler's data, at a fixed unmangled symbol so GDB can dump it by name. */
@@ -108,7 +152,7 @@ extern "C"
 
 namespace SRL
 {
-    /** @brief Controls the function profiler (see srl_profiler.hpp).
+    /** @brief Controls the profiler (see srl_profiler.hpp).
      *  @details SRL::Core::Initialize() calls Init(), which starts recording.
      */
     class Profiler final
@@ -119,6 +163,15 @@ namespace SRL
         friend class Core;
         /// @endcond
 
+    public:
+        /** @brief Kind of a timeline event, stored in the top 4 bits of Event::Word. */
+        enum class EventType : uint32_t
+        {
+            Begin = 1,  ///< A scope starts
+            End = 2,    ///< A scope ends
+            Instant = 3 ///< A point in time
+        };
+
     private:
         /** @brief One shadow-stack frame. */
         struct Frame
@@ -128,16 +181,27 @@ namespace SRL
             uint32_t ChildTicks;
         };
 
+        /** @brief Report packet types. */
+        enum class PacketType : uint8_t
+        {
+            Events = 1, ///< Event records
+            Tables = 2  ///< Header, used function rows, used arc rows
+        };
+
         inline static Frame stack[ProfilerBlock::StackCapacity];
         inline static uint32_t depth = 0;
         inline static uint32_t masterVbr = 0;
         inline static uint32_t resetTicks = 0;
+        inline static uint32_t framesSinceReport = 0;
 
         /** @brief Rows probed before a lookup gives up and counts the event as dropped. */
         static constexpr uint32_t MaxProbes = 8;
 
         /** @brief FTCSR overflow flag. */
         static constexpr uint8_t FtcsrOvf = 0x02;
+
+        /** @brief Longest wait for room in the DevCart FIFO before a report is abandoned (~10 ms). */
+        static constexpr uint16_t SendTimeoutTicks = 2000;
 
         /** @brief Masks all CPU interrupts and returns the previous SR. */
         __attribute__((always_inline, no_instrument_function)) static inline uint32_t MaskInterrupts()
@@ -154,6 +218,14 @@ namespace SRL
             asm volatile("ldc %0, sr" : : "r"(sr) : "memory");
         }
 
+        /** @brief The 16-bit FRT counter. */
+        __attribute__((always_inline, no_instrument_function)) static inline uint32_t Frc()
+        {
+            // High byte first: reading it latches the low byte.
+            const uint32_t high = Timer::FrchReg;
+            return (high << 8) | Timer::FrclReg;
+        }
+
         /** @brief Current time in ticks: (overflow count << 16) | FRC, truncated to 32 bits.
          *  @warning Call with interrupts masked: the overflow interrupt can't run then,
          *  so a pending overflow is detected from FTCSR instead.
@@ -161,7 +233,7 @@ namespace SRL
         __attribute__((always_inline, no_instrument_function)) static inline uint32_t Now()
         {
             uint32_t high = Timer::overflowCounter;
-            const uint32_t frc = (static_cast<uint32_t>(Timer::FrchReg) << 8) | Timer::FrclReg;
+            const uint32_t frc = Profiler::Frc();
 
             // FRC wrapped but the overflow interrupt hasn't run yet.
             if ((Timer::Ftcsr & FtcsrOvf) != 0 && frc < 0x8000U)
@@ -235,6 +307,23 @@ namespace SRL
             }
 
             g_srl_prof.Head.DroppedArcs++;
+        }
+
+        /** @brief Appends an event. @warning Call with interrupts masked. */
+        __attribute__((always_inline, no_instrument_function)) static inline void PushEvent(EventType type, const char *name, uint32_t ticks)
+        {
+            ProfilerBlock::Header &head = g_srl_prof.Head;
+
+            if (head.EventCount < ProfilerBlock::EventCapacity)
+            {
+                ProfilerBlock::Event &event = g_srl_prof.Events[head.EventCount++];
+                event.Word = (static_cast<uint32_t>(type) << 28) | (reinterpret_cast<uint32_t>(name) & 0x0FFFFFFFU);
+                event.Ticks = ticks;
+            }
+            else
+            {
+                head.DroppedEvents++;
+            }
         }
 
         /** @brief Body of __cyg_profile_func_enter. */
@@ -323,6 +412,92 @@ namespace SRL
             Profiler::RestoreInterrupts(sr);
         }
 
+        /** @brief Writes a report to the DevCart FIFO, keeping a Fletcher-16 checksum of the payload. */
+        class Sender
+        {
+        public:
+            bool Ok = true;      ///< False once a byte timed out; later bytes are skipped
+            uint32_t Bytes = 0;  ///< Bytes written
+
+            /** @brief Writes one byte outside the checksum. */
+            __attribute__((no_instrument_function)) void Raw(uint8_t value)
+            {
+                if (!this->Ok)
+                {
+                    return;
+                }
+
+                const uint32_t start = Profiler::Frc();
+
+                while (SRL::DevCart::CS0::IsTxeFull())
+                {
+                    if (static_cast<uint16_t>(Profiler::Frc() - start) > Profiler::SendTimeoutTicks)
+                    {
+                        this->Ok = false;
+                        return;
+                    }
+                }
+
+                *reinterpret_cast<volatile uint8_t *>(SRL::DevCart::CS0::UsbFifo) = value;
+                this->Bytes++;
+            }
+
+            /** @brief Writes one payload byte. */
+            __attribute__((no_instrument_function)) void Byte(uint8_t value)
+            {
+                this->Raw(value);
+                this->sum1 += value;
+                this->sum1 = this->sum1 >= 255 ? this->sum1 - 255 : this->sum1;
+                this->sum2 += this->sum1;
+                this->sum2 = this->sum2 >= 255 ? this->sum2 - 255 : this->sum2;
+            }
+
+            /** @brief Writes a big-endian 32-bit payload word. */
+            __attribute__((no_instrument_function)) void Word(uint32_t value)
+            {
+                this->Byte(static_cast<uint8_t>(value >> 24));
+                this->Byte(static_cast<uint8_t>(value >> 16));
+                this->Byte(static_cast<uint8_t>(value >> 8));
+                this->Byte(static_cast<uint8_t>(value));
+            }
+
+            /** @brief Writes 32-bit words (the CPU is big-endian, like the wire format). */
+            __attribute__((no_instrument_function)) void Words(const void *data, uint32_t count)
+            {
+                const uint32_t *words = static_cast<const uint32_t *>(data);
+
+                for (uint32_t i = 0; i < count; i++)
+                {
+                    this->Word(words[i]);
+                }
+            }
+
+            /** @brief Starts a packet: sync bytes 0xA5 0x5A, type, payload length. */
+            __attribute__((no_instrument_function)) void Begin(PacketType type, uint32_t length)
+            {
+                this->Raw(0xA5);
+                this->Raw(0x5A);
+                this->Raw(static_cast<uint8_t>(type));
+                this->Raw(static_cast<uint8_t>(length >> 24));
+                this->Raw(static_cast<uint8_t>(length >> 16));
+                this->Raw(static_cast<uint8_t>(length >> 8));
+                this->Raw(static_cast<uint8_t>(length));
+                this->sum1 = 0;
+                this->sum2 = 0;
+            }
+
+            /** @brief Ends a packet with the checksum. */
+            __attribute__((no_instrument_function)) void End()
+            {
+                this->Raw(static_cast<uint8_t>(this->sum2));
+                this->Raw(static_cast<uint8_t>(this->sum1));
+            }
+
+        private:
+            uint32_t sum1 = 0;
+            uint32_t sum2 = 0;
+        };
+
         /** @brief Called by SRL::Core::Synchronize() once per frame. */
         __attribute__((no_instrument_function)) static void OnFrame()
         {
@@ -335,6 +510,14 @@ namespace SRL
             g_srl_prof.Head.Frames++;
             g_srl_prof.Head.ElapsedTicks = Profiler::Now() - Profiler::resetTicks;
             Profiler::RestoreInterrupts(sr);
+
+#if SRL_PROFILER_REPORT_FRAMES != 0
+            if (++Profiler::framesSinceReport >= SRL_PROFILER_REPORT_FRAMES)
+            {
+                Profiler::framesSinceReport = 0;
+                Profiler::Report();
+            }
+#endif
         }
 
         /** @brief Times enter + exit hook pairs called the way instrumented code calls them.
@@ -385,12 +568,14 @@ namespace SRL
             head.Magic[1] = 'R';
             head.Magic[2] = 'L';
             head.Magic[3] = 'P';
-            head.Version = 1;
+            head.Version = 2;
             head.SelfAddress = reinterpret_cast<uint32_t>(&g_srl_prof);
             head.TickHz = Tickstamp::GetSecondsDivider();
             head.FuncCapacity = ProfilerBlock::FuncCapacity;
             head.ArcCapacity = ProfilerBlock::ArcCapacity;
             head.StackCapacity = ProfilerBlock::StackCapacity;
+            head.EventCapacity = ProfilerBlock::EventCapacity;
+            head.ReportFrames = SRL_PROFILER_REPORT_FRAMES;
 
             head.Enabled = 1;
             head.HookCostQ16 = Profiler::MeasureHookCost();
@@ -435,8 +620,136 @@ namespace SRL
             head.DroppedArcs = 0;
             head.DroppedDepth = 0;
             head.MismatchedExits = 0;
+            head.EventCount = 0;
+            head.DroppedEvents = 0;
             Profiler::depth = 0;
             Profiler::resetTicks = Profiler::Now();
+            Profiler::RestoreInterrupts(sr);
+        }
+
+        /** @brief Records a timeline event, if recording on the master CPU.
+         *  @param type Begin, End or Instant
+         *  @param name A string literal: only its address is stored, the PC reads the text from the ELF
+         */
+        __attribute__((no_instrument_function)) static void Event(EventType type, const char *name)
+        {
+            if (g_srl_prof.Head.Enabled == 0 || !Profiler::IsMaster())
+            {
+                return;
+            }
+
+            const uint32_t sr = Profiler::MaskInterrupts();
+            Profiler::PushEvent(type, name, Profiler::Now());
+            Profiler::RestoreInterrupts(sr);
+        }
+
+        /** @brief Sends the timeline events and the used table rows over the DevCart.
+         *  @details SRL::Core::Synchronize() calls it every SRL_PROFILER_REPORT_FRAMES frames.
+         *  Does nothing while GDB is connected (the bytes would reach GDB). Sent events are
+         *  removed from the buffer; the tables keep accumulating. The time the report took
+         *  is recorded as a "SRL profiler report" scope. If nobody reads the FIFO for about
+         *  10 ms, the report is abandoned and counted in DroppedReports.
+         */
+        __attribute__((no_instrument_function)) static void Report()
+        {
+            ProfilerBlock::Header &head = g_srl_prof.Head;
+
+#ifdef DEBUG
+            if (SRL::GDBStub::IsConnected())
+            {
+                return;
+            }
+#endif
+
+            if (!SRL::DevCart::CS0::IsConnected())
+            {
+                head.DroppedReports++;
+                return;
+            }
+
+            // Snapshot what to send; interrupts keep running (and recording) while it goes out.
+            uint32_t sr = Profiler::MaskInterrupts();
+            const uint32_t start = Profiler::Now();
+            const uint32_t eventCount = head.EventCount;
+            const ProfilerBlock::Header snapshot = head;
+            Profiler::RestoreInterrupts(sr);
+
+            uint32_t funcCount = 0;
+            uint32_t arcCount = 0;
+
+            for (const ProfilerBlock::Func &row : g_srl_prof.Funcs)
+            {
+                funcCount += row.Address != 0 ? 1 : 0;
+            }
+
+            for (const ProfilerBlock::Arc &row : g_srl_prof.Arcs)
+            {
+                arcCount += row.From != 0 ? 1 : 0;
+            }
+
+            Sender out;
+            out.Begin(PacketType::Events, eventCount * sizeof(ProfilerBlock::Event));
+            out.Words(g_srl_prof.Events, eventCount * 2);
+            out.End();
+
+            out.Begin(PacketType::Tables, sizeof(ProfilerBlock::Header) + 8 +
+                                              funcCount * sizeof(ProfilerBlock::Func) +
+                                              arcCount * sizeof(ProfilerBlock::Arc));
+            out.Words(&snapshot, sizeof(ProfilerBlock::Header) / 4);
+            out.Word(funcCount);
+            out.Word(arcCount);
+
+            // Rows are only ever added (never removed) outside Reset(): send the first ones counted.
+            for (uint32_t i = 0, sent = 0; i < ProfilerBlock::FuncCapacity && sent < funcCount; i++)
+            {
+                if (g_srl_prof.Funcs[i].Address != 0)
+                {
+                    out.Words(&g_srl_prof.Funcs[i], 4);
+                    sent++;
+                }
+            }
+
+            for (uint32_t i = 0, sent = 0; i < ProfilerBlock::ArcCapacity && sent < arcCount; i++)
+            {
+                if (g_srl_prof.Arcs[i].From != 0)
+                {
+                    out.Words(&g_srl_prof.Arcs[i], 3);
+                    sent++;
+                }
+            }
+
+            out.End();
+
+            sr = Profiler::MaskInterrupts();
+            const uint32_t end = Profiler::Now();
+
+            // Keep the events recorded while sending.
+            const uint32_t kept = head.EventCount - eventCount;
+
+            for (uint32_t i = 0; i < kept; i++)
+            {
+                g_srl_prof.Events[i] = g_srl_prof.Events[eventCount + i];
+            }
+
+            head.EventCount = kept;
+
+            if (out.Ok)
+            {
+                head.Reports++;
+                head.ReportBytes = out.Bytes;
+                head.ReportTicks = end - start;
+            }
+            else
+            {
+                head.DroppedReports++;
+            }
+
+            if (head.Enabled != 0)
+            {
+                Profiler::PushEvent(EventType::Begin, "SRL profiler report", start);
+                Profiler::PushEvent(EventType::End, "SRL profiler report", end);
+            }
+
             Profiler::RestoreInterrupts(sr);
         }
 
@@ -446,7 +759,37 @@ namespace SRL
             return g_srl_prof.Head.HookCostQ16;
         }
     };
+
+    /** @brief Records a Begin event now and the matching End event when it goes out of scope. */
+    class ProfilerScope final
+    {
+    public:
+        /** @param name A string literal */
+        __attribute__((always_inline, no_instrument_function)) explicit ProfilerScope(const char *name) : name(name)
+        {
+            Profiler::Event(Profiler::EventType::Begin, name);
+        }
+
+        __attribute__((always_inline, no_instrument_function)) ~ProfilerScope()
+        {
+            Profiler::Event(Profiler::EventType::End, this->name);
+        }
+
+    private:
+        const char *name;
+    };
 }
+
+/// @cond Internal
+#define SRL_PROF_CAT_INNER(a, b) a##b
+#define SRL_PROF_CAT(a, b) SRL_PROF_CAT_INNER(a, b)
+/// @endcond
+
+/** @brief Times the rest of the enclosing block as a timeline slice. @param name A string literal */
+#define SRL_PROF_SCOPE(name) SRL::ProfilerScope SRL_PROF_CAT(srlProfScope, __LINE__)(name)
+
+/** @brief Marks a point in time on the timeline. @param name A string literal */
+#define SRL_PROF_MARK(name) SRL::Profiler::Event(SRL::Profiler::EventType::Instant, name)
 
 extern "C"
 {
@@ -465,3 +808,13 @@ extern "C"
         SRL::Profiler::Exit(reinterpret_cast<uint32_t>(fn));
     }
 }
+
+#else
+
+/** @brief Times the rest of the enclosing block (no-op: SRL_PROFILER is off). */
+#define SRL_PROF_SCOPE(name) ((void)0)
+
+/** @brief Marks a point in time on the timeline (no-op: SRL_PROFILER is off). */
+#define SRL_PROF_MARK(name) ((void)0)
+
+#endif

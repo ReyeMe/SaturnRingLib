@@ -13,6 +13,9 @@ SRL_LOG_OUTPUT = NONE           # Log output method (DEV_CART, EMULATOR, NONE)
 # Profiler: instrument only the workload, so main.cxx's loop isn't profiled
 SRL_PROFILER = 1
 SRL_PROFILE_SOURCES = src/workload.cxx
+# Frames between reports streamed over the DevCart; 0 = off (read with GDB).
+# Leave it at 0 when you use GDB: report bytes would reach GDB through ftx -g.
+SRL_PROFILER_REPORT_FRAMES = 0
 
 # DEBUG builds the GDB stub in (to pull the profile); profile optimised code anyway
 DEBUG = 1

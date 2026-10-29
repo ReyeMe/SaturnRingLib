@@ -120,6 +120,10 @@ ifeq ($(strip ${SRL_PROFILER}), 1)
 	CCFLAGS += -DSRL_PROFILER
 	SRL_PROFILE_SOURCES ?= $(SOURCES)
 	SRL_PROFILE_OBJECTS = $(addsuffix .o,$(basename $(strip ${SRL_PROFILE_SOURCES})))
+	# Frames between streamed reports (0 = off, read with GDB only)
+	ifneq ($(strip ${SRL_PROFILER_REPORT_FRAMES}),)
+		CCFLAGS += -DSRL_PROFILER_REPORT_FRAMES=$(strip ${SRL_PROFILER_REPORT_FRAMES})
+	endif
 $(SRL_PROFILE_OBJECTS): CCFLAGS += -finstrument-functions -finstrument-functions-exclude-file-list=$(SDK_ROOT)/,/include/c++/
 endif
 
