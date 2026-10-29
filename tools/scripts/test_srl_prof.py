@@ -12,31 +12,34 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import srl_prof  # noqa: E402
 
-MAIN, OUTER, INNER_A, INNER_B = 0x1000, 0x2000, 0x2100, 0x2200
+MAIN, OUTER, INNER_A, INNER_B, SLAVE_FN = 0x1000, 0x2000, 0x2100, 0x2200, 0x3000
 STRINGS = 0x06003000  # a fake .rodata holding the event names
 TICK_HZ = 200000  # 5 us per tick
 RODATA = b"Workload\0VBlank\0"
 WORKLOAD, VBLANK = STRINGS, STRINGS + 9
 
 
-def make_header(func_capacity, arc_capacity, event_capacity, event_count, hook_cost_ticks=1.0):
+def make_header(capacity, event_count=0, hist_bins=0, **extra):
     values = dict.fromkeys(srl_prof.HEADER_FIELDS, 0)
-    values.update(version=2, self_address=0x06050000, tick_hz=TICK_HZ, hook_cost_q16=int(hook_cost_ticks * 65536),
-                  enabled=1, frames=10, elapsed_ticks=10000, func_capacity=func_capacity,
-                  arc_capacity=arc_capacity, stack_capacity=64, event_capacity=event_capacity,
-                  event_count=event_count)
+    values.update(version=3, self_address=0x06050000, tick_hz=TICK_HZ, hook_cost_q16=65536, enabled=1,
+                  frames=10, elapsed_ticks=10000, func_capacity=capacity, arc_capacity=capacity,
+                  stack_capacity=64, event_capacity=capacity, event_count=event_count,
+                  hist_capacity=max(hist_bins, 1), hist_low=OUTER, hist_shift=4, hist_bins=hist_bins,
+                  sample_hz=1000 if hist_bins else 0, slave_ready=1)
+    values.update(extra)
     return srl_prof.HEADER.pack(b"SRLP", *(values[k] for k in srl_prof.HEADER_FIELDS))
 
 
-def rows(funcs, arcs):
-    return b"".join(srl_prof.FUNC.pack(*f) for f in funcs) + b"".join(srl_prof.ARC.pack(*a) for a in arcs)
+def padded(rows, struct_, capacity):
+    return b"".join(struct_.pack(*r) for r in rows) + b"\0" * (struct_.size * (capacity - len(rows)))
 
 
-def make_dump(funcs, arcs, events=(), capacity=8):
-    data = make_header(capacity, capacity, capacity, len(events))
-    data += b"".join(srl_prof.FUNC.pack(*f) for f in funcs) + b"\0" * (srl_prof.FUNC.size * (capacity - len(funcs)))
-    data += b"".join(srl_prof.ARC.pack(*a) for a in arcs) + b"\0" * (srl_prof.ARC.size * (capacity - len(arcs)))
-    data += b"".join(srl_prof.EVENT.pack(*e) for e in events) + b"\0" * (srl_prof.EVENT.size * (capacity - len(events)))
+def make_dump(funcs, arcs, events=(), slave_funcs=(), hist=(), capacity=8):
+    data = make_header(capacity, len(events), len(hist))
+    for f, a in ((funcs, arcs), (slave_funcs, ())):
+        data += bytes(srl_prof.CPU_COUNTERS.size) + padded(f, srl_prof.FUNC, capacity) + padded(a, srl_prof.ARC, capacity)
+    data += padded(events, srl_prof.EVENT, capacity)
+    data += struct.pack(f">{max(len(hist), 1)}I", *(hist or (0,)))
     return data
 
 
@@ -45,10 +48,17 @@ def packet(kind, payload):
             + struct.pack(">H", srl_prof.fletcher16(payload)))
 
 
-def report(funcs, arcs, events):
+def report(funcs, arcs, events, slave_funcs=(), hist=None):
     events_payload = b"".join(srl_prof.EVENT.pack(*e) for e in events)
-    tables_payload = make_header(512, 1024, 4096, 0) + struct.pack(">2I", len(funcs), len(arcs)) + rows(funcs, arcs)
-    return packet(srl_prof.PACKET_EVENTS, events_payload) + packet(srl_prof.PACKET_TABLES, tables_payload)
+    tables = make_header(512, hist_bins=16 if hist is not None else 0)
+    for f, a in ((funcs, arcs), (slave_funcs, ())):
+        tables += bytes(srl_prof.CPU_COUNTERS.size) + struct.pack(">2I", len(f), len(a))
+        tables += b"".join(srl_prof.FUNC.pack(*r) for r in f) + b"".join(srl_prof.ARC.pack(*r) for r in a)
+    data = packet(srl_prof.PACKET_EVENTS, events_payload) + packet(srl_prof.PACKET_TABLES, tables)
+    if hist is not None:
+        body = struct.pack(">3I", OUTER, 4, len(hist)) + b"".join(struct.pack(">2I", i, n) for i, n in hist.items())
+        data += packet(srl_prof.PACKET_HISTOGRAM, body)
+    return data
 
 
 def event(kind, name, ticks):
@@ -67,7 +77,9 @@ ARCS = [
     (OUTER, INNER_A, 20),
     (OUTER, INNER_B, 10),
 ]
-SYMS = srl_prof.Symbols([(MAIN, "main"), (OUTER, "Outer()"), (INNER_A, "InnerA()"), (INNER_B, "InnerB()")],
+SLAVE_FUNCS = [(SLAVE_FN, 10, 400, 400)]
+SYMS = srl_prof.Symbols([(MAIN, "main"), (OUTER, "Outer()"), (INNER_A, "InnerA()"), (INNER_B, "InnerB()"),
+                         (SLAVE_FN, "SlaveWork()")],
                         [(0x06050000, "g_srl_prof")], [(STRINGS, RODATA)])
 
 
@@ -75,20 +87,26 @@ def trace_names(trace):
     return [(e["ph"], e["name"], e["ts"]) for e in trace["traceEvents"] if e["ph"] != "M"]
 
 
-class SrlProfTest(unittest.TestCase):
+class DumpTest(unittest.TestCase):
     def setUp(self):
-        self.head, self.funcs, self.arcs, self.events = srl_prof.parse_block(make_dump(FUNCS, ARCS))
+        self.profile = srl_prof.parse_block(make_dump(FUNCS, ARCS, slave_funcs=SLAVE_FUNCS))
+        self.head = self.profile["head"]
+        self.funcs = self.profile["master"]["funcs"]
+        self.arcs = self.profile["master"]["arcs"]
 
     def test_parse_skips_free_rows(self):
         self.assertEqual(len(self.funcs), 3)
         self.assertEqual(len(self.arcs), 3)
         self.assertEqual(self.head["tick_hz"], TICK_HZ)
 
+    def test_slave_tables(self):
+        self.assertEqual(self.profile["slave"]["funcs"], [{"address": SLAVE_FN, "calls": 10, "total": 400, "self": 400}])
+
     def test_flat_removes_hook_cost_from_own_time(self):
-        rows_by_name = {r["name"]: r for r in srl_prof.flat_rows(self.head, self.funcs, self.arcs, SYMS)}
-        self.assertAlmostEqual(rows_by_name["Outer()"]["self"], 300)  # 330 raw - 30 calls made x 1 tick
-        self.assertAlmostEqual(rows_by_name["InnerA()"]["self"], 1000)  # leaf: unchanged
-        self.assertEqual(rows_by_name["InnerA()"]["calls"], 20)
+        rows = {r["name"]: r for r in srl_prof.flat_rows(self.head, self.funcs, self.arcs, SYMS)}
+        self.assertAlmostEqual(rows["Outer()"]["self"], 300)  # 330 raw - 30 calls made x 1 tick
+        self.assertAlmostEqual(rows["InnerA()"]["self"], 1000)  # leaf: unchanged
+        self.assertEqual(rows["InnerA()"]["calls"], 20)
 
     def test_folded_follows_callers(self):
         lines = dict(line.rsplit(" ", 1) for line in srl_prof.folded_lines(self.head, self.funcs, self.arcs, SYMS))
@@ -102,15 +120,15 @@ class SrlProfTest(unittest.TestCase):
         # InnerB called 3 times from Outer, once from main: its own time splits 3:1.
         arcs = ARCS + [(MAIN + 0x20, INNER_B, 10)]
         arcs[2] = (OUTER, INNER_B, 30)
-        head, funcs, arcs, _ = srl_prof.parse_block(make_dump(FUNCS, arcs))
-        lines = dict(line.rsplit(" ", 1) for line in srl_prof.folded_lines(head, funcs, arcs, SYMS))
+        p = srl_prof.parse_block(make_dump(FUNCS, arcs))
+        lines = dict(line.rsplit(" ", 1) for line in
+                     srl_prof.folded_lines(p["head"], p["master"]["funcs"], p["master"]["arcs"], SYMS))
         self.assertEqual(lines["main;Outer();InnerB()"], "750")
         self.assertEqual(lines["main;InnerB()"], "250")
 
     def test_recursion_terminates(self):
-        arcs = ARCS + [(INNER_A, OUTER, 5)]  # Outer -> InnerA -> Outer cycle
-        head, funcs, arcs, _ = srl_prof.parse_block(make_dump(FUNCS, arcs))
-        self.assertTrue(srl_prof.folded_lines(head, funcs, arcs, SYMS))
+        p = srl_prof.parse_block(make_dump(FUNCS, ARCS + [(INNER_A, OUTER, 5)]))  # Outer -> InnerA -> Outer
+        self.assertTrue(srl_prof.folded_lines(p["head"], p["master"]["funcs"], p["master"]["arcs"], SYMS))
 
     def test_rejects_wrong_magic_and_short_dump(self):
         dump = make_dump(FUNCS, ARCS)
@@ -126,13 +144,20 @@ class SrlProfTest(unittest.TestCase):
 
     def test_dump_events_only_up_to_count(self):
         events = [event(srl_prof.EVENT_INSTANT, VBLANK, 5)]
-        _, _, _, parsed = srl_prof.parse_block(make_dump(FUNCS, ARCS, events))
-        self.assertEqual(parsed, events)
+        self.assertEqual(srl_prof.parse_block(make_dump(FUNCS, ARCS, events))["events"], events)
 
     def test_event_names_come_from_the_elf(self):
         self.assertEqual(SYMS.string(WORKLOAD), "Workload")
         self.assertEqual(SYMS.string(VBLANK | 0x20000000), "VBlank")  # cache-through alias
         self.assertEqual(SYMS.string(0x1234), "0x0001234")
+
+    def test_histogram_in_dump(self):
+        # 16-byte bins from OUTER: bin 0 is Outer, bin 16 is InnerA (0x2100)
+        hist = [0] * 32
+        hist[0], hist[16] = 3, 9
+        p = srl_prof.parse_block(make_dump(FUNCS, ARCS, hist=hist))
+        self.assertEqual(p["hist"], {0: 3, 16: 9})
+        self.assertEqual(srl_prof.sampled_functions(p["head"], p["hist"], SYMS), [("InnerA()", 9), ("Outer()", 3)])
 
 
 class StreamTest(unittest.TestCase):
@@ -143,26 +168,31 @@ class StreamTest(unittest.TestCase):
     def test_reports_with_log_text_and_a_cut_packet(self):
         cut = report(FUNCS, ARCS, self.EVENTS1)[:20]  # abandoned mid-report
         data = (b"log line\n" + report(FUNCS[:1], ARCS[:1], self.EVENTS1) + cut + b"\xa5\x5a junk"
-                + report(FUNCS, ARCS, self.EVENTS2))
-        head, funcs, arcs, events, stats = srl_prof.parse_stream(data)
-        self.assertEqual(len(funcs), 3)  # tables of the last report
-        self.assertEqual(events, self.EVENTS1 + self.EVENTS2)
-        self.assertEqual(stats["reports"], 2)
-        self.assertGreater(stats["bad_packets"], 0)
+                + report(FUNCS, ARCS, self.EVENTS2, SLAVE_FUNCS))
+        p = srl_prof.parse_stream(data)
+        self.assertEqual(len(p["master"]["funcs"]), 3)  # tables of the last report
+        self.assertEqual(len(p["slave"]["funcs"]), 1)
+        self.assertEqual(p["events"], self.EVENTS1 + self.EVENTS2)
+        self.assertEqual(p["stats"]["reports"], 2)
+        self.assertGreater(p["stats"]["bad_packets"], 0)
+
+    def test_histogram_counts_add_up_across_reports(self):
+        data = report(FUNCS, ARCS, [], hist={0: 2, 16: 5}) + report(FUNCS, ARCS, [], hist={16: 1})
+        self.assertEqual(srl_prof.parse_stream(data)["hist"], {0: 2, 16: 6})
 
     def test_no_report_is_an_error(self):
         with self.assertRaises(ValueError):
             srl_prof.parse_stream(b"just log text")
 
     def test_perfetto_slices_and_instants(self):
-        head, _, _, events, _ = srl_prof.parse_stream(report(FUNCS, ARCS, self.EVENTS1))
-        self.assertEqual(trace_names(srl_prof.perfetto_trace(head, events, SYMS)), [
+        p = srl_prof.parse_stream(report(FUNCS, ARCS, self.EVENTS1))
+        self.assertEqual(trace_names(srl_prof.perfetto_trace(p["head"], p["events"], SYMS)), [
             ("i", "VBlank", 0.0), ("B", "Workload", 50.0), ("E", "Workload", 250.0)])
 
     def test_perfetto_closes_a_scope_whose_end_was_lost(self):
         events = [event(srl_prof.EVENT_BEGIN, WORKLOAD, 0), event(srl_prof.EVENT_BEGIN, VBLANK, 10),
                   event(srl_prof.EVENT_END, WORKLOAD, 20)]  # VBlank's End lost
-        trace = trace_names(srl_prof.perfetto_trace(self_head(), events, SYMS))
+        trace = trace_names(srl_prof.perfetto_trace(srl_prof.parse_header(make_header(1)), events, SYMS))
         self.assertEqual(trace[-2:], [("E", "VBlank", 100.0), ("E", "Workload", 100.0)])
 
     def test_tick_wrap(self):
@@ -171,8 +201,44 @@ class StreamTest(unittest.TestCase):
         self.assertEqual(ticks[1] - ticks[0], 0x20)
 
 
-def self_head():
-    return srl_prof.parse_header(make_header(1, 1, 1, 0))
+def parse_gmon(data):
+    """Reads back what gmon_bytes writes: (histogram record, arcs)."""
+    assert data[:4] == b"gmon" and struct.unpack_from(">I", data, 4)[0] == 1
+    pos = 20
+    hist, arcs = None, []
+    while pos < len(data):
+        tag = data[pos]
+        if tag == 0:
+            low, high, n, rate = struct.unpack_from(">4I", data, pos + 1)
+            assert data[pos + 17:pos + 32].rstrip(b"\0") == b"seconds" and data[pos + 32:pos + 33] == b"s"
+            bins = struct.unpack_from(f">{n}H", data, pos + 33)
+            hist = (low, high, rate, bins)
+            pos += 33 + 2 * n
+        else:
+            assert tag == 1
+            arcs.append(struct.unpack_from(">3I", data, pos + 1))
+            pos += 13
+    return hist, arcs
+
+
+class GmonTest(unittest.TestCase):
+    def test_from_hook_times(self):
+        p = srl_prof.parse_block(make_dump(FUNCS, ARCS))
+        head, arcs = p["head"], p["master"]["arcs"]
+        rows = srl_prof.flat_rows(head, p["master"]["funcs"], arcs, SYMS)
+        hist, arcs = parse_gmon(srl_prof.gmon_bytes(head, rows, arcs, {}))
+        low, high, rate, bins = hist
+        self.assertEqual((low, high, rate), (OUTER, INNER_B + 4, TICK_HZ))
+        self.assertEqual(bins[0], 300)  # Outer's own ticks (hook cost removed), at its first instruction
+        self.assertEqual(bins[(INNER_A - OUTER) // 4], 1000)
+        self.assertEqual(arcs, ARCS)
+
+    def test_from_samples_scales_to_16_bits(self):
+        head = srl_prof.parse_header(make_header(8, hist_bins=4, sample_hz=1000))
+        (low, high, rate, bins), _ = parse_gmon(srl_prof.gmon_bytes(head, [], [], {1: 200000, 3: 100}))
+        self.assertEqual((low, high), (OUTER, OUTER + 4 * 16))
+        self.assertEqual(bins, (0, 50000, 0, 25))  # / 4
+        self.assertEqual(rate, 250)  # rate / 4: counts still mean the same seconds
 
 
 if __name__ == "__main__":

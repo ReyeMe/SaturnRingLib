@@ -886,19 +886,20 @@ namespace SRL
          */
         static void __attribute__((interrupt_handler)) FrtHandler()
         {
-            // Disable timer interrupt first, this prevents multiple triggering of the handler while we are handling the overflow
-            Timer::TierReg = Timer::FrtDisable;
+            // Disable the overflow interrupt first, this prevents multiple triggering of the handler while we are handling the overflow.
+            // Only touch its own bit: the compare-match interrupt (profiler sampler) shares TIER.
+            Timer::TierReg = Timer::TierReg & ~Timer::FrtEnable;
 
             // Increment overflow counter
             Timer::overflowCounter += 1;
             
-            // Clear overflow interrupt flag, we must read FTCSR first due to a FTCSRM shadow register
-            volatile uint8_t status = Timer::Ftcsr;
-            (void)status;
-            Timer::Ftcsr = 0;
+            // Clear only the overflow flag: a flag is cleared by writing 0 after reading 1, so writing
+            // back what was read leaves the other flags (input capture for SGL, compare match) pending.
+            const uint8_t status = Timer::Ftcsr;
+            Timer::Ftcsr = status & ~0x02; // OVF
 
             // Re-enable timer interrupt
-            Timer::TierReg = Timer::FrtEnable;
+            Timer::TierReg = Timer::TierReg | Timer::FrtEnable;
         }
         
         //@}
@@ -1083,8 +1084,14 @@ namespace SRL
          */
         static Tickstamp Capture() noexcept
         {
+            // Interrupts masked across the two byte reads: reading the high byte latches the low
+            // byte in a register every FRT reader shares, so an interrupt that reads the FRT in
+            // between (e.g. the profiler's sampler) would hand back its own low byte.
+            uint32_t sr;
+            __asm__ volatile("stc sr, %0" : "=r"(sr));
+            __asm__ volatile("ldc %0, sr" : : "r"(sr | 0xF0U) : "memory");
             uint16_t frtValue = (static_cast<uint16_t>(Timer::FrchReg) << 8) | Timer::FrclReg;
-            __asm__ volatile("" : : : "memory");
+            __asm__ volatile("ldc %0, sr" : : "r"(sr) : "memory");
             return Tickstamp(Timer::overflowCounter, frtValue);  // high=overflow, frt=FRT direct
         }
         //@}
