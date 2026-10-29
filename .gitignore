@@ -79,3 +79,4 @@ Compiler/
 /Tests/Profiler/ftx_profiler.log
 /Tests/Profiler/capture.bin
 /Tests/Profiler/trace.json
+/Tests/Profiler/gmon_*.out

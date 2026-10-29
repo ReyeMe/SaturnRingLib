@@ -25,11 +25,25 @@ int main()
     // Drop what the setup above recorded.
     SRL::Profiler::Reset();
 
+    SlaveWorkTask slaveTask;
+
     while (1)
     {
         {
             SRL_PROF_SCOPE("Workload");
             RunWorkload();
+        }
+
+        {
+            // Timed on the master too: the slave's own profile uses the slave's FRT.
+            SRL_PROF_SCOPE("Slave job");
+            SRL::Slave::ExecuteOnSlave(slaveTask);
+
+            // Bounded, so a lost completion flag can't hang the sample.
+            // IsDone(), not IsRunning(): that one only turns true once the slave starts the task.
+            for (uint32_t wait = 0; !slaveTask.IsDone() && wait < 5000000U; wait++)
+            {
+            }
         }
 
         {

@@ -9,7 +9,11 @@ define srl-prof-dump
   if $argc != 1
     echo usage: srl-prof-dump FILE\n
   else
-    dump binary memory $arg0 &g_srl_prof ((char *)&g_srl_prof) + sizeof(g_srl_prof)
+    # Through the cache-through mirror (| 0x20000000): the slave writes part of the block,
+    # and the master's cache may hold old copies of it.
+    # The start address must have no spaces: GDB splits it from the end address on them.
+    set $srl_prof_start = (char *)&g_srl_prof + 0x20000000
+    dump binary memory $arg0 $srl_prof_start $srl_prof_start+sizeof(g_srl_prof)
     printf "wrote %d bytes, %d frames\n", sizeof(g_srl_prof), g_srl_prof.Head.Frames
   end
 end

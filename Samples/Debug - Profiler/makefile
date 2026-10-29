@@ -16,6 +16,9 @@ SRL_PROFILE_SOURCES = src/workload.cxx
 # Frames between reports streamed over the DevCart; 0 = off (read with GDB).
 # Leave it at 0 when you use GDB: report bytes would reach GDB through ftx -g.
 SRL_PROFILER_REPORT_FRAMES = 0
+# PC samples per second on the master; 0 = off. The sampler's interrupt time counts in
+# whatever function it interrupts, so leave it off when timing functions exactly.
+SRL_PROFILER_SAMPLE_HZ = 0
 
 # DEBUG builds the GDB stub in (to pull the profile); profile optimised code anyway
 DEBUG = 1

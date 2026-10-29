@@ -124,6 +124,10 @@ ifeq ($(strip ${SRL_PROFILER}), 1)
 	ifneq ($(strip ${SRL_PROFILER_REPORT_FRAMES}),)
 		CCFLAGS += -DSRL_PROFILER_REPORT_FRAMES=$(strip ${SRL_PROFILER_REPORT_FRAMES})
 	endif
+	# PC samples per second (0 = no sampler)
+	ifneq ($(strip ${SRL_PROFILER_SAMPLE_HZ}),)
+		CCFLAGS += -DSRL_PROFILER_SAMPLE_HZ=$(strip ${SRL_PROFILER_SAMPLE_HZ})
+	endif
 $(SRL_PROFILE_OBJECTS): CCFLAGS += -finstrument-functions -finstrument-functions-exclude-file-list=$(SDK_ROOT)/,/include/c++/
 endif
 
