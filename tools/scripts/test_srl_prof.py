@@ -15,17 +15,17 @@ import srl_prof  # noqa: E402
 MAIN, OUTER, INNER_A, INNER_B, SLAVE_FN = 0x1000, 0x2000, 0x2100, 0x2200, 0x3000
 STRINGS = 0x06003000  # a fake .rodata holding the event names
 TICK_HZ = 200000  # 5 us per tick
-RODATA = b"Workload\0VBlank\0"
-WORKLOAD, VBLANK = STRINGS, STRINGS + 9
+RODATA = b"Workload\0VBlank\0VDP1 draw end\0SCU DMA 0 end\0"
+WORKLOAD, VBLANK, VDP1_END, DMA0_END = STRINGS, STRINGS + 9, STRINGS + 16, STRINGS + 30
 
 
 def make_header(capacity, event_count=0, hist_bins=0, **extra):
     values = dict.fromkeys(srl_prof.HEADER_FIELDS, 0)
-    values.update(version=3, self_address=0x06050000, tick_hz=TICK_HZ, hook_cost_q16=65536, enabled=1,
+    values.update(version=4, self_address=0x06050000, tick_hz=TICK_HZ, hook_cost_q16=65536, enabled=1,
                   frames=10, elapsed_ticks=10000, func_capacity=capacity, arc_capacity=capacity,
                   stack_capacity=64, event_capacity=capacity, event_count=event_count,
                   hist_capacity=max(hist_bins, 1), hist_low=OUTER, hist_shift=4, hist_bins=hist_bins,
-                  sample_hz=1000 if hist_bins else 0, slave_ready=1)
+                  sample_hz=1000 if hist_bins else 0, slave_ready=1, vdp1_hist_capacity=max(hist_bins, 1))
     values.update(extra)
     return srl_prof.HEADER.pack(b"SRLP", *(values[k] for k in srl_prof.HEADER_FIELDS))
 
@@ -40,6 +40,7 @@ def make_dump(funcs, arcs, events=(), slave_funcs=(), hist=(), capacity=8):
         data += bytes(srl_prof.CPU_COUNTERS.size) + padded(f, srl_prof.FUNC, capacity) + padded(a, srl_prof.ARC, capacity)
     data += padded(events, srl_prof.EVENT, capacity)
     data += struct.pack(f">{max(len(hist), 1)}I", *(hist or (0,)))
+    data += struct.pack(f">{max(len(hist), 1)}I", *([0] * len(hist) or (0,)))  # VDP1 slots
     return data
 
 
@@ -48,7 +49,11 @@ def packet(kind, payload):
             + struct.pack(">H", srl_prof.fletcher16(payload)))
 
 
-def report(funcs, arcs, events, slave_funcs=(), hist=None):
+def command(ctrl=4, pmod=0, colr=0x801F, srca=0, size=0, coords=(-160, -120, 159, -120, 159, 119, -160, 119)):
+    return struct.pack(">6H8h2H", ctrl, 0, pmod, colr, srca, size, *coords, 0, 0)
+
+
+def report(funcs, arcs, events, slave_funcs=(), hist=None, vdp1=None):
     events_payload = b"".join(srl_prof.EVENT.pack(*e) for e in events)
     tables = make_header(512, hist_bins=16 if hist is not None else 0)
     for f, a in ((funcs, arcs), (slave_funcs, ())):
@@ -58,6 +63,9 @@ def report(funcs, arcs, events, slave_funcs=(), hist=None):
     if hist is not None:
         body = struct.pack(">3I", OUTER, 4, len(hist)) + b"".join(struct.pack(">2I", i, n) for i, n in hist.items())
         data += packet(srl_prof.PACKET_HISTOGRAM, body)
+    if vdp1 is not None:
+        body = struct.pack(">I", len(vdp1)) + b"".join(struct.pack(">2I", slot, n) + cmd for slot, (n, cmd) in vdp1.items())
+        data += packet(srl_prof.PACKET_VDP1, body)
     return data
 
 
@@ -199,6 +207,47 @@ class StreamTest(unittest.TestCase):
         events = [event(srl_prof.EVENT_INSTANT, VBLANK, 0xFFFFFFF0), event(srl_prof.EVENT_INSTANT, VBLANK, 0x10)]
         ticks = [t for t, _, _ in srl_prof.timeline(events, SYMS)]
         self.assertEqual(ticks[1] - ticks[0], 0x20)
+
+
+class Vdp1Test(unittest.TestCase):
+    def test_vdp1_packets_add_up_and_keep_the_latest_command(self):
+        polygon, sprite = command(), command(ctrl=0, size=(4 << 8) | 16, srca=0x200, coords=(10, 20, 0, 0, 0, 0, 0, 0))
+        data = report(FUNCS, ARCS, [], vdp1={5: (3, sprite)}) + report(FUNCS, ARCS, [], vdp1={5: (2, polygon), 6: (1, sprite)})
+        p = srl_prof.parse_stream(data)
+        self.assertEqual(p["vdp1"], {5: 5, 6: 1})
+        self.assertEqual(p["vdp1_commands"][5], polygon)
+
+    def test_decode(self):
+        self.assertEqual(srl_prof.decode_vdp1_command(command()),
+                         "polygon, color 0x801f, covering (-160, -120)-(159, 119)")
+        self.assertEqual(srl_prof.decode_vdp1_command(command(ctrl=0, pmod=5 << 3 | 3, size=(4 << 8) | 16, srca=0x200,
+                                                              coords=(10, 20, 0, 0, 0, 0, 0, 0))),
+                         "normal sprite, 32x16 texture at 0x01000, RGB, at (10, 20), half-transparent")
+        self.assertEqual(srl_prof.decode_vdp1_command(command(ctrl=0x8000)), "end of list")
+
+    def test_frames_finished_cut_and_idle(self):
+        missed = STRINGS + 44
+        syms = srl_prof.Symbols([], [], [(STRINGS, RODATA + b"VDP1 missed frame\0")])
+        events = [event(srl_prof.EVENT_INSTANT, VBLANK, 0), event(srl_prof.EVENT_INSTANT, VDP1_END, 100),
+                  event(srl_prof.EVENT_INSTANT, VBLANK, 3500),                # VDP1 starts, never ends
+                  event(srl_prof.EVENT_INSTANT, VBLANK, 7000), event(srl_prof.EVENT_INSTANT, missed, 7000),
+                  event(srl_prof.EVENT_INSTANT, VDP1_END, 8000),             # the next one finishes
+                  event(srl_prof.EVENT_INSTANT, VBLANK, 10500),               # idle: no slice
+                  event(srl_prof.EVENT_INSTANT, VBLANK, 14000)]
+        self.assertEqual(srl_prof.vdp1_frames(events, syms), [(0, 100, True), (3500, 7000, False), (7000, 8000, True)])
+
+    def test_perfetto_tracks(self):
+        events = [event(srl_prof.EVENT_INSTANT, VBLANK, 0), event(srl_prof.EVENT_INSTANT, DMA0_END, 10),
+                  event(srl_prof.EVENT_INSTANT, VDP1_END, 100)]
+        trace = srl_prof.perfetto_trace(srl_prof.parse_header(make_header(1)), events, SYMS)["traceEvents"]
+        drawing = [e for e in trace if e["name"] == "VDP1 drawing"]
+        self.assertEqual([(e["tid"], e["ts"], e["dur"]) for e in drawing], [(2, 0.0, 500.0)])
+        self.assertEqual({e["name"]: e["tid"] for e in trace if e["ph"] == "i"},
+                         {"VBlank": 1, "SCU DMA 0 end": 3, "VDP1 draw end": 2})
+
+    def test_dump_vdp1_slots(self):
+        p = srl_prof.parse_block(make_dump(FUNCS, ARCS, hist=[0] * 32))
+        self.assertEqual(p["vdp1"], {})
 
 
 def parse_gmon(data):

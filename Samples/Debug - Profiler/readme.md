@@ -16,7 +16,7 @@ Each SH-2 has its own tables: code the slave runs (an `ITask` given to `SRL::Sla
 
 With `SRL_PROFILER_SAMPLE_HZ = N`, a **PC sampler** also counts where the master's program counter is, N times a second. It sees all code, including SGL and files built without hooks, and costs nothing per call.
 
-It also keeps a **timeline**: `SRL_PROF_SCOPE("name")` times the rest of a block, `SRL_PROF_MARK("name")` marks a point in time, and SRL adds a `VBlank` mark every frame and an `slSynch` slice for the wait at the end of each frame. Names must be string literals: only their address is stored, and the PC reads the text from the ELF. Without `SRL_PROFILER`, both macros compile to nothing.
+It also keeps a **timeline**: `SRL_PROF_SCOPE("name")` times the rest of a block, `SRL_PROF_MARK("name")` marks a point in time, and SRL adds a `VBlank` mark every frame, an `slSynch` slice for the wait at the end of each frame, a mark when VDP1 finishes drawing a frame or fails to by the next VBlank, and a mark at the end of each SCU DMA transfer. Names must be string literals: only their address is stored, and the PC reads the text from the ELF. Without `SRL_PROFILER`, both macros compile to nothing.
 
 `SRL::Core::Initialize()` starts recording. Two ways to get the data to the PC, then read it with `tools/scripts/srl_prof.py`:
 
@@ -26,6 +26,7 @@ It also keeps a **timeline**: `SRL_PROF_SCOPE("name")` times the rest of a block
 | File | What it shows |
 |---|---|
 | `src/workload.cxx` | Functions that busy-wait a known number of ticks, and a slave task; the only file profiled |
+| `src/vdp1_load.cxx` | Draws 0, 1, 2, 4, 8 then 16 full-screen polygons per frame, 2 seconds each, for VDP1 to chew on |
 | `src/main.cxx` | Runs the workload every frame inside `SRL_PROF_SCOPE`s, runs the slave task, shows the hook cost on screen |
 
 ## Makefile switches
@@ -123,6 +124,28 @@ gprof's time column comes from the PC samples and its call counts from the hooks
 - Read the FRT through `SRL::Timer::Capture()`, not its registers: the sampler reads the FRT too, and a read split around it gets a wrong low byte. `Capture()` masks interrupts across its two reads for that reason.
 - With streaming, reports get bigger (8 bytes per non-zero histogram bin): the sample's report grows from 4.8 KB to 9 KB, about 60 ms to send.
 
+## VDP1 and SCU DMA
+
+`--format vdp1` reports VDP1's frames, and with the sampler on, the commands it spends its time on:
+
+```
+VDP1: 699 frames drawn, 260 cut unfinished by the next VBlank (since the last reset)
+draw time (VBlank to draw end) over 639 finished frames on the timeline: mean 6.75 ms, median 4.95 ms, max 15.80 ms; 259 cut
+
+130130 PC samples landed while VDP1 drew; by command slot:
+     %   samples  slot  command
+  32.3     42164     3  polygon, color 0x801f, covering (-160, -120)-(159, 119)
+  23.5     30685     4  end of list (frame changed, VDP1 not drawing the new one yet)
+  17.7     23124     5  polygon, color 0xfc00, covering (-160, -120)-(159, 119)
+```
+
+- **Frames**: each VBlank is a frame change, where VDP1 starts the next frame. The sprite draw end interrupt marks its end. If VDP1 hasn't finished by the next VBlank, the Saturn marks `VDP1 missed frame`: the frame change drops what wasn't drawn (the sample's 8 and 16 polygons never finish; 4 take 15.6 ms of the 16.7).
+- **Commands**: on each PC sample taken while VDP1 draws, the sampler also reads which command VDP1 is on. The command's text is read when the report is sent: SGL rebuilds the table every frame, so it only matches while the scene keeps its drawing order. With GDB, also run `srl-prof-dump-vram vram.bin` and pass `--vram vram.bin`.
+- **Perfetto**: VDP1 frames get their own row, and SCU DMA end marks another.
+- SCU DMA marks are chained in front of SGL's own DMA end routines; SGL starts the transfers, so only their ends are known.
+
+## Profile part of the program
+
 To profile only part of the program, call `SRL::Profiler::Stop()`, `Start()` and `Reset()`, or set `g_srl_prof.Head.Enabled` from GDB.
 
 ## What to keep in mind
@@ -132,8 +155,9 @@ To profile only part of the program, call `SRL::Profiler::Stop()`, `Start()` and
 - **Interrupts count in the function they land in**, and so does time stopped in GDB.
 - **The slave**: its hooks keep their state in uncached memory (both CPUs read it), which adds about a tick to each slave call. Its timer has no overflow interrupt, so a slave function is timed right only if profiled code runs on the slave at least every 0.3 s. DEBUG builds purge the slave's cache before each task, hence `WarmUp()` at the start of `SlaveWorkTask::Do()`. `Reset()` clears the slave's tables too: call it while the slave is idle.
 - **Timeline and sampler are master only.**
+- **Stepping in profiled code**: `stepi` walks into the profiler's hooks at the start and end of every profiled function; `nexti`, `step` and `next` step over them.
 - `main()` and other functions that never return don't appear as rows; they still show as callers.
 
 ## Test
 
-`Tests/Profiler/run_profiler_test.py` builds this sample, runs it on the rig and checks every function's time against the ticks it busy-waits (`src/workload.hpp`), on both CPUs (`--mode gdb|stream|sampler|all`). The streamed run also checks the timeline, compares the slave's clock with the master's, and writes `Tests/Profiler/trace.json`. The sampler run checks the sample rate and each function's share of samples, and that `sh-elf-gprof` reads the `gmon.out`. `tools/scripts/test_srl_prof.py` tests the script without hardware.
+`Tests/Profiler/run_profiler_test.py` builds this sample, runs it on the rig and checks every function's time against the ticks it busy-waits (`src/workload.hpp`), on both CPUs (`--mode gdb|stream|sampler|all`). The streamed run also checks the timeline, compares the slave's clock with the master's, and writes `Tests/Profiler/trace.json`. The sampler run checks the sample rate and each function's share of samples, and that `sh-elf-gprof` reads the `gmon.out`. The `vdp1` run checks that VDP1 draw time grows with the polygon count, that frames go missing only under the heavy loads, and that the costliest command is a full-screen polygon. `tools/scripts/test_srl_prof.py` tests the script without hardware.

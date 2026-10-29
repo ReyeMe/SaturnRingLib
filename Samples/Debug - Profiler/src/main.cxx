@@ -1,6 +1,7 @@
 #include <srl.hpp>
 
 #include "workload.hpp"
+#include "vdp1_load.hpp"
 
 /**
  * @brief Runs a workload with known costs every frame, for the profiler to measure.
@@ -26,9 +27,15 @@ int main()
     SRL::Profiler::Reset();
 
     SlaveWorkTask slaveTask;
+    uint32_t frame = 0;
 
     while (1)
     {
+        {
+            SRL_PROF_SCOPE("VDP1 load setup");
+            DrawVdp1Load(frame++);
+        }
+
         {
             SRL_PROF_SCOPE("Workload");
             RunWorkload();

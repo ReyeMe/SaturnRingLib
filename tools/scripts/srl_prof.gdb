@@ -22,3 +22,18 @@ document srl-prof-dump
 Writes the profiler's data block (g_srl_prof) to FILE, for tools/scripts/srl_prof.py.
 The target must be stopped (Ctrl-C) first.
 end
+
+define srl-prof-dump-vram
+  if $argc != 1
+    echo usage: srl-prof-dump-vram FILE\n
+  else
+    # 2048 command slots of 32 bytes (SRL_PROFILER_MAX_VDP1_COMMANDS), for srl_prof.py --vram
+    dump binary memory $arg0 0x25C00000 0x25C10000
+    echo wrote the VDP1 command table\n
+  end
+end
+
+document srl-prof-dump-vram
+Writes the start of VDP1 VRAM (the command table) to FILE, so srl_prof.py --format vdp1 --vram FILE
+can decode the commands of a GDB dump. The target must be stopped (Ctrl-C) first.
+end
