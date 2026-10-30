@@ -5,6 +5,7 @@
 extern "C" {
     extern char _heap_start;
     extern char _heap_end;
+    extern char _lwram_bend; ///< End of the LWRAM_BSS section (sgl.linker); the LWRAM heap starts here
 }
 
 #if defined(USE_TLSF_ALLOCATOR)
@@ -590,8 +591,9 @@ namespace SRL
              */
             inline static void Initialize()
             {
-                const volatile void* address = (void*)0x00200000;
-                const uint32_t size = 0x100000;
+                // Variables placed in LWRAM_BSS (e.g. the profiler's tables) come first.
+                const volatile void* address = &_lwram_bend;
+                const uint32_t size = 0x00300000U - reinterpret_cast<uint32_t>(address);
 
                 #if defined(USE_TLSF_ALLOCATOR)
                 LowWorkRam::zone = Memory::MemoryZone

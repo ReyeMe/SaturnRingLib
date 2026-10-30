@@ -13,6 +13,9 @@ extern "C" {
      */
     extern uint32_t _bend;
 
+    /** @brief Start of the zero-initialised low work RAM section (LWRAM_BSS) */
+    extern uint32_t _lwram_bstart;
+
     /** @brief Start address of constructor array
      */
     extern void(*__ctors)();
@@ -36,6 +39,13 @@ extern "C" {
     {
         // Zero stuff inside .bss section
         for (uint32_t* bssBlock = &_bstart; bssBlock < &_bend; bssBlock++)
+        {
+            *bssBlock = 0;
+        }
+
+        // Same for variables placed in low work RAM: it keeps its contents across a reset
+        // (_lwram_bend is declared in srl_memory.hpp)
+        for (uint32_t* bssBlock = &_lwram_bstart; bssBlock < reinterpret_cast<uint32_t*>(&_lwram_bend); bssBlock++)
         {
             *bssBlock = 0;
         }

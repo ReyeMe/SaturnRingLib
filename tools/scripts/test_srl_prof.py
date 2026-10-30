@@ -4,10 +4,16 @@
 Run: python3 tools/scripts/test_srl_prof.py
 """
 
+import argparse
 import os
+import socket
 import struct
 import sys
+import tempfile
+import threading
+import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import srl_prof  # noqa: E402
@@ -150,6 +156,11 @@ class DumpTest(unittest.TestCase):
         other = srl_prof.Symbols([], [(0x06060000, "g_srl_prof")])
         self.assertIn("doesn't match", srl_prof.check_elf(self.head, other))
 
+    def test_warnings_name_what_was_dropped(self):
+        self.assertEqual(srl_prof.warnings(self.profile, SYMS), [])
+        self.profile["slave"]["dropped_funcs"] = 3
+        self.assertEqual(srl_prof.warnings(self.profile, SYMS), ["warning: slave dropped_funcs = 3"])
+
     def test_dump_events_only_up_to_count(self):
         events = [event(srl_prof.EVENT_INSTANT, VBLANK, 5)]
         self.assertEqual(srl_prof.parse_block(make_dump(FUNCS, ARCS, events))["events"], events)
@@ -288,6 +299,112 @@ class GmonTest(unittest.TestCase):
         self.assertEqual((low, high), (OUTER, OUTER + 4 * 16))
         self.assertEqual(bins, (0, 50000, 0, 25))  # / 4
         self.assertEqual(rate, 250)  # rate / 4: counts still mean the same seconds
+
+
+def parse_callgrind(text):
+    """{function: (own costs, {callee: (calls, inclusive cost)})} from what callgrind_text writes."""
+    functions, fn, callee, calls = {}, None, None, 0
+    for line in text.splitlines():
+        if line.startswith("fn="):
+            fn = line[3:]
+            functions.setdefault(fn, ([], {}))
+        elif line.startswith("cfn="):
+            callee = line[4:]
+        elif line.startswith("calls="):
+            calls = int(line[6:].split()[0])
+        elif fn and line[:1].isdigit():
+            costs = [int(v) for v in line.split()[2:]]  # after the address and line
+            if callee:
+                functions[fn][1][callee] = (calls, costs[0])
+                callee = None
+            else:
+                functions[fn][0].append(costs)
+    return functions
+
+
+class CallgrindTest(unittest.TestCase):
+    def locate(self, addresses):
+        return {a: ("workload.cxx", a & 0xFFF) for a in addresses}
+
+    def test_inclusive_time_matches_the_measured_total(self):
+        p = srl_prof.parse_block(make_dump(FUNCS, ARCS))
+        text = srl_prof.callgrind_text(p["head"], p["master"]["funcs"], p["master"]["arcs"], {}, SYMS, self.locate,
+                                       elf_path="/src/prog.elf")
+        self.assertIn("events: us\n", text)
+        self.assertIn("ob=/src/prog.elf\n", text)  # for the Machine Code view
+        self.assertIn("fn=Outer()\n0x2000 0 1500\ncfl=workload.cxx\ncfn=InnerA()\ncalls=20 0x2100 256\n0x2000 0 5100\n", text)
+        f = parse_callgrind(text)
+        self.assertEqual(f["(profiler hooks)"][0], [[(10 + 20 + 10) * 5]])  # one hook pair per call
+        own, calls = f["Outer()"]
+        self.assertEqual(own, [[1500]])  # 300 own ticks (hook cost removed) x 5 us
+        # InnerA: its 1000-tick total + 20 hook pairs; Outer's own + calls = its 1530-tick total
+        self.assertEqual(calls, {"InnerA()": (20, 5100), "InnerB()": (10, 1050)})
+        self.assertEqual(own[0][0] + sum(c for _, c in calls.values()), 1530 * 5)
+        self.assertEqual(f["main"][1], {"Outer()": (10, (1530 + 10) * 5)})
+
+    def test_samples_land_on_their_lines(self):
+        head = srl_prof.parse_header(make_header(8, hist_bins=4, sample_hz=1000))
+        text = srl_prof.callgrind_text(head, [], [], {0: 7, 16: 3}, SYMS, self.locate)
+        self.assertIn("events: Samples us\nsummary: 10 0\n", text)  # samples first: KCachegrind opens on them
+        f = parse_callgrind(text)
+        self.assertEqual(f["Outer()"][0], [[7, 0]])
+        self.assertEqual(f["InnerA()"][0], [[3, 0]])  # bin 16 = OUTER + 16 * 16 = INNER_A
+
+    def test_inlined_code_switches_file(self):
+        head = srl_prof.parse_header(make_header(8, hist_bins=4, sample_hz=1000))
+        locate = lambda addresses: {a: ("srl_timer.hpp", 9) if a == OUTER + 16 else ("workload.cxx", 1)
+                                    for a in addresses}
+        text = srl_prof.callgrind_text(head, [], [], {0: 7, 1: 3}, SYMS, locate)
+        self.assertIn("fl=workload.cxx\nfn=Outer()\n0x2000 1 7 0\nfi=srl_timer.hpp\n0x2010 9 3 0\n", text)
+
+
+class MapPathTest(unittest.TestCase):
+    def test_only_a_leading_match_is_replaced(self):
+        self.assertEqual(srl_prof.map_path("/saturn/a/saturn/b.cxx", "/saturn=/home/me"), "/home/me/a/saturn/b.cxx")
+        self.assertEqual(srl_prof.map_path("/other/b.cxx", "/saturn=/home/me"), "/other/b.cxx")
+        self.assertEqual(srl_prof.map_path("/saturn/b.cxx", None), "/saturn/b.cxx")
+
+
+class Addr2lineTest(unittest.TestCase):
+    def test_paths_with_spaces_discriminators_and_unknowns(self):
+        out = "/src/My Game/a.cxx:12 (discriminator 3)\n??:0\n/saturn/b.hpp:?\n"
+        with mock.patch("subprocess.run", return_value=mock.Mock(stdout=out)) as run:
+            lines = srl_prof.addr2line("x.elf", [0x30, 0x10, 0x20, 0x10], tool="addr2line", source_map="/saturn=/home")
+        self.assertEqual(run.call_args.kwargs["input"], "10\n20\n30")  # sorted, once each, in hex
+        self.assertEqual(lines, {0x10: ("/src/My Game/a.cxx", 12), 0x20: ("???", 0), 0x30: ("/home/b.hpp", 0)})
+
+
+class WatchTest(unittest.TestCase):
+    def test_rewrites_the_output_as_reports_arrive(self):
+        """A local socket plays ftx -g: a report, a pause, a report cut in two, then it closes."""
+        server = socket.create_server(("localhost", 0))
+        second = report(FUNCS, ARCS, StreamTest.EVENTS2)
+
+        def ftx():
+            conn, _ = server.accept()
+            with conn:
+                conn.sendall(b"log line\n" + report(FUNCS[:1], ARCS[:1], StreamTest.EVENTS1))
+                time.sleep(0.5)
+                conn.sendall(second[:10])
+                time.sleep(0.5)
+                conn.sendall(second[10:])
+
+        thread = threading.Thread(target=ftx)
+        thread.start()
+        with tempfile.TemporaryDirectory() as tmp:
+            args = argparse.Namespace(elf="test.elf", data=os.path.join(tmp, "capture.bin"),
+                                      output=os.path.join(tmp, "flat.txt"), watch=0.3, host="localhost",
+                                      port=server.getsockname()[1], format="flat", cpu="master", top=40,
+                                      vram=None, source_map=None)
+            srl_prof.watch(args, SYMS)
+            thread.join()
+            server.close()
+            with open(args.data, "rb") as f:
+                self.assertEqual(srl_prof.parse_stream(f.read())["stats"]["reports"], 2)  # every byte recorded
+            with open(args.output) as f:
+                flat = f.read()
+            self.assertIn("InnerB()", flat)  # tables of the second report
+            self.assertFalse(os.path.exists(args.output + ".tmp"))
 
 
 if __name__ == "__main__":

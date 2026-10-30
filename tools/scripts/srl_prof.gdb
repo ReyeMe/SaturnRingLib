@@ -14,12 +14,15 @@ define srl-prof-dump
     # The start address must have no spaces: GDB splits it from the end address on them.
     set $srl_prof_start = (char *)&g_srl_prof + 0x20000000
     dump binary memory $arg0 $srl_prof_start $srl_prof_start+sizeof(g_srl_prof)
-    printf "wrote %d bytes, %d frames\n", sizeof(g_srl_prof), g_srl_prof.Head.Frames
+    # The timeline and histograms live apart, in low work RAM: append them, the file is one block.
+    set $srl_prof_start = (char *)&g_srl_prof_buffers + 0x20000000
+    append binary memory $arg0 $srl_prof_start $srl_prof_start+sizeof(g_srl_prof_buffers)
+    printf "wrote %d bytes, %d frames\n", sizeof(g_srl_prof) + sizeof(g_srl_prof_buffers), g_srl_prof.Head.Frames
   end
 end
 
 document srl-prof-dump
-Writes the profiler's data block (g_srl_prof) to FILE, for tools/scripts/srl_prof.py.
+Writes the profiler's data (g_srl_prof, then g_srl_prof_buffers) to FILE, for tools/scripts/srl_prof.py.
 The target must be stopped (Ctrl-C) first.
 end
 
