@@ -124,6 +124,31 @@ gprof's time column comes from the PC samples and its call counts from the hooks
 - Read the FRT through `SRL::Timer::Capture()`, not its registers: the sampler reads the FRT too, and a read split around it gets a wrong low byte. `Capture()` masks interrupts across its two reads for that reason.
 - With streaming, reports get bigger (8 bytes per non-zero histogram bin): the sample's report grows from 4.8 KB to 9 KB, about 60 ms to send.
 
+## Browse it in KCachegrind
+
+```bash
+python3 ../../tools/scripts/srl_prof.py BuildDrop/Debug_Profiler.elf capture.bin --format callgrind -o callgrind.out.srl --source-map /saturn=$HOME/tmp
+kcachegrind callgrind.out.srl
+```
+
+[KCachegrind](https://kcachegrind.github.io) (QCachegrind on Windows and macOS) shows the call graph with call counts, each function's own and inclusive time (event `us`, from the hooks), and a treemap of where that time goes. `(profiler hooks)` is the time spent in the hooks themselves.
+
+- **Source view**: needs the sampler. The `Samples` event puts each PC sample on its source line, including code inlined from headers, SGL and files built without hooks, and KCachegrind opens on it. The `us` event has one number per function, on its first line.
+- **Source paths**: the source view opens the files at the paths the ELF was built with. When it was built in a container, `--source-map FROM=TO` rewrites them to where the files are on your machine (the example maps the toolchain container's `/saturn` mount).
+- **Machine Code view**: samples per instruction, next to the disassembly. KCachegrind runs objdump on the ELF, so it needs one that knows the SH-2: copy `sh-elf-objdump` out of the toolchain container (`docker cp <container>:/opt/saturn/toolchain/bin/sh-elf-objdump ~/.local/bin/`) and start `OBJDUMP=sh-elf-objdump kcachegrind callgrind.out.srl`. The ELF path is mapped by `--source-map` too. A sample counts for a whole bin of `1 << hist_shift` bytes and shows on the bin's first instruction. The bin is the smallest power of two that spreads `SRL_PROFILER_MAX_BINS` (16384) over the code: 8 bytes, 4 instructions, for this sample's 95 KB. For one bin per instruction, set `SRL_CUSTOM_CCFLAGS = -DSRL_PROFILER_MAX_BINS=65536` in the makefile (up to 128 KB of code). It costs 4 bytes of low work RAM per bin (256 KB), and streamed reports grow with the number of hot instructions: 14 KB and 140 ms each here, so raise `SRL_PROFILER_REPORT_FRAMES` with it.
+- **Control Flow Graph view**: not available. It needs how often each branch was taken, which only an instruction-level tracer like Valgrind records.
+- `--cpu slave` writes the slave's profile (hook times only: the sampler runs on the master).
+- The time along each call arrow is the callee's total shared by call count, plus the hook pair, as gprof does: if a function is slower for one caller than another, the split is wrong, but each function's own and inclusive times are measured.
+- SGL's library has no debug info: its functions show under `???`.
+
+**Live**: with streaming on (`SRL_PROFILER_REPORT_FRAMES`) and `ftx -g 1234` running, `--watch N` records the reports to the data file and rewrites the output every N seconds; press F5 in KCachegrind to reload it. It works with every `--format` that writes to `-o`.
+
+```bash
+python3 ../../tools/scripts/srl_prof.py BuildDrop/Debug_Profiler.elf capture.bin --format callgrind -o callgrind.out.srl --source-map /saturn=$HOME/tmp --watch 5
+```
+
+The numbers add up since the last `Reset()` (the PC samples since `--watch` started), not over the last N seconds. Each report costs the Saturn 14 to 60 ms, so keep `SRL_PROFILER_REPORT_FRAMES` at a few seconds' worth when the hitch matters.
+
 ## VDP1 and SCU DMA
 
 `--format vdp1` reports VDP1's frames, and with the sampler on, the commands it spends its time on:
@@ -146,12 +171,14 @@ draw time (VBlank to draw end) over 639 finished frames on the timeline: mean 6.
 
 ## Profile part of the program
 
-To profile only part of the program, call `SRL::Profiler::Stop()`, `Start()` and `Reset()`, or set `g_srl_prof.Head.Enabled` from GDB.
+To profile only part of the program, call `SRL::Profiler::Stop()`, `Start()` and `Reset()`, or set `g_srl_prof.Head.Enabled` from GDB. Streaming carries on while stopped, so what was recorded before `Stop()` still reaches the capture.
 
 ## What to keep in mind
 
+- **Memory**: the function and caller -> callee tables, which every profiled call reads and writes, take 41 KB of high work RAM at the default sizes (`SRL_PROFILER_MAX_FUNCS`, `SRL_PROFILER_MAX_ARCS`, both CPUs). The timeline (32 KB, `SRL_PROFILER_MAX_EVENTS`) and the sampler's counts (72 KB, `SRL_PROFILER_MAX_BINS` and `SRL_PROFILER_MAX_VDP1_COMMANDS`) go to low work RAM, which leaves that much less for `SRL::Memory::LowWorkRam`. The code adds 4 KB, 13 KB with streaming, and about 200 bytes per profiled function. Size the tables to your program: the `dropped_*` counters say when one is full. The flat profile lists them; the other formats print them on stderr.
 - **Each profiled call costs about 15 us** (one enter + exit hook pair, measured at start-up and shown on screen). The script removes it from each caller's own time, but a function called thousands of times per frame still slows the frame down. Leave small, hot functions out of `SRL_PROFILE_SOURCES`, or mark them `__attribute__((no_instrument_function))`.
 - **The first profiled call of a frame is slower**: the hook code is out of the cache, which adds about 1.5 ticks. That's why the workload starts with `WarmUp()`.
+- **Recursive functions**: each nested call adds its time to the function's total again, so a recursive function's total (and its inclusive time in KCachegrind) is too high. Its own time is right.
 - **Interrupts count in the function they land in**, and so does time stopped in GDB.
 - **The slave**: its hooks keep their state in uncached memory (both CPUs read it), which adds about a tick to each slave call. Its timer has no overflow interrupt, so a slave function is timed right only if profiled code runs on the slave at least every 0.3 s. DEBUG builds purge the slave's cache before each task, hence `WarmUp()` at the start of `SlaveWorkTask::Do()`. `Reset()` clears the slave's tables too: call it while the slave is idle.
 - **Timeline and sampler are master only.**

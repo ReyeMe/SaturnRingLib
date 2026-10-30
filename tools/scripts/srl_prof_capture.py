@@ -12,21 +12,35 @@ import socket
 import time
 
 
-def capture(host, port, seconds):
-    """Returns every byte received from ftx -g during `seconds`."""
+def connect(host, port):
+    """A connection to ftx -g, read with receive()."""
+    sock = socket.create_connection((host, port), timeout=5)
+    sock.settimeout(0.2)
+    return sock
+
+
+def receive(sock, seconds):
+    """(bytes received during `seconds`, True if ftx closed the connection or Ctrl-C was pressed)."""
     data = bytearray()
-    with socket.create_connection((host, port), timeout=5) as sock:
-        sock.settimeout(0.2)
-        deadline = time.time() + seconds
+    deadline = time.time() + seconds
+    try:
         while time.time() < deadline:
             try:
                 chunk = sock.recv(65536)
             except socket.timeout:
                 continue
             if not chunk:
-                break  # ftx closed the connection
+                return bytes(data), True
             data += chunk
-    return bytes(data)
+    except KeyboardInterrupt:
+        return bytes(data), True  # keep what arrived: the caller saves it
+    return bytes(data), False
+
+
+def capture(host, port, seconds):
+    """Returns every byte received from ftx -g during `seconds`."""
+    with connect(host, port) as sock:
+        return receive(sock, seconds)[0]
 
 
 def main():

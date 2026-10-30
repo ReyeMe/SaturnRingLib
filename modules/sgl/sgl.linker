@@ -92,6 +92,17 @@ SECTIONS {
 		_end = .;
     }
 
+	/* Low work RAM (0x00200000-0x002FFFFF): zero-initialised variables placed with
+	 * __attribute__((section("LWRAM_BSS"))). Not in the binary: PreLoader() zeroes it
+	 * like .bss, and SRL's LWRAM heap starts after it (srl_memory.hpp). */
+	LWRAM_BSS 0x00200000 (NOLOAD) :
+	{
+		__lwram_bstart = .;
+		*(LWRAM_BSS*)
+		. = ALIGN(0x10);
+		__lwram_bend = .;
+	}
+
     /DISCARD/ :
     {
         *(.rela*)
@@ -110,3 +121,4 @@ SECTIONS {
 ASSERT(_PreLoader == __hwram_prog_start,                 "sgl.linker: PreLoader is not at 0x06004000")
 ASSERT(__heap_start <= __heap_end,                       "sgl.linker: program (.bss) runs into WORK_AREA")
 ASSERT(__heap_end - __heap_start >= __min_heap_size,     "sgl.linker: heap smaller than __min_heap_size")
+ASSERT(__lwram_bend <= 0x00300000,                       "sgl.linker: LWRAM_BSS is larger than low work RAM")

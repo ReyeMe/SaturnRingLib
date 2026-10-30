@@ -80,4 +80,5 @@ Compiler/
 /Tests/Profiler/capture.bin
 /Tests/Profiler/trace.json
 /Tests/Profiler/gmon_*.out
+/Tests/Profiler/callgrind.out.srl
 /Tests/Profiler/trace_vdp1.json

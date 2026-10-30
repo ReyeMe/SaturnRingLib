@@ -17,12 +17,14 @@
  *  including SGL and functions built without hooks.
  *
  *  Timeline: SRL_PROF_SCOPE("name") and SRL_PROF_MARK("name") record timestamped events
- *  in a ring buffer, as do VBlank, the wait inside SRL::Core::Synchronize(), the end of
+ *  in a buffer that keeps the first SRL_PROFILER_MAX_EVENTS since the last report or Reset()
+ *  (later ones are counted as dropped), as do VBlank, the wait inside SRL::Core::Synchronize(), the end of
  *  each VDP1 frame (sprite draw end interrupt), VDP1 frames not finished by the next
  *  VBlank, and the end of each SCU DMA transfer (chained in front of SGL's handlers).
  *  With the sampler on, it also counts which VDP1 command is being drawn (COPR).
  *
- *  Everything lives in the global `g_srl_prof`. Two ways to get it out:
+ *  The header and function tables live in the global `g_srl_prof` (high work RAM), the timeline
+ *  and the sampler's counts in `g_srl_prof_buffers` (low work RAM). Two ways to get them out:
  *  - GDB: `source tools/scripts/srl_prof.gdb`, then `srl-prof-dump prof.bin`;
  *  - streaming: with `SRL_PROFILER_REPORT_FRAMES = N`, Report() sends it over the DevCart
  *    every N frames (never while GDB is connected); `tools/scripts/srl_prof_capture.py`
@@ -84,8 +86,9 @@
 namespace SRL
 {
     /** @brief Everything the profiler records, laid out for the PC-side reader.
-     *  @warning tools/scripts/srl_prof.py parses this byte for byte (big-endian):
-     *  bump Version on any layout change.
+     *  @warning tools/scripts/srl_prof.py parses a GDB dump of this block followed by
+     *  ProfilerBuffers (tools/scripts/srl_prof.gdb) byte for byte (big-endian):
+     *  bump Version on any layout change of either.
      */
     struct ProfilerBlock
     {
@@ -180,16 +183,32 @@ namespace SRL
         Header Head;
         CpuTables Master;
         CpuTables Slave; ///< Accessed through the cache-through mirror: both CPUs use it
-        Event Events[EventCapacity];
-        uint32_t Histogram[HistCapacity]; ///< Samples per bin since the last report
-        uint32_t Vdp1Histogram[Vdp1HistCapacity]; ///< Samples per VDP1 command slot (COPR / 4) since the last report
+    };
+
+    /** @brief The profiler's large buffers, which no function call touches (see g_srl_prof_buffers).
+     *  @details A GDB dump appends them right after ProfilerBlock, in this order.
+     */
+    struct ProfilerBuffers
+    {
+        ProfilerBlock::Event Events[ProfilerBlock::EventCapacity];
+        uint32_t Histogram[ProfilerBlock::HistCapacity]; ///< Samples per bin since the last report
+        uint32_t Vdp1Histogram[ProfilerBlock::Vdp1HistCapacity]; ///< Samples per VDP1 command slot (COPR / 4) since the last report
     };
 
     static_assert(sizeof(ProfilerBlock::Header) == 128, "profiler header must stay 128 bytes");
 }
 
-/** @brief The profiler's data, at a fixed unmangled symbol so GDB can dump it by name. */
+/** @brief The profiler's tables, at a fixed unmangled symbol so GDB can dump it by name.
+ *  @details In high work RAM: every profiled call reads and writes them, and cache misses to low
+ *  work RAM would add about 4 us per call that the measured hook cost doesn't include.
+ */
 inline SRL::ProfilerBlock g_srl_prof;
+
+/** @brief The timeline and the sampler's counts: written by scopes, marks and the sampler only.
+ *  @details In low work RAM (LWRAM_BSS in sgl.linker), so they take nothing from the 1 MB of high
+ *  work RAM; SRL's LWRAM heap is that much smaller.
+ */
+inline SRL::ProfilerBuffers g_srl_prof_buffers __attribute__((section("LWRAM_BSS")));
 
 extern "C"
 {
@@ -487,7 +506,7 @@ namespace SRL
 
             if (head.EventCount < ProfilerBlock::EventCapacity)
             {
-                ProfilerBlock::Event &event = g_srl_prof.Events[head.EventCount++];
+                ProfilerBlock::Event &event = g_srl_prof_buffers.Events[head.EventCount++];
                 event.Word = (static_cast<uint32_t>(type) << 28) | (reinterpret_cast<uint32_t>(name) & 0x0FFFFFFFU);
                 event.Ticks = ticks;
             }
@@ -664,7 +683,7 @@ namespace SRL
 
             if (offset < (head.HistBins << head.HistShift))
             {
-                g_srl_prof.Histogram[offset >> head.HistShift]++;
+                g_srl_prof_buffers.Histogram[offset >> head.HistShift]++;
             }
             else
             {
@@ -679,7 +698,7 @@ namespace SRL
 
                 if (slot < ProfilerBlock::Vdp1HistCapacity)
                 {
-                    g_srl_prof.Vdp1Histogram[slot]++;
+                    g_srl_prof_buffers.Vdp1Histogram[slot]++;
                 }
             }
         }
@@ -1007,7 +1026,7 @@ namespace SRL
 
             for (uint32_t i = 0; i < head.HistBins; i++)
             {
-                used += g_srl_prof.Histogram[i] != 0 ? 1 : 0;
+                used += g_srl_prof_buffers.Histogram[i] != 0 ? 1 : 0;
             }
 
             out.Begin(PacketType::Histogram, 12 + used * 8);
@@ -1018,7 +1037,7 @@ namespace SRL
             // Bins only grow while sending, so at least `used` are non-zero.
             for (uint32_t i = 0, sent = 0; i < head.HistBins && sent < used; i++)
             {
-                const uint32_t count = g_srl_prof.Histogram[i];
+                const uint32_t count = g_srl_prof_buffers.Histogram[i];
 
                 if (count != 0)
                 {
@@ -1028,7 +1047,7 @@ namespace SRL
 
                     // The sampler may have added to the bin since: keep what wasn't sent.
                     const uint32_t sr = Profiler::MaskInterrupts();
-                    g_srl_prof.Histogram[i] -= count;
+                    g_srl_prof_buffers.Histogram[i] -= count;
                     Profiler::RestoreInterrupts(sr);
                 }
             }
@@ -1045,7 +1064,7 @@ namespace SRL
         {
             uint32_t used = 0;
 
-            for (const uint32_t count : g_srl_prof.Vdp1Histogram)
+            for (const uint32_t count : g_srl_prof_buffers.Vdp1Histogram)
             {
                 used += count != 0 ? 1 : 0;
             }
@@ -1055,7 +1074,7 @@ namespace SRL
 
             for (uint32_t i = 0, sent = 0; i < ProfilerBlock::Vdp1HistCapacity && sent < used; i++)
             {
-                const uint32_t count = g_srl_prof.Vdp1Histogram[i];
+                const uint32_t count = g_srl_prof_buffers.Vdp1Histogram[i];
 
                 if (count != 0)
                 {
@@ -1073,7 +1092,7 @@ namespace SRL
                     sent++;
 
                     const uint32_t sr = Profiler::MaskInterrupts();
-                    g_srl_prof.Vdp1Histogram[i] -= count;
+                    g_srl_prof_buffers.Vdp1Histogram[i] -= count;
                     Profiler::RestoreInterrupts(sr);
                 }
             }
@@ -1084,6 +1103,15 @@ namespace SRL
         /** @brief Called by SRL::Core::Synchronize() once per frame. */
         __attribute__((no_instrument_function)) static void OnFrame()
         {
+#if SRL_PROFILER_REPORT_FRAMES != 0
+            // Also while stopped: what was recorded since the last report still has to go out.
+            if (++Profiler::framesSinceReport >= SRL_PROFILER_REPORT_FRAMES)
+            {
+                Profiler::framesSinceReport = 0;
+                Profiler::Report();
+            }
+#endif
+
             if (g_srl_prof.Head.Enabled == 0)
             {
                 return;
@@ -1093,14 +1121,6 @@ namespace SRL
             g_srl_prof.Head.Frames++;
             g_srl_prof.Head.ElapsedTicks = Profiler::Now() - Profiler::resetTicks;
             Profiler::RestoreInterrupts(sr);
-
-#if SRL_PROFILER_REPORT_FRAMES != 0
-            if (++Profiler::framesSinceReport >= SRL_PROFILER_REPORT_FRAMES)
-            {
-                Profiler::framesSinceReport = 0;
-                Profiler::Report();
-            }
-#endif
         }
 
         /** @brief Times enter + exit hook pairs called the way instrumented code calls them.
@@ -1211,12 +1231,12 @@ namespace SRL
             Profiler::ClearTables(g_srl_prof.Master);
             Profiler::ClearTables(*Profiler::Uncached(&g_srl_prof.Slave));
 
-            for (uint32_t &bin : g_srl_prof.Histogram)
+            for (uint32_t &bin : g_srl_prof_buffers.Histogram)
             {
                 bin = 0;
             }
 
-            for (uint32_t &slot : g_srl_prof.Vdp1Histogram)
+            for (uint32_t &slot : g_srl_prof_buffers.Vdp1Histogram)
             {
                 slot = 0;
             }
@@ -1290,7 +1310,7 @@ namespace SRL
 
             Sender out;
             out.Begin(PacketType::Events, eventCount * sizeof(ProfilerBlock::Event));
-            out.Words(g_srl_prof.Events, eventCount * 2);
+            out.Words(g_srl_prof_buffers.Events, eventCount * 2);
             out.End();
 
             out.Begin(PacketType::Tables, sizeof(ProfilerBlock::Header) + 2 * 24 +
@@ -1315,7 +1335,7 @@ namespace SRL
 
             for (uint32_t i = 0; i < kept; i++)
             {
-                g_srl_prof.Events[i] = g_srl_prof.Events[eventCount + i];
+                g_srl_prof_buffers.Events[i] = g_srl_prof_buffers.Events[eventCount + i];
             }
 
             head.EventCount = kept;

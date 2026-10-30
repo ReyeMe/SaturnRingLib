@@ -8,16 +8,21 @@ srl_prof_capture.py. Usage:
     srl_prof.py program.elf capture.bin --format perfetto -o trace.json   # open in ui.perfetto.dev
     srl_prof.py program.elf capture.bin --format gmon -o gmon.out # then: sh-elf-gprof program.elf gmon.out
     srl_prof.py program.elf capture.bin --format vdp1             # VDP1 frame times and costliest commands
+    srl_prof.py program.elf capture.bin --format callgrind -o callgrind.out.srl  # open in KCachegrind
+    srl_prof.py program.elf capture.bin --format callgrind -o callgrind.out.srl --watch 5  # live, from ftx -g
 A GDB dump has no VDP1 commands: add --vram vram.bin (from srl-prof-dump-vram) to decode them.
 """
 
 import argparse
 import bisect
+import io
 import json
+import os
 import shutil
 import struct
 import subprocess
 import sys
+import time
 
 HEADER = struct.Struct(">4s31I")
 FUNC = struct.Struct(">4I")
@@ -357,6 +362,92 @@ def gmon_bytes(head, rows, arcs, hist):
     return bytes(out)
 
 
+def map_path(path, source_map):
+    """source_map: "FROM=TO" replaces a leading FROM in path with TO."""
+    old, _, new = (source_map or "").partition("=")
+    return new + path[len(old):] if old and path.startswith(old) else path
+
+
+def addr2line(elf_path, addresses, tool=None, source_map=None):
+    """{address: (file, line)} from the ELF's debug info; ("???", 0) where there is none.
+
+    source_map: see map_path().
+    """
+    tool = tool or next((t for t in ("sh-elf-addr2line", "sh2eb-elf-addr2line") if shutil.which(t)), None)
+    addresses = sorted(set(addresses))
+    result = dict.fromkeys(addresses, ("???", 0))
+    if not tool:
+        print("no sh-elf-addr2line on PATH: no source files or lines", file=sys.stderr)
+        return result
+    out = subprocess.run([tool, "-e", elf_path], input="\n".join(f"{a:x}" for a in addresses),
+                         capture_output=True, text=True, check=True).stdout.splitlines()
+    for address, text in zip(addresses, out):
+        path, _, line = text.split(" (discriminator")[0].rpartition(":")  # paths may hold spaces
+        if path and path != "??":
+            result[address] = (map_path(path, source_map), int(line) if line.isdigit() else 0)
+    return result
+
+
+def callgrind_text(head, funcs, arcs, hist, syms, locate, command="", elf_path=""):
+    """A callgrind profile of one CPU, for KCachegrind / QCachegrind.
+
+    Costs: PC samples on their source lines (first, so KCachegrind opens on them) when the
+    sampler ran, and own time in microseconds from the hooks, on each function's first line.
+    A call's inclusive time is the callee's total shared by call count (as gprof does) plus
+    the hook pair, so a caller's inclusive time matches its measured total; all hook pairs
+    are also listed as "(profiler hooks)", so inclusive times stay within the total.
+    locate: addresses -> {address: (file, line)}, e.g. addr2line().
+    Positions are instruction address and source line; elf_path lets KCachegrind's Machine Code
+    view disassemble the ELF (with OBJDUMP=sh-elf-objdump).
+    """
+    us = 1e6 / head["tick_hz"]
+    cost = hook_cost(head)
+    by_address = {f["address"]: f for f in funcs}
+    rows = flat_rows(head, funcs, arcs, syms)
+    pcs = {head["hist_low"] + (i << head["hist_shift"]): n for i, n in hist.items()}
+    lines = locate([r["address"] for r in rows] + list(pcs) + [syms.start(pc) for pc in pcs]
+                   + [a for arc in arcs for a in (arc["from"], arc["to"], syms.start(arc["from"]))])
+
+    def costs(time=0, samples=0):
+        return f"{samples} {time}" if pcs else f"{time}"
+
+    body = {}  # function start -> [(address the cost is at, call lines before it, costs)]
+    for r in rows:
+        body.setdefault(r["address"], []).append((r["address"], [], costs(round(r["self"] * us))))
+    hooks = 0
+    for arc in arcs:
+        callee = by_address.get(arc["to"])
+        if not callee or not callee["calls"]:
+            continue
+        hooks += round(arc["count"] * cost * us)
+        inclusive = (callee["total"] * arc["count"] / callee["calls"] + arc["count"] * cost) * us
+        file, line = lines[arc["to"]]
+        body.setdefault(syms.start(arc["from"]), []).append((arc["from"], [
+            f"cfl={file}", f"cfn={syms.name(arc['to'])}", f"calls={arc['count']} {arc['to']:#x} {line}"], costs(round(inclusive))))
+    for pc, count in sorted(pcs.items()):
+        body.setdefault(syms.start(pc), []).append((pc, [], costs(samples=count)))
+
+    total = costs(sum(round(r["self"] * us) for r in rows) + hooks, sum(pcs.values()))
+    out = ["# callgrind format", "version: 1", "creator: srl_prof.py", f"cmd: {command}", "positions: instr line",
+           "event: us : Time in microseconds (function hooks)", "event: Samples : PC samples",
+           f"events: {'Samples us' if pcs else 'us'}", f"summary: {total}", ""]
+    if hooks:
+        out += ["fl=???", "fn=(profiler hooks)", f"0 0 {costs(hooks)}", ""]
+    if elf_path:
+        out += [f"ob={elf_path}"]  # every function is in the one ELF
+    for fn in sorted(body):
+        current = lines[fn][0]
+        out += [f"fl={current}", f"fn={syms.name(fn)}"]
+        for address, calls, cost_line in body[fn]:
+            file, line = lines[address]
+            if file != current and line:  # code inlined from another file (a header); line 0 = no source
+                out.append(f"fi={file}")
+                current = file
+            out += [*calls, f"{address:#x} {line} {cost_line}"]
+        out.append("")
+    return "\n".join(out)
+
+
 def timeline(events, syms):
     """Events in time order as (ticks, type, name), ticks unwrapped from 32 bits."""
     out = []
@@ -495,6 +586,16 @@ def check_elf(head, syms):
     return None
 
 
+def warnings(profile, syms):
+    """Lines about data the Saturn could not record (a table or buffer was full), or a wrong ELF."""
+    head = profile["head"]
+    lines = [w for w in (check_elf(head, syms),) if w]
+    lines += [f"warning: {key} = {head[key]}" for key in ("dropped_events", "dropped_reports") if head[key]]
+    lines += [f"warning: {name} {key} = {profile[name][key]}" for name in CPUS for key in CPU_FIELDS
+              if profile[name][key]]
+    return lines
+
+
 def print_flat(profile, syms, top, out=sys.stdout):
     head = profile["head"]
     stats = profile.get("stats")
@@ -516,9 +617,8 @@ def print_flat(profile, syms, top, out=sys.stdout):
     if stats:
         print(f"capture: {stats['reports']} reports, {stats['bad_packets']} bad packets, "
               f"{stats['skipped_bytes']} bytes outside packets", file=out)
-    for key in ("dropped_events", "dropped_reports"):
-        if head[key]:
-            print(f"warning: {key} = {head[key]}", file=out)
+    for line in warnings(profile, syms):
+        print(line, file=out)
     if not head["enabled"]:
         print("note: recording was stopped", file=out)
     if not head["slave_ready"]:
@@ -531,9 +631,6 @@ def print_flat(profile, syms, top, out=sys.stdout):
         if name == "slave" and not cpu["funcs"]:
             continue
         print(f"\n{name} SH-2", file=out)
-        for key in CPU_FIELDS:
-            if cpu[key]:
-                print(f"warning: {key} = {cpu[key]}", file=out)
         print(f"{'own %':>6} {'own ' + per:>13} {'total ' + per:>15} {'calls':>9} {'us/call':>9}  function", file=out)
         for row in flat_rows(head, cpu["funcs"], cpu["arcs"], syms)[:top]:
             share = 100.0 * row["self"] * ms_per_tick / elapsed_ms if elapsed_ms else 0.0
@@ -550,50 +647,109 @@ def print_flat(profile, syms, top, out=sys.stdout):
             print(f"{100.0 * count / samples:6.1f} {count:9d}  {name}", file=out)
 
 
+def render(args, profile, syms):
+    """The output args asks for, as bytes."""
+    head = profile["head"]
+    cpu = profile[args.cpu]
+    hist = profile["hist"] if args.cpu == "master" else {}  # the sampler runs on the master only
+    if args.format == "gmon":
+        return gmon_bytes(head, flat_rows(head, cpu["funcs"], cpu["arcs"], syms), cpu["arcs"], hist)
+
+    out = io.StringIO()
+    if args.format == "flat":
+        print_flat(profile, syms, args.top, out)
+    elif args.format == "vdp1":
+        vram = open(args.vram, "rb").read() if args.vram else None
+        print_vdp1(profile, syms, args.top, out, vram)
+    elif args.format == "callgrind":
+        print(callgrind_text(head, cpu["funcs"], cpu["arcs"], hist, syms,
+                             lambda addresses: addr2line(args.elf, addresses, source_map=args.source_map),
+                             f"{args.elf} ({args.cpu} SH-2)", map_path(os.path.abspath(args.elf), args.source_map)),
+              file=out)
+    elif args.format == "folded":
+        print("\n".join(folded_lines(head, cpu["funcs"], cpu["arcs"], syms)), file=out)
+    else:
+        json.dump(perfetto_trace(head, profile["events"], syms), out)
+    return out.getvalue().encode()
+
+
+def write_whole(path, data):
+    """Replaces path in one step, so a viewer reloading it never reads half a file."""
+    with open(path + ".tmp", "wb") as f:
+        f.write(data)
+    os.replace(path + ".tmp", path)
+
+
+def watch(args, syms):
+    """Records the stream from ftx -g into args.data and rewrites args.output every args.watch seconds."""
+    import srl_prof_capture  # same folder as this script
+
+    data = bytearray()
+    with srl_prof_capture.connect(args.host, args.port) as sock, open(args.data, "wb") as raw:
+        print(f"recording to {args.data}; rewriting {args.output} every {args.watch:g} s (Ctrl-C stops)", flush=True)
+        closed = False
+        shown = []
+        while not closed:
+            chunk, closed = srl_prof_capture.receive(sock, args.watch)
+            raw.write(chunk)
+            raw.flush()
+            data += chunk
+            try:
+                # shortcut: re-parses the whole capture each time (~10 KB/s); parse only new bytes if hours-long runs get slow
+                profile = parse_stream(bytes(data))
+            except ValueError:
+                print("waiting for a complete report", flush=True)
+                continue
+            write_whole(args.output, render(args, profile, syms))
+            print(f"{time.strftime('%H:%M:%S')} {profile['stats']['reports']} reports, "
+                  f"{profile['head']['frames']} frames: wrote {args.output}", flush=True)
+            notes = warnings(profile, syms)
+            if notes != shown:  # only when they change, not on every refresh
+                print("\n".join(notes), file=sys.stderr, flush=True)
+                shown = notes
+    print("stopped (Ctrl-C or ftx closed the connection)")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("elf", help="the program's .elf (with symbols)")
-    parser.add_argument("data", help="GDB dump (srl-prof-dump) or capture (srl_prof_capture.py)")
-    parser.add_argument("--format", choices=("flat", "folded", "perfetto", "gmon", "vdp1"), default="flat")
+    parser.add_argument("data", help="GDB dump (srl-prof-dump) or capture (srl_prof_capture.py); "
+                                     "with --watch, the file the stream is recorded to")
+    parser.add_argument("--format", choices=("flat", "folded", "perfetto", "gmon", "vdp1", "callgrind"), default="flat")
     parser.add_argument("--vram", help="VDP1 VRAM dump (srl-prof-dump-vram) to decode commands of a GDB dump")
-    parser.add_argument("--cpu", choices=CPUS, default="master", help="CPU for folded and gmon")
-    parser.add_argument("-o", "--output", help="write here instead of stdout (required for gmon)")
+    parser.add_argument("--cpu", choices=CPUS, default="master", help="CPU for folded, gmon and callgrind")
+    parser.add_argument("-o", "--output", help="write here instead of stdout (required for gmon and --watch)")
     parser.add_argument("--top", type=int, default=40, help="rows in the flat profile")
+    parser.add_argument("--source-map", metavar="FROM=TO",
+                        help="callgrind: rewrite source paths starting with FROM, e.g. /saturn=/home/me/src "
+                             "when the ELF was built in a container")
+    parser.add_argument("--watch", type=float, metavar="SECONDS",
+                        help="record the Saturn's reports from ftx -g and rewrite -o every SECONDS")
+    parser.add_argument("--host", default="localhost", help="ftx -g host, for --watch")
+    parser.add_argument("--port", type=int, default=1234, help="ftx -g port, for --watch")
     parser.add_argument("--nm", help="nm tool to use (default: sh-elf-nm or sh2eb-elf-nm)")
     args = parser.parse_args()
-    if args.format == "gmon" and not args.output:
-        parser.error("--format gmon needs -o FILE")
+    if (args.format == "gmon" or args.watch) and not args.output:
+        parser.error("--format gmon and --watch need -o FILE")
 
-    profile = load(args.data)
-    head = profile["head"]
-    cpu = profile[args.cpu]
     syms = Symbols.from_elf(args.elf, args.nm)
-
-    warning = check_elf(head, syms)
-    if warning:
-        print(warning, file=sys.stderr)
-
-    if args.format == "gmon":
-        # The sampler runs on the master only.
-        hist = profile["hist"] if args.cpu == "master" else {}
-        with open(args.output, "wb") as f:
-            f.write(gmon_bytes(head, flat_rows(head, cpu["funcs"], cpu["arcs"], syms), cpu["arcs"], hist))
+    if args.watch:
+        try:
+            watch(args, syms)
+        except KeyboardInterrupt:
+            pass
         return
 
-    out = open(args.output, "w") if args.output else sys.stdout
-    try:
-        if args.format == "flat":
-            print_flat(profile, syms, args.top, out)
-        elif args.format == "vdp1":
-            vram = open(args.vram, "rb").read() if args.vram else None
-            print_vdp1(profile, syms, args.top, out, vram)
-        elif args.format == "folded":
-            print("\n".join(folded_lines(head, cpu["funcs"], cpu["arcs"], syms)), file=out)
-        else:
-            json.dump(perfetto_trace(head, profile["events"], syms), out)
-    finally:
-        if args.output:
-            out.close()
+    profile = load(args.data)
+    if args.format != "flat":  # the flat profile lists them itself
+        for line in warnings(profile, syms):
+            print(line, file=sys.stderr)
+
+    output = render(args, profile, syms)
+    if args.output:
+        write_whole(args.output, output)
+    else:
+        sys.stdout.write(output.decode())
 
 
 if __name__ == "__main__":
