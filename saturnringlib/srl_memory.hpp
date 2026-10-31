@@ -141,6 +141,15 @@ namespace SRL
                 size_t Size : 31;
             };
 
+            /** @brief Rounds a block size up to 4 bytes, so the header after the block stays aligned
+             * @param size Requested size
+             * @return Block size
+             */
+            inline static constexpr size_t AlignSize(size_t size)
+            {
+                return (size + 3) & ~static_cast<size_t>(3);
+            }
+
             /** @brief Get location of the next block in memory
              * @param zone Memory zone settings
              * @param currentBlock Current block location
@@ -221,6 +230,7 @@ namespace SRL
                 if (header->Size == newBlock)
                 {
                     header->State = SimpleMalloc::BlockState::Used;
+                    return true;
                 }
                 else if (header->Size > newBlock)
                 {
@@ -287,6 +297,8 @@ namespace SRL
 
                     if (header->State == SimpleMalloc::BlockState::Free)
                     {
+                        // Free blocks are merged lazily: merge now, so free space doesn't depend on when that happens
+                        SimpleMalloc::MergeFreeMemoryBlocks(zone, location);
                         report.FreeBlocks++;
                         report.FreeSize += header->Size;
                     }
@@ -320,18 +332,9 @@ namespace SRL
              */
             inline static void* Malloc(const MemoryZone& zone, size_t size)
             {
-                // Align to 4
-                size_t length = size;
-                size_t align = length & 3;
-
-                if (align != 0)
-                {
-                    length += 4 - align;
-                }
-
                 // Find free space
                 size_t location = 0;
-                size_t newBlock = length & 0x7fffffff;
+                size_t newBlock = SimpleMalloc::AlignSize(size) & 0x7fffffff;
 
                 // We try until we reach end of available space
                 while (location < zone.Size)
@@ -365,7 +368,7 @@ namespace SRL
              * @param zone Memory zone settings
              * @param ptr Allocated memory to resize
              * @param size New size of the allocated block
-             * @return void* Pointer to resized or moved block
+             * @return void* Pointer to resized or moved block, or nullptr if there is no room (the old block is then unchanged)
              */
             inline static void* Realloc(const MemoryZone& zone, void* ptr, size_t size)
             {
@@ -376,6 +379,10 @@ namespace SRL
                     size_t location = reinterpret_cast<size_t>(ptr) - reinterpret_cast<size_t>(zone.Address);
                     size_t headerLocation = location - sizeof(SimpleMalloc::Header);
 
+                    // Same rounding as Malloc(): a split must leave the next header 4-byte aligned
+                    size = SimpleMalloc::AlignSize(size);
+                    const size_t oldSize = ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[headerLocation])->Size;
+
                     // We free the block first, this will also join it will all free blocks right after it
                     SimpleMalloc::Free(zone, ptr);
 
@@ -383,20 +390,24 @@ namespace SRL
                     if (SimpleMalloc::SetBlockAllocation(zone, headerLocation, size))
                     {
                         // We fit inside
-                        return (void*)&((uint8_t*)zone.Address)[location];
+                        return ptr;
                     }
-                    else
+
+                    // We do not fit: take the block back as it was, so it stays intact if nothing else fits
+                    // and the new block can't overlap it
+                    SimpleMalloc::SetBlockAllocation(zone, headerLocation, oldSize);
+                    void* newSpace = SimpleMalloc::Malloc(zone, size);
+
+                    if (newSpace != nullptr)
                     {
-                        // We do not fit, try to find space elsewhere
-                        void* newSpace = SimpleMalloc::Malloc(zone, size);
-
                         // Copy data to the new location
-                        slDMACopy(ptr, newSpace, ((SimpleMalloc::Header*)&((uint8_t*)zone.Address)[headerLocation])->Size);
+                        slDMACopy(ptr, newSpace, oldSize);
                         slDMAWait();
-
-                        // Return address to new thing
-                        return newSpace;
+                        SimpleMalloc::Free(zone, ptr);
                     }
+
+                    // Like realloc(): nullptr leaves the old block allocated and unchanged
+                    return newSpace;
                 }
 
                 return nullptr;
