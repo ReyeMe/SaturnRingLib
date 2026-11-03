@@ -1,0 +1,5 @@
+var structSRL_1_1Cd_1_1TableOfContents_1_1TrackInformation_1_1_0fstruct_0e_8LocationBody_8LocationData =
+[
+    [ "Frame", "structSRL_1_1Cd_1_1TableOfContents_1_1TrackInformation_1_1_0fstruct_0e_8LocationBody_8LocationData_a17c83615b4dc76e63d7c5a733d819bf8.html#a17c83615b4dc76e63d7c5a733d819bf8", null ],
+    [ "Sector", "structSRL_1_1Cd_1_1TableOfContents_1_1TrackInformation_1_1_0fstruct_0e_8LocationBody_8LocationData_acec51f44efe0f22716848925f94d165c.html#acec51f44efe0f22716848925f94d165c", null ]
+];
