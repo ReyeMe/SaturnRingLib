@@ -95,7 +95,7 @@ namespace SRL
 
         /** @brief _Sprite_ * ((MaxPolygons + 6) * 2), _Sprite_ = 18 * uint16_t
          */
-        static constexpr uint32_t SpriteBufBytes = sizeof(SPRITE) * ((MaxPolygons + 6) * 2);
+        static constexpr uint32_t SpriteBufBytes = (sizeof(SPRITE) + 4) * ((MaxPolygons + 6) * 2);
 
         /** @brief (_LongWord_ * 4) * MaxVertices
          */
