@@ -130,7 +130,7 @@ namespace SRL
             SRL::Timer::Init();
 
 #ifdef SRL_PROFILER
-            // Needs the timer; starts recording.
+            // Needs the timer; with streaming, recording starts at the first report.
             SRL::Profiler::Init();
 #endif
 

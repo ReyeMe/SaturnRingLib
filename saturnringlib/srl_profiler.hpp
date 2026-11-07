@@ -27,8 +27,8 @@
  *  and the sampler's counts in `g_srl_prof_buffers` (low work RAM). Two ways to get them out:
  *  - GDB: `source tools/scripts/srl_prof.gdb`, then `srl-prof-dump prof.bin`;
  *  - streaming: with `SRL_PROFILER_REPORT_FRAMES = N`, Report() sends it over the DevCart
- *    every N frames (never while GDB is connected); `tools/scripts/srl_prof_capture.py`
- *    records it through `ftx -g`.
+ *    every N frames; `tools/scripts/srl_prof_capture.py` records it through `ftx -g`.
+ *    Recording starts with the first report that gets through (see Init()).
  *  Then read it with `tools/scripts/srl_prof.py`.
  *
  *  Times are FRT ticks (PHI/128, about 4.8 us). Each SH-2 has its own FRT: Init() sets
@@ -43,9 +43,6 @@
 #include "srl_timer.hpp"
 #include "srl_devcart.hpp"
 #include "srl_slave.hpp"
-#ifdef DEBUG
-    #include "srl_gdbstub.hpp"
-#endif
 #include <cstdint>
 
 #ifndef SRL_PROFILER_MAX_FUNCS
@@ -284,6 +281,7 @@ namespace SRL
         inline static uint32_t masterVbr = 0;
         inline static uint32_t resetTicks = 0;
         inline static uint32_t framesSinceReport = 0;
+        inline static bool waitingForReader = false; ///< Init() is done; recording starts when a PC first reads
         inline static uint32_t sampleInterval = 0;
         inline static uint32_t nextCompare = 0;
         inline static uint32_t jitter = 0xACE1;
@@ -1112,6 +1110,14 @@ namespace SRL
             }
 #endif
 
+            if (Profiler::waitingForReader && g_srl_prof.Head.Reports != 0)
+            {
+                const uint32_t sr = Profiler::MaskInterrupts();
+                Profiler::resetTicks = Profiler::Now();
+                Profiler::RestoreInterrupts(sr);
+                Profiler::Start();
+            }
+
             if (g_srl_prof.Head.Enabled == 0)
             {
                 return;
@@ -1159,8 +1165,9 @@ namespace SRL
             return (best << 16) / pairsPerBatch;
         }
 
-        /** @brief Sets up the header, measures the hook cost, sets up the slave and the sampler,
-         *  and starts recording.
+        /** @brief Sets up the header, measures the hook cost, sets up the slave and the sampler.
+         *  @details With streaming, recording starts once the first report gets through, so
+         *  loading isn't recorded before the PC listens. Without it, recording starts right away.
          *  @note Called by SRL::Core::Initialize() after SRL::Timer::Init().
          */
         __attribute__((no_instrument_function)) static void Init()
@@ -1186,6 +1193,10 @@ namespace SRL
             head.Enabled = 1;
             head.HookCostQ16 = Profiler::MeasureHookCost();
             Profiler::Reset();
+#if SRL_PROFILER_REPORT_FRAMES != 0
+            head.Enabled = 0;
+            Profiler::waitingForReader = true;
+#endif
 
             // Bounded wait: if the slave never runs the task, only its calls go unrecorded.
             static SlaveSetupTask slaveSetup;
@@ -1203,19 +1214,21 @@ namespace SRL
         }
 
     public:
-        /** @brief Starts recording, keeping what was recorded so far. */
+        /** @brief Starts recording, keeping what was recorded so far. Also cancels waiting for a reader. */
         __attribute__((no_instrument_function)) static void Start()
         {
             const uint32_t sr = Profiler::MaskInterrupts();
+            Profiler::waitingForReader = false;
             Profiler::masterState.Depth = 0;
             Profiler::Uncached(&Profiler::slaveState)->Depth = 0;
             g_srl_prof.Head.Enabled = 1;
             Profiler::RestoreInterrupts(sr);
         }
 
-        /** @brief Stops recording; the data stays readable. */
+        /** @brief Stops recording; the data stays readable. Also cancels waiting for a reader. */
         __attribute__((no_instrument_function)) static void Stop()
         {
+            Profiler::waitingForReader = false;
             g_srl_prof.Head.Enabled = 0;
         }
 
@@ -1275,7 +1288,7 @@ namespace SRL
         /** @brief Sends the timeline events, the used table rows of both CPUs and the PC
          *  histogram over the DevCart.
          *  @details SRL::Core::Synchronize() calls it every SRL_PROFILER_REPORT_FRAMES frames.
-         *  Does nothing while GDB is connected (the bytes would reach GDB). Sent events and
+         *  Sent events and
          *  histogram counts are removed; the function tables keep accumulating. The time the
          *  report took is recorded as a "SRL profiler report" scope. If nobody reads the FIFO
          *  for about 10 ms, the report is abandoned and counted in DroppedReports.
@@ -1283,13 +1296,6 @@ namespace SRL
         __attribute__((no_instrument_function)) static void Report()
         {
             ProfilerBlock::Header &head = g_srl_prof.Head;
-
-#ifdef DEBUG
-            if (SRL::GDBStub::IsConnected())
-            {
-                return;
-            }
-#endif
 
             if (!SRL::DevCart::CS0::IsConnected())
             {
