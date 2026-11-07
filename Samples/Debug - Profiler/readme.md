@@ -3,7 +3,7 @@
 Measure where a program spends its CPU time on a real Saturn, with the SRL function profiler (`srl_profiler.hpp`).
 
 > [!WARNING]
-> **Real hardware only.** The profile is read back through the GDB stub, which talks over the USB port of a DevCart.
+> **Real hardware only.** The profile is read back over the USB port of a DevCart: streamed, or dumped with the GDB stub.
 
 ## How it works
 
@@ -18,7 +18,7 @@ With `SRL_PROFILER_SAMPLE_HZ = N`, a **PC sampler** also counts where the master
 
 It also keeps a **timeline**: `SRL_PROF_SCOPE("name")` times the rest of a block, `SRL_PROF_MARK("name")` marks a point in time, and SRL adds a `VBlank` mark every frame, an `slSynch` slice for the wait at the end of each frame, a mark when VDP1 finishes drawing a frame or fails to by the next VBlank, and a mark at the end of each SCU DMA transfer. Names must be string literals: only their address is stored, and the PC reads the text from the ELF. Without `SRL_PROFILER`, both macros compile to nothing.
 
-`SRL::Core::Initialize()` starts recording. Two ways to get the data to the PC, then read it with `tools/scripts/srl_prof.py`:
+With streaming, recording starts once the first report gets through, so loading time before the PC listens isn't recorded; otherwise `SRL::Core::Initialize()` starts it. Calling `Start()` or `Stop()` yourself overrides the wait. Two ways to get the data to the PC, then read it with `tools/scripts/srl_prof.py`:
 
 - **GDB**: stop the program, dump the block to a file.
 - **Streaming**: the Saturn sends a report over the DevCart every N frames, and `tools/scripts/srl_prof_capture.py` records it. No GDB needed.
@@ -37,7 +37,7 @@ It also keeps a **timeline**: `SRL_PROF_SCOPE("name")` times the rest of a block
 | `SRL_PROFILE_SOURCES = src/a.cxx src/b.cxx` | Files to profile; default: all of `SOURCES` |
 | `SRL_PROFILER_REPORT_FRAMES = 60` | Stream a report every 60 frames; `0` (the sample's setting) = GDB only |
 | `SRL_PROFILER_SAMPLE_HZ = 8000` | PC sampler on the master; `0` (the sample's setting) = off |
-| `DEBUG = 1` | Builds the GDB stub in, needed to read the profile |
+| `DEBUG = 1` | Builds the GDB stub in, needed for GDB dumps (not for streaming) |
 | `OPT_FLAGS = -O2` | Profile optimised code: `DEBUG` alone means `-O0`, which gives misleading profiles |
 
 SRL, SGL and C++ library headers are never profiled; their inline code counts as the caller's own time. Run `make clean` after changing these settings.
@@ -102,7 +102,7 @@ python3 ../../tools/scripts/srl_prof.py BuildDrop/Debug_Profiler.elf capture.bin
 Open `trace.json` in [ui.perfetto.dev](https://ui.perfetto.dev): one row for the master SH-2 with the `Workload`, `Status text`, `slSynch` and `SRL profiler report` slices, and a `VBlank` mark per frame. The flat profile uses the function tables of the last report.
 
 - **A report costs time.** The DevCart takes about 256 KB/s: the sample's 3.7 KB report takes 14 ms, most of a frame. The report shows on the timeline, and the flat profile prints its size and time. Bigger programs send bigger tables (16 bytes per function, 12 per caller -> callee pair), so raise `SRL_PROFILER_REPORT_FRAMES` if the hitch matters.
-- **GDB and streaming don't mix.** `ftx -g` takes one client: GDB or the capture. The Saturn stops streaming while GDB is connected, but reports sent before GDB connects would reach it, so keep `SRL_PROFILER_REPORT_FRAMES = 0` when you use GDB.
+- **GDB and streaming don't mix.** `ftx -g` takes one client: GDB or the capture, and reports sent while GDB is connected reach it and break the session. Keep `SRL_PROFILER_REPORT_FRAMES = 0` when you use GDB.
 - If nobody reads the DevCart for about 10 ms, the report is dropped (`dropped_reports` in the output) and the program carries on.
 - Log output on the DevCart (`SRL_LOG_OUTPUT = DEV_CART`) can share the link: the script skips bytes outside report packets.
 
