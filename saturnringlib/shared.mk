@@ -128,7 +128,10 @@ ifeq ($(strip ${SRL_PROFILER}), 1)
 	ifneq ($(strip ${SRL_PROFILER_SAMPLE_HZ}),)
 		CCFLAGS += -DSRL_PROFILER_SAMPLE_HZ=$(strip ${SRL_PROFILER_SAMPLE_HZ})
 	endif
+	# Guarded: with no objects the line below has no target, and make takes the following tab-indented lines as its recipe.
+	ifneq ($(strip ${SRL_PROFILE_OBJECTS}),)
 $(SRL_PROFILE_OBJECTS): CCFLAGS += -finstrument-functions -finstrument-functions-exclude-file-list=$(SDK_ROOT)/,/include/c++/
+	endif
 endif
 
 ifeq ($(strip ${SRL_USE_SGL_SOUND_DRIVER}), 1)
