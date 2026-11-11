@@ -161,6 +161,64 @@ MU_TEST(vector2d_shift_ops_with_negative)
     mu_assert((v >> 1) == Vector2D(Fxp(-0.5), 1), "Right shift should scale components by 0.5");
 }
 
+/** @brief True if a is within tol raw units (1/65536) of b. */
+static bool vec2_raw_near(const Fxp& a, const Fxp& b, int32_t tol)
+{
+    const int32_t diff = a.RawValue() - b.RawValue();
+    return diff >= -tol && diff <= tol;
+}
+
+    /**
+ * @brief Tests DotAccumulate on the MAC unit: matches Dot, accumulates across calls, keeps 64-bit
+ *        intermediate sums, matches the compile-time path, and matches MultiDotAccumulate.
+ * @note MAC registers are shared CPU state (snprintf and integer multiplies clobber them): each result is read right away.
+ */
+MU_TEST(vector2d_dot_accumulate)
+{
+    const Vector2D a(Fxp(0.5), -2), b(4, Fxp(1.5));        // 2 - 3 = -1
+    const Vector2D c(-3, Fxp(-0.25)), d(2, 8);             // -6 - 2 = -8
+    const Vector2D e(10, -10), f(Fxp(0.1), Fxp(0.1));      // 1 - 1 = 0
+
+    Fxp::ClearMac();
+    Vector2D::DotAccumulate(a, b);
+    const Fxp single = Fxp::ExtractMac();
+
+    Fxp::ClearMac();
+    Vector2D::DotAccumulate(a, b);
+    Vector2D::DotAccumulate(c, d);
+    Vector2D::DotAccumulate(e, f);
+    const Fxp sum3 = Fxp::ExtractMac();
+
+        // First term overflows Fxp (> 32767) but the 64-bit MAC keeps the exact total
+    Fxp::ClearMac();
+    Vector2D::DotAccumulate(Vector2D(200, -190), Vector2D(200, 190));    // 40000 - 36100 = 3900
+    const Fxp big = Fxp::ExtractMac();
+
+    constexpr Vector2D g(Fxp(0.3), Fxp(-1.7)), h(Fxp(1.1), Fxp(0.6));
+    constexpr Fxp compileTime = g.Dot(h);                                // 0.33 - 1.02 = -0.69
+    Fxp::ClearMac();
+    Vector2D::DotAccumulate(g, h);
+    const Fxp runtime = Fxp::ExtractMac();
+
+    const Fxp multi = Vector2D::MultiDotAccumulate(std::pair{a, b}, std::pair{c, d}, std::pair{e, f});
+    const Fxp dot = a.Dot(b);
+
+    snprintf(buffer, buffer_size, "DotAccumulate raw %ld != Dot raw %ld", (long)single.RawValue(), (long)dot.RawValue());
+    mu_assert(single == dot, buffer);
+    snprintf(buffer, buffer_size, "DotAccumulate single raw %ld != -1", (long)single.RawValue());
+    mu_assert(single == -1, buffer);
+    snprintf(buffer, buffer_size, "3 accumulated dots raw %ld not near -9", (long)sum3.RawValue());
+    mu_assert(vec2_raw_near(sum3, Fxp(-9), 8), buffer);
+    snprintf(buffer, buffer_size, "Overflowing term raw %ld != 3900", (long)big.RawValue());
+    mu_assert(big == 3900, buffer);
+    snprintf(buffer, buffer_size, "Runtime dot raw %ld not near -0.69", (long)runtime.RawValue());
+    mu_assert(vec2_raw_near(runtime, Fxp(-0.69), 8), buffer);
+    snprintf(buffer, buffer_size, "Runtime dot raw %ld vs compile-time %ld", (long)runtime.RawValue(), (long)compileTime.RawValue());
+    mu_assert(vec2_raw_near(runtime, compileTime, 2), buffer);
+    snprintf(buffer, buffer_size, "MultiDotAccumulate raw %ld != 3 DotAccumulate calls raw %ld", (long)multi.RawValue(), (long)sum3.RawValue());
+    mu_assert(multi == sum3, buffer);
+}
+
 MU_TEST_SUITE(vector2d_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&vector2d_test_setup,
@@ -174,5 +232,6 @@ MU_TEST_SUITE(vector2d_test_suite)
     MU_RUN_TEST(vector2d_normalize_zero_and_nonzero);
     MU_RUN_TEST(vector2d_distance_and_distancesquared);
     MU_RUN_TEST(vector2d_shift_ops_with_negative);
+    MU_RUN_TEST(vector2d_dot_accumulate);
 }
 }
