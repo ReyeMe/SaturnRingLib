@@ -1,5 +1,5 @@
 # Builds every test campaign (Tests/campaigns/*). `make <campaign>` builds one.
-CAMPAIGNS = math memory video system cd
+CAMPAIGNS = math memory_simple memory_tlsf video system cd
 
 # Campaigns share SRL/module object files, so build them one at a time.
 .NOTPARALLEL:

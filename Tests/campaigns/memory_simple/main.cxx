@@ -1,5 +1,5 @@
-// Tests/campaigns/memory/main.cxx
-// Allocators and memory zones. Build with SRL_MALLOC_METHOD=TLSF to test the default allocator.
+// Tests/campaigns/memory_simple/main.cxx
+// Allocators and memory zones, built with the SIMPLE allocator. memory_tlsf runs the same suites with TLSF.
 #include "campaign.hpp"
 
 #include "testsMemoryHWRam.hpp"

@@ -25,7 +25,8 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | Campaign | What it tests |
 |---|---|
 | `math` | Fixed point, angles, math types, strings. No hardware state. |
-| `memory` | Allocators and memory zones (HWRam, LWRam, CartRam). |
+| `memory_simple` | Allocators and memory zones (HWRam, LWRam, CartRam) with the `SIMPLE` allocator. |
+| `memory_tlsf` | The same memory tests with the `TLSF` allocator (the library default). |
 | `video` | ASCII, color RAM, bitmaps, SGL. |
 | `system` | Interrupts, timers, system registers, SCU DSP. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
@@ -38,7 +39,7 @@ To add a campaign, copy a folder in `campaigns/`, change `CD_NAME` in its `makef
 
 ## Build the tests
 
-Execute `make all` within the `SaturnRingLib/Tests` directory from a terminal to build every campaign, or `make <campaign>` (e.g. `make memory`) to build one.
+Execute `make all` within the `SaturnRingLib/Tests` directory from a terminal to build every campaign, or `make <campaign>` (e.g. `make memory_tlsf`) to build one.
 Each campaign's disc image is written to `campaigns/<campaign>/BuildDrop/`.
 
 You can override makefile defaults at build time. For example, to change the log output target:
@@ -49,12 +50,7 @@ make all SRL_LOG_OUTPUT=DEV_CART
 
 Other valid values: `EMULATOR`, `DEV_CART`, `NONE`.
 
-The tests use the `SIMPLE` allocator by default. To test the library's default allocator (TLSF):
-
-```bash
-make clean
-make memory SRL_MALLOC_METHOD=TLSF
-```
+Campaigns use the `SIMPLE` allocator, except `memory_tlsf`, which runs the memory tests with `TLSF`.
 
 ## Run the tests
 
@@ -63,7 +59,7 @@ Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<
 The script exits with an error if any test fails. To run every campaign:
 
 ```bash
-for c in math memory video system cd; do ./run_tests.bat mednafen $c; done
+for c in math memory_simple memory_tlsf video system cd; do ./run_tests.bat mednafen $c; done
 ```
 
 The log looks like this:
