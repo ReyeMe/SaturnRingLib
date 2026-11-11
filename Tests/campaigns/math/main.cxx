@@ -23,6 +23,7 @@
 #include "testsAABB.hpp"
 #include "testsCollision.hpp"
 #include "testsFrustum.hpp"
+#include "testsInterpolation.hpp"
 
 int main()
 {
@@ -49,6 +50,7 @@ int main()
     RUN_AND_DISPLAY_SUITE(aabb_test_suite);
     RUN_AND_DISPLAY_SUITE(collision_test_suite);
     RUN_AND_DISPLAY_SUITE(frustum_test_suite);
+    RUN_AND_DISPLAY_SUITE(interpolation_test_suite);
 
     EndCampaign();
 }
