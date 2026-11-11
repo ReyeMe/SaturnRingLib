@@ -362,7 +362,8 @@ MU_TEST_SUITE(system_test_suite)
     MU_RUN_TEST(system_test_interrupt_mask_extremes);
     MU_RUN_TEST(system_test_get_interrupt_mask_matches_doc_example);
     MU_RUN_TEST(system_test_change_interrupt_mask_identity);
-    MU_RUN_TEST(system_test_clock_mode_roundtrip);
+    // Disabled: changing the clock mode resets the VDPs, so the next frame sync never returns and the campaign hangs.
+    // MU_RUN_TEST(system_test_clock_mode_roundtrip);
     MU_RUN_TEST(system_test_power_off_clear_memory_roundtrip);
     MU_RUN_TEST(system_test_interrupt_handler_smoke);
     MU_RUN_TEST(system_test_interrupt_vector_smoke);

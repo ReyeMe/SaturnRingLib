@@ -53,7 +53,7 @@
 /[Tt]ests/**/*.o
 /[Tt]ests/**/imgui.ini
 /[Tt]ests/**/*.log
-/[Tt]ests/uts.json
+/[Tt]ests/uts*.json
 /[Tt]ests/uts.xml
 
 /Projects/**

@@ -17,6 +17,9 @@ fi
 
 # 2. Environment Setup
 
+# Absolute path, so builds that run `make -C <subfolder>` (Tests campaigns) still find the compiler
+[ -d "$COMPILER_DIR" ] && COMPILER_DIR="$(cd "$COMPILER_DIR" && pwd)"
+
 # Save the original PATH at script startup
 OLD_PATH="$PATH"
 

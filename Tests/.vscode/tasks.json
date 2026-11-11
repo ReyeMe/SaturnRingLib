@@ -45,9 +45,9 @@
         {
             "label": "SRL: Run Tests (mednafen)",
             "type": "shell",
-            "command": "./run_tests.bat mednafen",
+            "command": "./run_tests.bat mednafen ${input:campaign}",
             "windows": {
-                "command": ".\\run_tests.bat mednafen"
+                "command": ".\\run_tests.bat mednafen ${input:campaign}"
             },
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -58,9 +58,9 @@
         {
             "label": "SRL: Run Tests (USBGamers)",
             "type": "shell",
-            "command": "./run_tests.bat USBGamers",
+            "command": "./run_tests.bat USBGamers ${input:campaign}",
             "windows": {
-                "command": ".\\run_tests.bat USBGamers"
+                "command": ".\\run_tests.bat USBGamers ${input:campaign}"
             },
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -71,15 +71,24 @@
         {
             "label": "SRL: Run Tests (kronos)",
             "type": "shell",
-            "command": "./run_tests.bat kronos",
+            "command": "./run_tests.bat kronos ${input:campaign}",
             "windows": {
-                "command": ".\\run_tests.bat kronos"
+                "command": ".\\run_tests.bat kronos ${input:campaign}"
             },
             "options": {
                 "cwd": "${workspaceFolder}"
             },
             "group": "test",
             "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "campaign",
+            "type": "pickString",
+            "description": "Test campaign to run",
+            "options": ["math", "memory", "video", "system", "cd"],
+            "default": "math"
         }
     ]
 }

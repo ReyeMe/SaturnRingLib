@@ -18,9 +18,28 @@ A few basic things are required for Kronos to run:
 
 Close Kronos, everything shall be setup at that point.
 
+## Test campaigns
+
+Tests are split into campaigns. Each campaign is its own disc image, so a crash or hang in one does not hide the results of the others.
+
+| Campaign | What it tests |
+|---|---|
+| `math` | Fixed point, angles, math types, strings. No hardware state. |
+| `memory` | Allocators and memory zones (HWRam, LWRam, CartRam). |
+| `video` | ASCII, color RAM, bitmaps, SGL. |
+| `system` | Interrupts, timers, system registers, SCU DSP. |
+| `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
+
+Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `makefile` and a short `main.cxx` that lists its suites.
+Shared build settings are in `campaign.mk`.
+
+To add a suite, include its header and add a `RUN_AND_DISPLAY_SUITE(...)` line in the campaign's `main.cxx`.
+To add a campaign, copy a folder in `campaigns/`, change `CD_NAME` in its `makefile`, and add its name to `CAMPAIGNS` in `makefile`.
+
 ## Build the tests
 
-Execute `make all` within the `SaturnRingLib/Tests` directory from a terminal.
+Execute `make all` within the `SaturnRingLib/Tests` directory from a terminal to build every campaign, or `make <campaign>` (e.g. `make memory`) to build one.
+Each campaign's disc image is written to `campaigns/<campaign>/BuildDrop/`.
 
 You can override makefile defaults at build time. For example, to change the log output target:
 
@@ -30,9 +49,24 @@ make all SRL_LOG_OUTPUT=DEV_CART
 
 Other valid values: `EMULATOR`, `DEV_CART`, `NONE`.
 
+The tests use the `SIMPLE` allocator by default. To test the library's default allocator (TLSF):
+
+```bash
+make clean
+make memory SRL_MALLOC_METHOD=TLSF
+```
+
 ## Run the tests
 
-Execute `run_tests.bat` within the `SaturnRingLib/Tests` directory from a terminal, tests results will be output in both the terminal and `SaturnRingLib/Tests/uts.log`, such as:
+Execute `run_tests.bat <emulator> <campaign>` within the `SaturnRingLib/Tests` directory from a terminal, e.g. `./run_tests.bat mednafen math`.
+Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<campaign>.log`.
+The script exits with an error if any test fails. To run every campaign:
+
+```bash
+for c in math memory video system cd; do ./run_tests.bat mednafen $c; done
+```
+
+The log looks like this:
 
 ````
 INFO : ***UT_START***
@@ -85,8 +119,9 @@ To install the WinUSB driver:
 ### Run
 
 1. Build tests with `make all SRL_LOG_OUTPUT=DEV_CART`.
-2. Run `./run_tests.bat USBGamers`.
+2. Run `./run_tests.bat USBGamers <campaign> [device-ip]`. The optional `device-ip` is the network power switch used to power-cycle the Saturn.
 
-The script resets the USB device, uploads `cd/data/0.bin` to address `0x06004000`, and then starts the capture flow.
-The output still goes to `uts.log` like the emulator runs.
+The script resets the USB device, uploads `campaigns/<campaign>/cd/data/0.bin` to address `0x06004000`, and then starts the capture flow.
+The output still goes to `uts_<campaign>.log` like the emulator runs.
+The `cd` campaign fails over USB: the program is uploaded without a disc.
 
