@@ -1133,8 +1133,6 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_initialization_char);
     MU_RUN_TEST(fxp_initialization_bool);
     MU_RUN_TEST(fxp_initialization_short);
-        // MU_RUN_TEST(fxp_initialization_long);
-        // MU_RUN_TEST(fxp_initialization_long_long);
     MU_RUN_TEST(fxp_assignment_operator);
     MU_RUN_TEST(fxp_copy_constructor);
     MU_RUN_TEST(fxp_equality_check);

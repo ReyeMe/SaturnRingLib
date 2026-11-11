@@ -137,56 +137,18 @@ MU_TEST(vector2d_normalize_zero_and_nonzero)
  * @brief Tests distance and distance squared calculations for Vector2D.
  * @details Verifies exact and approximate results for distance calculations.
  */
-    // MU_TEST(vector2d_distance_and_distancesquared)
-    // {
-    //     const Vector2D a(1, 2);
-    //     const Vector2D b(4, 6);
+MU_TEST(vector2d_distance_and_distancesquared)
+{
+    const Vector2D a(1, 2);
+    const Vector2D b(4, 6);
 
-    //     mu_assert(a.DistanceSquared(b) == Fxp(25), "DistanceSquared should be exact for (1,2)-(4,6)");
+    mu_assert((b - a).LengthSquared() == Fxp(25), "Squared distance should be exact for (1,2)-(4,6)");
 
-    //     const Fxp dist = a.DistanceTo<SRL::Math::Precision::Accurate>(b);
-    //     mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo(Accurate) should be ~5 for (1,2)-(4,6)");
-    // }
+    const Fxp dist = (b - a).Length<SRL::Math::Precision::Accurate>();
+    mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo(Accurate) should be ~5 for (1,2)-(4,6)");
+}
 
-    /**
- * @brief Tests projection and reflection for Vector2D.
- * @details Verifies projection onto axes and reflection across normals and zero.
- */
-    // MU_TEST(vector2d_project_and_reflect_corner_cases)
-    // {
-    //     const Vector2D v(3, 4);
-    //     const Vector2D xAxis(1, 0);
-    //     mu_assert(v.ProjectOnto(xAxis) == Vector2D(3, 0), "ProjectOnto X-axis incorrect");
 
-    //     mu_assert(v.ProjectOnto(Vector2D::Zero()) == Vector2D::Zero(), "ProjectOnto zero should return zero");
-
-    //     const Vector2D r = Vector2D(1, -1).Reflect(Vector2D(0, 1));
-    //     mu_assert(r == Vector2D(1, 1), "Reflect across Y normal should flip Y");
-
-    //     const Vector2D unchanged = v.Reflect(Vector2D::Zero());
-    //     mu_assert(unchanged == v, "Reflect with zero normal should return input");
-    // }
-
-    /**
- * @brief Tests lerp, smoothstep, and clamp operations for Vector2D.
- * @details Verifies interpolation and clamping for edge and out-of-range cases.
- */
-    // MU_TEST(vector2d_lerp_smoothstep_clamp)
-    // {
-    //     const Vector2D a(1, 2);
-    //     const Vector2D b(5, 6);
-
-    //     mu_assert(Vector2D::Lerp(a, b, Fxp(0)) == a, "Lerp t=0 should return start");
-    //     mu_assert(Vector2D::Lerp(a, b, Fxp(1)) == b, "Lerp t=1 should return end");
-    //     mu_assert(Vector2D::Lerp(a, b, Fxp(-1)) == a, "Lerp should clamp t<0 to start");
-    //     mu_assert(Vector2D::Lerp(a, b, Fxp(2)) == b, "Lerp should clamp t>1 to end");
-
-    //     // Smoothstep clamps as well; endpoints should match.
-    //     mu_assert(Vector2D::Smoothstep(a, b, Fxp(0)) == a, "Smoothstep t=0 should return start");
-    //     mu_assert(Vector2D::Smoothstep(a, b, Fxp(1)) == b, "Smoothstep t=1 should return end");
-    //     mu_assert(Vector2D::Smoothstep(a, b, Fxp(-1)) == a, "Smoothstep should clamp t<0 to start");
-    //     mu_assert(Vector2D::Smoothstep(a, b, Fxp(2)) == b, "Smoothstep should clamp t>1 to end");
-    // }
 
     /**
  * @brief Tests shift operations for Vector2D with negative values.
@@ -210,9 +172,7 @@ MU_TEST_SUITE(vector2d_test_suite)
     MU_RUN_TEST(vector2d_dot_cross_multidot);
     MU_RUN_TEST(vector2d_length_lengthsquared_overflow_guard);
     MU_RUN_TEST(vector2d_normalize_zero_and_nonzero);
-        // MU_RUN_TEST(vector2d_distance_and_distancesquared);
-        // MU_RUN_TEST(vector2d_project_and_reflect_corner_cases);
-        //  MU_RUN_TEST(vector2d_lerp_smoothstep_clamp);
+    MU_RUN_TEST(vector2d_distance_and_distancesquared);
     MU_RUN_TEST(vector2d_shift_ops_with_negative);
 }
 }

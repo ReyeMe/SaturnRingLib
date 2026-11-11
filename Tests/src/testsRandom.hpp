@@ -402,12 +402,13 @@ MU_TEST_SUITE(random_test_suite)
     MU_RUN_TEST(random_range_is_inclusive_and_order_independent_u32);
     MU_RUN_TEST(random_range_signed_i32);
     MU_RUN_TEST(random_works_for_u16_path);
-        // MU_RUN_TEST(random_full_range_uint32_matches_raw);    // Crash the HW
-        // MU_RUN_TEST(random_full_range_int32_matches_raw);     // Crash the HW
-        // MU_RUN_TEST(random_full_range_uint16_matches_raw);   // Crash the HW
-        // MU_RUN_TEST(random_full_range_int16_matches_raw);    // Crash the HW
-        // MU_RUN_TEST(random_full_range_uint8_matches_raw);    // Crash the HW
-        // MU_RUN_TEST(random_full_range_int8_matches_raw);     // Crash the HW
+    // Disabled: GetNumber(min, max) over the full type range computes range = max - min + 1 = 0 and divides by zero (hangs the campaign, crashes HW).
+    // MU_RUN_TEST(random_full_range_uint32_matches_raw);
+    // MU_RUN_TEST(random_full_range_int32_matches_raw);
+    // MU_RUN_TEST(random_full_range_uint16_matches_raw);
+    // MU_RUN_TEST(random_full_range_int16_matches_raw);
+    // MU_RUN_TEST(random_full_range_uint8_matches_raw);
+    // MU_RUN_TEST(random_full_range_int8_matches_raw);
     MU_RUN_TEST(random_extreme_ranges_do_not_overflow);
     MU_RUN_TEST(random_range_uint8_minus1);
     MU_RUN_TEST(random_range_int8_minus1);
