@@ -264,7 +264,7 @@ MU_TEST(memory_LWRam_test_new_array_lowworkram)
  */
 MU_TEST(memory_LWRam_test_deplete_lowworkram)
 {
-    size_t freeSpace = Memory::GetFreeSpace(Memory::Zone::LWRam) / 2;
+    size_t freeSpace = Memory::GetFreeSpace(Memory::Zone::LWRam);
     void *ptr = nullptr;
 
     if (freeSpace > 0)
@@ -307,11 +307,14 @@ MU_TEST(memory_LWRam_test_deplete_lowworkram)
  */
 MU_TEST(memory_LWRam_test_inrange_lowworkram)
 {
-    void *validPtr = (void *)0x06000000;   // Valid address in LowWorkRam range
-    void *invalidPtr = (void *)0x08000000; // Invalid address outside LowWorkRam range
+    void *validPtr = Memory::LowWorkRam::Malloc(4); // An address in the LowWorkRam heap
+    mu_assert(validPtr != nullptr, "LowWorkRam memory allocation failed");
 
-    mu_assert(Memory::LowWorkRam::InRange(validPtr), "InRange failed for valid LowWorkRam address");
-    mu_assert(!Memory::LowWorkRam::InRange(invalidPtr), "InRange failed for invalid LowWorkRam address");
+    bool valid = Memory::LowWorkRam::InRange(validPtr);
+    Memory::LowWorkRam::Free(validPtr);
+    mu_assert(valid, "InRange failed for valid LowWorkRam address");
+    mu_assert(!Memory::LowWorkRam::InRange((void *)0x06000000), "InRange accepted a HighWorkRam address");
+    mu_assert(!Memory::LowWorkRam::InRange((void *)0x08000000), "InRange failed for invalid LowWorkRam address");
 }
 
     /**
@@ -569,7 +572,8 @@ MU_TEST(memory_LWRam_test_multiple_array_sizes)
     };
 
     size_t initial_free_space = Memory::GetFreeSpace(Memory::Zone::LWRam);
-    std::vector<char *> arrays;
+    char *arrays[sizeof(test_sizes) / sizeof(test_sizes[0])];
+    size_t count = 0;
 
         // Sequential allocation and deallocation
     for (size_t size : test_sizes)
@@ -610,15 +614,13 @@ MU_TEST(memory_LWRam_test_multiple_array_sizes)
         snprintf(buffer, buffer_size,
             "Interleaved allocation failed for size %d", size);
         mu_assert(array != nullptr, buffer);
-        arrays.push_back(array);
+        arrays[count++] = array;
     }
 
         // Delete in reverse order
-    while (!arrays.empty())
+    while (count > 0)
     {
-        char *array = arrays.back();
-        arrays.pop_back();
-        delete[] array;
+        delete[] arrays[--count];
     }
 
         // Verify final memory state
