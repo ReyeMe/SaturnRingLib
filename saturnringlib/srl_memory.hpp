@@ -491,7 +491,11 @@ namespace SRL
             static void Free(void* ptr)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(Memory::HighWorkRam::zone.Address, ptr);
+                // Same check as SimpleMalloc::Free: TLSF corrupts its heap (and can hang) on a pointer it does not own
+                if (Memory::InZone(HighWorkRam::zone, ptr))
+                {
+                    tlsf_free(Memory::HighWorkRam::zone.Address, ptr);
+                }
                 #else
                 Memory::SimpleMalloc::Free(HighWorkRam::zone, ptr);
                 #endif
@@ -634,7 +638,11 @@ namespace SRL
             inline static void Free(void* ptr)
             {
                 #if defined(USE_TLSF_ALLOCATOR)
-                tlsf_free(LowWorkRam::zone.Address, ptr);
+                // Same check as SimpleMalloc::Free: TLSF corrupts its heap (and can hang) on a pointer it does not own
+                if (Memory::InZone(LowWorkRam::zone, ptr))
+                {
+                    tlsf_free(LowWorkRam::zone.Address, ptr);
+                }
                 #else
                 Memory::SimpleMalloc::Free(LowWorkRam::zone, ptr);
                 #endif
