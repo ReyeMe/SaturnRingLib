@@ -15,19 +15,13 @@ env:
 
 jobs:
   build:
-    name: Tests (${{ matrix.name }})
+    name: Tests (${{ matrix.campaign }})
     runs-on: ubuntu-latest
     strategy:
       # One campaign failing must not cancel the others.
       fail-fast: false
       matrix:
-        include:
-          - { name: math, campaign: math }
-          - { name: memory, campaign: memory }
-          - { name: memory-tlsf, campaign: memory, make_args: SRL_MALLOC_METHOD=TLSF }
-          - { name: video, campaign: video }
-          - { name: system, campaign: system }
-          - { name: cd, campaign: cd }
+        campaign: [math, memory_simple, memory_tlsf, video, system, cd]
     container:
       image: willll/saturn-docker:gcc_14.2.0_vanilla
 
@@ -48,7 +42,7 @@ jobs:
       - name: Build
         run: |
           cd $GITHUB_WORKSPACE/Tests
-          make ${{ matrix.campaign }} ${{ matrix.make_args }}
+          make ${{ matrix.campaign }}
       - name: Install Mednafen
         run: |
           cd $GITHUB_WORKSPACE/emulators/mednafen
@@ -72,11 +66,11 @@ jobs:
         run: |
           python3 $GITHUB_WORKSPACE/tools/scripts/ctrf_converter.py \
             $GITHUB_WORKSPACE/Tests/uts_${{ matrix.campaign }}.log \
-            $GITHUB_WORKSPACE/Tests/uts_${{ matrix.name }}.json
+            $GITHUB_WORKSPACE/Tests/uts_${{ matrix.campaign }}.json
       - name: Report Test Results
         uses: ctrf-io/github-test-reporter@v1
         with:
-          report-path: './Tests/uts_${{ matrix.name }}.json'
+          report-path: './Tests/uts_${{ matrix.campaign }}.json'
           summary-report: true
           failed-folded-report: true
         env:
@@ -86,11 +80,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: uts_${{ matrix.name }}.log
+          name: uts_${{ matrix.campaign }}.log
           path: Tests/uts_${{ matrix.campaign }}.log
       - name: Archive report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: uts_${{ matrix.name }}.json
-          path: Tests/uts_${{ matrix.name }}.json
+          name: uts_${{ matrix.campaign }}.json
+          path: Tests/uts_${{ matrix.campaign }}.json

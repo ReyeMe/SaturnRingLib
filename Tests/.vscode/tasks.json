@@ -87,7 +87,7 @@
             "id": "campaign",
             "type": "pickString",
             "description": "Test campaign to run",
-            "options": ["math", "memory", "video", "system", "cd"],
+            "options": ["math", "memory_simple", "memory_tlsf", "video", "system", "cd"],
             "default": "math"
         }
     ]
