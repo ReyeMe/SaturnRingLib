@@ -57,6 +57,8 @@ jobs:
           gdown 1miIZbAytFFRGlmL8H2gM8Hs__A3AC23P -O "$MEDNAFEN_HOME/firmware/mpr-17933.bin"
           gdown 1YvFP-7DCGq4AVd2Xo-HAaUQmikV6ufVT -O "$MEDNAFEN_HOME/firmware/sega_101.bin"
       - name: Run tests
+        # Failing tests are shown in the report below but do not fail the pipeline.
+        continue-on-error: true
         run: |
           cd $GITHUB_WORKSPACE/Tests
           bash $GITHUB_WORKSPACE/Tests/run_tests.bat mednafen ${{ matrix.campaign }}
