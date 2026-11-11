@@ -119,6 +119,7 @@ MU_TEST(trigonometry_atan2_key_directions)
     mu_assert(a225 >= Angle::FromDegrees(224.9) && a225 <= Angle::FromDegrees(225.1), "Atan2(-1,-1) should be ~225");
 }
 
+    // Disabled: Asin() is a static_assert "work in progress" in the pinned SaturnMathPP, so it cannot be called yet.
     // MU_TEST(trigonometry_asin_clamp_and_values)
     // {
     //     mu_assert(SRL::Math::Trigonometry::Asin(Fxp(0)) == Angle::Zero(), "Asin(0) should be 0");
@@ -143,6 +144,6 @@ MU_TEST_SUITE(trigonometry_test_suite)
     MU_RUN_TEST(trigonometry_tan_basic);
     MU_RUN_TEST(trigonometry_tan_near_asymptote);
     MU_RUN_TEST(trigonometry_atan2_key_directions);
-        // MU_RUN_TEST(trigonometry_asin_clamp_and_values);
+    // MU_RUN_TEST(trigonometry_asin_clamp_and_values); // Asin() not ready in the pinned SaturnMathPP
 }
 }

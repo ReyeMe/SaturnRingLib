@@ -156,47 +156,16 @@ MU_TEST(vector3d_normalize_zero_and_triangle_normal)
     mu_assert(n == Vector3D(0, 0, 1), "CalcNormal for XY triangle should be +Z");
 }
 
-    /**
- * @brief Tests projection, reflection, and distance calculations for Vector3D.
- * @details Verifies projection onto axes, reflection across normals, and distance calculations.
- */
-    // MU_TEST(vector3d_project_reflect_and_distance)
-    // {
-    //     const Vector3D v(2, 3, 0);
-    //     const Vector3D x(1, 0, 0);
-    //     mu_assert(v.Project(x) == Vector3D(2, 0, 0), "Project onto X axis incorrect");
-    //     mu_assert(v.Project(Vector3D::Zero()) == Vector3D::Zero(), "Project onto zero should return zero");
+MU_TEST(vector3d_distance)
+{
+    const Vector3D p1(1, 2, 3);
+    const Vector3D p2(4, 6, 8);
+    mu_assert((p2 - p1).LengthSquared() == Fxp(50), "Squared distance should be exact for (1,2,3)-(4,6,8)");
 
-    //     const Vector3D r = Vector3D(1, -1, 0).Reflect(Vector3D(0, 1, 0));
-    //     mu_assert(r == Vector3D(1, 1, 0), "Reflect across +Y normal should flip Y");
+    const Fxp dist = (p2 - p1).Length<SRL::Math::Precision::Accurate>();
+    mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "Distance(Accurate) should be ~7.071 for (1,2,3)-(4,6,8)");
+}
 
-    //     const Vector3D p1(1, 2, 3);
-    //     const Vector3D p2(4, 6, 8);
-    //     mu_assert(p1.DistanceSquared(p2) == Fxp(50), "DistanceSquared should be exact for (1,2,3)-(4,6,8)");
-
-    //     const Fxp dist = p1.DistanceTo<SRL::Math::Precision::Accurate>(p2);
-    //     mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "DistanceTo(Accurate) should be ~7.071 for (1,2,3)-(4,6,8)");
-    // }
-
-    /**
- * @brief Tests lerp, smoothstep, and clamp operations for Vector3D.
- * @details Verifies interpolation and clamping behavior for edge and out-of-range cases.
- */
-    // MU_TEST(vector3d_lerp_smoothstep_clamp)
-    // {
-    //     const Vector3D a(1, 2, 3);
-    //     const Vector3D b(5, 6, 7);
-
-    //     mu_assert(Vector3D::Lerp(a, b, Fxp(0)) == a, "Lerp t=0 should return start");
-    //     mu_assert(Vector3D::Lerp(a, b, Fxp(1)) == b, "Lerp t=1 should return end");
-    //     mu_assert(Vector3D::Lerp(a, b, Fxp(-1)) == a, "Lerp should clamp t<0 to start");
-    //     mu_assert(Vector3D::Lerp(a, b, Fxp(2)) == b, "Lerp should clamp t>1 to end");
-
-    //     mu_assert(Vector3D::Smoothstep(a, b, Fxp(0)) == a, "Smoothstep t=0 should return start");
-    //     mu_assert(Vector3D::Smoothstep(a, b, Fxp(1)) == b, "Smoothstep t=1 should return end");
-    //     mu_assert(Vector3D::Smoothstep(a, b, Fxp(-1)) == a, "Smoothstep should clamp t<0 to start");
-    //     mu_assert(Vector3D::Smoothstep(a, b, Fxp(2)) == b, "Smoothstep should clamp t>1 to end");
-    // }
 
     /**
  * @brief Tests shift operations for Vector3D with negative values.
@@ -223,8 +192,7 @@ MU_TEST_SUITE(vector3d_test_suite)
     MU_RUN_TEST(vector3d_dot_cross_multidot);
     MU_RUN_TEST(vector3d_length_and_lengthsquared_thresholds);
     MU_RUN_TEST(vector3d_normalize_zero_and_triangle_normal);
-        // MU_RUN_TEST(vector3d_project_reflect_and_distance);
-        //  MU_RUN_TEST(vector3d_lerp_smoothstep_clamp);
-        //  MU_RUN_TEST(vector3d_shift_ops_with_negative);
+    MU_RUN_TEST(vector3d_distance);
+    MU_RUN_TEST(vector3d_shift_ops_with_negative);
 }
 }
