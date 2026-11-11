@@ -26,3 +26,8 @@ void	qsort	__P((void *base, size_t nelem, size_t size,
 			int (*compar)(const void *p1, const void *p2)));
 
 #endif		/* _STDLIB_H */
+
+/* NO_SGL_STDLIB: this header shadows the toolchain one, so pass through to it */
+#if defined( NO_SGL_STDLIB )
+#include_next <stdlib.h>
+#endif
