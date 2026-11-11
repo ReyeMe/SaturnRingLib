@@ -15,6 +15,14 @@
 #include "testsRandom.hpp"
 #include "testsSortOrder.hpp"
 #include "testsUtils.hpp"
+#include "testsEulerAngles.hpp"
+#include "testsMat33.hpp"
+#include "testsMat43.hpp"
+#include "testsPlane.hpp"
+#include "testsSphere.hpp"
+#include "testsAABB.hpp"
+#include "testsCollision.hpp"
+#include "testsFrustum.hpp"
 
 int main()
 {
@@ -33,6 +41,14 @@ int main()
     RUN_AND_DISPLAY_SUITE(random_test_suite);
     RUN_AND_DISPLAY_SUITE(sort_order_test_suite);
     RUN_AND_DISPLAY_SUITE(utils_test_suite);
+    RUN_AND_DISPLAY_SUITE(euler_angles_test_suite);
+    RUN_AND_DISPLAY_SUITE(mat33_test_suite);
+    RUN_AND_DISPLAY_SUITE(mat43_test_suite);
+    RUN_AND_DISPLAY_SUITE(plane_test_suite);
+    RUN_AND_DISPLAY_SUITE(sphere_test_suite);
+    RUN_AND_DISPLAY_SUITE(aabb_test_suite);
+    RUN_AND_DISPLAY_SUITE(collision_test_suite);
+    RUN_AND_DISPLAY_SUITE(frustum_test_suite);
 
     EndCampaign();
 }
