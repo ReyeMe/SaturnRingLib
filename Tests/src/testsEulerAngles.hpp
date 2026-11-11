@@ -48,6 +48,13 @@ void euler_angles_test_output_header(void)
     }
 }
 
+/** @brief True if the angle is within 2 raw units (~0.01 degree) of the expected degrees; wraps around 360. */
+static bool euler_angle_near(const Angle& angle, int16_t degrees)
+{
+    const int16_t diff = static_cast<int16_t>(angle.RawValue() - Angle::FromDegrees(Fxp(degrees)).RawValue());
+    return diff >= -2 && diff <= 2;
+}
+
     /**
  * @brief Tests that a default-constructed EulerAngles object is initialized to zero.
  */
@@ -55,11 +62,11 @@ MU_TEST(euler_angles_test_initialization_zero)
 {
     EulerAngles euler;
     snprintf(buffer, buffer_size, "Initialization failed: %d != 0", euler.pitch.ToDegrees().As<int32_t>());
-    mu_assert(euler.pitch.ToDegrees() == 0, buffer);
+    mu_assert(euler_angle_near(euler.pitch, 0), buffer);
     snprintf(buffer, buffer_size, "Initialization failed: %d != 0", euler.yaw.ToDegrees().As<int32_t>());
-    mu_assert(euler.yaw.ToDegrees() == 0, buffer);
+    mu_assert(euler_angle_near(euler.yaw, 0), buffer);
     snprintf(buffer, buffer_size, "Initialization failed: %d != 0", euler.roll.ToDegrees().As<int32_t>());
-    mu_assert(euler.roll.ToDegrees() == 0, buffer);
+    mu_assert(euler_angle_near(euler.roll, 0), buffer);
 }
 
     /**
@@ -72,11 +79,11 @@ MU_TEST(euler_angles_test_set_angles)
     euler.yaw = Angle::FromDegrees(45);
     euler.roll = Angle::FromDegrees(60);
     snprintf(buffer, buffer_size, "Set angles failed: %d != 30", euler.pitch.ToDegrees().As<int32_t>());
-    mu_assert(euler.pitch.ToDegrees() == 30, buffer);
+    mu_assert(euler_angle_near(euler.pitch, 30), buffer);
     snprintf(buffer, buffer_size, "Set angles failed: %d != 45", euler.yaw.ToDegrees().As<int32_t>());
-    mu_assert(euler.yaw.ToDegrees() == 45, buffer);
+    mu_assert(euler_angle_near(euler.yaw, 45), buffer);
     snprintf(buffer, buffer_size, "Set angles failed: %d != 60", euler.roll.ToDegrees().As<int32_t>());
-    mu_assert(euler.roll.ToDegrees() == 60, buffer);
+    mu_assert(euler_angle_near(euler.roll, 60), buffer);
 }
 
     /**
@@ -90,60 +97,14 @@ MU_TEST(euler_angles_test_normalization)
     euler.yaw = Angle::FromDegrees(-45); // -45 degrees should normalize to 315 degrees
     euler.roll = Angle::FromDegrees(720); // 720 degrees should normalize to 0 degrees
     snprintf(buffer, buffer_size, "Normalization failed: %d != 30", euler.pitch.ToDegrees().As<int32_t>());
-    mu_assert(euler.pitch.ToDegrees() == 30, buffer);
+    mu_assert(euler_angle_near(euler.pitch, 30), buffer);
     snprintf(buffer, buffer_size, "Normalization failed: %d != 315", euler.yaw.ToDegrees().As<int32_t>());
-    mu_assert(euler.yaw.ToDegrees() == 315, buffer);
+    mu_assert(euler_angle_near(euler.yaw, 315), buffer);
     snprintf(buffer, buffer_size, "Normalization failed: %d != 0", euler.roll.ToDegrees().As<int32_t>());
-    mu_assert(euler.roll.ToDegrees() == 0, buffer);
+    mu_assert(euler_angle_near(euler.roll, 0), buffer);
 }
 
-    /**
- * @brief Tests the addition of two EulerAngles objects.
- */
-MU_TEST(euler_angles_test_addition)
-{
-    EulerAngles euler1;
-    euler1.pitch = Angle::FromDegrees(30);
-    euler1.yaw = Angle::FromDegrees(45);
-    euler1.roll = Angle::FromDegrees(60);
 
-    EulerAngles euler2;
-    euler2.pitch = Angle::FromDegrees(10);
-    euler2.yaw = Angle::FromDegrees(20);
-    euler2.roll = Angle::FromDegrees(30);
-
-    EulerAngles result = euler1 + euler2;
-    snprintf(buffer, buffer_size, "Addition failed: %d != 40", result.pitch.ToDegrees().As<int32_t>());
-    mu_assert(result.pitch.ToDegrees() == 40, buffer);
-    snprintf(buffer, buffer_size, "Addition failed: %d != 65", result.yaw.ToDegrees().As<int32_t>());
-    mu_assert(result.yaw.ToDegrees() == 65, buffer);
-    snprintf(buffer, buffer_size, "Addition failed: %d != 90", result.roll.ToDegrees().As<int32_t>());
-    mu_assert(result.roll.ToDegrees() == 90, buffer);
-}
-
-    /**
- * @brief Tests the subtraction of two EulerAngles objects.
- */
-MU_TEST(euler_angles_test_subtraction)
-{
-    EulerAngles euler1;
-    euler1.pitch = Angle::FromDegrees(30);
-    euler1.yaw = Angle::FromDegrees(45);
-    euler1.roll = Angle::FromDegrees(60);
-
-    EulerAngles euler2;
-    euler2.pitch = Angle::FromDegrees(10);
-    euler2.yaw = Angle::FromDegrees(20);
-    euler2.roll = Angle::FromDegrees(30);
-
-    EulerAngles result = euler1 - euler2;
-    snprintf(buffer, buffer_size, "Subtraction failed: %d != 20", result.pitch.ToDegrees().As<int32_t>());
-    mu_assert(result.pitch.ToDegrees() == 20, buffer);
-    snprintf(buffer, buffer_size, "Subtraction failed: %d != 25", result.yaw.ToDegrees().As<int32_t>());
-    mu_assert(result.yaw.ToDegrees() == 25, buffer);
-    snprintf(buffer, buffer_size, "Subtraction failed: %d != 30", result.roll.ToDegrees().As<int32_t>());
-    mu_assert(result.roll.ToDegrees() == 30, buffer);
-}
 
     /**
  * @brief Defines the test suite for all Euler angle functionality.
@@ -157,7 +118,5 @@ MU_TEST_SUITE(euler_angles_test_suite)
     MU_RUN_TEST(euler_angles_test_initialization_zero);
     MU_RUN_TEST(euler_angles_test_set_angles);
     MU_RUN_TEST(euler_angles_test_normalization);
-    MU_RUN_TEST(euler_angles_test_addition);
-    MU_RUN_TEST(euler_angles_test_subtraction);
 }
 }

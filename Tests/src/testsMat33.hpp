@@ -41,6 +41,18 @@ void mat33_test_output_header(void)
     }
 }
 
+/** @brief Row-by-row equality (Matrix33 has no operator==). */
+static bool mat33_equal(const Matrix33& a, const Matrix33& b)
+{
+    return a.Row0 == b.Row0 && a.Row1 == b.Row1 && a.Row2 == b.Row2;
+}
+
+/** @brief Returns a transposed copy (Transpose() works in place). */
+static Matrix33 mat33_transposed(Matrix33 m)
+{
+    return m.Transpose();
+}
+
     /**
  * @brief Tests the properties of the identity matrix.
  * @details Verifies that multiplying by the identity matrix does not change a vector,
@@ -53,7 +65,7 @@ MU_TEST(mat33_identity_and_vector_multiply)
     mu_assert((I * v) == v, "Identity matrix should not change vector");
 
     mu_assert(I.Determinant() == 1, "Identity determinant should be 1");
-    mu_assert(I.Transposed() == I, "Identity transpose should be identity");
+    mu_assert(mat33_equal(mat33_transposed(I), I), "Identity transpose should be identity");
 }
 
     /**
@@ -66,7 +78,7 @@ MU_TEST(mat33_scale_determinant_transpose)
     const Matrix33 s = Matrix33::CreateScale(Vector3D(2, 3, 4));
     mu_assert((s * Vector3D(1, 1, 1)) == Vector3D(2, 3, 4), "Scale matrix should scale axes");
     mu_assert(s.Determinant() == 24, "Scale determinant should equal product of diagonal");
-    mu_assert(s.Transposed() == s, "Diagonal scale matrix should equal its transpose");
+    mu_assert(mat33_equal(mat33_transposed(s), s), "Diagonal scale matrix should equal its transpose");
 }
 
     /**
@@ -79,8 +91,8 @@ MU_TEST(mat33_transpose_involution)
         Vector3D(4, 5, 6),
         Vector3D(7, 8, 9));
 
-    const Matrix33 tt = m.Transposed().Transposed();
-    mu_assert(tt == m, "Transpose(Transpose(M)) should equal M");
+    const Matrix33 tt = mat33_transposed(mat33_transposed(m));
+    mu_assert(mat33_equal(tt, m), "Transpose(Transpose(M)) should equal M");
 }
 
     /**
@@ -99,7 +111,7 @@ MU_TEST(mat33_tryinverse_success_and_failure)
 
     constexpr Matrix33 I = Matrix33::Identity();
     const Matrix33 prod = s2 * inv;
-    mu_assert(prod == I, "M * Inv(M) should equal Identity for uniform scale 2");
+    mu_assert(mat33_equal(prod, I), "M * Inv(M) should equal Identity for uniform scale 2");
 }
 
     /**

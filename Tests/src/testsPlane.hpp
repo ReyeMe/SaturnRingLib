@@ -1,8 +1,8 @@
-
 #pragma once
 
 #include <srl.hpp>
 #include <srl_log.hpp>
+
 // https://github.com/siu/minunit
 #include "minunit.h"
 
@@ -14,19 +14,9 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Sets up the environment for Plane unit tests.
- */
 void plane_test_setup(void) {}
-
-    /**
- * @brief Cleans up the environment after each Plane unit test.
- */
 void plane_test_teardown(void) {}
 
-    /**
- * @brief Displays a header for the Plane test suite upon the first error.
- */
 void plane_test_output_header(void)
 {
     if (!suite_error_counter++)
@@ -43,80 +33,68 @@ void plane_test_output_header(void)
 }
 
     /**
- * @brief Tests the default constructor and distance calculation methods of the Plane class.
- * @details Verifies that a default-constructed plane is at the origin with a normal pointing up (UnitY)
- *          and that signed and absolute distance calculations are correct.
+ * @brief Tests the default constructor and signed distance.
+ * @details A default plane passes through the origin with a +Z normal; Distance() is signed (normal·p + d).
  */
 MU_TEST(plane_default_and_distance)
 {
     const Plane p;
-    mu_assert(p.Normal == Vector3D::UnitY(), "Default Plane normal should be UnitY");
-    mu_assert(p.SignedDistance == 0, "Default Plane signed distance should be 0");
+    mu_assert(p.normal == Vector3D::UnitZ(), "Default Plane normal should be UnitZ");
+    mu_assert(p.d == 0, "Default Plane d should be 0");
 
-    mu_assert(p.GetSignedDistance(Vector3D(0, 2, 0)) == 2, "Signed distance above plane should be positive");
-    mu_assert(p.GetSignedDistance(Vector3D(0, -2, 0)) == -2, "Signed distance below plane should be negative");
-    mu_assert(p.GetSignedDistance(Vector3D(5, 0, -3)) == 0, "Signed distance on plane should be 0");
-    mu_assert(p.GetDistance(Vector3D(0, -2, 0)) == 2, "Absolute distance should be positive");
+    mu_assert(p.Distance(Vector3D(0, 0, 2)) == 2, "Distance in front of plane should be positive");
+    mu_assert(p.Distance(Vector3D(0, 0, -2)) == -2, "Distance behind plane should be negative");
+    mu_assert(p.Distance(Vector3D(5, -3, 0)) == 0, "Distance on plane should be 0");
 }
 
     /**
  * @brief Tests creating a plane from a normal vector and a point on the plane.
- * @details Verifies that the plane's signed distance is correctly calculated and that points
- *          are correctly classified relative to it.
  */
 MU_TEST(plane_from_normal_and_point)
 {
-    const Plane p = Plane::FromNormalAndPoint(Vector3D::UnitY(), Vector3D(0, 5, 0));
-    mu_assert(p.SignedDistance == 5, "FromNormalAndPoint should set signed distance to normal dot point");
-    mu_assert(p.GetSignedDistance(Vector3D(0, 7, 0)) == 2, "Signed distance should be (y-5)");
-    mu_assert(p.GetSignedDistance(Vector3D(0, 5, 0)) == 0, "Point on plane should have 0 distance");
+    const Plane p(Vector3D::UnitY(), Vector3D(0, 5, 0));
+    mu_assert(p.d == -5, "Normal+point ctor should set d to -(normal dot point)");
+    mu_assert(p.Distance(Vector3D(0, 7, 0)) == 2, "Distance should be (y-5)");
+    mu_assert(p.Distance(Vector3D(0, 5, 0)) == 0, "Point on plane should have 0 distance");
 }
 
     /**
- * @brief Tests projecting and reflecting points and vectors across a plane.
- * @details Verifies projection and reflection operations for points and vectors.
+ * @brief Tests creating a plane from three points (counter-clockwise gives the normal direction).
  */
-MU_TEST(plane_project_and_reflect)
+MU_TEST(plane_from_three_points)
 {
-    const Plane p(Vector3D::UnitY(), 0);
+    const Plane p(Vector3D(0, 0, 0), Vector3D(1, 0, 0), Vector3D(0, 1, 0));
+    snprintf(buffer, buffer_size, "Plane through XY axes should have +Z normal, raw (%ld, %ld, %ld)",
+        (long)p.normal.X.RawValue(), (long)p.normal.Y.RawValue(), (long)p.normal.Z.RawValue());
+    mu_assert(p.normal.X == 0 && p.normal.Y == 0 && p.normal.Z > Fxp(0.99), buffer);
+    mu_assert(p.d == 0, "Plane through origin should have d == 0");
+}
+
+    /**
+ * @brief Tests projecting a point onto a plane.
+ */
+MU_TEST(plane_project)
+{
+    const Plane p(Vector3D::UnitY(), Fxp(0));
     const Vector3D a(1, 2, 3);
-
-    mu_assert(p.ProjectPoint(a) == Vector3D(1, 0, 3), "ProjectPoint onto Y=0 plane should zero Y");
-    mu_assert(p.ReflectPoint(a) == Vector3D(1, -2, 3), "ReflectPoint across Y=0 plane should invert Y");
-    mu_assert(p.ReflectVector(a) == Vector3D(1, -2, 3), "ReflectVector across plane normal should invert Y component");
+    mu_assert(p.Project(a) == Vector3D(1, 0, 3), "Project onto Y=0 plane should zero Y");
 }
 
     /**
- * @brief Tests the normalization of a plane and the validity check.
- * @details Verifies that a plane with a zero normal is invalid and that normalizing a valid
- *          plane correctly scales its normal and distance.
+ * @brief Tests normalizing a plane.
+ * @details Normalizing scales the normal and d together; a zero normal is left unchanged.
  */
-MU_TEST(plane_normalize_and_validity)
+MU_TEST(plane_normalize)
 {
-    Plane invalid(Vector3D::Zero(), 0);
-    mu_assert(!invalid.IsValid(), "Plane with zero normal should be invalid");
-
+    Plane invalid(Vector3D::Zero(), Fxp(0));
     invalid.Normalize<SRL::Math::Precision::Accurate>();
-    mu_assert(invalid.Normal == Vector3D::Zero(), "Normalize(zero normal) should not change normal");
-    mu_assert(invalid.SignedDistance == 0, "Normalize(zero normal) should not change signed distance");
+    mu_assert(invalid.normal == Vector3D::Zero(), "Normalize(zero normal) should not change normal");
+    mu_assert(invalid.d == 0, "Normalize(zero normal) should not change d");
 
-    const Plane p(Vector3D(0, 2, 0), 4);
-    const Plane n = p.Normalized();
-    mu_assert(n.IsValid(), "Normalized plane should be valid");
-    mu_assert(n.Normal == Vector3D::UnitY(), "Normalized normal should be UnitY");
-    mu_assert(n.SignedDistance == 2, "Normalized signed distance should be scaled accordingly");
-}
-
-    /**
- * @brief Tests that creating a plane from three collinear (degenerate) points returns a default plane.
- * @details Verifies that degenerate input falls back to a default plane.
- */
-MU_TEST(plane_from_points_degenerate_returns_default)
-{
-        // Collinear points -> normal length ~0 -> returns Plane() (default)
-    const Plane p = Plane::FromPoints(Vector3D(0, 0, 0), Vector3D(1, 0, 0), Vector3D(2, 0, 0));
-    mu_assert(p.Normal == Vector3D::UnitY(), "FromPoints(collinear) should fall back to default plane normal");
-    mu_assert(p.SignedDistance == 0, "FromPoints(collinear) should fall back to default plane distance");
+    Plane p(Vector3D(0, 2, 0), Fxp(4));
+    p.Normalize<SRL::Math::Precision::Accurate>();
+    mu_assert(p.normal == Vector3D::UnitY(), "Normalized normal should be UnitY");
+    mu_assert(p.d == 2, "Normalized d should be scaled accordingly");
 }
 
     /**
@@ -130,8 +108,8 @@ MU_TEST_SUITE(plane_test_suite)
 
     MU_RUN_TEST(plane_default_and_distance);
     MU_RUN_TEST(plane_from_normal_and_point);
-    MU_RUN_TEST(plane_project_and_reflect);
-    MU_RUN_TEST(plane_normalize_and_validity);
-    MU_RUN_TEST(plane_from_points_degenerate_returns_default);
+    MU_RUN_TEST(plane_from_three_points);
+    MU_RUN_TEST(plane_project);
+    MU_RUN_TEST(plane_normalize);
 }
 }

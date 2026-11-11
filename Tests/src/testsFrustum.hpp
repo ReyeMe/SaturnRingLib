@@ -32,96 +32,20 @@ void frustum_test_output_header(void)
     }
 }
 
+// Test frustum: 90 degree vertical FOV, 4:3 aspect, near 1, far 10, looking down -Z.
+// Frustum has no accessors in this SaturnMathPP version, so tests use these values directly.
+static const Fxp kNear = Fxp(int16_t{1});
+static const Fxp kFar = Fxp(int16_t{10});
+static const Fxp kFarHeight = kFar;                                  // tan(45 degrees) * far
+static const Fxp kFarWidth = kFarHeight * Fxp(int16_t{4}) / Fxp(int16_t{3});
+
 static Frustum make_test_frustum()
 {
-    const Angle fov = Angle::FromDegrees(Fxp(int16_t{90}));
-    const Fxp aspect = Fxp(int16_t{4}) / Fxp(int16_t{3});
-    const Fxp nearDist = Fxp(int16_t{1});
-    const Fxp farDist = Fxp(int16_t{10});
-    return Frustum(fov, aspect, nearDist, farDist);
+    return Frustum(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{4}) / Fxp(int16_t{3}), kNear, kFar);
 }
 
     /**
- * @brief Tests frustum behavior with extreme values for its parameters.
- *
- * This test checks the frustum's robustness and correctness when constructed
- * with very large or very small field of view (FOV) and aspect ratios. It also
- * tests extremely large near and far plane distances.
- */
-MU_TEST(frustum_extreme_values)
-{
-    constexpr Matrix43 view = Matrix43::Identity();
-        // Extremely large FOV
-    Frustum f_large_fov(Angle::FromDegrees(Fxp(int16_t{179})), Fxp(int16_t{1}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_large_fov.Update(view);
-    mu_assert(f_large_fov.NearHeight > Fxp(int16_t{0}), "NearHeight should be positive for large FOV");
-
-        // Extremely small FOV
-    Frustum f_small_fov(Angle::FromDegrees(Fxp(int16_t{1})), Fxp(int16_t{1}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_small_fov.Update(view);
-    mu_assert(f_small_fov.NearHeight > Fxp(int16_t{0}), "NearHeight should be positive for small FOV");
-
-        // Extremely large aspect ratio
-    Frustum f_large_aspect(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{1000}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_large_aspect.Update(view);
-    mu_assert(f_large_aspect.NearWidth > Fxp(int16_t{0}), "NearWidth should be positive for large aspect ratio");
-
-        // Extremely small aspect ratio
-    Frustum f_small_aspect(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{1}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_small_aspect.Update(view);
-    mu_assert(f_small_aspect.NearWidth > Fxp(int16_t{0}), "NearWidth should be positive for small aspect ratio");
-
-        // Extremely large near/far distances
-    Frustum f_large_dist(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{1}), Fxp(int16_t{10000}), Fxp(int16_t{20000}));
-    f_large_dist.Update(view);
-    mu_assert(f_large_dist.FarDist > f_large_dist.NearDist, "FarDist should be greater than NearDist for large distances");
-}
-
-    /**
- * @brief Tests frustum behavior with degenerate (zero) values.
- *
- * This test ensures that creating a frustum with all-zero parameters
- * (FOV, aspect, near, far) results in a "zero" frustum without causing
- * instability.
- */
-MU_TEST(frustum_degenerate_values)
-{
-    constexpr Matrix43 view = Matrix43::Identity();
-        // All parameters zero
-    Frustum f_zero(Angle::Zero(), Fxp(int16_t{0}), Fxp(int16_t{0}), Fxp(int16_t{0}));
-    f_zero.Update(view);
-    mu_assert(f_zero.NearHeight == Fxp(int16_t{0}), "NearHeight should be 0 for zero params");
-    mu_assert(f_zero.NearWidth == Fxp(int16_t{0}), "NearWidth should be 0 for zero params");
-    mu_assert(f_zero.NearDist == Fxp(int16_t{0}), "NearDist should be 0 for zero params");
-    mu_assert(f_zero.FarDist == Fxp(int16_t{0}), "FarDist should be 0 for zero params");
-}
-
-    /**
- * @brief Verifies the copy and move semantics of the Frustum class.
- *
- * This test checks that the copy constructor, move constructor, copy assignment,
- * and move assignment operators for the Frustum class work as expected.
- */
-MU_TEST(frustum_copy_move_semantics)
-{
-    Frustum f1 = make_test_frustum();
-    Frustum f2(f1); // Copy constructor
-    mu_assert(f2.NearDist == f1.NearDist, "Copy constructor NearDist");
-    Frustum f3 = std::move(f1); // Move constructor
-    mu_assert(f3.NearDist == f2.NearDist, "Move constructor NearDist");
-    Frustum f4 = make_test_frustum();
-    f4 = f2; // Copy assignment
-    mu_assert(f4.NearDist == f2.NearDist, "Copy assignment NearDist");
-    Frustum f5 = make_test_frustum();
-    f5 = std::move(f3); // Move assignment
-    mu_assert(f5.NearDist == f2.NearDist, "Move assignment NearDist");
-}
-
-    /**
- * @brief Tests the intersection classification between two frustums.
- *
- * This test verifies that points inside and outside of two identical, overlapping
- * frustums are classified correctly.
+ * @brief Tests that two identical frustums agree on a point inside and a point outside.
  */
 MU_TEST(frustum_frustum_intersection)
 {
@@ -130,178 +54,82 @@ MU_TEST(frustum_frustum_intersection)
     Frustum f2 = make_test_frustum();
     f1.Update(view);
     f2.Update(view);
-        // Place a point inside both frustums
+
     const Vector3D pt(int16_t{0}, int16_t{0}, int16_t{-5});
-    mu_assert(f1.Classify(pt) != Frustum::FrustumRelationship::Outside, "pt inside f1");
-    mu_assert(f2.Classify(pt) != Frustum::FrustumRelationship::Outside, "pt inside f2");
-        // Place a point outside both frustums
+    mu_assert(f1.Contains(pt), "pt inside f1");
+    mu_assert(f2.Contains(pt), "pt inside f2");
+
     const Vector3D pt_out(int16_t{100}, int16_t{100}, int16_t{100});
-    mu_assert(f1.Classify(pt_out) == Frustum::FrustumRelationship::Outside, "pt_out outside f1");
-    mu_assert(f2.Classify(pt_out) == Frustum::FrustumRelationship::Outside, "pt_out outside f2");
+    mu_assert(!f1.Contains(pt_out), "pt_out outside f1");
+    mu_assert(!f2.Contains(pt_out), "pt_out outside f2");
 }
 
     /**
- * @brief Tests the basic construction of a frustum and the orientation of its planes.
- *
- * This test verifies that a frustum is created with valid near and far distances
- * and that its near and far planes are correctly oriented in space when given an
- * identity view matrix.
+ * @brief Tests Contains() for points, spheres and AABBs inside, crossing and outside the frustum.
+ * @details Contains() is true for shapes at least partially inside.
  */
-MU_TEST(frustum_construction_and_plane_orientation)
-{
-    constexpr Matrix43 view = Matrix43::Identity();
-    Frustum f = make_test_frustum();
-    f.Update(view);
-
-    mu_assert(f.NearDist > 0, "NearDist should be positive");
-    mu_assert(f.FarDist > f.NearDist, "FarDist should be greater than NearDist");
-
-        // Near plane should face -Z, far plane should face +Z with identity view
-    mu_assert(f.GetPlane(Frustum::PLANE_NEAR).Normal == Vector3D(int16_t{0}, int16_t{0}, int16_t{-1}), "Near plane normal should be -Z");
-    mu_assert(f.GetPlane(Frustum::PLANE_FAR).Normal == Vector3D(int16_t{0}, int16_t{0}, int16_t{1}), "Far plane normal should be +Z");
-
-        // Planes should remain valid after Update()
-    for (size_t i = 0; i < Frustum::PLANE_COUNT; i++)
-        mu_assert(f.GetPlane(i).IsValid(), "Frustum planes should be valid after Update()");
-}
-
-    /**
- * @brief Tests the classification of points, spheres, and AABBs against the frustum.
- *
- * This test checks the `Classify` and `Intersects` methods of the Frustum class
- * for various geometric primitives (points, spheres, AABBs) to ensure they are
- * correctly identified as being inside, outside, or intersecting the frustum.
- */
-MU_TEST(frustum_classify_point_sphere_aabb)
+MU_TEST(frustum_contains_point_sphere_aabb)
 {
     constexpr Matrix43 view = Matrix43::Identity();
     Frustum f = make_test_frustum();
     f.Update(view);
 
         // Point tests
-    const Vector3D insidePoint(int16_t{0}, int16_t{0}, int16_t{-5});
-    const Vector3D nearPlanePoint(int16_t{0}, int16_t{0}, -f.NearDist);
-    const Vector3D farPlanePoint(int16_t{0}, int16_t{0}, -f.FarDist);
-    const Vector3D behindNear(int16_t{0}, int16_t{0}, int16_t{0});
-    const Vector3D beyondFar(Fxp(int16_t{0}), Fxp(int16_t{0}), -f.FarDist - Fxp(int16_t{1}));
-
-    mu_assert(f.Classify(insidePoint) == Frustum::FrustumRelationship::Inside, "Point inside should be Inside");
-    mu_assert(f.Classify(nearPlanePoint) == Frustum::FrustumRelationship::Intersects, "Point on near plane should be Intersects");
-    mu_assert(f.Classify(farPlanePoint) == Frustum::FrustumRelationship::Intersects, "Point on far plane should be Intersects");
-    mu_assert(f.Classify(behindNear) == Frustum::FrustumRelationship::Outside, "Point behind near should be Outside");
-    mu_assert(f.Classify(beyondFar) == Frustum::FrustumRelationship::Outside, "Point beyond far should be Outside");
-
-    mu_assert(f.Intersects(insidePoint), "Intersects(point) should be true for inside point");
-    mu_assert(!f.Intersects(behindNear), "Intersects(point) should be false for outside point");
+    mu_assert(f.Contains(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5})), "Point inside should be contained");
+    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kNear)), "Point on near plane should be contained");
+    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar)), "Point on far plane should be contained");
+    mu_assert(!f.Contains(Vector3D(int16_t{0}, int16_t{0}, int16_t{0})), "Point behind near should be outside");
+    mu_assert(!f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar - Fxp(int16_t{1}))), "Point beyond far should be outside");
 
         // Sphere tests
     const Fxp quarter = Fxp::BuildRaw(0x00004000);
     const Fxp half = Fxp::BuildRaw(0x00008000);
 
-    const Sphere insideSphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), Fxp(int16_t{1}));
-    const Sphere nearIntersectSphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(f.NearDist + quarter)), half);
-    const Sphere farIntersectSphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(f.FarDist - quarter)), half);
-    const Sphere outsideSphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{0}), quarter);
-    const Sphere containingSphere(Vector3D(0, 0, -5), Fxp(int16_t{10}));
-
-    mu_assert(f.Classify(insideSphere) == Frustum::FrustumRelationship::Inside, "Sphere inside should be Inside");
-    mu_assert(f.Classify(nearIntersectSphere) == Frustum::FrustumRelationship::Intersects, "Sphere intersecting near plane should be Intersects");
-    mu_assert(f.Classify(farIntersectSphere) == Frustum::FrustumRelationship::Intersects, "Sphere intersecting far plane should be Intersects");
-    mu_assert(f.Classify(outsideSphere) == Frustum::FrustumRelationship::Outside, "Sphere behind near should be Outside");
-    mu_assert(f.Classify(containingSphere) == Frustum::FrustumRelationship::Intersects, "Sphere containing frustum should be Intersects");
-
-    mu_assert(f.Intersects(insideSphere), "Intersects(sphere) should be true for inside sphere");
-    mu_assert(!f.Intersects(outsideSphere), "Intersects(sphere) should be false for outside sphere");
+    mu_assert(f.Contains(Sphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), Fxp(int16_t{1}))), "Sphere inside should be contained");
+    mu_assert(f.Contains(Sphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + quarter)), half)), "Sphere crossing near plane should be contained");
+    mu_assert(f.Contains(Sphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kFar - quarter)), half)), "Sphere crossing far plane should be contained");
+    mu_assert(!f.Contains(Sphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{0}), quarter)), "Sphere behind near should be outside");
+    mu_assert(f.Contains(Sphere(Vector3D(0, 0, -5), Fxp(int16_t{10}))), "Sphere containing frustum should be contained");
 
         // AABB tests
-    const AABB insideAabb(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), Vector3D(int16_t{1}, int16_t{1}, int16_t{1}));
-    const AABB nearIntersectAabb(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(f.NearDist + quarter)), Vector3D(int16_t{1}, int16_t{1}, int16_t{1}));
-    const AABB farIntersectAabb(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(f.FarDist - quarter)), Vector3D(int16_t{1}, int16_t{1}, int16_t{1}));
-    const AABB outsideAabb(Vector3D(int16_t{100}, int16_t{0}, int16_t{-5}), Vector3D(int16_t{1}, int16_t{1}, int16_t{1}));
-    const AABB containingAabb(Vector3D(0, 0, -5), Vector3D(10, 10, 10));
-
-    mu_assert(f.Classify(insideAabb) == Frustum::FrustumRelationship::Inside, "AABB near center should be Inside");
-    mu_assert(f.Classify(nearIntersectAabb) == Frustum::FrustumRelationship::Intersects, "AABB intersecting near plane should be Intersects");
-    mu_assert(f.Classify(farIntersectAabb) == Frustum::FrustumRelationship::Intersects, "AABB intersecting far plane should be Intersects");
-    mu_assert(f.Classify(outsideAabb) == Frustum::FrustumRelationship::Outside, "Far X AABB should be Outside");
-    mu_assert(f.Classify(containingAabb) == Frustum::FrustumRelationship::Intersects, "AABB containing frustum should be Intersects");
+    const Vector3D one(int16_t{1}, int16_t{1}, int16_t{1});
+    mu_assert(f.Contains(AABB(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), one)), "AABB near center should be contained");
+    mu_assert(f.Contains(AABB(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + quarter)), one)), "AABB crossing near plane should be contained");
+    mu_assert(f.Contains(AABB(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kFar - quarter)), one)), "AABB crossing far plane should be contained");
+    mu_assert(!f.Contains(AABB(Vector3D(int16_t{100}, int16_t{0}, int16_t{-5}), one)), "Far X AABB should be outside");
+    mu_assert(f.Contains(AABB(Vector3D(0, 0, -5), Vector3D(10, 10, 10))), "AABB containing frustum should be contained");
 }
 
     /**
- * @brief A smoke test to ensure frustum planes remain valid after a view rotation.
- *
- * This test applies a rotation to the view matrix and updates the frustum. It then
- * checks that the frustum's planes are still valid and that basic classification
- * works as expected.
+ * @brief Tests that points along the view direction stay inside after rotating the view.
  */
-MU_TEST(frustum_update_rotated_view_smoke)
+MU_TEST(frustum_update_rotated_view)
 {
-        // Rotate view so forward axis changes; smoke-test plane normals stay valid and we can still classify.
     const Matrix33 rot = Matrix33::CreateRotation(Angle::Zero(), Angle::FromDegrees(Fxp(int16_t{90})), Angle::Zero());
     const Matrix43 view(rot, Vector3D::Zero());
 
     Frustum f = make_test_frustum();
     f.Update(view);
 
-        // All planes should remain valid (non-zero normal)
-    for (size_t i = 0; i < Frustum::PLANE_COUNT; i++)
-        mu_assert(f.GetPlane(i).IsValid(), "Rotated frustum planes should be valid");
-
-        // Points on/inside the rotated frustum should not be classified as Outside.
-    const Vector3D nearCenter = view.Row3 - view.Row2 * f.NearDist;
-    const Vector3D midPoint = view.Row3 - view.Row2 * ((f.NearDist + f.FarDist) / Fxp(int16_t{2}));
-    mu_assert(f.Classify(nearCenter) != Frustum::FrustumRelationship::Outside, "Near plane center should not be Outside in rotated view");
-    mu_assert(f.Classify(midPoint) != Frustum::FrustumRelationship::Outside, "Mid frustum point should not be Outside in rotated view");
+    const Vector3D nearCenter = view.Row3 - view.Row2 * kNear;
+    const Vector3D midPoint = view.Row3 - view.Row2 * ((kNear + kFar) / Fxp(int16_t{2}));
+    mu_assert(f.Contains(nearCenter), "Near plane center should be inside in rotated view");
+    mu_assert(f.Contains(midPoint), "Mid frustum point should be inside in rotated view");
 }
 
     /**
- * @brief Tests frustum construction with invalid parameters.
- *
- * This test checks the frustum's behavior when constructed with invalid parameters
- * such as zero or negative FOV, zero or negative aspect ratio, and a near plane
- * distance greater than or equal to the far plane distance. It ensures the class
- * handles these cases gracefully.
+ * @brief Tests that an inverted frustum (near >= far) contains nothing.
  */
 MU_TEST(frustum_invalid_construction)
 {
     constexpr Matrix43 view = Matrix43::Identity();
-
-        // Test with zero FOV
-    Frustum f_zero_fov(Angle::Zero(), Fxp(int16_t{1}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_zero_fov.Update(view);
-    mu_assert(f_zero_fov.NearHeight == Fxp(int16_t{0}), "NearHeight should be 0 for 0 FOV");
-    mu_assert(f_zero_fov.NearWidth == Fxp(int16_t{0}), "NearWidth should be 0 for 0 FOV");
-
-        // Test with negative FOV
-    Frustum f_neg_fov(Angle::FromDegrees(Fxp(int16_t{-90})), Fxp(int16_t{1}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_neg_fov.Update(view);
-    mu_assert(f_neg_fov.NearHeight < Fxp(int16_t{0}), "NearHeight should be negative for negative FOV");
-
-        // Test with zero aspect ratio
-    Frustum f_zero_aspect(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{0}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_zero_aspect.Update(view);
-    mu_assert(f_zero_aspect.NearWidth == Fxp(int16_t{0}), "NearWidth should be 0 for 0 aspect ratio");
-
-        // Test with negative aspect ratio
-    Frustum f_neg_aspect(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{-1}), Fxp(int16_t{1}), Fxp(int16_t{10}));
-    f_neg_aspect.Update(view);
-    mu_assert(f_neg_aspect.NearWidth < Fxp(int16_t{0}), "NearWidth should be negative for negative aspect ratio");
-
-        // Test with near >= far
     Frustum f_near_far(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{1}), Fxp(int16_t{10}), Fxp(int16_t{1}));
     f_near_far.Update(view);
-    mu_assert(f_near_far.NearDist >= f_near_far.FarDist, "NearDist is >= FarDist");
-        // We expect that things might not work correctly, but it shouldn't crash.
-        // Let's check if a point inside the "inverted" frustum is still classified as outside.
-    const Vector3D point_in_inverted(int16_t{0}, int16_t{0}, int16_t{-5});
-    mu_assert(f_near_far.Classify(point_in_inverted) == Frustum::FrustumRelationship::Outside, "Point should be outside an inverted frustum");
+    mu_assert(!f_near_far.Contains(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5})), "Point should be outside an inverted frustum");
 }
 
     /**
- * @brief Tests the frustum's behavior at its boundary conditions.
- *
- * This test checks the classification of points, spheres, and AABBs that lie
- * exactly on or are touching the frustum's near and far planes.
+ * @brief Tests points, spheres and AABBs exactly on or touching the near and far planes.
  */
 MU_TEST(frustum_boundary_conditions)
 {
@@ -309,36 +137,19 @@ MU_TEST(frustum_boundary_conditions)
     Frustum f = make_test_frustum();
     f.Update(view);
 
-        // Point on near plane
-    const Vector3D point_on_near(int16_t{0}, int16_t{0}, -f.NearDist);
-    mu_assert(f.Classify(point_on_near) == Frustum::FrustumRelationship::Intersects, "Point on near plane should be Intersects");
+    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kNear)), "Point on near plane should be contained");
+    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar)), "Point on far plane should be contained");
 
-        // Point on far plane
-    const Vector3D point_on_far(int16_t{0}, int16_t{0}, -f.FarDist);
-    mu_assert(f.Classify(point_on_far) == Frustum::FrustumRelationship::Intersects, "Point on far plane should be Intersects");
-
-        // Sphere touching near plane
-    const Sphere sphere_touching_near(Vector3D(int16_t{0}, int16_t{0}, -f.NearDist - Fxp(int16_t{1})), Fxp(int16_t{1}));
-    mu_assert(f.Classify(sphere_touching_near) == Frustum::FrustumRelationship::Intersects, "Sphere touching near plane should be Intersects");
-
-        // Sphere touching far plane
-    const Sphere sphere_touching_far(Vector3D(int16_t{0}, int16_t{0}, -f.FarDist + Fxp(int16_t{1})), Fxp(int16_t{1}));
-    mu_assert(f.Classify(sphere_touching_far) == Frustum::FrustumRelationship::Intersects, "Sphere touching far plane should be Intersects");
-
-        // AABB touching near plane
-    const AABB aabb_touching_near(Vector3D(int16_t{0}, int16_t{0}, -f.NearDist - Fxp(int16_t{1})), Vector3D(int16_t{1}, int16_t{1}, int16_t{1}));
-    mu_assert(f.Classify(aabb_touching_near) == Frustum::FrustumRelationship::Intersects, "AABB touching near plane should be Intersects");
-
-        // AABB touching far plane
-    const AABB aabb_touching_far(Vector3D(int16_t{0}, int16_t{0}, -f.FarDist + Fxp(int16_t{1})), Vector3D(int16_t{1}, int16_t{1}, int16_t{1}));
-    mu_assert(f.Classify(aabb_touching_far) == Frustum::FrustumRelationship::Intersects, "AABB touching far plane should be Intersects");
+    const Fxp zero = Fxp(int16_t{0});
+    const Fxp one = Fxp(int16_t{1});
+    mu_assert(f.Contains(Sphere(Vector3D(zero, zero, -kNear - one), one)), "Sphere touching near plane should be contained");
+    mu_assert(f.Contains(Sphere(Vector3D(zero, zero, -kFar + one), one)), "Sphere touching far plane should be contained");
+    mu_assert(f.Contains(AABB(Vector3D(zero, zero, -kNear - one), Vector3D(one, one, one))), "AABB touching near plane should be contained");
+    mu_assert(f.Contains(AABB(Vector3D(zero, zero, -kFar + one), Vector3D(one, one, one))), "AABB touching far plane should be contained");
 }
 
     /**
- * @brief Tests the classification of an AABB that completely contains the frustum.
- *
- * This test verifies that an Axis-Aligned Bounding Box (AABB) which envelops
- * the entire frustum is correctly classified as intersecting.
+ * @brief Tests an AABB that encloses the whole frustum, and one far away.
  */
 MU_TEST(frustum_containing_aabb)
 {
@@ -346,68 +157,47 @@ MU_TEST(frustum_containing_aabb)
     Frustum f = make_test_frustum();
     f.Update(view);
 
-    const Vector3D center = Vector3D(int16_t{0}, int16_t{0}, -(f.NearDist + f.FarDist) / Fxp(int16_t{2}));
-    const Vector3D size = Vector3D(f.FarWidth, f.FarHeight, (f.FarDist - f.NearDist) / Fxp(int16_t{2})) * Fxp(int16_t{2});
-    const AABB containing_aabb(center, size);
+    const Vector3D center(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + kFar) / Fxp(int16_t{2}));
+    const Vector3D size = Vector3D(kFarWidth, kFarHeight, (kFar - kNear) / Fxp(int16_t{2})) * Fxp(int16_t{2});
+    mu_assert(f.Contains(AABB(center, size)), "AABB containing frustum should be contained");
 
-    mu_assert(f.Classify(containing_aabb) == Frustum::FrustumRelationship::Intersects, "AABB containing frustum should be Intersects");
-
-        // Negative case: AABB far away from frustum
-    const Vector3D far_center(int16_t{1000}, int16_t{1000}, int16_t{1000});
-    const Vector3D far_size(int16_t{10}, int16_t{10}, int16_t{10});
-    const AABB far_aabb(far_center, far_size);
-    mu_assert(f.Classify(far_aabb) == Frustum::FrustumRelationship::Outside, "AABB far from frustum should be Outside");
+    const AABB far_aabb(Vector3D(int16_t{1000}, int16_t{1000}, int16_t{1000}), Vector3D(int16_t{10}, int16_t{10}, int16_t{10}));
+    mu_assert(!f.Contains(far_aabb), "AABB far from frustum should be outside");
 }
 
     /**
- * @brief Tests the frustum's behavior with a translated view matrix.
- *
- * This test applies a translation to the view matrix and updates the frustum.
- * It ensures the frustum's planes remain valid and that classification works
- * correctly in the translated space.
+ * @brief Tests a frustum moved by a view matrix (translation only).
  */
 MU_TEST(frustum_translated_view)
 {
     const Vector3D eye(10, 20, 30);
     const Vector3D target = eye + Vector3D(0, 0, -1);
-    const Matrix43 view = Matrix43::CreateLookAt(eye, target);
+    // Matrix43::CreateLookAt does not compile in this SaturnMathPP version; the camera looks down -Row2
+    const Matrix43 view(Vector3D::UnitY(), eye - target, eye);
 
     Frustum f = make_test_frustum();
     f.Update(view);
 
-        // All planes should remain valid (non-zero normal)
-    for (size_t i = 0; i < Frustum::PLANE_COUNT; i++)
-        mu_assert(f.GetPlane(i).IsValid(), "Translated frustum planes should be valid");
-
-        // A point inside the translated frustum should be classified as Inside.
-    const Vector3D insidePoint = eye + Vector3D(0, 0, -(f.NearDist + f.FarDist) / Fxp(int16_t{2}));
-    mu_assert(f.Classify(insidePoint) != Frustum::FrustumRelationship::Outside, "Point inside translated frustum should not be Outside");
+    const Vector3D insidePoint = eye + Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + kFar) / Fxp(int16_t{2}));
+    mu_assert(f.Contains(insidePoint), "Point inside translated frustum should be contained");
 }
 
     /**
- * @brief Tests the frustum's behavior with a combined translated and rotated view.
- *
- * This test uses a 'look-at' view matrix, which involves both rotation and
- * translation, and verifies that the frustum planes are valid and that
- * classification of points within the transformed frustum is correct.
+ * @brief Tests a frustum moved and rotated by a view matrix looking at a target.
  */
 MU_TEST(frustum_translated_rotated_view)
 {
     const Vector3D eye(10, 20, 30);
     const Vector3D target(5, 15, 25);
-    const Matrix43 view = Matrix43::CreateLookAt(eye, target);
+    // Matrix43::CreateLookAt does not compile in this SaturnMathPP version; the camera looks down -Row2
+    const Matrix43 view(Vector3D::UnitY(), eye - target, eye);
 
     Frustum f = make_test_frustum();
     f.Update(view);
 
-        // All planes should remain valid (non-zero normal)
-    for (size_t i = 0; i < Frustum::PLANE_COUNT; i++)
-        mu_assert(f.GetPlane(i).IsValid(), "Translated/rotated frustum planes should be valid");
-
-        // A point inside the transformed frustum should be classified as Inside.
-    const Vector3D forward = (target - eye).Normalized<SRL::Math::Precision::Accurate>();
-    const Vector3D insidePoint = eye + forward * ((f.NearDist + f.FarDist) / Fxp(int16_t{2}));
-    mu_assert(f.Classify(insidePoint) != Frustum::FrustumRelationship::Outside, "Point inside translated/rotated frustum should not be Outside");
+    const Vector3D forward = (target - eye).Normalize<SRL::Math::Precision::Accurate>();
+    const Vector3D insidePoint = eye + forward * ((kNear + kFar) / Fxp(int16_t{2}));
+    mu_assert(f.Contains(insidePoint), "Point inside translated/rotated frustum should be contained");
 }
 
 MU_TEST_SUITE(frustum_test_suite)
@@ -416,11 +206,9 @@ MU_TEST_SUITE(frustum_test_suite)
         &frustum_test_teardown,
         &frustum_test_output_header);
 
-    MU_RUN_TEST(frustum_construction_and_plane_orientation);
-    MU_RUN_TEST(frustum_classify_point_sphere_aabb);
-    MU_RUN_TEST(frustum_update_rotated_view_smoke);
-
-        // Merged extended tests
+    MU_RUN_TEST(frustum_frustum_intersection);
+    MU_RUN_TEST(frustum_contains_point_sphere_aabb);
+    MU_RUN_TEST(frustum_update_rotated_view);
     MU_RUN_TEST(frustum_invalid_construction);
     MU_RUN_TEST(frustum_boundary_conditions);
     MU_RUN_TEST(frustum_containing_aabb);

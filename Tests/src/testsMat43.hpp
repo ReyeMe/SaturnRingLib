@@ -81,14 +81,14 @@ MU_TEST(mat43_multiplication_combines_translations)
 }
 
     /**
- * @brief Tests the transformation of a vector by a 90-degree rotation matrix around the Y-axis.
+ * @brief Tests the transformation of a vector by a 90-degree rotation matrix around the Y-axis (documented: +X to -Z).
  * @details Verifies that the rotation correctly transforms a vector and that its inverse restores the original vector.
  */
 MU_TEST(mat43_rotation_y_90_vector)
 {
-    const Matrix43 r = Matrix43::CreateRotationY(Angle::FromDegrees(90));
-    const Vector3D forward(0, 0, -1);
-    mu_assert(r.TransformVector(forward) == Vector3D(1, 0, 0), "Yaw +90 should rotate -Z to +X");
+    const Matrix43 r(Matrix33::CreateRotationY(Angle::FromDegrees(90)), Vector3D::Zero());
+    const Vector3D forward(1, 0, 0);
+    mu_assert(r.TransformVector(forward) == Vector3D(0, 0, -1), "Yaw +90 should rotate +X to -Z");
 
         // Rotations are orthogonal; Invert should undo rotation
     const Matrix43 inv = r.Invert();
