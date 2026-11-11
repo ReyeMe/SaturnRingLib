@@ -181,6 +181,72 @@ MU_TEST(vector3d_shift_ops_with_negative)
     /**
  * @brief Defines the Vector3D test suite and its configuration.
  */
+/** @brief True if a is within tol raw units (1/65536) of b. */
+static bool vec3_raw_near(const Fxp& a, const Fxp& b, int32_t tol)
+{
+    const int32_t diff = a.RawValue() - b.RawValue();
+    return diff >= -tol && diff <= tol;
+}
+
+    /**
+ * @brief Tests DotAccumulate on the MAC unit: matches Dot, accumulates across calls, keeps 64-bit
+ *        intermediate sums, matches the compile-time path, and matches MultiDotAccumulate.
+ * @note MAC registers are shared CPU state (snprintf and integer multiplies clobber them): each result is read right away.
+ */
+MU_TEST(vector3d_dot_accumulate)
+{
+    const Vector3D a(Fxp(0.5), -2, 3), b(4, Fxp(1.5), Fxp(-0.25));     // 2 - 3 - 0.75 = -1.75
+    const Vector3D c(-1, -1, -1), d(1, 2, 3);                          // -6
+    const Vector3D e(10, 0, -10), f(Fxp(0.1), 7, Fxp(0.1));            // 1 - 1 = 0
+
+        // Single call matches Dot()
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    const Fxp single = Fxp::ExtractMac();
+
+        // Three calls add up
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    Vector3D::DotAccumulate(c, d);
+    Vector3D::DotAccumulate(e, f);
+    const Fxp sum3 = Fxp::ExtractMac();
+
+        // Terms overflow Fxp (> 32767) but the 64-bit MAC keeps the exact total
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(Vector3D(200, -200, 0), Vector3D(200, 200, 5));         // 40000 - 40000 = 0
+    const Fxp bigCancel = Fxp::ExtractMac();
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(Vector3D(150, 150, -150), Vector3D(150, 150, 150));     // 22500 + 22500 - 22500
+    const Fxp bigPartial = Fxp::ExtractMac();
+
+        // Runtime MAC vs compile-time per-term products on fractional inputs
+    constexpr Vector3D g(Fxp(0.3), Fxp(-1.7), Fxp(2.25)), h(Fxp(1.1), Fxp(0.6), Fxp(-0.9));
+    constexpr Fxp compileTime = g.Dot(h);                                           // 0.33 - 1.02 - 2.025 = -2.715
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(g, h);
+    const Fxp runtime = Fxp::ExtractMac();
+
+    const Fxp multi = Vector3D::MultiDotAccumulate(std::pair{a, b}, std::pair{c, d}, std::pair{e, f});
+    const Fxp dot = a.Dot(b);
+
+    snprintf(buffer, buffer_size, "DotAccumulate raw %ld != Dot raw %ld", (long)single.RawValue(), (long)dot.RawValue());
+    mu_assert(single == dot, buffer);
+    snprintf(buffer, buffer_size, "DotAccumulate single raw %ld != -1.75", (long)single.RawValue());
+    mu_assert(single == Fxp(-1.75), buffer);
+    snprintf(buffer, buffer_size, "3 accumulated dots raw %ld not near -7.75", (long)sum3.RawValue());
+    mu_assert(vec3_raw_near(sum3, Fxp(-7.75), 8), buffer);
+    snprintf(buffer, buffer_size, "Overflowing terms cancelling raw %ld != 0", (long)bigCancel.RawValue());
+    mu_assert(bigCancel == 0, buffer);
+    snprintf(buffer, buffer_size, "Overflowing partial sum raw %ld != 22500", (long)bigPartial.RawValue());
+    mu_assert(bigPartial == 22500, buffer);
+    snprintf(buffer, buffer_size, "Runtime dot raw %ld not near -2.715", (long)runtime.RawValue());
+    mu_assert(vec3_raw_near(runtime, Fxp(-2.715), 8), buffer);
+    snprintf(buffer, buffer_size, "Runtime dot raw %ld vs compile-time %ld", (long)runtime.RawValue(), (long)compileTime.RawValue());
+    mu_assert(vec3_raw_near(runtime, compileTime, 3), buffer);
+    snprintf(buffer, buffer_size, "MultiDotAccumulate raw %ld != 3 DotAccumulate calls raw %ld", (long)multi.RawValue(), (long)sum3.RawValue());
+    mu_assert(multi == sum3, buffer);
+}
+
 MU_TEST_SUITE(vector3d_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&vector3d_test_setup,
@@ -194,5 +260,6 @@ MU_TEST_SUITE(vector3d_test_suite)
     MU_RUN_TEST(vector3d_normalize_zero_and_triangle_normal);
     MU_RUN_TEST(vector3d_distance);
     MU_RUN_TEST(vector3d_shift_ops_with_negative);
+    MU_RUN_TEST(vector3d_dot_accumulate);
 }
 }
