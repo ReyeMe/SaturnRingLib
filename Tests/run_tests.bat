@@ -1,9 +1,17 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
-  # Usage: ./run_tests.bat [kronos|mednafen|USBGamers]
+  # Usage: ./run_tests.bat <kronos|mednafen|USBGamers> <campaign> [device-ip]
+  # <campaign> is a folder of campaigns/ (math, memory, video, system, cd)
 
-  if [ -z "$1" ]; then
-    echo "Usage: $0 [kronos|mednafen|USBGamers]"
+  if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Usage: $0 <kronos|mednafen|USBGamers> <campaign> [device-ip]"
+    exit 1
+  fi
+
+  CAMPAIGN="$2"
+  DIR="campaigns/$CAMPAIGN"
+  if [ ! -d "$DIR" ]; then
+    echo "Unknown campaign '$CAMPAIGN'. Available: $(ls campaigns | tr '\n' ' ')"
     exit 1
   fi
 
@@ -45,20 +53,20 @@
     echo "Using mednafen emulator"
     # Disable video output and enable debug cart
     export SDL_VIDEODRIVER=dummy
-    command="mednafen -sound 0 -ss.cart debug -force_module ss BuildDrop/UTs.cue"
+    command="mednafen -sound 0 -ss.cart debug -force_module ss $DIR/BuildDrop/$CAMPAIGN.cue"
   elif [ "$1" = "kronos" ]; then
     echo "Using kronos emulator"
     # Run kronos in automation mode with no sound
-    command="kronos -a -ns -i BuildDrop/UTs.cue"
+    command="kronos -a -ns -i $DIR/BuildDrop/$CAMPAIGN.cue"
   elif [ "$1" = "USBGamers" ]; then
         # Precondition: check if cd/data/0.bin exists
-        if [ ! -f cd/data/0.bin ]; then
-          echo "ERROR: cd/data/0.bin not found. Please build the test binary before running."
+        if [ ! -f "$DIR/cd/data/0.bin" ]; then
+          echo "ERROR: $DIR/cd/data/0.bin not found. Please build the test binary before running."
           exit 1
         fi
     echo "Using USBGamers cartridge"
-    # Optional: $2 is IPv4 for REST API control
-    DEVICE_IP="$2"
+    # Optional: $3 is IPv4 for REST API control
+    DEVICE_IP="$3"
     if [ -n "$DEVICE_IP" ]; then
       # Validate IPv4 address format
       if [[ ! $DEVICE_IP =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
@@ -120,7 +128,7 @@
     # Makes sure the USB device is reset before programming
     reset_usb_device
     sleep 2
-    upload_log=$(ftx -x cd/data/0.bin 0x06004000 2>&1)
+    upload_log=$(ftx -x "$DIR/cd/data/0.bin" 0x06004000 2>&1)
     upload_status=$?
     echo "$upload_log"
     if [[ $upload_status -ne 0 ]] || echo "$upload_log" | grep -qi "Upload failed\|Send data error"; then
@@ -164,7 +172,7 @@
   fi
 
   # Setup log file and success marker
-  log="uts.log"
+  log="uts_$CAMPAIGN.log"
   match="***UT_END***"
   
   echo "Test command: $command"
@@ -193,6 +201,8 @@
           echo "Terminating emulator due to timeout..."
           if kill -0 $EMULATOR_PID 2>/dev/null; then
             kill -15 $EMULATOR_PID
+            # Wait for exit, so the next run is not blocked by the emulator's lock file
+            wait $EMULATOR_PID 2>/dev/null
           else
             echo "Emulator process is not running"
           fi
@@ -206,6 +216,8 @@
           echo "Terminating emulator..."
           if kill -0 $EMULATOR_PID 2>/dev/null; then
             kill -15 $EMULATOR_PID
+            # Wait for exit, so the next run is not blocked by the emulator's lock file
+            wait $EMULATOR_PID 2>/dev/null
           else
             echo "Emulator process is not running"
           fi
@@ -266,7 +278,7 @@ exit
 
 :(){
   @echo off
-  ..\tools\bin\win\ftx\ftx -x .\cd\data\0.bin 0x06004000 
+  ..\tools\bin\win\ftx\ftx -x .\campaigns\%2\cd\data\0.bin 0x06004000 
   ..\tools\bin\win\ftx\ftx -c
   )
   GOTO end

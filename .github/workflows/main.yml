@@ -15,8 +15,19 @@ env:
 
 jobs:
   build:
-    name: Build
+    name: Tests (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      # One campaign failing must not cancel the others.
+      fail-fast: false
+      matrix:
+        include:
+          - { name: math, campaign: math }
+          - { name: memory, campaign: memory }
+          - { name: memory-tlsf, campaign: memory, make_args: SRL_MALLOC_METHOD=TLSF }
+          - { name: video, campaign: video }
+          - { name: system, campaign: system }
+          - { name: cd, campaign: cd }
     container:
       image: willll/saturn-docker:gcc_14.2.0_vanilla
 
@@ -37,14 +48,7 @@ jobs:
       - name: Build
         run: |
           cd $GITHUB_WORKSPACE/Tests
-          make all
-          # zip -r BuildDrop.zip BuildDrop/
-      - name: Upload executable
-        if: ${{ false }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: BuildDrop.zip
-          path: Tests/BuildDrop.zip
+          make ${{ matrix.campaign }} ${{ matrix.make_args }}
       - name: Install Mednafen
         run: |
           cd $GITHUB_WORKSPACE/emulators/mednafen
@@ -61,28 +65,32 @@ jobs:
       - name: Run tests
         run: |
           cd $GITHUB_WORKSPACE/Tests
-          bash $GITHUB_WORKSPACE/Tests/run_tests.bat mednafen
+          bash $GITHUB_WORKSPACE/Tests/run_tests.bat mednafen ${{ matrix.campaign }}
+      # The steps below must also run when tests fail, so the failures get reported.
       - name: Convert test results
+        if: always()
         run: |
           python3 $GITHUB_WORKSPACE/tools/scripts/ctrf_converter.py \
-            $GITHUB_WORKSPACE/Tests/uts.log \
-            $GITHUB_WORKSPACE/Tests/uts.json
+            $GITHUB_WORKSPACE/Tests/uts_${{ matrix.campaign }}.log \
+            $GITHUB_WORKSPACE/Tests/uts_${{ matrix.name }}.json
       - name: Report Test Results
         uses: ctrf-io/github-test-reporter@v1
         with:
-          report-path: './Tests/uts.json'
+          report-path: './Tests/uts_${{ matrix.name }}.json'
           summary-report: true
           failed-folded-report: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: always()
       - name: Archive UT results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: uts.log
-          path: Tests/uts.log
-      - name: Archive report 
+          name: uts_${{ matrix.name }}.log
+          path: Tests/uts_${{ matrix.campaign }}.log
+      - name: Archive report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: uts.json
-          path: Tests/uts.json
+          name: uts_${{ matrix.name }}.json
+          path: Tests/uts_${{ matrix.name }}.json
