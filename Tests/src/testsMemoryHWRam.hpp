@@ -264,7 +264,7 @@ MU_TEST(memory_HWRam_test_new_array_highworkram)
  */
 MU_TEST(memory_HWRam_test_deplete_highworkram)
 {
-    size_t freeSpace = Memory::GetFreeSpace(Memory::Zone::HWRam) / 2;
+    size_t freeSpace = Memory::GetFreeSpace(Memory::Zone::HWRam);
     void *ptr = nullptr;
 
     if (freeSpace > 0)
@@ -312,6 +312,78 @@ MU_TEST(memory_HWRam_test_inrange_highworkram)
 
     mu_assert(Memory::HighWorkRam::InRange(validPtr), "InRange failed for valid HighWorkRam address");
     mu_assert(!Memory::HighWorkRam::InRange(invalidPtr), "InRange failed for invalid HighWorkRam address");
+}
+
+    /**
+ * @brief Test reallocating to a size that is not a multiple of 4
+ *
+ * Shrinking splits the block: the header of the free space after it must stay 4-byte aligned
+ * (a misaligned 32-bit access is an address error on the SH-2).
+ */
+MU_TEST(memory_HWRam_test_realloc_unaligned_size)
+{
+    size_t freeSpaceBefore = Memory::HighWorkRam::GetFreeSpace();
+    void *ptr = Memory::HighWorkRam::Malloc(100);
+    mu_assert(ptr != nullptr, "HighWorkRam memory allocation failed");
+
+    void *newPtr = Memory::HighWorkRam::Realloc(ptr, 51);
+    mu_assert(newPtr == ptr, "HighWorkRam shrinking reallocation moved the block");
+
+    void *next = Memory::HighWorkRam::Malloc(8);
+    mu_assert(next != nullptr && (reinterpret_cast<uintptr_t>(next) & 3) == 0,
+        "Allocation after an odd-size reallocation failed or is misaligned");
+
+    Memory::HighWorkRam::Free(next);
+    Memory::HighWorkRam::Free(newPtr);
+    mu_assert(Memory::HighWorkRam::GetFreeSpace() == freeSpaceBefore, "HighWorkRam memory free failed");
+}
+
+    /**
+ * @brief Test that a moved or failed reallocation keeps the data
+ *
+ * A block followed by another can't grow in place: it moves, with its data. A size that fits
+ * nowhere returns nullptr and leaves the block allocated and unchanged.
+ */
+MU_TEST(memory_HWRam_test_realloc_keeps_data)
+{
+    size_t freeSpaceBefore = Memory::HighWorkRam::GetFreeSpace();
+    uint8_t *ptr = static_cast<uint8_t *>(Memory::HighWorkRam::Malloc(64));
+    void *blocker = Memory::HighWorkRam::Malloc(16);
+    mu_assert(ptr != nullptr && blocker != nullptr, "HighWorkRam memory allocation failed");
+
+    for (size_t i = 0; i < 64; i++)
+    {
+        ptr[i] = static_cast<uint8_t>(i + 1);
+    }
+
+    uint8_t *moved = static_cast<uint8_t *>(Memory::HighWorkRam::Realloc(ptr, 256));
+    const bool didMove = moved != nullptr && moved != ptr;
+    uint8_t *data = moved != nullptr ? moved : ptr; // nullptr leaves ptr allocated
+    bool same = true;
+
+    for (size_t i = 0; i < 64; i++)
+    {
+        same = same && data[i] == static_cast<uint8_t>(i + 1);
+    }
+
+    const size_t freeBeforeFailure = Memory::HighWorkRam::GetFreeSpace();
+    uint8_t *tooBig = static_cast<uint8_t *>(Memory::HighWorkRam::Realloc(data, freeBeforeFailure + 4096));
+    const bool kept = Memory::HighWorkRam::GetFreeSpace() == freeBeforeFailure; // still allocated
+
+    for (size_t i = 0; i < 64; i++)
+    {
+        same = same && data[i] == static_cast<uint8_t>(i + 1);
+    }
+
+    // Free first: a failed assert returns, and a leak would break the tests after this one
+    Memory::HighWorkRam::Free(tooBig);
+    Memory::HighWorkRam::Free(data);
+    Memory::HighWorkRam::Free(blocker);
+    mu_assert(didMove, "Reallocation behind a used block did not move");
+    mu_assert(same, "Reallocation lost the data");
+    mu_assert(tooBig == nullptr, "Reallocation larger than the free space did not fail");
+    mu_assert(kept, "Failed reallocation freed the block");
+    mu_assert(Memory::HighWorkRam::GetFreeSpace() == freeSpaceBefore, "HighWorkRam memory free failed");
 }
 
     /**
@@ -569,7 +641,8 @@ MU_TEST(memory_HWRam_test_multiple_array_sizes)
     };
 
     size_t initial_free_space = Memory::GetFreeSpace(Memory::Zone::HWRam);
-    std::vector<char *> arrays;
+    char *arrays[sizeof(test_sizes) / sizeof(test_sizes[0])];
+    size_t count = 0;
 
         // Sequential allocation and deallocation
     for (size_t size : test_sizes)
@@ -610,15 +683,13 @@ MU_TEST(memory_HWRam_test_multiple_array_sizes)
         snprintf(buffer, buffer_size,
             "Interleaved allocation failed for size %d", size);
         mu_assert(array != nullptr, buffer);
-        arrays.push_back(array);
+        arrays[count++] = array;
     }
 
         // Delete in reverse order
-    while (!arrays.empty())
+    while (count > 0)
     {
-        char *array = arrays.back();
-        arrays.pop_back();
-        delete[] array;
+        delete[] arrays[--count];
     }
 
         // Verify final memory state
@@ -649,6 +720,8 @@ MU_TEST_SUITE(memory_HWRam_test_suite)
     MU_RUN_TEST(memory_HWRam_test_highworkram_malloc_free);
     MU_RUN_TEST(memory_HWRam_test_highworkram_realloc);
     MU_RUN_TEST(memory_HWRam_test_realloc_larger);
+    MU_RUN_TEST(memory_HWRam_test_realloc_unaligned_size);
+    MU_RUN_TEST(memory_HWRam_test_realloc_keeps_data);
 
         // 2. Memory Information Tests
     MU_RUN_TEST(memory_HWRam_test_get_free_space);
