@@ -219,6 +219,59 @@ MU_TEST(vector2d_dot_accumulate)
     mu_assert(multi == sum3, buffer);
 }
 
+    /**
+ * @brief Named constants, and DistanceTo with accurate and default precision.
+ */
+MU_TEST(vector2d_constants_and_distance)
+{
+    mu_assert(Vector2D::Zero() == Vector2D(0, 0), "Zero should be (0,0)");
+    mu_assert(Vector2D::One() == Vector2D(1, 1), "One should be (1,1)");
+    mu_assert(Vector2D::UnitX() == Vector2D(1, 0) && Vector2D::Right() == Vector2D::UnitX(), "UnitX and Right should be (1,0)");
+    mu_assert(Vector2D::UnitY() == Vector2D(0, 1) && Vector2D::Up() == Vector2D::UnitY(), "UnitY and Up should be (0,1)");
+    mu_assert(Vector2D::Left() == Vector2D(-1, 0) && Vector2D::Left() == -Vector2D::Right(), "Left should be (-1,0)");
+    mu_assert(Vector2D::Down() == Vector2D(0, -1) && Vector2D::Down() == -Vector2D::Up(), "Down should be (0,-1)");
+
+    const Vector2D a(1, 2), b(4, 6);
+    const Fxp accurate = a.DistanceTo<SRL::Math::Precision::Accurate>(b);
+    snprintf(buffer, buffer_size, "DistanceTo<Accurate> raw %ld != 5", (long)accurate.RawValue());
+    mu_assert(vec2_raw_near(accurate, Fxp(5), 66), buffer);
+    const Fxp fast = a.DistanceTo(b);
+    snprintf(buffer, buffer_size, "DistanceTo<Default> raw %ld not within 7%% of 5", (long)fast.RawValue());
+    mu_assert(vec2_raw_near(fast, Fxp(5), 22938), buffer);
+    mu_assert(a.DistanceTo<SRL::Math::Precision::Accurate>(a) == 0, "Distance to itself should be 0");
+}
+
+    /**
+ * @brief Arithmetic, compound assignment (including chaining), negation, equality and lexicographic ordering.
+ */
+MU_TEST(vector2d_arithmetic_operators)
+{
+    const Vector2D a(1, 2), b(Fxp(0.5), -3);
+    mu_assert(a + b == Vector2D(Fxp(1.5), -1), "a + b incorrect");
+    mu_assert(a - b == Vector2D(Fxp(0.5), 5), "a - b incorrect");
+    mu_assert(a * Fxp(2) == Vector2D(2, 4), "a * Fxp incorrect");
+    // a * int and int * a are not tested: they call Fxp's integer *=, which does not compile in the pinned SaturnMathPP
+    mu_assert(a / Fxp(2) == Vector2D(Fxp(0.5), 1), "a / Fxp incorrect");
+    mu_assert(a / 2 == Vector2D(Fxp(0.5), 1), "a / int incorrect");
+    mu_assert(-a == Vector2D(-1, -2), "-a incorrect");
+
+    Vector2D v = a;
+    v += b; mu_assert(v == Vector2D(Fxp(1.5), -1), "v += b incorrect");
+    v -= b; mu_assert(v == a, "v -= b should undo +=");
+    v *= Fxp(2); mu_assert(v == Vector2D(2, 4), "v *= Fxp incorrect");
+    v /= Fxp(2); mu_assert(v == Vector2D(1, 2), "v /= Fxp incorrect");
+    v /= 2; mu_assert(v == Vector2D(Fxp(0.5), 1), "v /= int incorrect");
+
+    Vector2D c = a;
+    (c += b) += b;
+    mu_assert(c == a + b + b, "Chained (c += b) += b should add b twice");
+
+    mu_assert(a == Vector2D(1, 2) && !(a != Vector2D(1, 2)), "== / != on equal vectors");
+    mu_assert(a != b && !(a == b), "== / != on different vectors");
+    mu_assert(Vector2D(1, 5) < Vector2D(2, 0) && Vector2D(1, 2) < Vector2D(1, 3), "< should compare X then Y");
+    mu_assert(Vector2D(2, 0) > Vector2D(1, 5) && !(a < a) && !(a > a), "> should compare X then Y; a vector is not < or > itself");
+}
+
 MU_TEST_SUITE(vector2d_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&vector2d_test_setup,
@@ -233,5 +286,7 @@ MU_TEST_SUITE(vector2d_test_suite)
     MU_RUN_TEST(vector2d_distance_and_distancesquared);
     MU_RUN_TEST(vector2d_shift_ops_with_negative);
     MU_RUN_TEST(vector2d_dot_accumulate);
+    MU_RUN_TEST(vector2d_constants_and_distance);
+    MU_RUN_TEST(vector2d_arithmetic_operators);
 }
 }

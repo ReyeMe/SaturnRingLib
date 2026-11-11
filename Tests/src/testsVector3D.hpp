@@ -247,6 +247,67 @@ MU_TEST(vector3d_dot_accumulate)
     mu_assert(multi == sum3, buffer);
 }
 
+    /**
+ * @brief Named constants, and DistanceTo with accurate and default precision.
+ */
+MU_TEST(vector3d_constants_and_distance)
+{
+    mu_assert(Vector3D::Zero() == Vector3D(0, 0, 0), "Zero should be (0,0,0)");
+    mu_assert(Vector3D::One() == Vector3D(1, 1, 1), "One should be (1,1,1)");
+    mu_assert(Vector3D::UnitX() == Vector3D(1, 0, 0), "UnitX should be (1,0,0)");
+    mu_assert(Vector3D::UnitY() == Vector3D(0, 1, 0), "UnitY should be (0,1,0)");
+    mu_assert(Vector3D::UnitZ() == Vector3D(0, 0, 1), "UnitZ should be (0,0,1)");
+
+    const Vector3D p1(1, 2, 3), p2(4, 6, 8);
+    const Fxp accurate = p1.DistanceTo<SRL::Math::Precision::Accurate>(p2);
+    snprintf(buffer, buffer_size, "DistanceTo<Accurate> raw %ld != 7.0711", (long)accurate.RawValue());
+    mu_assert(vec3_raw_near(accurate, Fxp(7.071068), 66), buffer);
+    const Fxp fast = p1.DistanceTo(p2);
+    snprintf(buffer, buffer_size, "DistanceTo<Default> raw %ld not within 7%% of 7.0711", (long)fast.RawValue());
+    mu_assert(vec3_raw_near(fast, Fxp(7.071068), 32440), buffer);
+    mu_assert(p1.DistanceTo<SRL::Math::Precision::Accurate>(p1) == 0, "Distance to itself should be 0");
+}
+
+    /**
+ * @brief Arithmetic (with Vector3D, Vector2D and scalar), compound assignment (including chaining), negation,
+ *        equality and lexicographic ordering.
+ */
+MU_TEST(vector3d_arithmetic_operators)
+{
+    const Vector3D a(1, 2, 3), b(Fxp(0.5), -3, 4);
+    mu_assert(a + b == Vector3D(Fxp(1.5), -1, 7), "a + b incorrect");
+    mu_assert(a + Vector2D(10, 20) == Vector3D(11, 22, 3), "a + Vector2D should leave Z unchanged");
+    mu_assert(a + Fxp(1) == Vector3D(2, 3, 4), "a + scalar should add to every component");
+    mu_assert(a - b == Vector3D(Fxp(0.5), 5, -1), "a - b incorrect");
+    mu_assert(a * Fxp(2) == Vector3D(2, 4, 6), "a * Fxp incorrect");
+    // a * int and int * a are not tested: they call Fxp's integer *=, which does not compile in the pinned SaturnMathPP
+    mu_assert(a / Fxp(2) == Vector3D(Fxp(0.5), 1, Fxp(1.5)), "a / Fxp incorrect");
+    mu_assert(a / 2 == Vector3D(Fxp(0.5), 1, Fxp(1.5)), "a / int incorrect");
+    mu_assert(-a == Vector3D(-1, -2, -3), "-a incorrect");
+
+    Vector3D v = a;
+    v += b; mu_assert(v == Vector3D(Fxp(1.5), -1, 7), "v += b incorrect");
+    v -= b; mu_assert(v == a, "v -= b should undo +=");
+    v *= Fxp(2); mu_assert(v == Vector3D(2, 4, 6), "v *= Fxp incorrect");
+    v /= Fxp(2); mu_assert(v == Vector3D(1, 2, 3), "v /= Fxp incorrect");
+    v /= 2; mu_assert(v == Vector3D(Fxp(0.5), 1, Fxp(1.5)), "v /= int incorrect");
+
+    mu_assert(a == Vector3D(1, 2, 3) && !(a != Vector3D(1, 2, 3)), "== / != on equal vectors");
+    mu_assert(a != b && !(a == b), "== / != on different vectors");
+    mu_assert(Vector3D(1, 9, 9) < Vector3D(2, 0, 0) && Vector3D(1, 2, 3) < Vector3D(1, 2, 4), "< should compare X, then Y, then Z");
+    mu_assert(Vector3D(1, 2, 4) > Vector3D(1, 2, 3) && !(a < a) && !(a > a), "> should compare X, then Y, then Z; a vector is not < or > itself");
+
+        // Documented as returning a reference, so chaining must add b twice
+    Vector3D c = a;
+    (c += b) += b;
+    snprintf(buffer, buffer_size, "Chained (c += b) += b gave (%ld,%ld,%ld), expected a + 2b",
+        (long)c.X.RawValue(), (long)c.Y.RawValue(), (long)c.Z.RawValue());
+    mu_assert(c == a + b + b, buffer);
+    Vector3D d = a;
+    (d -= b) -= b;
+    mu_assert(d == a - b - b, "Chained (d -= b) -= b should subtract b twice");
+}
+
 MU_TEST_SUITE(vector3d_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&vector3d_test_setup,
@@ -261,5 +322,7 @@ MU_TEST_SUITE(vector3d_test_suite)
     MU_RUN_TEST(vector3d_distance);
     MU_RUN_TEST(vector3d_shift_ops_with_negative);
     MU_RUN_TEST(vector3d_dot_accumulate);
+    MU_RUN_TEST(vector3d_constants_and_distance);
+    MU_RUN_TEST(vector3d_arithmetic_operators);
 }
 }

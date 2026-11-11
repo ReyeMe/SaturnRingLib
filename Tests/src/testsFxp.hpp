@@ -1118,6 +1118,22 @@ MU_TEST(fxp_add_sub_saturate_at_compile_time)
     mu_assert(under == Fxp::MinValue(), "Compile-time MinValue - 1 should saturate to MinValue");
 }
 
+    /**
+ * @brief Runtime + and - give the same result as at compile time, including past MaxValue/MinValue (which saturate).
+ */
+MU_TEST(fxp_add_sub_runtime_matches_compile_time)
+{
+    constexpr Fxp ctOver = Fxp::MaxValue() + Fxp(1);
+    constexpr Fxp ctUnder = Fxp::MinValue() - Fxp(1);
+    Fxp max = Fxp::MaxValue(), min = Fxp::MinValue(), one = Fxp(1);
+    const Fxp rtOver = max + one;
+    const Fxp rtUnder = min - one;
+    snprintf(buffer, buffer_size, "Runtime MaxValue + 1 raw %ld != compile-time %ld", (long)rtOver.RawValue(), (long)ctOver.RawValue());
+    mu_assert(rtOver == ctOver, buffer);
+    snprintf(buffer, buffer_size, "Runtime MinValue - 1 raw %ld != compile-time %ld", (long)rtUnder.RawValue(), (long)ctUnder.RawValue());
+    mu_assert(rtUnder == ctUnder, buffer);
+}
+
 MU_TEST_SUITE(fxp_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
@@ -1197,5 +1213,6 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_async_division);
     MU_RUN_TEST(fxp_mac_clear_accumulate_extract);
     MU_RUN_TEST(fxp_add_sub_saturate_at_compile_time);
+    MU_RUN_TEST(fxp_add_sub_runtime_matches_compile_time);
 }
 }
