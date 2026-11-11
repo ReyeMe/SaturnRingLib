@@ -259,6 +259,41 @@ MU_TEST(aabb_merge)
 }
 
 
+    /**
+ * @brief Intersection: overlapping boxes give the shared box, touching boxes a flat box, disjoint boxes a zero AABB.
+ */
+MU_TEST(aabb_intersection)
+{
+    const AABB a(Vector3D::Zero(), Vector3D(1, 1, 1));
+    const AABB overlap = a.Intersection(AABB(Vector3D(1, 0, 0), Vector3D(1, 1, 1)));
+    mu_assert(overlap.GetMin() == Vector3D(0, -1, -1) && overlap.GetMax() == Vector3D(1, 1, 1), "Overlapping boxes should give the shared box");
+
+    const AABB touching = a.Intersection(AABB(Vector3D(2, 0, 0), Vector3D(1, 1, 1)));
+    mu_assert(touching.GetMin() == Vector3D(1, -1, -1) && touching.GetMax() == Vector3D(1, 1, 1), "Touching boxes should give a flat box on the shared face");
+
+    const AABB none = a.Intersection(AABB(Vector3D(5, 0, 0), Vector3D(1, 1, 1)));
+    mu_assert(none.GetPosition() == Vector3D::Zero() && none.GetSize() == Vector3D::Zero(), "Disjoint boxes should give a zero AABB");
+
+    const AABB self = a.Intersection(a);
+    mu_assert(self.GetMin() == a.GetMin() && self.GetMax() == a.GetMax(), "A box intersected with itself should be itself");
+}
+
+    /**
+ * @brief ContainsPoint (inclusive bounds) and ContainsAABB (inner, equal, partly outside).
+ */
+MU_TEST(aabb_contains_point_and_aabb)
+{
+    const AABB box(Vector3D(1, 1, 1), Vector3D(1, 2, 3));     // min (0,-1,-2), max (2,3,4)
+    mu_assert(box.ContainsPoint(Vector3D(1, 1, 1)), "Center should be inside");
+    mu_assert(box.ContainsPoint(Vector3D(0, -1, -2)) && box.ContainsPoint(Vector3D(2, 3, 4)), "Corners should be inside (inclusive)");
+    mu_assert(!box.ContainsPoint(Vector3D(Fxp(2.01), 1, 1)), "Point just past max X should be outside");
+    mu_assert(!box.ContainsPoint(Vector3D(1, 1, Fxp(-2.01))), "Point just past min Z should be outside");
+
+    mu_assert(box.ContainsAABB(AABB(Vector3D(1, 1, 1), Vector3D(Fxp(0.5), 1, 1))), "Inner box should be contained");
+    mu_assert(box.ContainsAABB(box), "A box should contain itself");
+    mu_assert(!box.ContainsAABB(AABB(Vector3D(2, 1, 1), Vector3D(1, 1, 1))), "Box sticking out should not be contained");
+}
+
 MU_TEST_SUITE(aabb_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&aabb_test_setup,
@@ -280,5 +315,7 @@ MU_TEST_SUITE(aabb_test_suite)
     MU_RUN_TEST(aabb_vertices_degenerate);
     MU_RUN_TEST(aabb_set_position);
     MU_RUN_TEST(aabb_merge);
+    MU_RUN_TEST(aabb_intersection);
+    MU_RUN_TEST(aabb_contains_point_and_aabb);
 }
 }

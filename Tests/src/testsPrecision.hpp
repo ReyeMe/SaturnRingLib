@@ -53,6 +53,14 @@ MU_TEST(precision_values_are_distinct)
     mu_assert(f != t, "Precision::Fast and Precision::Turbo should be distinct");
 }
 
+    /**
+ * @brief Without MATH_PERFORMANCE_MODE set, Default is documented to be Fast.
+ */
+MU_TEST(precision_default_is_fast_without_config)
+{
+    mu_assert(SRL::Math::Precision::Default == SRL::Math::Precision::Fast, "Precision::Default should be Fast when MATH_PERFORMANCE_MODE is not set");
+}
+
 MU_TEST_SUITE(precision_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&precision_test_setup,
@@ -61,5 +69,6 @@ MU_TEST_SUITE(precision_test_suite)
 
     MU_RUN_TEST(precision_default_is_valid);
     MU_RUN_TEST(precision_values_are_distinct);
+    MU_RUN_TEST(precision_default_is_fast_without_config);
 }
 }
