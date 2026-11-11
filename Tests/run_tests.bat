@@ -240,6 +240,10 @@
               curl -s -X POST "http://$DEVICE_IP/api/v1/off" > /dev/null
             fi
           fi
+          if ! grep -q ', 0 failures' "$log"; then
+            echo "Tests completed with failures"
+            exit 1
+          fi
           echo "Tests completed successfully"
           exit 0
       fi
