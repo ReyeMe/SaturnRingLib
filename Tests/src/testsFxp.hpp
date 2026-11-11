@@ -919,6 +919,205 @@ MU_TEST(fxp_initialization_short)
     /**
  * @brief Defines the test suite for all fixed-point (Fxp) functionality.
  */
+/** @brief True if a is within tol raw units (1/65536) of b. */
+static bool fxp_raw_near(const Fxp& a, const Fxp& b, int32_t tol)
+{
+    const int32_t diff = a.RawValue() - b.RawValue();
+    return diff >= -tol && diff <= tol;
+}
+
+    /**
+ * @brief Tests Sqrt<Accurate>: exact on perfect squares and fractions, within 1 raw unit otherwise.
+ */
+MU_TEST(fxp_sqrt_accurate)
+{
+    using SRL::Math::Precision;
+    const int16_t squares[] = {0, 1, 4, 9, 16, 100, 10000};
+    const int16_t roots[] = {0, 1, 2, 3, 4, 10, 100};
+    for (size_t i = 0; i < sizeof(squares) / sizeof(squares[0]); i++)
+    {
+        const Fxp r = Fxp(squares[i]).Sqrt<Precision::Accurate>();
+        snprintf(buffer, buffer_size, "Sqrt(%d) raw %ld != %d", squares[i], (long)r.RawValue(), roots[i]);
+        mu_assert(r == Fxp(roots[i]), buffer);
+    }
+
+    const Fxp quarter = Fxp(0.25).Sqrt<Precision::Accurate>();
+    snprintf(buffer, buffer_size, "Sqrt(0.25) raw %ld != 0.5", (long)quarter.RawValue());
+    mu_assert(quarter == Fxp(0.5), buffer);
+
+        // sqrt(2) = 1.41421356 -> raw 92681.9
+    const Fxp two = Fxp(2).Sqrt<Precision::Accurate>();
+    snprintf(buffer, buffer_size, "Sqrt(2) raw %ld not near 92682", (long)two.RawValue());
+    mu_assert(fxp_raw_near(two, Fxp::BuildRaw(92682), 1), buffer);
+
+        // Largest representable perfect square
+    const Fxp big = Fxp(16384).Sqrt<Precision::Accurate>();
+    snprintf(buffer, buffer_size, "Sqrt(16384) raw %ld != 128", (long)big.RawValue());
+    mu_assert(big == Fxp(128), buffer);
+}
+
+    /**
+ * @brief Tests Sqrt<Fast>: within the documented ~6.3% error above 0.0015, and 0 for zero or negative input.
+ */
+MU_TEST(fxp_sqrt_fast_within_documented_error)
+{
+    using SRL::Math::Precision;
+    const Fxp values[] = {Fxp(0.01), Fxp(0.5), Fxp(2), Fxp(10), Fxp(100), Fxp(1000), Fxp(30000)};
+    for (const Fxp& v : values)
+    {
+        const Fxp exact = v.Sqrt<Precision::Accurate>();
+        const Fxp fast = v.Sqrt<Precision::Fast>();
+        const int32_t tol = static_cast<int32_t>((static_cast<int64_t>(exact.RawValue()) * 64) / 1000);
+        snprintf(buffer, buffer_size, "Sqrt<Fast>(raw %ld) raw %ld vs accurate %ld (> 6.4%%)",
+            (long)v.RawValue(), (long)fast.RawValue(), (long)exact.RawValue());
+        mu_assert(fxp_raw_near(fast, exact, tol), buffer);
+    }
+
+    mu_assert(Fxp(0).Sqrt<Precision::Fast>() == 0, "Sqrt<Fast>(0) should be 0");
+    mu_assert(Fxp(-4).Sqrt<Precision::Fast>() == 0, "Sqrt<Fast>(negative) should be 0");
+}
+
+    /**
+ * @brief Tests Square() on positive, negative, fractional and zero values.
+ */
+MU_TEST(fxp_square)
+{
+    mu_assert(Fxp(3).Square() == 9, "Square(3) should be 9");
+    mu_assert(Fxp(-3).Square() == 9, "Square(-3) should be 9");
+    mu_assert(Fxp(0.5).Square() == Fxp(0.25), "Square(0.5) should be 0.25");
+    mu_assert(Fxp(0).Square() == 0, "Square(0) should be 0");
+    mu_assert(Fxp(181).Square() == 32761, "Square(181) should be 32761 (near the top of the range)");
+}
+
+    /**
+ * @brief Tests Pow() with non-negative integer exponents (the documented supported range).
+ */
+MU_TEST(fxp_pow_integer_exponents)
+{
+    mu_assert(Fxp(2).Pow(0) == 1, "2^0 should be 1");
+    mu_assert(Fxp(0).Pow(0) == 1, "0^0 should be 1");
+    mu_assert(Fxp(2).Pow(1) == 2, "2^1 should be 2");
+    mu_assert(Fxp(2).Pow(10) == 1024, "2^10 should be 1024");
+    mu_assert(Fxp(0.5).Pow(2) == Fxp(0.25), "0.5^2 should be 0.25");
+    mu_assert(Fxp(-2).Pow(3) == -8, "(-2)^3 should be -8");
+    mu_assert(Fxp(-2).Pow(2) == 4, "(-2)^2 should be 4");
+    mu_assert(Fxp(1).Pow(100) == 1, "1^100 should be 1");
+    mu_assert(Fxp(0).Pow(5) == 0, "0^5 should be 0");
+}
+
+    /**
+ * @brief Tests runtime (hardware divider) division with negative operands, against compile-time results.
+ */
+MU_TEST(fxp_division_negative_operands)
+{
+    Fxp minus7 = Fxp(-7), seven = Fxp(7), two = Fxp(2), minus2 = Fxp(-2);
+
+    snprintf(buffer, buffer_size, "-7 / 2 raw %ld != -3.5", (long)(minus7 / two).RawValue());
+    mu_assert(minus7 / two == Fxp(-3.5), buffer);
+    snprintf(buffer, buffer_size, "7 / -2 raw %ld != -3.5", (long)(seven / minus2).RawValue());
+    mu_assert(seven / minus2 == Fxp(-3.5), buffer);
+    snprintf(buffer, buffer_size, "-7 / -2 raw %ld != 3.5", (long)(minus7 / minus2).RawValue());
+    mu_assert(minus7 / minus2 == Fxp(3.5), buffer);
+
+        // Inexact quotients must match the compile-time path (truncation toward zero)
+    constexpr Fxp ctPos = Fxp(1) / Fxp(3);
+    constexpr Fxp ctNeg = Fxp(-1) / Fxp(3);
+    Fxp one = Fxp(1), minus1 = Fxp(-1), three = Fxp(3);
+    snprintf(buffer, buffer_size, "1 / 3 runtime raw %ld != compile-time %ld", (long)(one / three).RawValue(), (long)ctPos.RawValue());
+    mu_assert(one / three == ctPos, buffer);
+    snprintf(buffer, buffer_size, "-1 / 3 runtime raw %ld != compile-time %ld", (long)(minus1 / three).RawValue(), (long)ctNeg.RawValue());
+    mu_assert(minus1 / three == ctNeg, buffer);
+
+        // Integer divisor path
+    mu_assert(minus7 / 2 == Fxp(-3.5), "-7 / int 2 should be -3.5");
+    mu_assert(seven / -2 == Fxp(-3.5), "7 / int -2 should be -3.5");
+}
+
+    /**
+ * @brief Tests that dividing by zero saturates to MaxValue/MinValue, at compile time and at runtime.
+ */
+MU_TEST(fxp_division_by_zero_saturates)
+{
+    constexpr Fxp ctPos = Fxp(5) / Fxp(0);
+    constexpr Fxp ctNeg = Fxp(-5) / Fxp(0);
+    mu_assert(ctPos == Fxp::MaxValue(), "Compile-time 5 / 0 should be MaxValue");
+    mu_assert(ctNeg == Fxp::MinValue(), "Compile-time -5 / 0 should be MinValue");
+
+    Fxp five = Fxp(5), minus5 = Fxp(-5), zero = Fxp(0);
+    snprintf(buffer, buffer_size, "Runtime 5 / 0 raw %ld != MaxValue", (long)(five / zero).RawValue());
+    mu_assert(five / zero == Fxp::MaxValue(), buffer);
+    snprintf(buffer, buffer_size, "Runtime -5 / 0 raw %ld != MinValue", (long)(minus5 / zero).RawValue());
+    mu_assert(minus5 / zero == Fxp::MinValue(), buffer);
+}
+
+    /**
+ * @brief Tests the asynchronous hardware divider: quotient, and remainder such that q * d + r == n << 16.
+ */
+MU_TEST(fxp_async_division)
+{
+    const Fxp cases[][2] = {{Fxp(7), Fxp(2)}, {Fxp(1), Fxp(3)}, {Fxp(-7), Fxp(2)}, {Fxp(100), Fxp(0.75)}};
+    for (const auto& c : cases)
+    {
+        Fxp::AsyncDivSet(c[0], c[1]);
+        const Fxp q = Fxp::AsyncDivGetResult();
+        const Fxp r = Fxp::AsyncDivGetRemainder();
+
+        snprintf(buffer, buffer_size, "AsyncDiv(raw %ld, %ld) quotient raw %ld != operator/ %ld",
+            (long)c[0].RawValue(), (long)c[1].RawValue(), (long)q.RawValue(), (long)(c[0] / c[1]).RawValue());
+        mu_assert(q == c[0] / c[1], buffer);
+
+        const int64_t rebuilt = static_cast<int64_t>(q.RawValue()) * c[1].RawValue() + r.RawValue();
+        snprintf(buffer, buffer_size, "AsyncDiv(raw %ld, %ld): q*d + r != n << 16 (r raw %ld)",
+            (long)c[0].RawValue(), (long)c[1].RawValue(), (long)r.RawValue());
+        mu_assert(rebuilt == static_cast<int64_t>(c[0].RawValue()) * 65536, buffer);
+    }
+}
+
+    /**
+ * @brief Tests the MAC unit: ClearMac() zeroes it, DotAccumulate() adds up across calls, ExtractMac() reads it.
+ */
+MU_TEST(fxp_mac_clear_accumulate_extract)
+{
+        // MAC registers are shared CPU state (snprintf and integer multiplies clobber them): read each result once, right away
+    Fxp::ClearMac();
+    const Fxp cleared = Fxp::ExtractMac();
+    mu_assert(cleared == 0, "ExtractMac after ClearMac should be 0");
+
+        // (1,2,3).(4,5,6) = 32, then + (0.5,-1,2).(2,3,-0.25) = 32 + 1 - 3 - 0.5 = 29.5
+    const Vector3D a(1, 2, 3), b(4, 5, 6), c(Fxp(0.5), -1, 2), d(2, 3, Fxp(-0.25));
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    const Fxp single = Fxp::ExtractMac();
+
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    Vector3D::DotAccumulate(c, d);
+    const Fxp accumulated = Fxp::ExtractMac();
+
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    Fxp::ClearMac();
+    const Fxp reset = Fxp::ExtractMac();
+
+    snprintf(buffer, buffer_size, "Single DotAccumulate raw %ld != 32", (long)single.RawValue());
+    mu_assert(single == 32, buffer);
+    snprintf(buffer, buffer_size, "Accumulated dot raw %ld != 29.5", (long)accumulated.RawValue());
+    mu_assert(accumulated == Fxp(29.5), buffer);
+    mu_assert(reset == 0, "ClearMac should reset an accumulated value");
+}
+
+    /**
+ * @brief Tests that compile-time addition and subtraction saturate at MaxValue/MinValue.
+ * @note Runtime +/- wrap around instead (no saturation, for speed).
+ */
+MU_TEST(fxp_add_sub_saturate_at_compile_time)
+{
+    constexpr Fxp over = Fxp::MaxValue() + Fxp(1);
+    constexpr Fxp under = Fxp::MinValue() - Fxp(1);
+    mu_assert(over == Fxp::MaxValue(), "Compile-time MaxValue + 1 should saturate to MaxValue");
+    mu_assert(under == Fxp::MinValue(), "Compile-time MinValue - 1 should saturate to MinValue");
+}
+
 MU_TEST_SUITE(fxp_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
@@ -991,5 +1190,14 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_comparison_less_than_float);
     MU_RUN_TEST(fxp_comparison_greater_than_or_equal_float);
     MU_RUN_TEST(fxp_comparison_less_than_or_equal_float);
+    MU_RUN_TEST(fxp_sqrt_accurate);
+    MU_RUN_TEST(fxp_sqrt_fast_within_documented_error);
+    MU_RUN_TEST(fxp_square);
+    MU_RUN_TEST(fxp_pow_integer_exponents);
+    MU_RUN_TEST(fxp_division_negative_operands);
+    MU_RUN_TEST(fxp_division_by_zero_saturates);
+    MU_RUN_TEST(fxp_async_division);
+    MU_RUN_TEST(fxp_mac_clear_accumulate_extract);
+    MU_RUN_TEST(fxp_add_sub_saturate_at_compile_time);
 }
 }
