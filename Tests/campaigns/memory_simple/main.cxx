@@ -19,5 +19,8 @@ int main()
     RUN_AND_DISPLAY_SUITE(memory_test_suite);
     RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
 
+    // Last: misuse and two-CPU tests can corrupt the heap or hang
+    RUN_AND_DISPLAY_SUITE(memory_common_risky_test_suite);
+
     EndCampaign();
 }
