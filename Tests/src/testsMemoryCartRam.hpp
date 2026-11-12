@@ -4,6 +4,7 @@
 
 // https://github.com/siu/minunit
 #include "minunit.h"
+#include "testsMemoryCommon.hpp"
 
 using namespace SRL;
 
@@ -12,29 +13,9 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Set up routine for CartRam memory unit tests
- *
- * This function is called before each test in the CartRam memory test suite.
- * Currently, it does not perform any specific setup operations,
- * but provides a hook for future initialization requirements.
- */
-void memory_CartRam_test_setup(void)
-{
-        // Placeholder for any necessary test initialization
-}
-
-    /**
- * @brief Tear down routine for CartRam memory unit tests
- *
- * This function is called after each test in the CartRam memory test suite.
- * Currently, it does not perform any specific cleanup operations,
- * but provides a hook for future resource release or state reset.
- */
-void memory_CartRam_test_teardown(void)
-{
-        // Placeholder for any necessary test cleanup
-}
+    /** @brief Setup and teardown: the shared leak check (see testsMemoryCommon.hpp). */
+void memory_CartRam_test_setup(void) { memory_leak_check_setup(); }
+void memory_CartRam_test_teardown(void) { memory_leak_check_teardown(); }
 
     /**
  * @brief Output header for CartRam test suite error reporting

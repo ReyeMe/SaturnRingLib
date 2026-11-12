@@ -27,6 +27,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `math` | Fixed point, angles, math types, strings. No hardware state. |
 | `memory_simple` | Allocators and memory zones (HWRam, LWRam, CartRam) with the `SIMPLE` allocator. |
 | `memory_tlsf` | The same memory tests with the `TLSF` allocator (the library default). |
+| `memory_cpus_simple`, `memory_cpus_tlsf` | Master and slave CPUs allocating at the same time, on a fresh heap, with each allocator. |
 | `video` | ASCII, color RAM, bitmaps, SGL. |
 | `system` | Interrupts, timers, system registers, SCU DSP. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
@@ -50,7 +51,7 @@ make all SRL_LOG_OUTPUT=DEV_CART
 
 Other valid values: `EMULATOR`, `DEV_CART`, `NONE`.
 
-Campaigns use the `SIMPLE` allocator, except `memory_tlsf`, which runs the memory tests with `TLSF`.
+Campaigns use the `SIMPLE` allocator, except `memory_tlsf` and `memory_cpus_tlsf`, which use `TLSF`.
 
 ## Run the tests
 
@@ -59,7 +60,7 @@ Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<
 The script exits with an error if any test fails. To run every campaign:
 
 ```bash
-for c in math memory_simple memory_tlsf video system cd; do ./run_tests.bat mednafen $c; done
+for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system cd; do ./run_tests.bat mednafen $c; done
 ```
 
 The log looks like this:
