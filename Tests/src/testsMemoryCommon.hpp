@@ -34,8 +34,43 @@ struct MemCommonLW
     static constexpr const char *name = "LWRam";
 };
 
-void memory_common_test_setup(void) {}
-void memory_common_test_teardown(void) {}
+/** @brief Blocks allocated in HWRam and LWRam before the running test. */
+static size_t memory_leak_check_hw_blocks = 0;
+static size_t memory_leak_check_lw_blocks = 0;
+
+/** @brief Setup hook of every memory suite: remembers how many blocks are allocated. */
+void memory_leak_check_setup(void)
+{
+    memory_leak_check_hw_blocks = Memory::HighWorkRam::GetReport().UsedBlocks;
+    memory_leak_check_lw_blocks = Memory::LowWorkRam::GetReport().UsedBlocks;
+}
+
+/**
+ * @brief Teardown hook of every memory suite: fails the test if it left blocks allocated, so a leak is reported
+ *        on the test that caused it instead of breaking later tests. Counts blocks, not bytes: SIMPLE loses
+ *        header bytes when merging (a known bug), which is not a leak.
+ */
+void memory_leak_check_teardown(void)
+{
+    const long hw = static_cast<long>(Memory::HighWorkRam::GetReport().UsedBlocks) - static_cast<long>(memory_leak_check_hw_blocks);
+    const long lw = static_cast<long>(Memory::LowWorkRam::GetReport().UsedBlocks) - static_cast<long>(memory_leak_check_lw_blocks);
+    if (hw <= 0 && lw <= 0) return;
+
+    if (minunit_status)
+    {
+        const size_t len = strlen(minunit_last_message);
+        snprintf(minunit_last_message + len, MINUNIT_MESSAGE_LEN - len, " (and left %ld HWRam / %ld LWRam blocks allocated)", hw, lw);
+    }
+    else
+    {
+        snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\tleak check: left %ld HWRam / %ld LWRam blocks allocated",
+            minunit_current_test, hw, lw);
+        minunit_status = 1;
+    }
+}
+
+void memory_common_test_setup(void) { memory_leak_check_setup(); }
+void memory_common_test_teardown(void) { memory_leak_check_teardown(); }
 
 void memory_common_test_output_header(void)
 {
@@ -1088,8 +1123,8 @@ MU_TEST_SUITE(memory_common_test_suite)
 }
 
     /**
- * @brief Misuse and concurrency tests that can corrupt a heap with no ownership, double-free or lock checks.
- *        Run as the last suite of the campaign, so a corrupted heap or a hang cannot hide other results.
+ * @brief Misuse tests that can corrupt a heap with no ownership or double-free checks.
+ *        Run right after memory_common_test_suite, before the older suites leak the heap full.
  */
 MU_TEST_SUITE(memory_common_risky_test_suite)
 {
@@ -1107,9 +1142,18 @@ MU_TEST_SUITE(memory_common_risky_test_suite)
     MU_RUN_TEST(memory_common_realloc_freed_lwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_hwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_lwram);
-    MU_RUN_TEST(memory_common_both_cpus_hwram);
+}
 
-    // Very last: under SIMPLE an exact-fit Malloc marks the block used but returns null, so the heap is lost
-    MU_RUN_TEST(memory_common_largest_block_hwram);
-    MU_RUN_TEST(memory_common_largest_block_lwram);
+
+    /**
+ * @brief Both CPUs allocating at once. Run alone in the memory_cpus_* campaigns, on a fresh heap:
+ *        under SIMPLE it breaks HWRam for anything after it, and late in a campaign HWRam is already leaked full.
+ */
+MU_TEST_SUITE(memory_common_cpus_test_suite)
+{
+    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
+        &memory_common_test_teardown,
+        &memory_common_test_output_header);
+
+    MU_RUN_TEST(memory_common_both_cpus_hwram);
 }

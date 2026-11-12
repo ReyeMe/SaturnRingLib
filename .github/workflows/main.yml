@@ -21,7 +21,7 @@ jobs:
       # One campaign failing must not cancel the others.
       fail-fast: false
       matrix:
-        campaign: [math, memory_simple, memory_tlsf, video, system, cd]
+        campaign: [math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, cd]
     container:
       image: willll/saturn-docker:gcc_14.2.0_vanilla
 

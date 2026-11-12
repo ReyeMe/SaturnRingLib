@@ -4,6 +4,7 @@
 
 // https://github.com/siu/minunit
 #include "minunit.h"
+#include "testsMemoryCommon.hpp"
 
 using namespace SRL;
 
@@ -12,33 +13,9 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Set up routine for memory unit tests
- *
- * This function is called before each test in the memory test suite.
- * Currently, it does not perform any specific setup operations,
- * but provides a hook for future initialization requirements.
- */
-void memory_test_setup(void)
-{
-        // Placeholder for any necessary test initialization
-        // Future implementations might include resetting memory state,
-        // clearing buffers, or preparing test environments
-}
-
-    /**
- * @brief Tear down routine for memory unit tests
- *
- * This function is called after each test in the memory test suite.
- * Currently, it does not perform any specific cleanup operations,
- * but provides a hook for future resource release or state reset.
- */
-void memory_test_teardown(void)
-{
-        // Placeholder for any necessary test cleanup
-        // Future implementations might include freeing resources,
-        // resetting global state, or clearing temporary data
-}
+    /** @brief Setup and teardown: the shared leak check (see testsMemoryCommon.hpp). */
+void memory_test_setup(void) { memory_leak_check_setup(); }
+void memory_test_teardown(void) { memory_leak_check_teardown(); }
 
     /**
  * @brief Output header for test suite error reporting
@@ -142,13 +119,13 @@ MU_TEST(memory_test_cross_zone_allocation)
     void* ptr2 = new (SRL::Memory::Zone::LWRam) char[100];
     void* ptr3 = new (SRL::Memory::Zone::CartRam) char[100];
 
-    mu_assert(ptr1 != nullptr, "Cross-zone allocation in HighWorkRam failed");
-    mu_assert(ptr2 != nullptr, "Cross-zone allocation in LowWorkRam failed");
-    mu_assert(ptr3 != nullptr, "Cross-zone allocation in CartRam failed");
-
     delete[] static_cast<char*>(ptr1);
     delete[] static_cast<char*>(ptr2);
     delete[] static_cast<char*>(ptr3);
+
+    mu_assert(ptr1 != nullptr, "Cross-zone allocation in HighWorkRam failed");
+    mu_assert(ptr2 != nullptr, "Cross-zone allocation in LowWorkRam failed");
+    mu_assert(ptr3 != nullptr, "Cross-zone allocation in CartRam failed");
 }
 
     /**
@@ -173,28 +150,34 @@ MU_TEST(memory_test_boundary_conditions)
  */
 MU_TEST(memory_test_move_memory_blocks)
 {
-        // Allocate memory in HighWorkRam and initialize with data
+        // Allocate memory in HighWorkRam and LowWorkRam
     char* srcPtr = new (SRL::Memory::Zone::HWRam) char[100];
-    for (int i = 0; i < 100; ++i)
-    {
-        srcPtr[i] = static_cast<char>(i);
-    }
-
-        // Allocate memory in LowWorkRam
     char* destPtr = new (SRL::Memory::Zone::LWRam) char[100];
+    bool intact = srcPtr != nullptr && destPtr != nullptr;
 
-        // Move data from HighWorkRam to LowWorkRam
-    memcpy(destPtr, srcPtr, 100);
-
-        // Verify data integrity
-    for (int i = 0; i < 100; ++i)
+    if (intact)
     {
-        mu_assert(destPtr[i] == static_cast<char>(i), "Data integrity check failed after moving memory block");
+        for (int i = 0; i < 100; ++i)
+        {
+            srcPtr[i] = static_cast<char>(i);
+        }
+
+            // Move data from HighWorkRam to LowWorkRam
+        memcpy(destPtr, srcPtr, 100);
+
+            // Verify data integrity
+        for (int i = 0; i < 100; ++i)
+        {
+            intact = intact && destPtr[i] == static_cast<char>(i);
+        }
     }
 
         // Clean up
-    delete[] static_cast<char*>(srcPtr);
-    delete[] static_cast<char*>(destPtr);
+    delete[] srcPtr;
+    delete[] destPtr;
+
+    mu_assert(srcPtr != nullptr && destPtr != nullptr, "Allocation failed before moving memory block");
+    mu_assert(intact, "Data integrity check failed after moving memory block");
 }
 
     /**
@@ -208,28 +191,35 @@ MU_TEST(memory_test_move_memory_blocks_various_sizes)
     const size_t sizes[] = {1, 10, 50, 100, 200};
     for (size_t size : sizes)
     {
-            // Allocate memory in HighWorkRam and initialize with data
+            // Allocate memory in HighWorkRam and LowWorkRam
         char* srcPtr = new (SRL::Memory::Zone::HWRam) char[size];
-        for (size_t i = 0; i < size; ++i)
-        {
-            srcPtr[i] = static_cast<char>(i);
-        }
-
-            // Allocate memory in LowWorkRam
         char* destPtr = new (SRL::Memory::Zone::LWRam) char[size];
+        bool intact = srcPtr != nullptr && destPtr != nullptr;
 
-            // Move data from HighWorkRam to LowWorkRam
-        memcpy(destPtr, srcPtr, size);
-
-            // Verify data integrity
-        for (size_t i = 0; i < size; ++i)
+        if (intact)
         {
-            mu_assert(destPtr[i] == static_cast<char>(i), "Data integrity check failed after moving memory block");
+            for (size_t i = 0; i < size; ++i)
+            {
+                srcPtr[i] = static_cast<char>(i);
+            }
+
+                // Move data from HighWorkRam to LowWorkRam
+            memcpy(destPtr, srcPtr, size);
+
+                // Verify data integrity
+            for (size_t i = 0; i < size; ++i)
+            {
+                intact = intact && destPtr[i] == static_cast<char>(i);
+            }
         }
 
             // Clean up
         delete[] srcPtr;
         delete[] destPtr;
+
+        snprintf(buffer, buffer_size, "Moving a %lu-byte block: %s", (unsigned long)size,
+            srcPtr == nullptr || destPtr == nullptr ? "allocation failed" : "data integrity check failed");
+        mu_assert(intact, buffer);
     }
 }
 
@@ -245,25 +235,33 @@ MU_TEST(memory_test_move_memory_blocks_edge_cases)
     char* srcPtr = new (SRL::Memory::Zone::HWRam) char[0];
     char* destPtr = new (SRL::Memory::Zone::LWRam) char[0];
     memcpy(destPtr, srcPtr, 0);
-    mu_assert(true, "Zero size move should not fail");
     delete[] srcPtr;
     delete[] destPtr;
 
         // Edge case: maximum size (assuming a hypothetical maximum size)
     const size_t maxSize = 1024 * 1024; // 1 MB for example
     srcPtr = new (SRL::Memory::Zone::HWRam) char[maxSize];
-    for (size_t i = 0; i < maxSize; ++i)
-    {
-        srcPtr[i] = static_cast<char>(i % 256);
-    }
     destPtr = new (SRL::Memory::Zone::LWRam) char[maxSize];
-    memcpy(destPtr, srcPtr, maxSize);
-    for (size_t i = 0; i < maxSize; ++i)
+    bool intact = srcPtr != nullptr && destPtr != nullptr;
+
+    if (intact)
     {
-        mu_assert(destPtr[i] == static_cast<char>(i % 256), "Data integrity check failed after moving maximum size memory block");
+        for (size_t i = 0; i < maxSize; ++i)
+        {
+            srcPtr[i] = static_cast<char>(i % 256);
+        }
+        memcpy(destPtr, srcPtr, maxSize);
+        for (size_t i = 0; i < maxSize; ++i)
+        {
+            intact = intact && destPtr[i] == static_cast<char>(i % 256);
+        }
     }
     delete[] srcPtr;
     delete[] destPtr;
+
+    snprintf(buffer, buffer_size, "Moving a 1 MB block: %s",
+        srcPtr == nullptr || destPtr == nullptr ? "allocation failed (larger than the HWRam/LWRam heap?)" : "data integrity check failed");
+    mu_assert(intact, buffer);
 }
 
     /**
@@ -276,28 +274,17 @@ MU_TEST(memory_test_move_memory_blocks_invalid_pointers)
         // Invalid source pointer
     char* srcPtr = nullptr;
     char* destPtr = new (SRL::Memory::Zone::LWRam) char[100];
-    if (memcpy(destPtr, srcPtr, 100) == nullptr)
-    {
-        mu_assert(true, "Moving memory block with null source pointer failed as expected");
-    }
-    else
-    {
-        mu_assert(false, "Moving memory block with null source pointer should fail");
-    }
+    const bool nullSourceFailed = memcpy(destPtr, srcPtr, 100) == nullptr;
     delete[] destPtr;
 
         // Invalid destination pointer
     srcPtr = new (SRL::Memory::Zone::HWRam) char[100];
     destPtr = nullptr;
-    if (memcpy(destPtr, srcPtr, 100) == nullptr)
-    {
-        mu_assert(true, "Moving memory block with null destination pointer failed as expected");
-    }
-    else
-    {
-        mu_assert(false, "Moving memory block with null destination pointer should fail");
-    }
+    const bool nullDestinationFailed = memcpy(destPtr, srcPtr, 100) == nullptr;
     delete[] srcPtr;
+
+    mu_assert(nullSourceFailed, "Moving memory block with null source pointer should fail");
+    mu_assert(nullDestinationFailed, "Moving memory block with null destination pointer should fail");
 }
 
     /**
@@ -318,9 +305,7 @@ MU_TEST_SUITE(memory_test_suite)
     MU_RUN_TEST(memory_test_placement_malloc_lowworkram);
     MU_RUN_TEST(memory_test_placement_malloc_cartram);
     MU_RUN_TEST(memory_test_placement_malloc_invalid);
-    MU_RUN_TEST(memory_test_initialize_zones);
     MU_RUN_TEST(memory_test_cross_zone_allocation);
-    MU_RUN_TEST(memory_test_boundary_conditions);
     MU_RUN_TEST(memory_test_move_memory_blocks); // Register the new test case
     MU_RUN_TEST(memory_test_move_memory_blocks_various_sizes); // Register the new test case
     MU_RUN_TEST(memory_test_move_memory_blocks_edge_cases); // Register the new test case

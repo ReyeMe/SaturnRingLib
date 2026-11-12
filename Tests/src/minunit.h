@@ -59,6 +59,9 @@ extern "C"
 	/*  Last message */
 	static char minunit_last_message[MINUNIT_MESSAGE_LEN];
 
+	/*  Name of the running test, so teardown checks can report against it */
+	static const char *minunit_current_test = NULL;
+
 	/*  Test setup and teardown function pointers */
 	static void (*minunit_setup)(void) = NULL;
 	static void (*minunit_teardown)(void) = NULL;
@@ -102,7 +105,10 @@ extern "C"
 		minunit_proc_timer = mu_timer_cpu();                         \
 	} if (minunit_setup) (*minunit_setup)();                         \
 	minunit_status = 0;                                              \
+	minunit_current_test = #test;                                    \
 	test();                                                          \
+	/* Teardown before reporting, so it can fail the test (leak checks) */ \
+	if (minunit_teardown)(*minunit_teardown)();                      \
 	++minunit_run;                                                   \
 	if (minunit_status && minunit_output_header)                 \
 			(*minunit_output_header)();  							 \
@@ -111,7 +117,7 @@ extern "C"
 		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
 	} else { 														 \
 		Log::LogPrint<LogLevels::TESTING>("Passed :%s", #test);		 \
-	} if (minunit_teardown)(*minunit_teardown)();)					
+	})
 
 /*  Report */
 #define MU_REPORT() MU__SAFE_BLOCK(                                                                                    \
