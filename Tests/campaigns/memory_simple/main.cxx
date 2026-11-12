@@ -3,8 +3,6 @@
 #include "campaign.hpp"
 
 #include "testsMemoryCommon.hpp"
-#include "testsMemoryHWRam.hpp"
-#include "testsMemoryLWRam.hpp"
 #include "testsMemory.hpp"
 #include "testsMemoryCartRam.hpp"
 
@@ -19,11 +17,9 @@ MU_TEST_SUITE(memory_last_test_suite)
         &memory_common_test_teardown,
         &memory_common_test_output_header);
 
-    MU_RUN_TEST(memory_LWRam_test_boundary_conditions);
     MU_RUN_TEST(memory_common_largest_block_lwram);
-    MU_RUN_TEST(memory_HWRam_test_boundary_conditions);
-    MU_RUN_TEST(memory_test_boundary_conditions);
     MU_RUN_TEST(memory_common_largest_block_hwram);
+    MU_RUN_TEST(memory_test_boundary_conditions);
     MU_RUN_TEST(memory_test_initialize_zones);
 }
 
@@ -33,10 +29,8 @@ int main()
 
     // First, on a clean heap
     RUN_AND_DISPLAY_SUITE(memory_common_test_suite);
-    // Misuse tests: before the older suites, in case one of them still leaks
+    // Misuse tests: before the other suites, in case one of them still leaks
     RUN_AND_DISPLAY_SUITE(memory_common_risky_test_suite);
-    RUN_AND_DISPLAY_SUITE(memory_HWRam_test_suite);
-    RUN_AND_DISPLAY_SUITE(memory_LWRam_test_suite);
     RUN_AND_DISPLAY_SUITE(memory_test_suite);
     RUN_AND_DISPLAY_SUITE(memory_CartRam_test_suite);
 

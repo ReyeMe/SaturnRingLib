@@ -1,5 +1,6 @@
 // Tests/src/testsMemoryCommon.hpp
-// Allocator behavior shared by every work RAM zone: accounting, data integrity, Realloc, MemSet, new/delete forms.
+// Allocator tests for the work RAM zones (HWRam, LWRam): accounting, data integrity, Realloc, MemSet, new/delete forms,
+// edge cases, misuse, and the leak check every memory suite uses.
 // Each test runs on HWRam and LWRam through a template, so the same checks cover both zones
 // (and both allocators, since memory_simple and memory_tlsf run this suite).
 #pragma once
@@ -25,6 +26,8 @@ struct MemCommonHW
     using Z = Memory::HighWorkRam;
     static constexpr Memory::Zone zone = Memory::Zone::HWRam;
     static constexpr const char *name = "HWRam";
+    static constexpr uint32_t first = 0x06000000u;  // InRange covers the 1 MB and its mirrors
+    static constexpr uint32_t last = 0x07FFFFFFu;
 };
 
 struct MemCommonLW
@@ -32,6 +35,8 @@ struct MemCommonLW
     using Z = Memory::LowWorkRam;
     static constexpr Memory::Zone zone = Memory::Zone::LWRam;
     static constexpr const char *name = "LWRam";
+    static constexpr uint32_t first = 0x00200000u;
+    static constexpr uint32_t last = 0x002FFFFFu;
 };
 
 /** @brief Blocks allocated in HWRam and LWRam before the running test. */
@@ -589,6 +594,180 @@ MU_TEST(memory_common_double_free_heap_still_sane_hwram) { mu_assert(memory_comm
 MU_TEST(memory_common_double_free_heap_still_sane_lwram) { mu_assert(memory_common_double_free_heap_still_sane<MemCommonLW>(), buffer); }
 
     /**
+ * @brief Memory::Malloc / Free / GetFreeSpace by zone, for sizes from 1 byte to 16 KB: the block is in the zone,
+ *        free space drops, and comes back after Free.
+ */
+template <typename T>
+static bool memory_common_generic_api_sizes(void)
+{
+    using Z = typename T::Z;
+    const size_t sizes[] = {1, 16, 64, 256, 1024, 4096, 16384};
+    for (size_t size : sizes)
+    {
+        const size_t before = Memory::GetFreeSpace(T::zone);
+        void *p = Memory::Malloc(size, T::zone);
+        const size_t during = Memory::GetFreeSpace(T::zone);
+        const bool inZone = p != nullptr && Z::InRange(p);
+        Memory::Free(p);
+        const size_t after = Memory::GetFreeSpace(T::zone);
+
+        snprintf(buffer, buffer_size, "%s: Memory::Malloc(%lu, zone) returned %p (null or outside the zone)", T::name, (unsigned long)size, p);
+        if (!inZone) return false;
+        snprintf(buffer, buffer_size, "%s: Malloc(%lu): free space %lu -> %lu -> %lu (should drop, then come back)", T::name,
+            (unsigned long)size, (unsigned long)before, (unsigned long)during, (unsigned long)after);
+        if (during >= before || after != before) return false;
+    }
+    return true;
+}
+
+MU_TEST(memory_common_generic_api_sizes_hwram) { mu_assert(memory_common_generic_api_sizes<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_generic_api_sizes_lwram) { mu_assert(memory_common_generic_api_sizes<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief Malloc(0) returns null or a block in the zone (C allows both); freeing it, and Free(nullptr), leave the heap as it was.
+ */
+template <typename T>
+static bool memory_common_zero_and_null(void)
+{
+    using Z = typename T::Z;
+    const size_t free0 = Z::GetFreeSpace();
+    void *p = Memory::Malloc(0, T::zone);
+    const bool pOk = p == nullptr || Z::InRange(p);
+    Memory::Free(p);
+    Memory::Free(nullptr);
+    Z::Free(nullptr);
+    const size_t free1 = Z::GetFreeSpace();
+
+    snprintf(buffer, buffer_size, "%s: Malloc(0) returned %p (outside the zone)", T::name, p);
+    if (!pOk) return false;
+    snprintf(buffer, buffer_size, "%s: after Malloc(0)/Free and Free(nullptr), free space %lu -> %lu", T::name, (unsigned long)free0, (unsigned long)free1);
+    return free1 == free0;
+}
+
+MU_TEST(memory_common_zero_and_null_hwram) { mu_assert(memory_common_zero_and_null<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_zero_and_null_lwram) { mu_assert(memory_common_zero_and_null<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief new (zone) char[] for sizes from 8 bytes to 4 KB: one at a time (in the zone, writable, space comes back),
+ *        then all at once deleted in reverse order (space comes back).
+ */
+template <typename T>
+static bool memory_common_new_arrays(void)
+{
+    using Z = typename T::Z;
+    constexpr size_t count = 6;
+    const size_t sizes[count] = {8, 32, 128, 512, 2048, 4096};
+    const size_t free0 = Z::GetFreeSpace();
+
+    for (size_t i = 0; i < count; i++)
+    {
+        const size_t before = Z::GetFreeSpace();
+        char *array = new (T::zone) char[sizes[i]];
+        bool ok = array != nullptr && Z::InRange(array);
+        if (ok)
+        {
+            for (size_t j = 0; j < sizes[i]; j++) array[j] = static_cast<char>(j % 256);
+            for (size_t j = 0; ok && j < sizes[i]; j++) ok = array[j] == static_cast<char>(j % 256);
+        }
+        delete[] array;
+        const size_t after = Z::GetFreeSpace();
+
+        snprintf(buffer, buffer_size, "%s: new char[%lu] returned %p (null, outside the zone, or data not kept)", T::name, (unsigned long)sizes[i], array);
+        if (!ok) return false;
+        snprintf(buffer, buffer_size, "%s: delete[] of char[%lu]: free space %lu -> %lu", T::name, (unsigned long)sizes[i], (unsigned long)before, (unsigned long)after);
+        if (after != before) return false;
+    }
+
+    char *arrays[count] = {};
+    bool allocated = true;
+    for (size_t i = 0; i < count; i++)
+    {
+        arrays[i] = new (T::zone) char[sizes[i]];
+        allocated = allocated && arrays[i] != nullptr;
+    }
+    for (size_t i = count; i > 0; i--) delete[] arrays[i - 1];
+    const size_t free1 = Z::GetFreeSpace();
+
+    snprintf(buffer, buffer_size, "%s: allocating all %lu arrays at once failed", T::name, (unsigned long)count);
+    if (!allocated) return false;
+    snprintf(buffer, buffer_size, "%s: after all arrays deleted in reverse order, free space %lu -> %lu (%ld lost)", T::name,
+        (unsigned long)free0, (unsigned long)free1, static_cast<long>(free0) - static_cast<long>(free1));
+    return free1 == free0;
+}
+
+MU_TEST(memory_common_new_arrays_hwram) { mu_assert(memory_common_new_arrays<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_new_arrays_lwram) { mu_assert(memory_common_new_arrays<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief InRange accepts the first and last address of the zone and rejects the address just before and just after it,
+ *        through both overloads (void* and uint32_t).
+ */
+template <typename T>
+static bool memory_common_inrange(void)
+{
+    using Z = typename T::Z;
+    const bool firstIn = Z::InRange(reinterpret_cast<void *>(T::first));
+    const bool lastIn = Z::InRange(reinterpret_cast<void *>(T::last));
+    const bool beforeOut = !Z::InRange(reinterpret_cast<void *>(T::first - 1));
+    const bool afterOut = !Z::InRange(reinterpret_cast<void *>(T::last + 1));
+    const bool overloadOk = Z::InRange(T::first) && Z::InRange(T::last) && !Z::InRange(T::first - 1) && !Z::InRange(T::last + 1);
+
+    snprintf(buffer, buffer_size, "%s InRange: first 0x%08lx %s, last 0x%08lx %s, before 0x%08lx %s, after 0x%08lx %s, uint32_t overload %s", T::name,
+        (unsigned long)T::first, firstIn ? "in" : "OUT", (unsigned long)T::last, lastIn ? "in" : "OUT",
+        (unsigned long)(T::first - 1), beforeOut ? "out" : "IN", (unsigned long)(T::last + 1), afterOut ? "out" : "IN",
+        overloadOk ? "agrees" : "DIFFERS");
+    return firstIn && lastIn && beforeOut && afterOut && overloadOk;
+}
+
+MU_TEST(memory_common_inrange_hwram) { mu_assert(memory_common_inrange<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_inrange_lwram) { mu_assert(memory_common_inrange<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief Asking for one byte more than the free space returns null and leaves the heap as it was.
+ */
+template <typename T>
+static bool memory_common_more_than_free(void)
+{
+    using Z = typename T::Z;
+    const size_t free0 = Z::GetFreeSpace();
+    void *p = Z::Malloc(free0 + 1);
+    Z::Free(p);
+    const size_t free1 = Z::GetFreeSpace();
+
+    snprintf(buffer, buffer_size, "%s: Malloc(free space %lu + 1) returned %p instead of null", T::name, (unsigned long)free0, p);
+    if (p != nullptr) return false;
+    snprintf(buffer, buffer_size, "%s: free space %lu -> %lu after a failed Malloc", T::name, (unsigned long)free0, (unsigned long)free1);
+    return free1 == free0;
+}
+
+MU_TEST(memory_common_more_than_free_hwram) { mu_assert(memory_common_more_than_free<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_more_than_free_lwram) { mu_assert(memory_common_more_than_free<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief 1000 rounds of Malloc(100) / Free: every allocation works and the free space ends where it started.
+ */
+template <typename T>
+static bool memory_common_stress(void)
+{
+    using Z = typename T::Z;
+    const size_t free0 = Z::GetFreeSpace();
+    int failures = 0;
+    for (int i = 0; i < 1000; i++)
+    {
+        void *p = Z::Malloc(100);
+        if (p == nullptr) failures++;
+        Z::Free(p);
+    }
+    const size_t free1 = Z::GetFreeSpace();
+
+    snprintf(buffer, buffer_size, "%s: %d of 1000 Malloc(100) failed; free space %lu -> %lu", T::name, failures, (unsigned long)free0, (unsigned long)free1);
+    return failures == 0 && free1 == free0;
+}
+
+MU_TEST(memory_common_stress_hwram) { mu_assert(memory_common_stress<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_stress_lwram) { mu_assert(memory_common_stress<MemCommonLW>(), buffer); }
+
+    /**
  * @brief Freeing blocks first-to-last, or every other block then the rest, merges them all back:
  *        free space and free block count return to the start, and one block of the combined size fits.
  * @details memory_common_exhaust_and_recover frees last-first, which hides a forward-only merge.
@@ -1094,6 +1273,18 @@ MU_TEST_SUITE(memory_common_test_suite)
 
     MU_RUN_TEST(memory_common_accounting_hwram);
     MU_RUN_TEST(memory_common_accounting_lwram);
+    MU_RUN_TEST(memory_common_generic_api_sizes_hwram);
+    MU_RUN_TEST(memory_common_generic_api_sizes_lwram);
+    MU_RUN_TEST(memory_common_zero_and_null_hwram);
+    MU_RUN_TEST(memory_common_zero_and_null_lwram);
+    MU_RUN_TEST(memory_common_new_arrays_hwram);
+    MU_RUN_TEST(memory_common_new_arrays_lwram);
+    MU_RUN_TEST(memory_common_inrange_hwram);
+    MU_RUN_TEST(memory_common_inrange_lwram);
+    MU_RUN_TEST(memory_common_more_than_free_hwram);
+    MU_RUN_TEST(memory_common_more_than_free_lwram);
+    MU_RUN_TEST(memory_common_stress_hwram);
+    MU_RUN_TEST(memory_common_stress_lwram);
     MU_RUN_TEST(memory_common_blocks_independent_hwram);
     MU_RUN_TEST(memory_common_blocks_independent_lwram);
     MU_RUN_TEST(memory_common_realloc_preserves_data_hwram);
