@@ -929,6 +929,11 @@ template <typename T>
 static bool memory_common_free_interior_pointer(void)
 {
     using Z = typename T::Z;
+#if defined(USE_TLSF_ALLOCATOR)
+        // Not run under TLSF: Free(block + 16) hangs the console. Reported as a failure so the bug stays visible.
+    snprintf(buffer, buffer_size, "%s: not run under TLSF, Free of an interior pointer hangs the console", T::name);
+    return false;
+#endif
     uint8_t *p = static_cast<uint8_t *>(Z::Malloc(64));
     if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
     Memory::MemSet(p, 0x00, 64);                // zeroed, so a fake header read from it has size 0 and cannot run off
@@ -1076,8 +1081,6 @@ MU_TEST_SUITE(memory_common_test_suite)
     MU_RUN_TEST(memory_common_free_cache_through_lwram);
     MU_RUN_TEST(memory_common_report_blocks_hwram);
     MU_RUN_TEST(memory_common_report_blocks_lwram);
-    MU_RUN_TEST(memory_common_largest_block_hwram);
-    MU_RUN_TEST(memory_common_largest_block_lwram);
     MU_RUN_TEST(memory_common_shrink_then_grow_hwram);
     MU_RUN_TEST(memory_common_shrink_then_grow_lwram);
     MU_RUN_TEST(memory_common_new_macros_and_placement_ptr);
@@ -1105,4 +1108,8 @@ MU_TEST_SUITE(memory_common_risky_test_suite)
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_hwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_lwram);
     MU_RUN_TEST(memory_common_both_cpus_hwram);
+
+    // Very last: under SIMPLE an exact-fit Malloc marks the block used but returns null, so the heap is lost
+    MU_RUN_TEST(memory_common_largest_block_hwram);
+    MU_RUN_TEST(memory_common_largest_block_lwram);
 }
