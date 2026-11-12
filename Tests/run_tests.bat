@@ -1,7 +1,7 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
   # Usage: ./run_tests.bat <kronos|mednafen|USBGamers> <campaign> [device-ip]
-  # <campaign> is a folder of campaigns/ (math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, cd)
+  # <campaign> is a folder of campaigns/ (math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, event, datetime, cd)
 
   if [ -z "$1" ] || [ -z "$2" ]; then
     echo "Usage: $0 <kronos|mednafen|USBGamers> <campaign> [device-ip]"
