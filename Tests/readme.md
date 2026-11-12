@@ -29,7 +29,10 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `memory_tlsf` | The same memory tests with the `TLSF` allocator (the library default). |
 | `memory_cpus_simple`, `memory_cpus_tlsf` | Master and slave CPUs allocating at the same time, on a fresh heap, with each allocator. |
 | `video` | ASCII, color RAM, bitmaps, SGL. |
-| `system` | Interrupts, timers, system registers, SCU DSP. |
+| `system` | Interrupts, system registers, SCU DSP. |
+| `timer` | Timers: FRT tickstamps, dividers, conversions, overflow. |
+| `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
+| `datetime` | Date and time (`DateTime`): ordering, leap years, backup unit dates, RTC. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
 
 Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `makefile` and a short `main.cxx` that lists its suites.
@@ -60,7 +63,7 @@ Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<
 The script exits with an error if any test fails. To run every campaign:
 
 ```bash
-for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system cd; do ./run_tests.bat mednafen $c; done
+for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system timer event datetime cd; do ./run_tests.bat mednafen $c; done
 ```
 
 The log looks like this:
