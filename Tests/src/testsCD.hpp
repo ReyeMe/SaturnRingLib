@@ -397,7 +397,7 @@ MU_TEST(cd_file_seek_test_relative)
 
     /**
  * @brief Tests seeking to an invalid negative offset.
- * @details Verifies that attempting to seek to a negative position returns a seek error.
+ * @details Seek is documented to return a negative value on error, and must leave the access pointer where it was.
  */
 MU_TEST(cd_file_seek_test_invalid_negative)
 {
@@ -420,13 +420,17 @@ MU_TEST(cd_file_seek_test_invalid_negative)
     mu_assert(isopen, buffer);
 
     int32_t result = file.Seek(-10);
-    snprintf(buffer, buffer_size, "Seek to invalid negative offset failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
-    mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
+    snprintf(buffer, buffer_size, "Seek to invalid negative offset should return a negative error, got %d", result);
+    mu_assert(result < 0, buffer);
+
+    int32_t accessPointer = file.GetCurrentAccessPointer();
+    snprintf(buffer, buffer_size, "Failed seek moved the access pointer: %d != 0", accessPointer);
+    mu_assert(accessPointer == 0, buffer);
 }
 
     /**
  * @brief Tests seeking to an offset beyond the end of the file.
- * @details Verifies that attempting to seek past the file's size returns a seek error.
+ * @details Seek is documented to return a negative value on error, and must leave the access pointer where it was.
  */
 MU_TEST(cd_file_seek_test_invalid_beyond)
 {
@@ -449,8 +453,12 @@ MU_TEST(cd_file_seek_test_invalid_beyond)
     mu_assert(isopen, buffer);
 
     int32_t result = file.Seek(file.Size.Bytes + 10);
-    snprintf(buffer, buffer_size, "Seek to invalid beyond offset failed: %d != %d", result, Cd::ErrorCode::ErrorSeek);
-    mu_assert(result == Cd::ErrorCode::ErrorSeek, buffer);
+    snprintf(buffer, buffer_size, "Seek beyond the end should return a negative error, got %d", result);
+    mu_assert(result < 0, buffer);
+
+    int32_t accessPointer = file.GetCurrentAccessPointer();
+    snprintf(buffer, buffer_size, "Failed seek moved the access pointer: %d != 0", accessPointer);
+    mu_assert(accessPointer == 0, buffer);
 }
 
     /**
@@ -543,11 +551,15 @@ MU_TEST(cd_test_load_bytes)
     snprintf(buffer, buffer_size, "LoadBytes did not return any data for '%s'", filename);
     mu_assert(size > 0, buffer);
 
-        // Verify content (assuming known content)
-    const char *expected = "ExpectedContent";
-    int cmp = strncmp(byteBuffer, expected, strlen(expected));
-    snprintf(buffer, buffer_size, "LoadBytes content mismatch: expected '%s', got '%s'", expected, byteBuffer);
-    mu_assert(cmp == 0, buffer);
+        // TESTFILE.UTS holds the bytes 0, 1, 2, ... (i % 256)
+    int32_t bad = -1;
+    for (int32_t i = 0; i < file_buffer_size && bad < 0; i++)
+    {
+        if (static_cast<uint8_t>(byteBuffer[i]) != static_cast<uint8_t>(i % 256)) bad = i;
+    }
+    snprintf(buffer, buffer_size, "LoadBytes content mismatch at byte %d: 0x%02x instead of 0x%02x", bad,
+        bad >= 0 ? static_cast<uint8_t>(byteBuffer[bad]) : 0, bad >= 0 ? bad % 256 : 0);
+    mu_assert(bad < 0, buffer);
 }
 
     /**
@@ -583,11 +595,15 @@ MU_TEST(cd_test_read_sectors)
     snprintf(buffer, buffer_size, "ReadSectors did not return any data for '%s'", filename);
     mu_assert(size > 0, buffer);
 
-        // Verify content (assuming known content)
-    const char *expected = "ExpectedContent";
-    int cmp = strncmp(byteBuffer, expected, strlen(expected));
-    snprintf(buffer, buffer_size, "ReadSectors content mismatch: expected '%s', got '%s'", expected, byteBuffer);
-    mu_assert(cmp == 0, buffer);
+        // TESTFILE.UTS holds the bytes 0, 1, 2, ... (i % 256): the whole first sector must match
+    int32_t bad = -1;
+    for (int32_t i = 0; i < size && i < file_buffer_size && bad < 0; i++)
+    {
+        if (static_cast<uint8_t>(byteBuffer[i]) != static_cast<uint8_t>(i % 256)) bad = i;
+    }
+    snprintf(buffer, buffer_size, "ReadSectors content mismatch at byte %d: 0x%02x instead of 0x%02x", bad,
+        bad >= 0 ? static_cast<uint8_t>(byteBuffer[bad]) : 0, bad >= 0 ? bad % 256 : 0);
+    mu_assert(bad < 0, buffer);
 }
 
     /**
@@ -601,6 +617,21 @@ MU_TEST(cd_test_is_eof)
     const char *filename = "TESTFILE.UTS";
 
     SRL::Cd::ChangeDir(dirname);
+
+        // A one-sector file is not at EOF after reading part of it, and is after reading the rest
+    Cd::File small("FILE.TXT");
+    mu_assert(small.Open(), "File 'FILE.TXT' does not open but should");
+    char part[4];
+    int32_t read = small.Read(sizeof(part), part);
+    snprintf(buffer, buffer_size, "File 'FILE.TXT' (%d bytes) is at EOF after reading %d bytes", small.Size.Bytes, read);
+    mu_assert(read == sizeof(part) && !small.IsEOF(), buffer);
+
+    char rest[32];
+    read = small.Read(sizeof(rest), rest);
+    snprintf(buffer, buffer_size, "File 'FILE.TXT' (%d bytes) is not at EOF after reading the remaining %d bytes", small.Size.Bytes, read);
+    mu_assert(small.IsEOF(), buffer);
+    small.Close();
+
     Cd::File file(filename);
 
     bool exists = file.Exists();
@@ -646,8 +677,7 @@ MU_TEST(cd_test_change_to_valid_directory)
 
     /**
  * @brief Tests changing to a non-existent directory.
- * @details Verifies that `ChangeDir` returns an appropriate error code when attempting
- *          to navigate to a directory that does not exist.
+ * @details `ChangeDir` is documented to return the number of files or an error code: a missing directory must give a negative value.
  */
 MU_TEST(cd_test_change_to_invalid_directory)
 {
@@ -656,7 +686,7 @@ MU_TEST(cd_test_change_to_invalid_directory)
         // Attempt to change to the invalid directory
     int32_t result = SRL::Cd::ChangeDir(invalidDir);
     snprintf(buffer, buffer_size, "Changed to invalid directory '%s' but should not: %d", invalidDir, result);
-    mu_assert(result == Cd::ErrorCode::ErrorNoName || result == Cd::ErrorCode::ErrorNExit, buffer);
+    mu_assert(result < 0, buffer);
 }
 
     /**

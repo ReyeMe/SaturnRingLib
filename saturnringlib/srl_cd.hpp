@@ -373,11 +373,12 @@ namespace SRL
             }
 
             /** @brief EOF has been reached
-             * @return true if EOF, false otherwise
+             * @note Uses the file access pointer, not GFS: GFS reads sectors ahead, so it reaches its end first
+             * @return true if the access pointer is at the end of the file (or the file is not open), false otherwise
              */
             constexpr bool IsEOF()
             {
-                return (GFS_IsEof(Handle) == TRUE);
+                return !this->IsOpen() || this->readBytes >= this->Size.Bytes;
             }
 
             /**
@@ -532,13 +533,20 @@ namespace SRL
             }
 
             /** @brief Seek file access pointer to specific byte
-             * @param offset offset from start of the file
+             * @param offset offset from start of the file (the file size seeks to the end)
              * @return New position of the access pointer otherwise negative on error
              */
             int32_t Seek(int32_t offset)
             {
                 int32_t result = -1;
                 int32_t workBufferSize = this->Size.SectorSize * File::SectorsToReadAtOnce;
+
+                if (this->IsOpen() && offset == this->Size.Bytes)
+                {
+                    // End of file: nothing left to read, so no sector to load
+                    this->readBytes = offset;
+                    return offset;
+                }
 
                 if (this->IsOpen() && offset >= 0 && offset < this->Size.Bytes)
                 {
