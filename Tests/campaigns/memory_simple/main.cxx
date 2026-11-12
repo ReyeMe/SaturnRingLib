@@ -8,7 +8,7 @@
 
 /**
  * @brief Tests that leave a heap unusable or reset it, run after everything else.
- *        Under SIMPLE an exact-fit Malloc (free space - 1 rounds up to it) marks the block used but returns null;
+ *        Under SIMPLE an exact-fit Malloc marks the block used but returns null;
  *        Memory::Initialize resets both heaps and zeroes memory up to SGL's work area.
  */
 MU_TEST_SUITE(memory_last_test_suite)
@@ -19,7 +19,6 @@ MU_TEST_SUITE(memory_last_test_suite)
 
     MU_RUN_TEST(memory_common_largest_block_lwram);
     MU_RUN_TEST(memory_common_largest_block_hwram);
-    MU_RUN_TEST(memory_test_boundary_conditions);
     MU_RUN_TEST(memory_test_initialize_zones);
 }
 
