@@ -7,6 +7,7 @@
 #include <srl.hpp>
 #include <srl_log.hpp>
 #include <srl_memory.hpp>
+#include <srl_slave.hpp>
 
 // https://github.com/siu/minunit
 #include "minunit.h"
@@ -552,6 +553,499 @@ static bool memory_common_double_free_heap_still_sane(void)
 MU_TEST(memory_common_double_free_heap_still_sane_hwram) { mu_assert(memory_common_double_free_heap_still_sane<MemCommonHW>(), buffer); }
 MU_TEST(memory_common_double_free_heap_still_sane_lwram) { mu_assert(memory_common_double_free_heap_still_sane<MemCommonLW>(), buffer); }
 
+    /**
+ * @brief Freeing blocks first-to-last, or every other block then the rest, merges them all back:
+ *        free space and free block count return to the start, and one block of the combined size fits.
+ * @details memory_common_exhaust_and_recover frees last-first, which hides a forward-only merge.
+ */
+template <typename T>
+static bool memory_common_free_order(void)
+{
+    using Z = typename T::Z;
+    constexpr size_t count = 16;
+    constexpr size_t blockSize = 512;
+    void *blocks[count] = {};
+    const char *orders[2] = {"first-to-last", "odd then even"};
+
+    for (size_t order = 0; order < 2; order++)
+    {
+        const size_t free0 = Z::GetFreeSpace();
+        const size_t freeBlocks0 = Z::GetReport().FreeBlocks;
+        for (size_t i = 0; i < count; i++)
+        {
+            blocks[i] = Z::Malloc(blockSize);
+            if (blocks[i] == nullptr)
+            {
+                for (size_t j = 0; j < i; j++) Z::Free(blocks[j]);
+                snprintf(buffer, buffer_size, "%s: Malloc(%lu) #%lu failed", T::name, (unsigned long)blockSize, (unsigned long)i);
+                return false;
+            }
+        }
+        if (order == 0)
+        {
+            for (size_t i = 0; i < count; i++) Z::Free(blocks[i]);
+        }
+        else
+        {
+            for (size_t i = 1; i < count; i += 2) Z::Free(blocks[i]);
+            for (size_t i = 0; i < count; i += 2) Z::Free(blocks[i]);
+        }
+        const size_t free1 = Z::GetFreeSpace();
+        const size_t freeBlocks1 = Z::GetReport().FreeBlocks;
+        void *big = Z::Malloc(count * blockSize);
+        Z::Free(big);
+
+        snprintf(buffer, buffer_size, "%s, freed %s: free space %lu -> %lu (bytes lost)", T::name, orders[order], (unsigned long)free0, (unsigned long)free1);
+        if (free1 != free0) return false;
+        snprintf(buffer, buffer_size, "%s, freed %s: free blocks %lu -> %lu (not merged back)", T::name, orders[order], (unsigned long)freeBlocks0, (unsigned long)freeBlocks1);
+        if (freeBlocks1 != freeBlocks0) return false;
+        snprintf(buffer, buffer_size, "%s, freed %s: Malloc(%lu) of the combined size failed", T::name, orders[order], (unsigned long)(count * blockSize));
+        if (big == nullptr) return false;
+    }
+    return true;
+}
+
+MU_TEST(memory_common_free_order_hwram) { mu_assert(memory_common_free_order<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_free_order_lwram) { mu_assert(memory_common_free_order<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief Blocks of odd sizes are 4-byte aligned (SH-2 needs it for 32-bit access), and filling each one completely
+ *        does not touch its neighbours or the allocator's headers.
+ */
+template <typename T>
+static bool memory_common_odd_size_alignment(void)
+{
+    using Z = typename T::Z;
+    constexpr size_t count = 10;
+    const size_t sizes[count] = {1, 2, 3, 5, 6, 7, 9, 13, 17, 31};
+    void *blocks[count] = {};
+    const size_t free0 = Z::GetFreeSpace();
+    bool ok = true;
+
+    for (size_t i = 0; i < count; i++)
+    {
+        blocks[i] = Z::Malloc(sizes[i]);
+        if (ok && (blocks[i] == nullptr || (reinterpret_cast<uintptr_t>(blocks[i]) & 3) != 0))
+        {
+            snprintf(buffer, buffer_size, "%s: Malloc(%lu) returned %p (null or not 4-byte aligned)", T::name, (unsigned long)sizes[i], blocks[i]);
+            ok = false;
+        }
+    }
+    for (size_t i = 0; ok && i < count; i++) Memory::MemSet(blocks[i], static_cast<uint8_t>(0x40 + i), sizes[i]);
+    for (size_t i = 0; ok && i < count; i++)
+    {
+        if (!mem_all_equal(blocks[i], static_cast<uint8_t>(0x40 + i), sizes[i]))
+        {
+            snprintf(buffer, buffer_size, "%s: block of %lu bytes was overwritten by a neighbour", T::name, (unsigned long)sizes[i]);
+            ok = false;
+        }
+    }
+    for (size_t i = 0; i < count; i++) Z::Free(blocks[i]);
+    if (ok && Z::GetFreeSpace() != free0)
+    {
+        snprintf(buffer, buffer_size, "%s: free space %lu != %lu after freeing the odd-size blocks", T::name,
+            (unsigned long)Z::GetFreeSpace(), (unsigned long)free0);
+        ok = false;
+    }
+    return ok;
+}
+
+MU_TEST(memory_common_odd_size_alignment_hwram) { mu_assert(memory_common_odd_size_alignment<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_odd_size_alignment_lwram) { mu_assert(memory_common_odd_size_alignment<MemCommonLW>(), buffer); }
+
+static int memory_common_static_value = 0x1234;
+
+    /**
+ * @brief Freeing a HWRam address that is not on the heap (a global, a stack variable) does nothing.
+ * @details InRange accepts all of 0x06000000-0x07FFFFFF, so these pointers reach the allocator.
+ */
+MU_TEST(memory_common_free_non_heap_hwram)
+{
+    int local = 0x5678;
+    const size_t free0 = Memory::HighWorkRam::GetFreeSpace();
+    const Memory::Report report0 = Memory::HighWorkRam::GetReport();
+
+    Memory::Free(&memory_common_static_value);
+    Memory::HighWorkRam::Free(&memory_common_static_value);
+    Memory::Free(&local);
+    Memory::HighWorkRam::Free(&local);
+
+    const Memory::Report report1 = Memory::HighWorkRam::GetReport();
+    mu_assert(memory_common_static_value == 0x1234, "Free(&global) changed the global");
+    mu_assert(local == 0x5678, "Free(&local) changed the stack variable");
+    snprintf(buffer, buffer_size, "Free of non-heap HWRam pointers changed the heap: free %lu -> %lu, blocks used %lu/free %lu -> %lu/%lu",
+        (unsigned long)free0, (unsigned long)Memory::HighWorkRam::GetFreeSpace(),
+        (unsigned long)report0.UsedBlocks, (unsigned long)report0.FreeBlocks, (unsigned long)report1.UsedBlocks, (unsigned long)report1.FreeBlocks);
+    mu_assert(Memory::HighWorkRam::GetFreeSpace() == free0 && report1.UsedBlocks == report0.UsedBlocks && report1.FreeBlocks == report0.FreeBlocks, buffer);
+}
+
+    /**
+ * @brief Freeing a block through its cache-through address (0x2xxxxxxx, the uncached copy of the same RAM) releases it.
+ * @details Code that bypasses the cache for DMA often keeps that address; if Free ignores it, the block leaks.
+ */
+template <typename T>
+static bool memory_common_free_cache_through(void)
+{
+    using Z = typename T::Z;
+    const size_t free0 = Z::GetFreeSpace();
+    void *p = Z::Malloc(64);
+    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    void *uncached = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(p) | 0x20000000u);
+
+    Memory::Free(uncached);
+    const size_t free1 = Z::GetFreeSpace();
+    if (free1 != free0) Z::Free(p);             // not released: free it through the normal address
+
+    snprintf(buffer, buffer_size, "%s: Memory::Free(%p, cache-through copy of %p) left the block allocated (free %lu, expected %lu)",
+        T::name, uncached, p, (unsigned long)free1, (unsigned long)free0);
+    return free1 == free0;
+}
+
+MU_TEST(memory_common_free_cache_through_hwram) { mu_assert(memory_common_free_cache_through<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_free_cache_through_lwram) { mu_assert(memory_common_free_cache_through<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief The report counts blocks and headers consistently: one Malloc adds one used block, headers cost the same per block,
+ *        freeing a block raises free size, and freeing all of them restores the free block count and size.
+ */
+template <typename T>
+static bool memory_common_report_blocks(void)
+{
+    using Z = typename T::Z;
+    const Memory::Report r0 = Z::GetReport();
+    void *a = Z::Malloc(256);
+    void *b = Z::Malloc(256);
+    void *c = Z::Malloc(256);
+    const Memory::Report r1 = Z::GetReport();
+    Z::Free(b);
+    const Memory::Report r2 = Z::GetReport();
+    Z::Free(a);
+    Z::Free(c);
+    const Memory::Report r3 = Z::GetReport();
+
+    snprintf(buffer, buffer_size, "%s: Malloc(256) failed", T::name);
+    if (a == nullptr || b == nullptr || c == nullptr) return false;
+    snprintf(buffer, buffer_size, "%s: used blocks %lu -> %lu after 3 Malloc", T::name, (unsigned long)r0.UsedBlocks, (unsigned long)r1.UsedBlocks);
+    if (r1.UsedBlocks != r0.UsedBlocks + 3) return false;
+    const size_t blocks0 = r0.FreeBlocks + r0.UsedBlocks, blocks1 = r1.FreeBlocks + r1.UsedBlocks;
+    snprintf(buffer, buffer_size, "%s: header bytes not the same per block: %lu for %lu blocks, %lu for %lu blocks", T::name,
+        (unsigned long)r0.AllocationHeaders, (unsigned long)blocks0, (unsigned long)r1.AllocationHeaders, (unsigned long)blocks1);
+    if (r0.AllocationHeaders == 0 || r0.AllocationHeaders * blocks1 != r1.AllocationHeaders * blocks0) return false;
+    snprintf(buffer, buffer_size, "%s: freeing a 256-byte block: free size %lu -> %lu, used blocks %lu -> %lu", T::name,
+        (unsigned long)r1.FreeSize, (unsigned long)r2.FreeSize, (unsigned long)r1.UsedBlocks, (unsigned long)r2.UsedBlocks);
+    if (r2.FreeSize < r1.FreeSize + 256 || r2.UsedBlocks != r1.UsedBlocks - 1) return false;
+    snprintf(buffer, buffer_size, "%s: after freeing all: free blocks %lu -> %lu, free size %lu -> %lu, total %lu -> %lu", T::name,
+        (unsigned long)r0.FreeBlocks, (unsigned long)r3.FreeBlocks, (unsigned long)r0.FreeSize, (unsigned long)r3.FreeSize,
+        (unsigned long)r0.TotalSize, (unsigned long)r3.TotalSize);
+    return r3.FreeBlocks == r0.FreeBlocks && r3.FreeSize == r0.FreeSize && r3.TotalSize == r0.TotalSize && r3.UsedBlocks == r0.UsedBlocks;
+}
+
+MU_TEST(memory_common_report_blocks_hwram) { mu_assert(memory_common_report_blocks<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_report_blocks_lwram) { mu_assert(memory_common_report_blocks<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief The largest block that fits: its last byte is in the zone and writable, n-1 rounds up into it,
+ *        n+1 (rounded up past it) fails, and freeing it restores the free space.
+ */
+template <typename T>
+static bool memory_common_largest_block(void)
+{
+    using Z = typename T::Z;
+    const size_t free0 = Z::GetFreeSpace();
+
+        // Largest n (multiple of 4) that Malloc accepts
+    size_t lo = 0, hi = free0 & ~static_cast<size_t>(3);
+    while (lo < hi)
+    {
+        const size_t mid = ((lo + hi) / 2 + 4) & ~static_cast<size_t>(3);
+        void *probe = Z::Malloc(mid);
+        if (probe != nullptr) { Z::Free(probe); lo = mid; }
+        else { hi = mid - 4; }
+    }
+    const size_t n = lo;
+    snprintf(buffer, buffer_size, "%s: no block fits (free space %lu)", T::name, (unsigned long)free0);
+    if (n == 0) return false;
+
+    uint8_t *p = static_cast<uint8_t *>(Z::Malloc(n));
+    snprintf(buffer, buffer_size, "%s: Malloc(%lu) worked during the search but not now", T::name, (unsigned long)n);
+    if (p == nullptr) return false;
+    const bool inZone = Z::InRange(p + n - 1);
+    bool intact = false;
+    if (inZone)
+    {
+        p[0] = 0xA5;
+        p[n - 1] = 0x5A;
+        void *other = Z::Malloc(4);         // whatever still fits elsewhere must not overlap the largest block
+        if (other != nullptr) Memory::MemSet(other, 0x00, 4);
+        intact = p[0] == 0xA5 && p[n - 1] == 0x5A;
+        Z::Free(other);
+    }
+    Z::Free(p);
+
+    void *under = Z::Malloc(n - 1);         // rounds up to n: fits
+    Z::Free(under);
+    void *over = Z::Malloc(n + 1);          // rounds up to n + 4: does not fit
+    Z::Free(over);
+    const size_t free1 = Z::GetFreeSpace();
+
+    snprintf(buffer, buffer_size, "%s: last byte of the largest block (%p + %lu) is outside the zone", T::name, p, (unsigned long)n);
+    if (!inZone) return false;
+    snprintf(buffer, buffer_size, "%s: first/last byte of the largest block (%lu bytes) changed by another Malloc", T::name, (unsigned long)n);
+    if (!intact) return false;
+    snprintf(buffer, buffer_size, "%s: largest block %lu (free space %lu): Malloc(%lu) %s, Malloc(%lu) %s", T::name, (unsigned long)n, (unsigned long)free0,
+        (unsigned long)(n - 1), under != nullptr ? "ok" : "FAILED", (unsigned long)(n + 1), over == nullptr ? "null" : "NOT NULL");
+    if (under == nullptr || over != nullptr) return false;
+    snprintf(buffer, buffer_size, "%s: free space %lu != %lu after freeing the largest block", T::name, (unsigned long)free1, (unsigned long)free0);
+    return free1 == free0;
+}
+
+MU_TEST(memory_common_largest_block_hwram) { mu_assert(memory_common_largest_block<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_largest_block_lwram) { mu_assert(memory_common_largest_block<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief Shrinking a block keeps its start and releases memory; growing it back keeps the start;
+ *        freeing it restores the free space.
+ */
+template <typename T>
+static bool memory_common_shrink_then_grow(void)
+{
+    using Z = typename T::Z;
+    const size_t free0 = Z::GetFreeSpace();
+    void *p = Z::Malloc(256);
+    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(256) failed", T::name); return false; }
+    mem_fill_sequence(p, 256);
+    const size_t freeFull = Z::GetFreeSpace();
+
+    void *small = Z::Realloc(p, 64);
+    if (small != nullptr) p = small;
+    const size_t freeSmall = Z::GetFreeSpace();
+    const bool smallOk = small != nullptr && mem_check_sequence(p, 64);
+
+    void *big = Z::Realloc(p, 256);
+    if (big != nullptr) p = big;
+    const bool bigOk = big != nullptr && mem_check_sequence(p, 64);
+    Z::Free(p);
+    const size_t free1 = Z::GetFreeSpace();
+
+    snprintf(buffer, buffer_size, "%s: Realloc(256 -> 64) %s", T::name, small == nullptr ? "returned null" : "lost data");
+    if (!smallOk) return false;
+    snprintf(buffer, buffer_size, "%s: shrinking 256 -> 64 did not release memory (free %lu -> %lu)", T::name, (unsigned long)freeFull, (unsigned long)freeSmall);
+    if (freeSmall <= freeFull) return false;
+    snprintf(buffer, buffer_size, "%s: Realloc(64 -> 256) %s", T::name, big == nullptr ? "returned null" : "lost the first 64 bytes");
+    if (!bigOk) return false;
+    snprintf(buffer, buffer_size, "%s: free space %lu != %lu after shrink, grow and free", T::name, (unsigned long)free1, (unsigned long)free0);
+    return free1 == free0;
+}
+
+MU_TEST(memory_common_shrink_then_grow_hwram) { mu_assert(memory_common_shrink_then_grow<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_shrink_then_grow_lwram) { mu_assert(memory_common_shrink_then_grow<MemCommonLW>(), buffer); }
+
+/** @brief Object whose member allocates with autonew: the new object lands in the zone of this one. */
+struct MemCommonAutoNew
+{
+    int value = 1;
+    int *MakeSibling() { return autonew int(4); }
+};
+
+    /**
+ * @brief The zone macros (hwnew, lwnew), autonew from a member function, and PlacementMalloc(size, void*).
+ */
+MU_TEST(memory_common_new_macros_and_placement_ptr)
+{
+    const size_t hwFree = Memory::HighWorkRam::GetFreeSpace();
+    const size_t lwFree = Memory::LowWorkRam::GetFreeSpace();
+
+    void *hwPlaced = Memory::PlacementMalloc(32, reinterpret_cast<void *>(0x06000000u));
+    void *lwPlaced = Memory::PlacementMalloc(32, reinterpret_cast<void *>(0x00200000u));
+    const bool placedOk = hwPlaced != nullptr && Memory::HighWorkRam::InRange(hwPlaced) && lwPlaced != nullptr && Memory::LowWorkRam::InRange(lwPlaced);
+    Memory::Free(hwPlaced);
+    Memory::Free(lwPlaced);
+
+    int *hw = hwnew int(2);
+    int *lw = lwnew int(3);
+    const bool macrosOk = hw != nullptr && Memory::HighWorkRam::InRange(hw) && *hw == 2 && lw != nullptr && Memory::LowWorkRam::InRange(lw) && *lw == 3;
+    delete hw;
+    delete lw;
+
+    MemCommonAutoNew *inLw = lwnew MemCommonAutoNew();
+    MemCommonAutoNew *inHw = hwnew MemCommonAutoNew();
+    int *siblingLw = inLw != nullptr ? inLw->MakeSibling() : nullptr;
+    int *siblingHw = inHw != nullptr ? inHw->MakeSibling() : nullptr;
+    const bool autoOk = siblingLw != nullptr && Memory::LowWorkRam::InRange(siblingLw) && *siblingLw == 4
+        && siblingHw != nullptr && Memory::HighWorkRam::InRange(siblingHw) && *siblingHw == 4;
+    delete siblingLw;
+    delete siblingHw;
+    delete inLw;
+    delete inHw;
+
+    mu_assert(placedOk, "PlacementMalloc(size, void*) should allocate in the zone containing the address");
+    mu_assert(macrosOk, "hwnew / lwnew should allocate in HWRam / LWRam");
+    mu_assert(autoOk, "autonew in a member function should allocate in the zone of this");
+    snprintf(buffer, buffer_size, "Free space not restored: HWRam %lu -> %lu, LWRam %lu -> %lu",
+        (unsigned long)hwFree, (unsigned long)Memory::HighWorkRam::GetFreeSpace(),
+        (unsigned long)lwFree, (unsigned long)Memory::LowWorkRam::GetFreeSpace());
+    mu_assert(Memory::HighWorkRam::GetFreeSpace() == hwFree && Memory::LowWorkRam::GetFreeSpace() == lwFree, buffer);
+}
+
+    /**
+ * @brief Cartridge RAM: with no cartridge (or while CartRam is not implemented) every call fails cleanly;
+ *        with one, a block round-trips and the accounting comes back.
+ */
+MU_TEST(memory_common_cartram_present_or_absent)
+{
+    if (Memory::CartRam::GetSize() == 0)
+    {
+        void *p = Memory::CartRam::Malloc(16);
+        void *q = Memory::Malloc(16, Memory::Zone::CartRam);
+        void *r = Memory::CartRam::Realloc(nullptr, 16);
+        Memory::CartRam::Free(nullptr);
+        mu_assert(p == nullptr && q == nullptr && r == nullptr, "With no cartridge RAM, CartRam allocations should return null");
+        mu_assert(Memory::CartRam::GetFreeSpace() == 0 && Memory::CartRam::GetUsedSpace() == 0, "With no cartridge RAM, free and used space should be 0");
+        mu_assert(!Memory::CartRam::InRange(reinterpret_cast<void *>(0x22400000u)), "With no cartridge RAM, no address should be in range");
+        return;
+    }
+
+    const size_t free0 = Memory::CartRam::GetFreeSpace();
+    void *p = Memory::CartRam::Malloc(256);
+    const bool allocOk = p != nullptr && Memory::CartRam::InRange(p);
+    if (p != nullptr) mem_fill_sequence(p, 256);
+    const bool dataOk = p != nullptr && mem_check_sequence(p, 256);
+    int *obj = cartnew int(6);
+    const bool newOk = obj != nullptr && Memory::CartRam::InRange(obj) && *obj == 6;
+    delete obj;
+    Memory::CartRam::Free(p);
+
+    mu_assert(allocOk, "CartRam::Malloc(256) should return a block in cartridge RAM");
+    mu_assert(dataOk, "Data written to cartridge RAM should read back");
+    mu_assert(newOk, "cartnew should allocate in cartridge RAM");
+    mu_assert(Memory::CartRam::GetFreeSpace() == free0, "CartRam free space should come back after Free");
+}
+
+    /**
+ * @brief Freeing a pointer into the middle of a block (not its start) leaves the block allocated and its data intact.
+ * @note Risky: an allocator that trusts the pointer writes a fake header into the block.
+ */
+template <typename T>
+static bool memory_common_free_interior_pointer(void)
+{
+    using Z = typename T::Z;
+    uint8_t *p = static_cast<uint8_t *>(Z::Malloc(64));
+    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    Memory::MemSet(p, 0x00, 64);                // zeroed, so a fake header read from it has size 0 and cannot run off
+    const size_t used0 = Z::GetUsedSpace();
+    const size_t blocks0 = Z::GetReport().UsedBlocks;
+
+    Z::Free(p + 16);
+    const bool intact = mem_all_equal(p, 0x00, 64);
+    const size_t used1 = Z::GetUsedSpace();
+    const size_t blocks1 = Z::GetReport().UsedBlocks;
+    Z::Free(p);
+
+    snprintf(buffer, buffer_size, "%s: Free(block + 16): data %s, used space %lu -> %lu, used blocks %lu -> %lu", T::name,
+        intact ? "intact" : "CHANGED", (unsigned long)used0, (unsigned long)used1, (unsigned long)blocks0, (unsigned long)blocks1);
+    return intact && used1 == used0 && blocks1 == blocks0;
+}
+
+MU_TEST(memory_common_free_interior_pointer_hwram) { mu_assert(memory_common_free_interior_pointer<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_free_interior_pointer_lwram) { mu_assert(memory_common_free_interior_pointer<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief Realloc on a block that was already freed must not hand out memory that overlaps a live block.
+ * @note Risky: undefined in C; this only checks the heap is not corrupted afterwards.
+ */
+template <typename T>
+static bool memory_common_realloc_freed(void)
+{
+    using Z = typename T::Z;
+    void *p = Z::Malloc(64);
+    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    Z::Free(p);
+
+    void *q = Z::Realloc(p, 128);
+    void *a = Z::Malloc(128);
+    bool ok = a != nullptr;
+    if (ok && q != nullptr)
+    {
+        const uintptr_t q0 = reinterpret_cast<uintptr_t>(q), a0 = reinterpret_cast<uintptr_t>(a);
+        ok = q0 + 128 <= a0 || a0 + 128 <= q0;
+    }
+    snprintf(buffer, buffer_size, "%s: Realloc(freed block) returned %p, then Malloc(128) returned %p (null or overlapping)", T::name, q, a);
+    Z::Free(a);
+    if (q != a) Z::Free(q);
+    return ok;
+}
+
+MU_TEST(memory_common_realloc_freed_hwram) { mu_assert(memory_common_realloc_freed<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_realloc_freed_lwram) { mu_assert(memory_common_realloc_freed<MemCommonLW>(), buffer); }
+
+/** @brief Reads a variable through the cache-through address, so this CPU sees what the other one wrote. */
+template <typename V>
+static V memory_common_read_uncached(const V &value)
+{
+    return *reinterpret_cast<const volatile V *>(reinterpret_cast<uintptr_t>(&value) | 0x20000000u);
+}
+
+/** @brief Allocates, fills, checks and frees HWRam blocks; returns the number of failures. */
+static int memory_common_alloc_loop(uint8_t pattern, int rounds)
+{
+    int errors = 0;
+    for (int i = 0; i < rounds; i++)
+    {
+        const size_t size = 16 + (i % 7) * 24;
+        uint8_t *p = static_cast<uint8_t *>(Memory::HighWorkRam::Malloc(size));
+        if (p == nullptr) { errors++; continue; }
+        for (size_t j = 0; j < size; j++) p[j] = pattern;
+        for (size_t j = 0; j < size; j++)
+        {
+            if (p[j] != pattern) { errors++; break; }
+        }
+        Memory::HighWorkRam::Free(p);
+    }
+    return errors;
+}
+
+/** @brief Runs memory_common_alloc_loop on the slave CPU. */
+class MemCommonSlaveTask : public Types::ITask
+{
+public:
+    int errors = -1;
+    bool Finished() { return memory_common_read_uncached(this->done); }
+
+protected:
+    void Do() override { this->errors = memory_common_alloc_loop(0xB2, 500); }
+};
+
+static MemCommonSlaveTask memory_common_slave_task;
+
+    /**
+ * @brief Master and slave CPUs allocate and free HWRam at the same time: no block is handed to both,
+ *        and the heap is consistent afterwards.
+ * @note Risky: the allocator has no lock, so a race can corrupt the heap. Run last.
+ */
+MU_TEST(memory_common_both_cpus_hwram)
+{
+    const size_t free0 = Memory::HighWorkRam::GetFreeSpace();
+    const size_t used0 = Memory::HighWorkRam::GetReport().UsedBlocks;
+
+    Slave::ExecuteOnSlave(memory_common_slave_task);
+    const int masterErrors = memory_common_alloc_loop(0x4D, 500);
+
+    bool finished = false;
+    for (int spin = 0; spin < 20000000 && !finished; spin++) finished = memory_common_slave_task.Finished();
+    mu_assert(finished, "Slave CPU task did not finish (slave not started or stuck in the allocator)");
+
+    slCashPurge();                              // drop cache lines the slave made stale before reading the heap
+    const int slaveErrors = memory_common_read_uncached(memory_common_slave_task.errors);
+    const size_t free1 = Memory::HighWorkRam::GetFreeSpace();
+    const size_t used1 = Memory::HighWorkRam::GetReport().UsedBlocks;
+
+    snprintf(buffer, buffer_size, "Allocating on both CPUs: %d master and %d slave failures (null block or data overwritten by the other CPU)", masterErrors, slaveErrors);
+    mu_assert(masterErrors == 0 && slaveErrors == 0, buffer);
+    snprintf(buffer, buffer_size, "Heap inconsistent after both CPUs: free %lu -> %lu, used blocks %lu -> %lu",
+        (unsigned long)free0, (unsigned long)free1, (unsigned long)used0, (unsigned long)used1);
+    mu_assert(free1 == free0 && used1 == used0, buffer);
+}
+
 MU_TEST_SUITE(memory_common_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
@@ -573,12 +1067,42 @@ MU_TEST_SUITE(memory_common_test_suite)
     MU_RUN_TEST(memory_common_malloc_huge_sizes_lwram);
     MU_RUN_TEST(memory_common_exhaust_and_recover_hwram);
     MU_RUN_TEST(memory_common_exhaust_and_recover_lwram);
+    MU_RUN_TEST(memory_common_free_order_hwram);
+    MU_RUN_TEST(memory_common_free_order_lwram);
+    MU_RUN_TEST(memory_common_odd_size_alignment_hwram);
+    MU_RUN_TEST(memory_common_odd_size_alignment_lwram);
+    MU_RUN_TEST(memory_common_free_non_heap_hwram);
+    MU_RUN_TEST(memory_common_free_cache_through_hwram);
+    MU_RUN_TEST(memory_common_free_cache_through_lwram);
+    MU_RUN_TEST(memory_common_report_blocks_hwram);
+    MU_RUN_TEST(memory_common_report_blocks_lwram);
+    MU_RUN_TEST(memory_common_largest_block_hwram);
+    MU_RUN_TEST(memory_common_largest_block_lwram);
+    MU_RUN_TEST(memory_common_shrink_then_grow_hwram);
+    MU_RUN_TEST(memory_common_shrink_then_grow_lwram);
+    MU_RUN_TEST(memory_common_new_macros_and_placement_ptr);
+    MU_RUN_TEST(memory_common_cartram_present_or_absent);
+}
 
-    // Risky last: these can corrupt a heap that has no ownership or double-free checks
+    /**
+ * @brief Misuse and concurrency tests that can corrupt a heap with no ownership, double-free or lock checks.
+ *        Run as the last suite of the campaign, so a corrupted heap or a hang cannot hide other results.
+ */
+MU_TEST_SUITE(memory_common_risky_test_suite)
+{
+    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
+        &memory_common_test_teardown,
+        &memory_common_test_output_header);
+
     MU_RUN_TEST(memory_common_wrong_zone_hwram);
     MU_RUN_TEST(memory_common_wrong_zone_lwram);
     MU_RUN_TEST(memory_common_realloc_too_large_hwram);
     MU_RUN_TEST(memory_common_realloc_too_large_lwram);
+    MU_RUN_TEST(memory_common_free_interior_pointer_hwram);
+    MU_RUN_TEST(memory_common_free_interior_pointer_lwram);
+    MU_RUN_TEST(memory_common_realloc_freed_hwram);
+    MU_RUN_TEST(memory_common_realloc_freed_lwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_hwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_lwram);
+    MU_RUN_TEST(memory_common_both_cpus_hwram);
 }
