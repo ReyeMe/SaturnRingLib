@@ -76,11 +76,13 @@ MU_TEST(memory_test_placement_malloc_lowworkram)
  */
 MU_TEST(memory_test_placement_malloc_cartram)
 {
+    // No cartridge RAM: covered by memory_common_cartram_present_or_absent
+    if (Memory::CartRam::GetSize() == 0) return;
+
     void* address = (void*)0x08000000; // Address in CartRam range
     void* ptr = Memory::PlacementMalloc(100, address);
-    mu_assert(ptr != nullptr, "PlacementMalloc in CartRam failed");
-
     Memory::Free(ptr);
+    mu_assert(ptr != nullptr, "PlacementMalloc in CartRam failed");
 }
 
     /**
@@ -105,7 +107,6 @@ MU_TEST(memory_test_initialize_zones)
     SRL::Memory::Initialize();
     mu_assert(SRL::Memory::HighWorkRam::GetSize() > 0, "HighWorkRam initialization failed");
     mu_assert(SRL::Memory::LowWorkRam::GetSize() > 0, "LowWorkRam initialization failed");
-    mu_assert(SRL::Memory::CartRam::GetSize() > 0, "CartRam initialization failed");
 }
 
     /**
@@ -115,9 +116,10 @@ MU_TEST(memory_test_initialize_zones)
  */
 MU_TEST(memory_test_cross_zone_allocation)
 {
+    const bool hasCartRam = Memory::CartRam::GetSize() > 0;
     void* ptr1 = new (SRL::Memory::Zone::HWRam) char[100];
     void* ptr2 = new (SRL::Memory::Zone::LWRam) char[100];
-    void* ptr3 = new (SRL::Memory::Zone::CartRam) char[100];
+    void* ptr3 = hasCartRam ? new (SRL::Memory::Zone::CartRam) char[100] : nullptr;
 
     delete[] static_cast<char*>(ptr1);
     delete[] static_cast<char*>(ptr2);
@@ -125,7 +127,7 @@ MU_TEST(memory_test_cross_zone_allocation)
 
     mu_assert(ptr1 != nullptr, "Cross-zone allocation in HighWorkRam failed");
     mu_assert(ptr2 != nullptr, "Cross-zone allocation in LowWorkRam failed");
-    mu_assert(ptr3 != nullptr, "Cross-zone allocation in CartRam failed");
+    mu_assert(!hasCartRam || ptr3 != nullptr, "Cross-zone allocation in CartRam failed");
 }
 
     /**

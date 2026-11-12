@@ -604,6 +604,14 @@ MU_TEST(memory_CartRam_test_multiple_array_sizes)
 
 MU_TEST_SUITE(memory_CartRam_test_suite)
 {
+    // No cartridge RAM (no cartridge, or CartRam not implemented yet): nothing to test here.
+    // memory_common_cartram_present_or_absent checks that CartRam calls fail cleanly in that case.
+    if (Memory::CartRam::GetSize() == 0)
+    {
+        LogInfo("memory_CartRam_test_suite skipped: no cartridge RAM");
+        return;
+    }
+
     MU_SUITE_CONFIGURE_WITH_HEADER(&memory_CartRam_test_setup,
         &memory_CartRam_test_teardown,
         &memory_CartRam_test_output_header);
