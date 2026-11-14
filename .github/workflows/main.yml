@@ -21,7 +21,7 @@ jobs:
       # One campaign failing must not cancel the others.
       fail-fast: false
       matrix:
-        campaign: [math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, event, datetime, cd]
+        campaign: [math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, event, datetime, cd, media, slave, scene, string, endian, vdp1, vdp2, input, sound]
     container:
       image: willll/saturn-docker:gcc_14.2.0_vanilla
 
@@ -57,8 +57,7 @@ jobs:
           gdown 1miIZbAytFFRGlmL8H2gM8Hs__A3AC23P -O "$MEDNAFEN_HOME/firmware/mpr-17933.bin"
           gdown 1YvFP-7DCGq4AVd2Xo-HAaUQmikV6ufVT -O "$MEDNAFEN_HOME/firmware/sega_101.bin"
       - name: Run tests
-        # Failing tests are shown in the report below but do not fail the pipeline.
-        continue-on-error: true
+        # Fails only on tests not listed under known_failures in Tests/campaigns.json.
         run: |
           cd $GITHUB_WORKSPACE/Tests
           bash $GITHUB_WORKSPACE/Tests/run_tests.bat mednafen ${{ matrix.campaign }}

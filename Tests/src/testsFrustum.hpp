@@ -56,12 +56,12 @@ MU_TEST(frustum_frustum_intersection)
     f2.Update(view);
 
     const Vector3D pt(int16_t{0}, int16_t{0}, int16_t{-5});
-    mu_assert(f1.Contains(pt), "pt inside f1");
-    mu_assert(f2.Contains(pt), "pt inside f2");
+    mu_assert(f1.Intersects(pt), "pt inside f1");
+    mu_assert(f2.Intersects(pt), "pt inside f2");
 
     const Vector3D pt_out(int16_t{100}, int16_t{100}, int16_t{100});
-    mu_assert(!f1.Contains(pt_out), "pt_out outside f1");
-    mu_assert(!f2.Contains(pt_out), "pt_out outside f2");
+    mu_assert(!f1.Intersects(pt_out), "pt_out outside f1");
+    mu_assert(!f2.Intersects(pt_out), "pt_out outside f2");
 }
 
     /**
@@ -75,29 +75,29 @@ MU_TEST(frustum_contains_point_sphere_aabb)
     f.Update(view);
 
         // Point tests
-    mu_assert(f.Contains(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5})), "Point inside should be contained");
-    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kNear)), "Point on near plane should be contained");
-    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar)), "Point on far plane should be contained");
-    mu_assert(!f.Contains(Vector3D(int16_t{0}, int16_t{0}, int16_t{0})), "Point behind near should be outside");
-    mu_assert(!f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar - Fxp(int16_t{1}))), "Point beyond far should be outside");
+    mu_assert(f.Intersects(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5})), "Point inside should be contained");
+    mu_assert(f.Intersects(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kNear)), "Point on near plane should be contained");
+    mu_assert(f.Intersects(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar)), "Point on far plane should be contained");
+    mu_assert(!f.Intersects(Vector3D(int16_t{0}, int16_t{0}, int16_t{0})), "Point behind near should be outside");
+    mu_assert(!f.Intersects(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar - Fxp(int16_t{1}))), "Point beyond far should be outside");
 
         // Sphere tests
     const Fxp quarter = Fxp::BuildRaw(0x00004000);
     const Fxp half = Fxp::BuildRaw(0x00008000);
 
-    mu_assert(f.Contains(Sphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), Fxp(int16_t{1}))), "Sphere inside should be contained");
-    mu_assert(f.Contains(Sphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + quarter)), half)), "Sphere crossing near plane should be contained");
-    mu_assert(f.Contains(Sphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kFar - quarter)), half)), "Sphere crossing far plane should be contained");
-    mu_assert(!f.Contains(Sphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{0}), quarter)), "Sphere behind near should be outside");
-    mu_assert(f.Contains(Sphere(Vector3D(0, 0, -5), Fxp(int16_t{10}))), "Sphere containing frustum should be contained");
+    mu_assert(f.Intersects(Sphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), Fxp(int16_t{1}))), "Sphere inside should be contained");
+    mu_assert(f.Intersects(Sphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + quarter)), half)), "Sphere crossing near plane should be contained");
+    mu_assert(f.Intersects(Sphere(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kFar - quarter)), half)), "Sphere crossing far plane should be contained");
+    mu_assert(!f.Intersects(Sphere(Vector3D(int16_t{0}, int16_t{0}, int16_t{0}), quarter)), "Sphere behind near should be outside");
+    mu_assert(f.Intersects(Sphere(Vector3D(0, 0, -5), Fxp(int16_t{10}))), "Sphere containing frustum should be contained");
 
         // AABB tests
     const Vector3D one(int16_t{1}, int16_t{1}, int16_t{1});
-    mu_assert(f.Contains(AABB(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), one)), "AABB near center should be contained");
-    mu_assert(f.Contains(AABB(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + quarter)), one)), "AABB crossing near plane should be contained");
-    mu_assert(f.Contains(AABB(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kFar - quarter)), one)), "AABB crossing far plane should be contained");
-    mu_assert(!f.Contains(AABB(Vector3D(int16_t{100}, int16_t{0}, int16_t{-5}), one)), "Far X AABB should be outside");
-    mu_assert(f.Contains(AABB(Vector3D(0, 0, -5), Vector3D(10, 10, 10))), "AABB containing frustum should be contained");
+    mu_assert(f.Intersects(AABB(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5}), one)), "AABB near center should be contained");
+    mu_assert(f.Intersects(AABB(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + quarter)), one)), "AABB crossing near plane should be contained");
+    mu_assert(f.Intersects(AABB(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kFar - quarter)), one)), "AABB crossing far plane should be contained");
+    mu_assert(!f.Intersects(AABB(Vector3D(int16_t{100}, int16_t{0}, int16_t{-5}), one)), "Far X AABB should be outside");
+    mu_assert(f.Intersects(AABB(Vector3D(0, 0, -5), Vector3D(10, 10, 10))), "AABB containing frustum should be contained");
 }
 
     /**
@@ -113,8 +113,8 @@ MU_TEST(frustum_update_rotated_view)
 
     const Vector3D nearCenter = view.Row3 - view.Row2 * kNear;
     const Vector3D midPoint = view.Row3 - view.Row2 * ((kNear + kFar) / Fxp(int16_t{2}));
-    mu_assert(f.Contains(nearCenter), "Near plane center should be inside in rotated view");
-    mu_assert(f.Contains(midPoint), "Mid frustum point should be inside in rotated view");
+    mu_assert(f.Intersects(nearCenter), "Near plane center should be inside in rotated view");
+    mu_assert(f.Intersects(midPoint), "Mid frustum point should be inside in rotated view");
 }
 
     /**
@@ -125,7 +125,7 @@ MU_TEST(frustum_invalid_construction)
     constexpr Matrix43 view = Matrix43::Identity();
     Frustum f_near_far(Angle::FromDegrees(Fxp(int16_t{90})), Fxp(int16_t{1}), Fxp(int16_t{10}), Fxp(int16_t{1}));
     f_near_far.Update(view);
-    mu_assert(!f_near_far.Contains(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5})), "Point should be outside an inverted frustum");
+    mu_assert(!f_near_far.Intersects(Vector3D(int16_t{0}, int16_t{0}, int16_t{-5})), "Point should be outside an inverted frustum");
 }
 
     /**
@@ -137,15 +137,15 @@ MU_TEST(frustum_boundary_conditions)
     Frustum f = make_test_frustum();
     f.Update(view);
 
-    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kNear)), "Point on near plane should be contained");
-    mu_assert(f.Contains(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar)), "Point on far plane should be contained");
+    mu_assert(f.Intersects(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kNear)), "Point on near plane should be contained");
+    mu_assert(f.Intersects(Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -kFar)), "Point on far plane should be contained");
 
     const Fxp zero = Fxp(int16_t{0});
     const Fxp one = Fxp(int16_t{1});
-    mu_assert(f.Contains(Sphere(Vector3D(zero, zero, -kNear - one), one)), "Sphere touching near plane should be contained");
-    mu_assert(f.Contains(Sphere(Vector3D(zero, zero, -kFar + one), one)), "Sphere touching far plane should be contained");
-    mu_assert(f.Contains(AABB(Vector3D(zero, zero, -kNear - one), Vector3D(one, one, one))), "AABB touching near plane should be contained");
-    mu_assert(f.Contains(AABB(Vector3D(zero, zero, -kFar + one), Vector3D(one, one, one))), "AABB touching far plane should be contained");
+    mu_assert(f.Intersects(Sphere(Vector3D(zero, zero, -kNear - one), one)), "Sphere touching near plane should be contained");
+    mu_assert(f.Intersects(Sphere(Vector3D(zero, zero, -kFar + one), one)), "Sphere touching far plane should be contained");
+    mu_assert(f.Intersects(AABB(Vector3D(zero, zero, -kNear - one), Vector3D(one, one, one))), "AABB touching near plane should be contained");
+    mu_assert(f.Intersects(AABB(Vector3D(zero, zero, -kFar + one), Vector3D(one, one, one))), "AABB touching far plane should be contained");
 }
 
     /**
@@ -159,10 +159,10 @@ MU_TEST(frustum_containing_aabb)
 
     const Vector3D center(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + kFar) / Fxp(int16_t{2}));
     const Vector3D size = Vector3D(kFarWidth, kFarHeight, (kFar - kNear) / Fxp(int16_t{2})) * Fxp(int16_t{2});
-    mu_assert(f.Contains(AABB(center, size)), "AABB containing frustum should be contained");
+    mu_assert(f.Intersects(AABB(center, size)), "AABB containing frustum should be contained");
 
     const AABB far_aabb(Vector3D(int16_t{1000}, int16_t{1000}, int16_t{1000}), Vector3D(int16_t{10}, int16_t{10}, int16_t{10}));
-    mu_assert(!f.Contains(far_aabb), "AABB far from frustum should be outside");
+    mu_assert(!f.Intersects(far_aabb), "AABB far from frustum should be outside");
 }
 
     /**
@@ -179,7 +179,7 @@ MU_TEST(frustum_translated_view)
     f.Update(view);
 
     const Vector3D insidePoint = eye + Vector3D(Fxp(int16_t{0}), Fxp(int16_t{0}), -(kNear + kFar) / Fxp(int16_t{2}));
-    mu_assert(f.Contains(insidePoint), "Point inside translated frustum should be contained");
+    mu_assert(f.Intersects(insidePoint), "Point inside translated frustum should be contained");
 }
 
     /**
@@ -195,9 +195,9 @@ MU_TEST(frustum_translated_rotated_view)
     Frustum f = make_test_frustum();
     f.Update(view);
 
-    const Vector3D forward = (target - eye).Normalize<SRL::Math::Precision::Accurate>();
+    const Vector3D forward = (target - eye).Normalize();
     const Vector3D insidePoint = eye + forward * ((kNear + kFar) / Fxp(int16_t{2}));
-    mu_assert(f.Contains(insidePoint), "Point inside translated/rotated frustum should be contained");
+    mu_assert(f.Intersects(insidePoint), "Point inside translated/rotated frustum should be contained");
 }
 
 MU_TEST_SUITE(frustum_test_suite)

@@ -97,7 +97,8 @@ MU_TEST(string_test_constructor_with_format)
     const char *str1 = "Hello"; // String argument
     int num = 42; // Integer argument
     SRL::string str(format, str1, num); // Construct with format
-    mu_assert(strcmp(str.c_str(), "Hello42") == 0, "Constructor with format failed"); // Verify result
+    snprintf(buffer, buffer_size, "Constructor with format gave '%s', expected 'Hello 42'", str.c_str());
+    mu_assert(strcmp(str.c_str(), "Hello 42") == 0, buffer); // Verify result
 }
 
     /**
@@ -271,57 +272,91 @@ MU_TEST(string_test_c_str_after_move)
     mu_assert(str1.c_str() == nullptr, "c_str after move failed"); // Verify source is null
 }
 
-    /**
- * @brief Test case: Verify snprintfEx functionality for various format types.
- *
- * This test case checks if the snprintfEx function of the SRL::string class correctly formats strings with various format types.
- */
-MU_TEST(string_test_snprintfEx)
+/** @brief Checks a snprintfEx result (return value = length of the full text); describes a mismatch in buffer. */
+static bool string_check_format(const char *got, int written, const char *expected)
 {
-    char buffer[100] = {0}; // Initialize test buffer
-    SRL::string str; // String object for testing
+    snprintf(buffer, buffer_size, "snprintfEx gave '%s' (returned %d), expected '%s' (%d)", got, written, expected, (int)strlen(expected));
+    return strcmp(got, expected) == 0 && written == (int)strlen(expected);
+}
 
-        // Test formatted string with string and integer
-    int writtenChars = str.snprintfEx(buffer, 100, "%s %d", "Hello", 42);
-    mu_assert(writtenChars == 13, "snprintfEx failed"); // Verify number of characters written
-    mu_assert(strcmp(buffer, "Hello42") == 0, "snprintfEx failed"); // Verify content
+/** @brief %s, %d, %u, %x and %c, with the literal text between them kept. */
+MU_TEST(string_snprintfEx_conversions)
+{
+    char out[64];
+    int written = SRL::string().snprintfEx(out, sizeof(out), "%s %d", "Hello", 42);
+    mu_assert(string_check_format(out, written, "Hello 42"), buffer);
 
-        // Test simple string
-    writtenChars = str.snprintfEx(buffer, 100, "%s", "Hello");
-    mu_assert(writtenChars == 5, "snprintfEx simple string failed"); // Verify character count
-    mu_assert(strcmp(buffer, "Hello") == 0, "snprintfEx simple string failed"); // Verify content
+    written = SRL::string().snprintfEx(out, sizeof(out), "%d|%u|%x|%c", -7, 42u, 255, '!');
+    mu_assert(string_check_format(out, written, "-7|42|ff|!"), buffer);
+}
 
-        // Test string with integer (no space)
-    writtenChars = str.snprintfEx(buffer, 100, "%s %d", "Hello", 42);
-    mu_assert(writtenChars == 7, "snprintfEx string with integer failed"); // Verify character count
-    mu_assert(strcmp(buffer, "Hello42") == 0, "snprintfEx string with integer failed"); // Verify content
+/** @brief %0Nd pads with zeros up to N digits, and never cuts a longer number. */
+MU_TEST(string_snprintfEx_zero_padding)
+{
+    char out[64];
+    int written = SRL::string().snprintfEx(out, sizeof(out), "[%05d]", 42);
+    mu_assert(string_check_format(out, written, "[00042]"), buffer);
 
-        // Test string with unsigned integer
-    writtenChars = str.snprintfEx(buffer, 100, "%s %u", "Hello", 42u);
-    mu_assert(writtenChars == 7, "snprintfEx string with unsigned integer failed"); // Verify character count
-    mu_assert(strcmp(buffer, "Hello42") == 0, "snprintfEx string with unsigned integer failed"); // Verify content
+    written = SRL::string().snprintfEx(out, sizeof(out), "[%03d]", 1234);
+    mu_assert(string_check_format(out, written, "[1234]"), buffer);
+}
 
-        // Test string with character
-    writtenChars = str.snprintfEx(buffer, 100, "%s %c", "Hello", '!');
-    mu_assert(writtenChars == 7, "snprintfEx string with character failed"); // Verify character count
-    mu_assert(strcmp(buffer, "Hello!") == 0, "snprintfEx string with character failed"); // Verify content
+/** @brief %f prints a 16.16 fixed point number (passed by pointer) with 5 decimals. */
+MU_TEST(string_snprintfEx_fixed_point)
+{
+    char out[64];
+    SRL::Math::Types::Fxp value(1.5);
+    int written = SRL::string().snprintfEx(out, sizeof(out), "%f", &value);
+    mu_assert(string_check_format(out, written, "1.50000"), buffer);
 
-        // Test string with fixed-point number (FXP)
-    SRL::Math::Types::Fxp fxp(123.456); // Fixed-point number
-    writtenChars = str.snprintfEx(buffer, 100, "%s %f", "Hello", &fxp);
-    mu_assert(writtenChars > 7, "snprintfEx string with FXP failed"); // Verify character count
-    mu_assert(strcmp(buffer, "Hello123.46") == 0, "snprintfEx string with FXP failed"); // Verify content
+    value = SRL::Math::Types::Fxp(0.0);
+    written = SRL::string().snprintfEx(out, sizeof(out), "%f", &value);
+    mu_assert(string_check_format(out, written, "0.00000"), buffer);
 
-        // Test string with padded integer
-    writtenChars = str.snprintfEx(buffer, 100, "%s %0d", "Hello", 42);
-    mu_assert(writtenChars == 7, "snprintfEx string with padding failed"); // Verify character count
-    mu_assert(strcmp(buffer, "Hello42") == 0, "snprintfEx string with padding failed"); // Verify content
+    value = SRL::Math::Types::Fxp(-2.25);
+    written = SRL::string().snprintfEx(out, sizeof(out), "%f", &value);
+    mu_assert(string_check_format(out, written, "-2.25000"), buffer);
+}
 
-        // Test buffer overflow handling
-    char smallBuffer[5]; // Small buffer to test overflow
-    writtenChars = str.snprintfEx(smallBuffer, 5, "%s %d", "Hello", 42);
-    mu_assert(writtenChars > 5, "snprintfEx buffer overflow failed"); // Verify overflow detection
-    mu_assert(smallBuffer[4] == '\0', "snprintfEx buffer overflow failed"); // Verify null termination
+/** @brief %% prints one percent sign and does not eat the next character. */
+MU_TEST(string_snprintfEx_percent_literal)
+{
+    char out[64];
+    int written = SRL::string().snprintfEx(out, sizeof(out), "%d%% done", 50);
+    mu_assert(string_check_format(out, written, "50% done"), buffer);
+}
+
+/** @brief A text longer than the buffer is cut and terminated inside it; nothing past the buffer changes. */
+MU_TEST(string_snprintfEx_truncates_inside_buffer)
+{
+    char out[16];
+    memset(out, 0x55, sizeof(out));
+    const int written = SRL::string().snprintfEx(out, 8, "%s", "0123456789AB");
+
+    snprintf(buffer, buffer_size, "Returned %d, expected 12 (length of the full text)", written);
+    mu_assert(written == 12, buffer);
+    mu_assert(memcmp(out, "0123456", 7) == 0 && out[7] == '\0', "The text is not cut to 7 characters and terminated at out[7]");
+
+    for (int i = 8; i < 16; i++)
+    {
+        snprintf(buffer, buffer_size, "out[%d] past the 8-byte buffer was changed to 0x%02x", i, (uint8_t)out[i]);
+        mu_assert((uint8_t)out[i] == 0x55, buffer);
+    }
+}
+
+/** @brief Copying, assigning and concatenating a default-constructed (empty) string gives an empty text. */
+MU_TEST(string_copy_of_empty)
+{
+    SRL::string empty;
+    SRL::string copy(empty);
+    SRL::string assigned("x");
+    assigned = empty;
+    SRL::string joined = empty + SRL::string("abc");
+
+    mu_assert(copy.c_str() == nullptr || copy.c_str()[0] == '\0', "A copy of an empty string is not empty");
+    mu_assert(assigned.c_str() == nullptr || assigned.c_str()[0] == '\0', "Assigning an empty string does not give an empty string");
+    snprintf(buffer, buffer_size, "empty + \"abc\" gave '%s'", joined.c_str() ? joined.c_str() : "(null)");
+    mu_assert(joined.c_str() != nullptr && strcmp(joined.c_str(), "abc") == 0, buffer);
 }
 
     /**
@@ -354,6 +389,11 @@ MU_TEST_SUITE(string_test_suite)
     MU_RUN_TEST(string_test_c_str_after_modification);
     MU_RUN_TEST(string_test_c_str_multiple_assignments);
     MU_RUN_TEST(string_test_c_str_after_move);
-    MU_RUN_TEST(string_test_snprintfEx);
+    MU_RUN_TEST(string_snprintfEx_conversions);
+    MU_RUN_TEST(string_snprintfEx_zero_padding);
+    MU_RUN_TEST(string_snprintfEx_fixed_point);
+    MU_RUN_TEST(string_snprintfEx_percent_literal);
+    MU_RUN_TEST(string_snprintfEx_truncates_inside_buffer);
+    MU_RUN_TEST(string_copy_of_empty);
 }
 }

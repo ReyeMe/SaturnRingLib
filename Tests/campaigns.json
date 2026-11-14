@@ -1,0 +1,187 @@
+{
+  "about": [
+    "Per-campaign settings read by run_tests.bat.",
+    "known_failures: test name -> library bug that makes it fail. These failures do not fail the run; remove an entry once its bug is fixed.",
+    "skip_modes: run_tests.bat mode -> why the campaign is not run in that mode (it exits 0)."
+  ],
+  "campaigns": {
+    "math": {
+      "known_failures": {
+        "fxp_ceil": "Ceil(32767.999) wraps to -32768",
+        "fxp_round": "Round(32767.999) wraps to -32768",
+        "fxp_sqrt": "Sqrt() is approximate (Sqrt(9) = 3.125) but documented as isqrt(value * 2^16)",
+        "fxp_add_sub_runtime_matches_compile_time": "runtime MaxValue + 1 wraps, compile time saturates",
+        "trigonometry_tan_matches_sin_over_cos": "Tan wrong for negative angles and near +-90",
+        "trigonometry_slerp": "Angle::SLerp(10, 350, 0.5) goes the long way round",
+        "vector2d_length_lengthsquared_overflow_guard": "Length() of (3,4) is 5.125, documented as exact",
+        "vector2d_normalize_zero_and_nonzero": "Length() of (3,4) is 5.125, documented as exact",
+        "vector2d_distance_and_distancesquared": "Length() of (3,4) is 5.125, documented as exact",
+        "vector2d_constants_and_distance": "Length() of (3,4) is 5.125, documented as exact",
+        "vector3d_length_and_lengthsquared_thresholds": "Length() of (2,3,6) is not 7",
+        "vector3d_distance": "Length() of (2,3,6) is not 7",
+        "vector3d_constants_and_distance": "Length() of (2,3,6) is not 7",
+        "vector3d_arithmetic_operators": "chained (c += b) += b",
+        "mat33_scale_in_place_documented": "Scale does not match its documentation",
+        "frustum_translated_view": "frustum built from a translated view rejects points inside it",
+        "frustum_translated_rotated_view": "frustum built from a translated view rejects points inside it",
+        "random_seed_zero_not_stuck": "seed 0 only gives zeros",
+        "random_variety_per_type": "8-bit GetNumber() gives a single value (u8 and i8: 1 distinct value)",
+        "random_dice_distribution": "u8 GetNumber(1, 6) always returns 1",
+        "random_signed_wide_range": "int16 GetNumber(-30000, 30000) stays in [-29999, -24497]",
+        "random_range_int8_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value",
+        "random_range_int16_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value",
+        "random_range_int32_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value",
+        "utils_fast_sqrt_values": "FastSqrt(10000^2) = 11243",
+        "interpolation_elastic_ease_in": "Fxp::ElasticEaseIn(0, 1, 0.99) = 2.0"
+      }
+    },
+    "memory_simple": {
+      "known_failures": {
+        "memory_common_inrange_lwram": "LowWorkRam::InRange accepts 0x00300000, uint32_t overload disagrees",
+        "memory_common_blocks_independent_hwram": "merging free blocks loses header bytes",
+        "memory_common_blocks_independent_lwram": "merging free blocks loses header bytes",
+        "memory_common_new_delete_forms": "merging free blocks loses header bytes",
+        "memory_common_free_order_hwram": "merging free blocks loses header bytes",
+        "memory_common_free_order_lwram": "merging free blocks loses header bytes",
+        "memory_common_odd_size_alignment_hwram": "merging free blocks loses header bytes",
+        "memory_common_odd_size_alignment_lwram": "merging free blocks loses header bytes",
+        "memory_common_report_blocks_hwram": "merging free blocks loses header bytes",
+        "memory_common_report_blocks_lwram": "merging free blocks loses header bytes",
+        "memory_common_shrink_then_grow_hwram": "merging free blocks loses header bytes",
+        "memory_common_shrink_then_grow_lwram": "merging free blocks loses header bytes",
+        "memory_common_new_macros_and_placement_ptr": "merging free blocks loses header bytes",
+        "memory_common_realloc_preserves_data_hwram": "Realloc(nullptr, n) returns null",
+        "memory_common_realloc_preserves_data_lwram": "Realloc(nullptr, n) returns null",
+        "memory_common_malloc_huge_sizes_hwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_malloc_huge_sizes_lwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_free_cache_through_hwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_free_cache_through_lwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_realloc_into_previous_free_hwram": "moved Realloc writes a free header into the data before copying it",
+        "memory_common_realloc_into_previous_free_lwram": "moved Realloc writes a free header into the data before copying it",
+        "memory_common_realloc_too_large_hwram": "failed Realloc frees the block",
+        "memory_common_realloc_too_large_lwram": "failed Realloc frees the block",
+        "memory_common_free_interior_pointer_hwram": "Free(block + 16) corrupts the heap",
+        "memory_common_free_interior_pointer_lwram": "Free(block + 16) corrupts the heap",
+        "memory_common_realloc_odd_size_hwram": "not run: Realloc to a size not a multiple of 4 crashes the console",
+        "memory_common_realloc_odd_size_lwram": "not run: Realloc to a size not a multiple of 4 crashes the console",
+        "memory_common_largest_block_lwram": "exact-fit Malloc marks the block used but returns null",
+        "memory_common_largest_block_hwram": "exact-fit Malloc marks the block used but returns null"
+      }
+    },
+    "memory_tlsf": {
+      "known_failures": {
+        "memory_common_inrange_lwram": "LowWorkRam::InRange accepts 0x00300000, uint32_t overload disagrees",
+        "memory_common_malloc_huge_sizes_hwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_malloc_huge_sizes_lwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_free_cache_through_hwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_free_cache_through_lwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_free_interior_pointer_hwram": "not run: Free(block + 16) hangs the console",
+        "memory_common_free_interior_pointer_lwram": "not run: Free(block + 16) hangs the console"
+      }
+    },
+    "memory_cpus_simple": {
+      "known_failures": {
+        "memory_common_both_cpus_hwram": "srl_memory.hpp has no lock between the two CPUs (may pass by luck)"
+      }
+    },
+    "memory_cpus_tlsf": {
+      "known_failures": {
+        "memory_common_both_cpus_hwram": "not run: no lock between the two CPUs, the slave gets stuck"
+      }
+    },
+    "video": {
+      "known_failures": {}
+    },
+    "system": {
+      "known_failures": {
+        "dsp_test_load_start_and_end": "DSP end flag never set (not investigated yet)",
+        "dsp_test_start_and_stop": "DSP end flag never set (not investigated yet)"
+      }
+    },
+    "timer": {
+      "known_failures": {
+        "timer_diagnostic_overflow": "timer32 does not count after an overflow (not investigated yet)"
+      }
+    },
+    "event": {
+      "known_failures": {}
+    },
+    "datetime": {
+      "known_failures": {
+        "datetime_month_boundaries": "April offset is 777600 instead of 7776000",
+        "datetime_months_in_order": "April offset is 777600 instead of 7776000",
+        "datetime_equality": "== compares the week, != does not",
+        "datetime_out_of_range_values": "constructor clamps its parameters, not the members"
+      }
+    },
+    "cd": {
+      "skip_modes": {
+        "USBGamers": "the DevCart upload sends only the program, not the disc"
+      },
+      "known_failures": {
+        "cd_test_tray_and_table_details": "TableOfContents is 812 bytes, the CD block writes 408",
+        "cd_test_seek_then_read": "Seek rounds the sector up: reads one sector late",
+        "cd_test_read_whole_file_in_chunks": "Seek rounds the sector up: reads one sector late",
+        "cd_test_mix_seek_read_sectors_read": "ReadSectors after Seek reads the wrong sector",
+        "cd_test_load_bytes_offset_and_state": "LoadBytes on an open file resets its position",
+        "cd_test_two_files": "a second File while one is open: GFS allows one open file",
+        "cd_test_other_files_content": "Read returns bytes past the end of the file",
+        "cd_test_file_not_copyable": "Cd::File copies close and free twice",
+        "cd_test_initialize_twice": "Initialize returns false (checks GFS_Init <= 2)"
+      }
+    },
+    "media": {
+      "skip_modes": {
+        "USBGamers": "the DevCart upload sends only the program, not the disc"
+      },
+      "known_failures": {
+        "wave_mono_16bit": "16-bit mono samples lose their high byte: samples[0] | samples[1] has no << 8 (srl_sound.hpp)",
+        "wave_stereo_16bit": "16-bit stereo stores the right channel first, 8-bit stereo the left channel first",
+        "wave_stereo_8bit": "not run: 8-bit stereo writes the right channel at data[dataSize + sample], past the end of its buffer",
+        "tga_rle_paletted_16": "16-color RLE decoding reads two source pixels per pixel count and the next packet byte as a color"
+      }
+    },
+    "slave": {
+      "known_failures": {
+        "slave_is_done_seen_by_master": "ITask::IsDone() reads the master's cache, which keeps the value from before the slave finished",
+        "slave_reset_task_while_running": "ResetTask() returns !done, which is true while the task runs (documented: false)"
+      }
+    },
+    "scene": {
+      "known_failures": {
+        "scene_attribute_paletted_texture": "the texture Attribute constructor sets UsePalette, then overwrites Sort without it"
+      }
+    },
+    "string": {
+      "known_failures": {
+        "string_snprintfEx_fixed_point": "%f rounds the decimals down: 1.5 prints as 1.49999",
+        "string_snprintfEx_percent_literal": "%% prints % but also skips the next character: \"50%% done\" gives \"50%done\"",
+        "string_snprintfEx_truncates_inside_buffer": "a text longer than the buffer is not terminated inside it; the '\\0' goes to buffer[length], past its end",
+        "string_copy_of_empty": "copy constructor, assignment and + call strlen(nullptr) on an empty string"
+      }
+    },
+    "endian": {
+      "known_failures": {}
+    },
+    "vdp1": {
+      "known_failures": {
+        "vdp1_available_memory": "GetAvailableMemory() with no texture shifts CGADDRESS by 3 again (already a byte offset) and wraps to about 4 GB"
+      }
+    },
+    "vdp2": {
+      "known_failures": {
+        "vdp2_vram_access_cycles": "bankCycles starts at -1 for A0-B0 but at 2 for B1, so B1 gives 5 cycles, not 6",
+        "vdp2_load_tilemap_then_clear": "ClearVRAM frees NBG0-NBG3 palettes with RBG0's color mode, so a 16-color bank stays used"
+      }
+    },
+    "input": {
+      "known_failures": {}
+    },
+    "sound": {
+      "skip_modes": {
+        "USBGamers": "the sound driver files are loaded from the disc, which the DevCart upload does not send"
+      },
+      "known_failures": {}
+    }
+  }
+}

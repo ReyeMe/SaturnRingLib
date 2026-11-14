@@ -105,7 +105,7 @@ MU_TEST(vector2d_dot_cross_multidot)
 MU_TEST(vector2d_length_lengthsquared_overflow_guard)
 {
     const Vector2D v(3, 4);
-    mu_assert(v.Length<SRL::Math::Precision::Accurate>() == Fxp(5), "Length(Accurate) for (3,4) should be 5");
+    mu_assert(v.Length() == Fxp(5), "Length for (3,4) should be 5");
     mu_assert(v.LengthSquared() == Fxp(25), "LengthSquared for (3,4) should be 25");
 
         // Threshold behavior: if either component abs >= 181.0, LengthSquared returns MaxValue
@@ -123,10 +123,10 @@ MU_TEST(vector2d_length_lengthsquared_overflow_guard)
 MU_TEST(vector2d_normalize_zero_and_nonzero)
 {
     const Vector2D z = Vector2D::Zero();
-    mu_assert(z.Normalize<SRL::Math::Precision::Accurate>() == Vector2D::Zero(), "Normalize(zero) should return zero");
+    mu_assert(z.Normalize() == Vector2D::Zero(), "Normalize(zero) should return zero");
 
     const Vector2D v(3, 4);
-    const Vector2D u = v.Normalize<SRL::Math::Precision::Accurate>();
+    const Vector2D u = v.Normalize();
 
         // Expect ~unit length; compare squared length to 1 with small tolerance
     const Fxp lenSq = u.Dot(u);
@@ -144,8 +144,8 @@ MU_TEST(vector2d_distance_and_distancesquared)
 
     mu_assert((b - a).LengthSquared() == Fxp(25), "Squared distance should be exact for (1,2)-(4,6)");
 
-    const Fxp dist = (b - a).Length<SRL::Math::Precision::Accurate>();
-    mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo(Accurate) should be ~5 for (1,2)-(4,6)");
+    const Fxp dist = (b - a).Length();
+    mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo should be ~5 for (1,2)-(4,6)");
 }
 
 
@@ -232,13 +232,13 @@ MU_TEST(vector2d_constants_and_distance)
     mu_assert(Vector2D::Down() == Vector2D(0, -1) && Vector2D::Down() == -Vector2D::Up(), "Down should be (0,-1)");
 
     const Vector2D a(1, 2), b(4, 6);
-    const Fxp accurate = a.DistanceTo<SRL::Math::Precision::Accurate>(b);
-    snprintf(buffer, buffer_size, "DistanceTo<Accurate> raw %ld != 5", (long)accurate.RawValue());
+    const Fxp accurate = a.DistanceTo(b);
+    snprintf(buffer, buffer_size, "DistanceTo raw %ld != 5", (long)accurate.RawValue());
     mu_assert(vec2_raw_near(accurate, Fxp(5), 66), buffer);
     const Fxp fast = a.DistanceTo(b);
     snprintf(buffer, buffer_size, "DistanceTo<Default> raw %ld not within 7%% of 5", (long)fast.RawValue());
     mu_assert(vec2_raw_near(fast, Fxp(5), 22938), buffer);
-    mu_assert(a.DistanceTo<SRL::Math::Precision::Accurate>(a) == 0, "Distance to itself should be 0");
+    mu_assert(a.DistanceTo(a) == 0, "Distance to itself should be 0");
 }
 
     /**

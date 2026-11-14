@@ -1054,6 +1054,87 @@ static bool memory_common_shrink_then_grow(void)
 MU_TEST(memory_common_shrink_then_grow_hwram) { mu_assert(memory_common_shrink_then_grow<MemCommonHW>(), buffer); }
 MU_TEST(memory_common_shrink_then_grow_lwram) { mu_assert(memory_common_shrink_then_grow<MemCommonLW>(), buffer); }
 
+    /**
+ * @brief Growing a block whose previous neighbour is free keeps all its data.
+ * @details Layout: [free 200][block 160][guard]. Under SIMPLE, Realloc(block, 300) frees the block, then Malloc merges
+ *          it into the free block before it and writes the leftover free header (300 bytes in) before copying,
+ *          which lands on bytes 96..99 of the old data.
+ */
+template <typename T>
+static bool memory_common_realloc_into_previous_free(void)
+{
+    using Z = typename T::Z;
+    void *before = Z::Malloc(200);
+    void *p = Z::Malloc(160);
+    void *guard = Z::Malloc(16);
+    if (before == nullptr || p == nullptr || guard == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: initial Malloc failed", T::name);
+        Z::Free(before); Z::Free(p); Z::Free(guard);
+        return false;
+    }
+    mem_fill_sequence(p, 160);
+    Z::Free(before);
+
+    uint8_t *moved = static_cast<uint8_t *>(Z::Realloc(p, 300));
+    size_t bad = 0;
+    while (moved != nullptr && bad < 160 && moved[bad] == static_cast<uint8_t>(bad * 7 + 3)) bad++;
+    snprintf(buffer, buffer_size, "%s: Realloc(160 -> 300) after the previous block was freed: %s %lu (moved %s)", T::name,
+        moved == nullptr ? "returned null," : "data differs from byte", (unsigned long)bad, moved == before ? "into the freed block" : "elsewhere");
+
+    Z::Free(moved != nullptr ? static_cast<void *>(moved) : p);
+    Z::Free(guard);
+    return moved != nullptr && bad == 160;
+}
+
+MU_TEST(memory_common_realloc_into_previous_free_hwram) { mu_assert(memory_common_realloc_into_previous_free<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_realloc_into_previous_free_lwram) { mu_assert(memory_common_realloc_into_previous_free<MemCommonLW>(), buffer); }
+
+    /**
+ * @brief Realloc to a size that is not a multiple of 4 keeps the data, and the next Malloc still returns
+ *        a 4-byte aligned block.
+ * @note Risky: under SIMPLE, Realloc does not round the size up like Malloc does, so the free header written after
+ *       the shrunk block is misaligned; a 4-byte write there is an address error on the SH-2.
+ */
+template <typename T>
+static bool memory_common_realloc_odd_size(void)
+{
+    using Z = typename T::Z;
+#if !defined(USE_TLSF_ALLOCATOR)
+        // Not run under SIMPLE: it crashes the console (mednafen and hardware). Reported as a failure so the bug stays visible.
+    snprintf(buffer, buffer_size, "%s: not run under SIMPLE, Realloc to a size not a multiple of 4 crashes the console", T::name);
+    return false;
+#endif
+    void *p = Z::Malloc(32);
+    void *guard = Z::Malloc(16);
+    if (p == nullptr || guard == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: initial Malloc failed", T::name);
+        Z::Free(p); Z::Free(guard);
+        return false;
+    }
+    mem_fill_sequence(p, 32);
+    Memory::MemSet(guard, 0x5C, 16);
+
+    void *shrunk = Z::Realloc(p, 5);
+    if (shrunk != nullptr) p = shrunk;
+    void *next = Z::Malloc(8);
+    const bool dataOk = shrunk != nullptr && mem_check_sequence(p, 5);
+    const bool aligned = next != nullptr && (reinterpret_cast<uintptr_t>(next) & 3) == 0;
+    const bool guardOk = mem_all_equal(guard, 0x5C, 16);
+    snprintf(buffer, buffer_size, "%s: Realloc(32 -> 5) %s, next Malloc(8) = %p (%s), neighbour %s", T::name,
+        shrunk == nullptr ? "returned null" : (dataOk ? "kept data" : "lost data"), next,
+        aligned ? "aligned" : "null or misaligned", guardOk ? "intact" : "CHANGED");
+
+    Z::Free(next);
+    Z::Free(p);
+    Z::Free(guard);
+    return dataOk && aligned && guardOk;
+}
+
+MU_TEST(memory_common_realloc_odd_size_hwram) { mu_assert(memory_common_realloc_odd_size<MemCommonHW>(), buffer); }
+MU_TEST(memory_common_realloc_odd_size_lwram) { mu_assert(memory_common_realloc_odd_size<MemCommonLW>(), buffer); }
+
 /** @brief Object whose member allocates with autonew: the new object lands in the zone of this one. */
 struct MemCommonAutoNew
 {
@@ -1197,13 +1278,6 @@ static bool memory_common_realloc_freed(void)
 MU_TEST(memory_common_realloc_freed_hwram) { mu_assert(memory_common_realloc_freed<MemCommonHW>(), buffer); }
 MU_TEST(memory_common_realloc_freed_lwram) { mu_assert(memory_common_realloc_freed<MemCommonLW>(), buffer); }
 
-/** @brief Reads a variable through the cache-through address, so this CPU sees what the other one wrote. */
-template <typename V>
-static V memory_common_read_uncached(const V &value)
-{
-    return *reinterpret_cast<const volatile V *>(reinterpret_cast<uintptr_t>(&value) | 0x20000000u);
-}
-
 /** @brief Allocates, fills, checks and frees HWRam blocks; returns the number of failures. */
 static int memory_common_alloc_loop(uint8_t pattern, int rounds)
 {
@@ -1228,7 +1302,7 @@ class MemCommonSlaveTask : public Types::ITask
 {
 public:
     int errors = -1;
-    bool Finished() { return memory_common_read_uncached(this->done); }
+    bool Finished() { return ReadUncached(this->done); }
 
 protected:
     void Do() override { this->errors = memory_common_alloc_loop(0xB2, 500); }
@@ -1243,6 +1317,10 @@ static MemCommonSlaveTask memory_common_slave_task;
  */
 MU_TEST(memory_common_both_cpus_hwram)
 {
+#if defined(USE_TLSF_ALLOCATOR)
+        // Not run under TLSF: the slave gets stuck and the campaign hangs (mednafen and hardware). Reported as a failure.
+    mu_fail("Not run under TLSF: allocating on both CPUs leaves the slave stuck");
+#endif
     const size_t free0 = Memory::HighWorkRam::GetFreeSpace();
     const size_t used0 = Memory::HighWorkRam::GetReport().UsedBlocks;
 
@@ -1254,7 +1332,7 @@ MU_TEST(memory_common_both_cpus_hwram)
     mu_assert(finished, "Slave CPU task did not finish (slave not started or stuck in the allocator)");
 
     slCashPurge();                              // drop cache lines the slave made stale before reading the heap
-    const int slaveErrors = memory_common_read_uncached(memory_common_slave_task.errors);
+    const int slaveErrors = ReadUncached(memory_common_slave_task.errors);
     const size_t free1 = Memory::HighWorkRam::GetFreeSpace();
     const size_t used1 = Memory::HighWorkRam::GetReport().UsedBlocks;
 
@@ -1309,6 +1387,8 @@ MU_TEST_SUITE(memory_common_test_suite)
     MU_RUN_TEST(memory_common_report_blocks_lwram);
     MU_RUN_TEST(memory_common_shrink_then_grow_hwram);
     MU_RUN_TEST(memory_common_shrink_then_grow_lwram);
+    MU_RUN_TEST(memory_common_realloc_into_previous_free_hwram);
+    MU_RUN_TEST(memory_common_realloc_into_previous_free_lwram);
     MU_RUN_TEST(memory_common_new_macros_and_placement_ptr);
     MU_RUN_TEST(memory_common_cartram_present_or_absent);
 }
@@ -1333,6 +1413,8 @@ MU_TEST_SUITE(memory_common_risky_test_suite)
     MU_RUN_TEST(memory_common_realloc_freed_lwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_hwram);
     MU_RUN_TEST(memory_common_double_free_heap_still_sane_lwram);
+    MU_RUN_TEST(memory_common_realloc_odd_size_hwram);
+    MU_RUN_TEST(memory_common_realloc_odd_size_lwram);
 }
 
 

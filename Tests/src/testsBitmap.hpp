@@ -150,33 +150,6 @@ MU_TEST(bitmap_info_test_initialization_with_palette)
 }
 
     /**
- * @brief Mock implementation of the IBitmap interface for testing
- */
-class MockBitmap : public SRL::Bitmap::IBitmap
-{
-public:
-    uint8_t* data;
-    SRL::Bitmap::BitmapInfo info;
-
-    MockBitmap(uint8_t* data, SRL::Bitmap::BitmapInfo info) :
-        data(data),
-        info(info)
-    {}
-
-    ~MockBitmap() {}
-
-    uint8_t* GetData() override
-    {
-        return data;
-    }
-
-    SRL::Bitmap::BitmapInfo GetInfo() const override
-    {
-        return info;
-    }
-};
-
-    /**
  * @brief Test the GetData method of the IBitmap interface
  *
  * Verifies that the GetData method returns the correct data pointer.

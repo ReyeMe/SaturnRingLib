@@ -927,54 +927,36 @@ static bool fxp_raw_near(const Fxp& a, const Fxp& b, int32_t tol)
 }
 
     /**
- * @brief Tests Sqrt<Accurate>: exact on perfect squares and fractions, within 1 raw unit otherwise.
+ * @brief Tests Sqrt(): documented as isqrt(value * 2^16), so exact on perfect squares and fractions,
+ *        within 1 raw unit otherwise, and 0 for zero or negative input.
  */
-MU_TEST(fxp_sqrt_accurate)
+MU_TEST(fxp_sqrt)
 {
-    using SRL::Math::Precision;
     const int16_t squares[] = {0, 1, 4, 9, 16, 100, 10000};
     const int16_t roots[] = {0, 1, 2, 3, 4, 10, 100};
     for (size_t i = 0; i < sizeof(squares) / sizeof(squares[0]); i++)
     {
-        const Fxp r = Fxp(squares[i]).Sqrt<Precision::Accurate>();
+        const Fxp r = Fxp(squares[i]).Sqrt();
         snprintf(buffer, buffer_size, "Sqrt(%d) raw %ld != %d", squares[i], (long)r.RawValue(), roots[i]);
         mu_assert(r == Fxp(roots[i]), buffer);
     }
 
-    const Fxp quarter = Fxp(0.25).Sqrt<Precision::Accurate>();
+    const Fxp quarter = Fxp(0.25).Sqrt();
     snprintf(buffer, buffer_size, "Sqrt(0.25) raw %ld != 0.5", (long)quarter.RawValue());
     mu_assert(quarter == Fxp(0.5), buffer);
 
         // sqrt(2) = 1.41421356 -> raw 92681.9
-    const Fxp two = Fxp(2).Sqrt<Precision::Accurate>();
+    const Fxp two = Fxp(2).Sqrt();
     snprintf(buffer, buffer_size, "Sqrt(2) raw %ld not near 92682", (long)two.RawValue());
     mu_assert(fxp_raw_near(two, Fxp::BuildRaw(92682), 1), buffer);
 
         // Largest representable perfect square
-    const Fxp big = Fxp(16384).Sqrt<Precision::Accurate>();
+    const Fxp big = Fxp(16384).Sqrt();
     snprintf(buffer, buffer_size, "Sqrt(16384) raw %ld != 128", (long)big.RawValue());
     mu_assert(big == Fxp(128), buffer);
-}
 
-    /**
- * @brief Tests Sqrt<Fast>: within the documented ~6.3% error above 0.0015, and 0 for zero or negative input.
- */
-MU_TEST(fxp_sqrt_fast_within_documented_error)
-{
-    using SRL::Math::Precision;
-    const Fxp values[] = {Fxp(0.01), Fxp(0.5), Fxp(2), Fxp(10), Fxp(100), Fxp(1000), Fxp(30000)};
-    for (const Fxp& v : values)
-    {
-        const Fxp exact = v.Sqrt<Precision::Accurate>();
-        const Fxp fast = v.Sqrt<Precision::Fast>();
-        const int32_t tol = static_cast<int32_t>((static_cast<int64_t>(exact.RawValue()) * 64) / 1000);
-        snprintf(buffer, buffer_size, "Sqrt<Fast>(raw %ld) raw %ld vs accurate %ld (> 6.4%%)",
-            (long)v.RawValue(), (long)fast.RawValue(), (long)exact.RawValue());
-        mu_assert(fxp_raw_near(fast, exact, tol), buffer);
-    }
-
-    mu_assert(Fxp(0).Sqrt<Precision::Fast>() == 0, "Sqrt<Fast>(0) should be 0");
-    mu_assert(Fxp(-4).Sqrt<Precision::Fast>() == 0, "Sqrt<Fast>(negative) should be 0");
+    mu_assert(Fxp(0).Sqrt() == 0, "Sqrt(0) should be 0");
+    mu_assert(Fxp(-4).Sqrt() == 0, "Sqrt(negative) should be 0");
 }
 
     /**
@@ -1051,25 +1033,18 @@ MU_TEST(fxp_division_by_zero_saturates)
 }
 
     /**
- * @brief Tests the asynchronous hardware divider: quotient, and remainder such that q * d + r == n << 16.
+ * @brief Tests ParallelDiv: a / ParallelDiv(b, fn) gives the same quotient as a / b and runs fn while the divider works.
  */
-MU_TEST(fxp_async_division)
+MU_TEST(fxp_parallel_division)
 {
     const Fxp cases[][2] = {{Fxp(7), Fxp(2)}, {Fxp(1), Fxp(3)}, {Fxp(-7), Fxp(2)}, {Fxp(100), Fxp(0.75)}};
     for (const auto& c : cases)
     {
-        Fxp::AsyncDivSet(c[0], c[1]);
-        const Fxp q = Fxp::AsyncDivGetResult();
-        const Fxp r = Fxp::AsyncDivGetRemainder();
-
-        snprintf(buffer, buffer_size, "AsyncDiv(raw %ld, %ld) quotient raw %ld != operator/ %ld",
-            (long)c[0].RawValue(), (long)c[1].RawValue(), (long)q.RawValue(), (long)(c[0] / c[1]).RawValue());
-        mu_assert(q == c[0] / c[1], buffer);
-
-        const int64_t rebuilt = static_cast<int64_t>(q.RawValue()) * c[1].RawValue() + r.RawValue();
-        snprintf(buffer, buffer_size, "AsyncDiv(raw %ld, %ld): q*d + r != n << 16 (r raw %ld)",
-            (long)c[0].RawValue(), (long)c[1].RawValue(), (long)r.RawValue());
-        mu_assert(rebuilt == static_cast<int64_t>(c[0].RawValue()) * 65536, buffer);
+        int calls = 0;
+        const Fxp q = c[0] / SRL::Math::Types::ParallelDiv(c[1], [&calls] { calls++; });
+        snprintf(buffer, buffer_size, "ParallelDiv(raw %ld, %ld) quotient raw %ld != operator/ %ld, fn called %d times",
+            (long)c[0].RawValue(), (long)c[1].RawValue(), (long)q.RawValue(), (long)(c[0] / c[1]).RawValue(), calls);
+        mu_assert(q == c[0] / c[1] && calls == 1, buffer);
     }
 }
 
@@ -1204,13 +1179,12 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_comparison_less_than_float);
     MU_RUN_TEST(fxp_comparison_greater_than_or_equal_float);
     MU_RUN_TEST(fxp_comparison_less_than_or_equal_float);
-    MU_RUN_TEST(fxp_sqrt_accurate);
-    MU_RUN_TEST(fxp_sqrt_fast_within_documented_error);
+    MU_RUN_TEST(fxp_sqrt);
     MU_RUN_TEST(fxp_square);
     MU_RUN_TEST(fxp_pow_integer_exponents);
     MU_RUN_TEST(fxp_division_negative_operands);
     MU_RUN_TEST(fxp_division_by_zero_saturates);
-    MU_RUN_TEST(fxp_async_division);
+    MU_RUN_TEST(fxp_parallel_division);
     MU_RUN_TEST(fxp_mac_clear_accumulate_extract);
     MU_RUN_TEST(fxp_add_sub_saturate_at_compile_time);
     MU_RUN_TEST(fxp_add_sub_runtime_matches_compile_time);

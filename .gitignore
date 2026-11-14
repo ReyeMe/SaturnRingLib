@@ -70,3 +70,6 @@ Compiler/
 
 # MAC Related garbage
 **/.DS_Store
+/[Tt]ests/**/*.d
+/[Tt]ests/campaigns/sound/cd/data/SDDRVS.*
+/[Tt]ests/campaigns/sound/cd/data/BOOTSND.MAP

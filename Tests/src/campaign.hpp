@@ -17,6 +17,26 @@
 // Test headers use SRL names (Logger::, Memory::, ...) unqualified.
 using namespace SRL;
 
+/** @brief Reads a variable through the cache-through address (0x2...), so this CPU sees what the other CPU wrote. */
+template <typename V>
+inline V ReadUncached(const V &value)
+{
+    return *reinterpret_cast<const volatile V *>(reinterpret_cast<uintptr_t>(&value) | 0x20000000u);
+}
+
+/** @brief Bitmap held in memory, for tests that need an IBitmap without reading a file. */
+class MockBitmap : public SRL::Bitmap::IBitmap
+{
+public:
+    uint8_t *data;
+    SRL::Bitmap::BitmapInfo info;
+
+    MockBitmap(uint8_t *data, SRL::Bitmap::BitmapInfo info) : data(data), info(info) {}
+
+    uint8_t *GetData() override { return data; }
+    SRL::Bitmap::BitmapInfo GetInfo() const override { return info; }
+};
+
 /** @brief Tags the log scripts look for (run_tests.bat, ctrf_converter.py). */
 inline const char *const StrStart = "***UT_START***";
 inline const char *const StrEnd = "***UT_END***";

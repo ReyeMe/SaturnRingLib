@@ -2,7 +2,7 @@
 # Each Tests/campaigns/<name>/makefile sets CD_NAME and includes this file.
 
 # Configuration
-SRL_MAX_TEXTURES = 1            # Number of VDP1 texture slots
+SRL_MAX_TEXTURES ?= 1           # Number of VDP1 texture slots
 SRL_MODE = NTSC                 # Valid options are PAL or NTSC
 SRL_HIGH_RES = 0                # 480i mode
 SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
@@ -18,7 +18,7 @@ SRL_MALLOC_METHOD ?= SIMPLE
 SRL_DEBUG_MAX_LOG_LENGTH = 255
 
 # Sound driver specific configuration
-SRL_USE_SGL_SOUND_DRIVER = 0    # Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
+SRL_USE_SGL_SOUND_DRIVER ?= 0   # Set to 1 if you want to use SGL sound driver, this will copy necessary files into the CD folder
 SRL_ENABLE_FREQ_ANALYSIS = 0    # Set to 1 if you want to enable frequency analysis for CD audio, this will load a DSP program into effect slot 1, SGL sound driver must be enabled
 
 # SGL configuration
@@ -42,3 +42,7 @@ SOURCES = main.cxx
 # Include shared makefile
 SDK_ROOT = $(SRL_INSTALL_ROOT)/saturnringlib
 include $(SDK_ROOT)/shared.mk
+
+# Rebuild main.o when a test header (Tests/src) or SRL header changes
+main.o: CCFLAGS += -MMD -MP
+-include main.d
