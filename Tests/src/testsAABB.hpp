@@ -52,7 +52,7 @@ MU_TEST(aabb_default_construction)
 {
     constexpr AABB box;
     mu_assert(box.GetPosition() == Vector3D::Zero(), "Default AABB position is not zero");
-    mu_assert(box.GetSize() == Vector3D::Zero(), "Default AABB half-extents are not zero");
+    mu_assert(box.GetHalfExtents() == Vector3D::Zero(), "Default AABB half-extents are not zero");
     mu_assert(box.GetMin() == Vector3D::Zero(), "Default AABB min should be zero");
     mu_assert(box.GetMax() == Vector3D::Zero(), "Default AABB max should be zero");
 }
@@ -66,7 +66,7 @@ MU_TEST(aabb_construction_center_and_uniform_size)
     constexpr Fxp size(4);
     constexpr AABB box(center, size);
     mu_assert(box.GetPosition() == center, "AABB center+size ctor did not set position");
-    mu_assert(box.GetSize() == Vector3D(size, size, size), "AABB center+size ctor did not set half-extents");
+    mu_assert(box.GetHalfExtents() == Vector3D(size, size, size), "AABB center+size ctor did not set half-extents");
 }
 
 
@@ -79,7 +79,7 @@ MU_TEST(aabb_construction_center_and_half_extents)
     constexpr Vector3D halfExtents(1, 2, 3);
     constexpr AABB box(center, halfExtents);
     mu_assert(box.GetPosition() == center, "AABB center+halfExtents ctor did not set position");
-    mu_assert(box.GetSize() == halfExtents, "AABB center+halfExtents ctor did not set half-extents");
+    mu_assert(box.GetHalfExtents() == halfExtents, "AABB center+halfExtents ctor did not set half-extents");
     mu_assert(box.GetMin() == Vector3D(0, 0, 0), "AABB min incorrect for center+halfExtents");
     mu_assert(box.GetMax() == Vector3D(2, 4, 6), "AABB max incorrect for center+halfExtents");
 }
@@ -94,7 +94,7 @@ MU_TEST(aabb_from_min_max)
     constexpr Vector3D max(3, 2, 1);
     constexpr AABB box = AABB::FromMinMax(min, max);
     mu_assert(box.GetPosition() == Vector3D(1, 1, -1), "FromMinMax center incorrect");
-    mu_assert(box.GetSize() == Vector3D(2, 1, 2), "FromMinMax halfExtents incorrect");
+    mu_assert(box.GetHalfExtents() == Vector3D(2, 1, 2), "FromMinMax halfExtents incorrect");
     mu_assert(box.GetMin() == min, "FromMinMax min incorrect");
     mu_assert(box.GetMax() == max, "FromMinMax max incorrect");
 }
@@ -108,7 +108,7 @@ MU_TEST(aabb_from_min_max_equal_points_degenerate)
     constexpr Vector3D p(1, 2, 3);
     constexpr AABB box = AABB::FromMinMax(p, p);
     mu_assert(box.GetPosition() == p, "FromMinMax(equal) center should be the point");
-    mu_assert(box.GetSize() == Vector3D::Zero(), "FromMinMax(equal) halfExtents should be zero");
+    mu_assert(box.GetHalfExtents() == Vector3D::Zero(), "FromMinMax(equal) halfExtents should be zero");
     mu_assert(box.GetMin() == p, "FromMinMax(equal) min should equal point");
     mu_assert(box.GetMax() == p, "FromMinMax(equal) max should equal point");
 }
@@ -138,10 +138,10 @@ MU_TEST(aabb_expand)
     constexpr AABB box(Vector3D::Zero(), Vector3D(1, 2, 3));
     constexpr AABB expanded = box.Expand(1);
     mu_assert(expanded.GetPosition() == Vector3D::Zero(), "Expand should not change position");
-    mu_assert(expanded.GetSize() == Vector3D(2, 3, 4), "Expand should add margin to all axes");
+    mu_assert(expanded.GetHalfExtents() == Vector3D(2, 3, 4), "Expand should add margin to all axes");
 
     constexpr AABB same = box.Expand(0);
-    mu_assert(same.GetSize() == box.GetSize(), "Expand(0) should not change halfExtents");
+    mu_assert(same.GetHalfExtents() == box.GetHalfExtents(), "Expand(0) should not change halfExtents");
 }
 
 
@@ -158,10 +158,10 @@ MU_TEST(aabb_scale)
     constexpr AABB box(Vector3D(1, 2, 3), Vector3D(1, 2, 3));
     constexpr AABB scaled = box.Scale(2);
     mu_assert(scaled.GetPosition() == box.GetPosition(), "Scale should not change position");
-    mu_assert(scaled.GetSize() == Vector3D(2, 4, 6), "Scale should multiply half-extents");
+    mu_assert(scaled.GetHalfExtents() == Vector3D(2, 4, 6), "Scale should multiply half-extents");
 
     constexpr AABB zeroed = box.Scale(0);
-    mu_assert(zeroed.GetSize() == Vector3D::Zero(), "Scale(0) should produce zero half-extents");
+    mu_assert(zeroed.GetHalfExtents() == Vector3D::Zero(), "Scale(0) should produce zero half-extents");
 }
 
 
@@ -172,7 +172,7 @@ MU_TEST(aabb_scale_fractional)
 {
     constexpr AABB box(Vector3D::Zero(), Vector3D(2, 4, 6));
     constexpr AABB scaled = box.Scale(Fxp(0.5));
-    mu_assert(scaled.GetSize() == Vector3D(1, 2, 3), "Scale(0.5) should scale half-extents down");
+    mu_assert(scaled.GetHalfExtents() == Vector3D(1, 2, 3), "Scale(0.5) should scale half-extents down");
 }
 
     /**
@@ -249,7 +249,7 @@ MU_TEST(aabb_merge)
     mu_assert(merged.GetMin() == Vector3D(-1, -1, -1), "Merge min incorrect");
     mu_assert(merged.GetMax() == Vector3D(3, 1, 1), "Merge max incorrect");
     mu_assert(merged.GetPosition() == Vector3D(1, 0, 0), "Merge center incorrect");
-    mu_assert(merged.GetSize() == Vector3D(2, 1, 1), "Merge halfExtents incorrect");
+    mu_assert(merged.GetHalfExtents() == Vector3D(2, 1, 1), "Merge halfExtents incorrect");
 
         // If B is inside A, result should be A
     const AABB inner(Vector3D(0, 0, 0), Vector3D(Fxp(0.5), Fxp(0.5), Fxp(0.5)));
@@ -260,38 +260,19 @@ MU_TEST(aabb_merge)
 
 
     /**
- * @brief Intersection: overlapping boxes give the shared box, touching boxes a flat box, disjoint boxes a zero AABB.
- */
-MU_TEST(aabb_intersection)
-{
-    const AABB a(Vector3D::Zero(), Vector3D(1, 1, 1));
-    const AABB overlap = a.Intersection(AABB(Vector3D(1, 0, 0), Vector3D(1, 1, 1)));
-    mu_assert(overlap.GetMin() == Vector3D(0, -1, -1) && overlap.GetMax() == Vector3D(1, 1, 1), "Overlapping boxes should give the shared box");
-
-    const AABB touching = a.Intersection(AABB(Vector3D(2, 0, 0), Vector3D(1, 1, 1)));
-    mu_assert(touching.GetMin() == Vector3D(1, -1, -1) && touching.GetMax() == Vector3D(1, 1, 1), "Touching boxes should give a flat box on the shared face");
-
-    const AABB none = a.Intersection(AABB(Vector3D(5, 0, 0), Vector3D(1, 1, 1)));
-    mu_assert(none.GetPosition() == Vector3D::Zero() && none.GetSize() == Vector3D::Zero(), "Disjoint boxes should give a zero AABB");
-
-    const AABB self = a.Intersection(a);
-    mu_assert(self.GetMin() == a.GetMin() && self.GetMax() == a.GetMax(), "A box intersected with itself should be itself");
-}
-
-    /**
- * @brief ContainsPoint (inclusive bounds) and ContainsAABB (inner, equal, partly outside).
+ * @brief Collision::Contains for a point (inclusive bounds) and for an AABB (inner, equal, partly outside).
  */
 MU_TEST(aabb_contains_point_and_aabb)
 {
     const AABB box(Vector3D(1, 1, 1), Vector3D(1, 2, 3));     // min (0,-1,-2), max (2,3,4)
-    mu_assert(box.ContainsPoint(Vector3D(1, 1, 1)), "Center should be inside");
-    mu_assert(box.ContainsPoint(Vector3D(0, -1, -2)) && box.ContainsPoint(Vector3D(2, 3, 4)), "Corners should be inside (inclusive)");
-    mu_assert(!box.ContainsPoint(Vector3D(Fxp(2.01), 1, 1)), "Point just past max X should be outside");
-    mu_assert(!box.ContainsPoint(Vector3D(1, 1, Fxp(-2.01))), "Point just past min Z should be outside");
+    mu_assert(SRL::Math::Collision::Contains(box, Vector3D(1, 1, 1)), "Center should be inside");
+    mu_assert(SRL::Math::Collision::Contains(box, Vector3D(0, -1, -2)) && SRL::Math::Collision::Contains(box, Vector3D(2, 3, 4)), "Corners should be inside (inclusive)");
+    mu_assert(!SRL::Math::Collision::Contains(box, Vector3D(Fxp(2.01), 1, 1)), "Point just past max X should be outside");
+    mu_assert(!SRL::Math::Collision::Contains(box, Vector3D(1, 1, Fxp(-2.01))), "Point just past min Z should be outside");
 
-    mu_assert(box.ContainsAABB(AABB(Vector3D(1, 1, 1), Vector3D(Fxp(0.5), 1, 1))), "Inner box should be contained");
-    mu_assert(box.ContainsAABB(box), "A box should contain itself");
-    mu_assert(!box.ContainsAABB(AABB(Vector3D(2, 1, 1), Vector3D(1, 1, 1))), "Box sticking out should not be contained");
+    mu_assert(SRL::Math::Collision::Contains(box, AABB(Vector3D(1, 1, 1), Vector3D(Fxp(0.5), 1, 1))), "Inner box should be contained");
+    mu_assert(SRL::Math::Collision::Contains(box, box), "A box should contain itself");
+    mu_assert(!SRL::Math::Collision::Contains(box, AABB(Vector3D(2, 1, 1), Vector3D(1, 1, 1))), "Box sticking out should not be contained");
 }
 
 MU_TEST_SUITE(aabb_test_suite)
@@ -315,7 +296,6 @@ MU_TEST_SUITE(aabb_test_suite)
     MU_RUN_TEST(aabb_vertices_degenerate);
     MU_RUN_TEST(aabb_set_position);
     MU_RUN_TEST(aabb_merge);
-    MU_RUN_TEST(aabb_intersection);
     MU_RUN_TEST(aabb_contains_point_and_aabb);
 }
 }

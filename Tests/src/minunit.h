@@ -33,10 +33,6 @@ extern "C"
 {
 #endif
 
-#if __GNUC__ >= 5 && !defined(__STDC_VERSION__)
-#define __func__ __extension__ __FUNCTION__
-#endif
-
 #include <string.h>
 #include <math.h>
 
@@ -59,7 +55,7 @@ extern "C"
 	/*  Last message */
 	static char minunit_last_message[MINUNIT_MESSAGE_LEN];
 
-	/*  Name of the running test, so teardown checks can report against it */
+	/*  Name of the running test: failures report it, even from a helper function */
 	static const char *minunit_current_test = NULL;
 
 	/*  Test setup and teardown function pointers */
@@ -135,21 +131,21 @@ extern "C"
 #define mu_check(test) MU__SAFE_BLOCK(                                                                                             \
 	minunit_assert++;                                                                                                              \
 	if (!(test)) {                                                                                                                 \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", __func__, __FILE__, __LINE__, #test); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", minunit_current_test, __FILE__, __LINE__, #test); \
 		minunit_status = 1;                                                                                                        \
 		return;                                                                                                                    \
 	})
 
 #define mu_fail(message) MU__SAFE_BLOCK(                                                                                         \
 	minunit_assert++;                                                                                                            \
-	(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", __func__, __FILE__, __LINE__, message); \
+	(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", minunit_current_test, __FILE__, __LINE__, message); \
 	minunit_status = 1;                                                                                                          \
 	return;)
 
 #define mu_assert(test, message) MU__SAFE_BLOCK(                                                                                     \
 	minunit_assert++;                                                                                                                \
 	if (!(test)) {                                                                                                                   \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", __func__, __FILE__, __LINE__, message); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", minunit_current_test, __FILE__, __LINE__, message); \
 		minunit_status = 1;                                                                                                          \
 		return;                                                                                                                      \
 	})
@@ -161,7 +157,7 @@ extern "C"
 	minunit_tmp_e = (expected);                                                                                                                                               \
 	minunit_tmp_r = (result);                                                                                                                                                 \
 	if (minunit_tmp_e != minunit_tmp_r) {                                                                                                                                     \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %d expected but was %d", __func__, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %d expected but was %d", minunit_current_test, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
 		minunit_status = 1;                                                                                                                                                   \
 		return;                                                                                                                                                               \
 	})
@@ -174,7 +170,7 @@ extern "C"
 	minunit_tmp_r = (result);                                                                                                                                                                                                               \
 	if (fabs(minunit_tmp_e - minunit_tmp_r) > MINUNIT_EPSILON) {                                                                                                                                                                            \
 		int minunit_significant_figures = 1 - log10(MINUNIT_EPSILON);                                                                                                                                                                       \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %.*g expected but was %.*g", __func__, __FILE__, __LINE__, minunit_significant_figures, minunit_tmp_e, minunit_significant_figures, minunit_tmp_r); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %.*g expected but was %.*g", minunit_current_test, __FILE__, __LINE__, minunit_significant_figures, minunit_tmp_e, minunit_significant_figures, minunit_tmp_r); \
 		minunit_status = 1;                                                                                                                                                                                                                 \
 		return;                                                                                                                                                                                                                             \
 	})
@@ -188,7 +184,7 @@ extern "C"
 	} if (!minunit_tmp_r) {                                                                                                                                                       \
 		minunit_tmp_r = "<null pointer>";                                                                                                                                         \
 	} if (strcmp(minunit_tmp_e, minunit_tmp_r) != 0) {                                                                                                                            \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: '%s' expected but was '%s'", __func__, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: '%s' expected but was '%s'", minunit_current_test, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
 		minunit_status = 1;                                                                                                                                                       \
 		return;                                                                                                                                                                   \
 	})

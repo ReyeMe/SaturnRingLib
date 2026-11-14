@@ -10,7 +10,8 @@ using namespace SRL::Types;
 using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
-using Interp = SRL::Math::Interpolation;
+// The easing functions are static members of Fxp (SRL::Math::Interpolation was merged into it)
+using Interp = SRL::Math::Types::Fxp;
 
 extern "C" {
 extern const uint8_t buffer_size;

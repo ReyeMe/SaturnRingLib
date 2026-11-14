@@ -123,7 +123,7 @@ MU_TEST(vector3d_dot_cross_multidot)
 MU_TEST(vector3d_length_and_lengthsquared_thresholds)
 {
     const Vector3D v(2, 3, 6);
-    mu_assert(v.Length<SRL::Math::Precision::Accurate>() == Fxp(7), "Length(Accurate) should be exact for (2,3,6)");
+    mu_assert(v.Length() == Fxp(7), "Length should be exact for (2,3,6)");
     mu_assert(v.LengthSquared() == Fxp(49), "LengthSquared should be exact for (2,3,6)");
 
     const Vector3D below(99, 0, 0);
@@ -146,13 +146,13 @@ MU_TEST(vector3d_length_and_lengthsquared_thresholds)
 MU_TEST(vector3d_normalize_zero_and_triangle_normal)
 {
     const Vector3D z = Vector3D::Zero();
-    mu_assert(z.Normalize<SRL::Math::Precision::Accurate>() == Vector3D::Zero(), "Normalize(zero) should return zero");
+    mu_assert(z.Normalize() == Vector3D::Zero(), "Normalize(zero) should return zero");
 
     const Vector3D a(0, 0, 0);
     const Vector3D b(1, 0, 0);
     const Vector3D c(0, 1, 0);
 
-    const Vector3D n = Vector3D::CalcNormal<SRL::Math::Precision::Accurate>(a, b, c);
+    const Vector3D n = Vector3D::CalcNormal(a, b, c);
     mu_assert(n == Vector3D(0, 0, 1), "CalcNormal for XY triangle should be +Z");
 }
 
@@ -162,8 +162,8 @@ MU_TEST(vector3d_distance)
     const Vector3D p2(4, 6, 8);
     mu_assert((p2 - p1).LengthSquared() == Fxp(50), "Squared distance should be exact for (1,2,3)-(4,6,8)");
 
-    const Fxp dist = (p2 - p1).Length<SRL::Math::Precision::Accurate>();
-    mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "Distance(Accurate) should be ~7.071 for (1,2,3)-(4,6,8)");
+    const Fxp dist = (p2 - p1).Length();
+    mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "Distance should be ~7.071 for (1,2,3)-(4,6,8)");
 }
 
 
@@ -259,13 +259,13 @@ MU_TEST(vector3d_constants_and_distance)
     mu_assert(Vector3D::UnitZ() == Vector3D(0, 0, 1), "UnitZ should be (0,0,1)");
 
     const Vector3D p1(1, 2, 3), p2(4, 6, 8);
-    const Fxp accurate = p1.DistanceTo<SRL::Math::Precision::Accurate>(p2);
-    snprintf(buffer, buffer_size, "DistanceTo<Accurate> raw %ld != 7.0711", (long)accurate.RawValue());
+    const Fxp accurate = p1.DistanceTo(p2);
+    snprintf(buffer, buffer_size, "DistanceTo raw %ld != 7.0711", (long)accurate.RawValue());
     mu_assert(vec3_raw_near(accurate, Fxp(7.071068), 66), buffer);
     const Fxp fast = p1.DistanceTo(p2);
     snprintf(buffer, buffer_size, "DistanceTo<Default> raw %ld not within 7%% of 7.0711", (long)fast.RawValue());
     mu_assert(vec3_raw_near(fast, Fxp(7.071068), 32440), buffer);
-    mu_assert(p1.DistanceTo<SRL::Math::Precision::Accurate>(p1) == 0, "Distance to itself should be 0");
+    mu_assert(p1.DistanceTo(p1) == 0, "Distance to itself should be 0");
 }
 
     /**

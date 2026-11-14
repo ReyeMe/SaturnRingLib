@@ -258,7 +258,7 @@ MU_TEST(trigonometry_atan2_roundtrip_and_scale)
 }
 
     /**
- * @brief SLerp: endpoints, midpoint, and the documented shortest path around the circle in both directions.
+ * @brief Angle::SLerp: endpoints, midpoint, and the documented shortest path around the circle in both directions.
  */
 MU_TEST(trigonometry_slerp)
 {
@@ -267,18 +267,18 @@ MU_TEST(trigonometry_slerp)
     const Angle a10 = Angle::FromDegrees(Fxp(10));
     const Angle a350 = Angle::FromDegrees(Fxp(350));
 
-    mu_assert(trig_angle_near(Trig::SLerp(a0, a90, Fxp(0)), a0, 1), "SLerp t=0 should return start");
-    mu_assert(trig_angle_near(Trig::SLerp(a0, a90, Fxp(1)), a90, 1), "SLerp t=1 should return end");
+    mu_assert(trig_angle_near(a0.SLerp(a90, Fxp(0)), a0, 1), "SLerp t=0 should return start");
+    mu_assert(trig_angle_near(a0.SLerp(a90, Fxp(1)), a90, 1), "SLerp t=1 should return end");
 
-    const Angle mid = Trig::SLerp(a0, a90, Fxp(0.5));
+    const Angle mid = a0.SLerp(a90, Fxp(0.5));
     snprintf(buffer, buffer_size, "SLerp(0,90,0.5) raw %u != 45 deg", mid.RawValue());
     mu_assert(trig_angle_near(mid, Angle::FromDegrees(Fxp(45)), 2), buffer);
 
-    const Angle wrapUp = Trig::SLerp(a350, a10, Fxp(0.5));
+    const Angle wrapUp = a350.SLerp(a10, Fxp(0.5));
     snprintf(buffer, buffer_size, "SLerp(350,10,0.5) raw %u != 0 (shortest path)", wrapUp.RawValue());
     mu_assert(trig_angle_near(wrapUp, a0, 2), buffer);
 
-    const Angle wrapDown = Trig::SLerp(a10, a350, Fxp(0.5));
+    const Angle wrapDown = a10.SLerp(a350, Fxp(0.5));
     snprintf(buffer, buffer_size, "SLerp(10,350,0.5) raw %u != 0 (shortest path)", wrapDown.RawValue());
     mu_assert(trig_angle_near(wrapDown, a0, 2), buffer);
 }

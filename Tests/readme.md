@@ -24,7 +24,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 
 | Campaign | What it tests |
 |---|---|
-| `math` | Fixed point, angles, math types, strings. No hardware state. |
+| `math` | Fixed point, angles, math types. No hardware state. |
 | `memory_simple` | Allocators and memory zones (HWRam, LWRam, CartRam) with the `SIMPLE` allocator. |
 | `memory_tlsf` | The same memory tests with the `TLSF` allocator (the library default). |
 | `memory_cpus_simple`, `memory_cpus_tlsf` | Master and slave CPUs allocating at the same time, on a fresh heap, with each allocator. |
@@ -34,12 +34,21 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
 | `datetime` | Date and time (`DateTime`): ordering, leap years, backup unit dates, RTC. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
+| `media` | TGA images and WAV sounds loaded from the disc. Its files in `campaigns/media/cd/data/` are written by `campaigns/media/make_data.py`. |
+| `slave` | Tasks on the slave CPU (`Slave`, `ITask`). |
+| `scene` | Mesh and sprite attributes, `Mesh`/`SmoothMesh`, `Scene3D` projection, visibility and drawing. |
+| `string` | `SRL::string` and `snprintfEx` formatting. |
+| `endian` | Reading little-endian numbers from byte buffers (`SRL::Endian`). |
+| `vdp1` | VDP1 texture heap: placement, loading, limits, free memory, reset. Built with `SRL_MAX_TEXTURES = 8`. |
+| `vdp2` | VDP2 VRAM allocator, `Bmp2Tile`, loading a tilemap into NBG1, `ClearVRAM`, TV resolution. NBG3 is left alone: it shows the results. |
+| `input` | Digital and analog pads, from pad data the tests write themselves. |
+| `sound` | PCM channels with the SGL sound driver (`SRL_USE_SGL_SOUND_DRIVER = 1`), raw PCM loading. |
 
 Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `makefile` and a short `main.cxx` that lists its suites.
 Shared build settings are in `campaign.mk`.
 
 To add a suite, include its header and add a `RUN_AND_DISPLAY_SUITE(...)` line in the campaign's `main.cxx`.
-To add a campaign, copy a folder in `campaigns/`, change `CD_NAME` in its `makefile`, and add its name to `CAMPAIGNS` in `makefile`.
+To add a campaign, copy a folder in `campaigns/`, change `CD_NAME` in its `makefile`, add its name to `CAMPAIGNS` in `makefile` and to the CI matrix in `.github/workflows/main.yml`, and give it an entry in `campaigns.json`.
 
 ## Build the tests
 
@@ -60,10 +69,13 @@ Campaigns use the `SIMPLE` allocator, except `memory_tlsf` and `memory_cpus_tlsf
 
 Execute `run_tests.bat <emulator> <campaign>` within the `SaturnRingLib/Tests` directory from a terminal, e.g. `./run_tests.bat mednafen math`.
 Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<campaign>.log`.
-The script exits with an error if any test fails. To run every campaign:
+The script exits with an error if a test fails that is not listed under the campaign's `known_failures` in `campaigns.json`.
+That file holds the settings of every campaign: `known_failures` maps each test that fails because of a known library bug to that bug (remove the entry once it is fixed), and `skip_modes` maps a `run_tests.bat` mode to the reason the campaign is not run in it.
+Listed tests that pass are printed as a reminder. A test that would crash or hang the console skips itself and fails, so it can be listed too.
+To run every campaign:
 
 ```bash
-for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system timer event datetime cd; do ./run_tests.bat mednafen $c; done
+for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system timer event datetime cd media slave scene string endian vdp1 vdp2 input sound; do ./run_tests.bat mednafen $c; done
 ```
 
 The log looks like this:
@@ -123,5 +135,5 @@ To install the WinUSB driver:
 
 The script resets the USB device, uploads `campaigns/<campaign>/cd/data/0.bin` to address `0x06004000`, and then starts the capture flow.
 The output still goes to `uts_<campaign>.log` like the emulator runs.
-The `cd` campaign fails over USB: the program is uploaded without a disc.
+Campaigns with `USBGamers` in their `skip_modes` in `campaigns.json` are skipped in this mode with exit 0. `cd`, `media` and `sound` are: the upload sends only the program, not the disc (and `sound` loads its driver from the disc).
 
