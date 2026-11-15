@@ -29,7 +29,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `memory_tlsf` | The same memory tests with the `TLSF` allocator (the library default). |
 | `memory_cpus_simple`, `memory_cpus_tlsf` | Master and slave CPUs allocating at the same time, on a fresh heap, with each allocator. |
 | `video` | ASCII (text map cells, fonts, palettes and colors), color RAM, bitmaps, SGL. |
-| `system` | Interrupts, system registers, SCU DSP. |
+| `system` | Interrupts, system registers, BIOS semaphores, SCU DSP. |
 | `timer` | Timers: FRT tickstamps, dividers, conversions, overflow. |
 | `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
 | `datetime` | Date and time (`DateTime`): ordering, leap years, backup unit dates, RTC. |
@@ -40,7 +40,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `string` | `SRL::string` and `snprintfEx` formatting, `SRL::Logger` output. |
 | `endian` | Reading little-endian numbers from byte buffers (`SRL::Endian`). |
 | `vdp1` | VDP1 texture heap: placement, loading, limits, free memory, reset. Built with `SRL_MAX_TEXTURES = 8`. |
-| `vdp2` | VDP2 VRAM allocator, `Bmp2Tile`, loading a tilemap and a bitmap into NBG1, `ClearVRAM`, TV resolution. NBG3 is left alone: it shows the results. |
+| `vdp2` | VDP2 scroll, sprite and rotation settings (priority, opacity, display, transparency, color offset and calculation, back color, scale), VRAM allocator, `Bmp2Tile`, loading a tilemap and a bitmap into NBG1, `ClearVRAM`, TV resolution. NBG3 is left alone: it shows the results. |
 | `input` | Digital and analog pads, from pad data the tests write themselves. |
 | `sound` | PCM channels with the SGL sound driver (`SRL_USE_SGL_SOUND_DRIVER = 1`), raw PCM loading, CD audio (`Cdda`) on two CD-DA tracks, Cinepak movies (`CinepakPlayer`). `campaigns/sound/pre.makefile` writes the tracks with `sox` and copies the movie of the `VDP1 - Cinepak` sample. |
 | `transform` | `Scene3D` matrix operations: the matrix stack, translate, rotate, scale, multiply, invert, transpose, `LookAt`. |
