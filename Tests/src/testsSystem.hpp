@@ -213,7 +213,7 @@ MU_TEST(system_test_power_off_clear_memory_roundtrip)
  * Verifies:
  * - GetInterruptHandler(VBlankIn) returns a non-crashing value
  * - SetInterruptHandler() followed by GetInterruptHandler() round-trips
- * - Setting DummyHandler and restoring the original does not crash
+ * - Setting DummyHandler reads back DummyHandler, and the original is restored
  */
 MU_TEST(system_test_interrupt_handler_smoke)
 {
@@ -225,9 +225,14 @@ MU_TEST(system_test_interrupt_handler_smoke)
     snprintf(buffer, buffer_size, "Interrupt handler readback mismatch");
     mu_assert(readBack == previous, buffer);
 
-        // Also exercise setting a benign handler (briefly), then restore.
+        // A different handler must read back too (briefly: VBlankIn drives the frame sync), then restore.
     System::SetInterruptHandler(System::InterruptType::VBlankIn, reinterpret_cast<void *>(&DummyHandler));
+    void *dummyReadBack = System::GetInterruptHandler(System::InterruptType::VBlankIn);
     System::SetInterruptHandler(System::InterruptType::VBlankIn, previous);
+
+    snprintf(buffer, buffer_size, "Handler read back %p after setting DummyHandler %p", dummyReadBack, reinterpret_cast<void *>(&DummyHandler));
+    mu_assert(dummyReadBack == reinterpret_cast<void *>(&DummyHandler), buffer);
+    mu_assert(System::GetInterruptHandler(System::InterruptType::VBlankIn) == previous, "The original handler was not restored");
 }
 
     /** @brief Smoke test SH2 interrupt vector get/set
@@ -250,7 +255,12 @@ MU_TEST(system_test_interrupt_vector_smoke)
     mu_assert(readBack == previous, buffer);
 
     System::SetInterruptVector(vectorNumber, reinterpret_cast<void *>(&DummyHandler));
+    void *dummyReadBack = System::GetInterruptVector(vectorNumber);
     System::SetInterruptVector(vectorNumber, previous);
+
+    snprintf(buffer, buffer_size, "Vector read back %p after setting DummyHandler %p", dummyReadBack, reinterpret_cast<void *>(&DummyHandler));
+    mu_assert(dummyReadBack == reinterpret_cast<void *>(&DummyHandler), buffer);
+    mu_assert(System::GetInterruptVector(vectorNumber) == previous, "The original vector was not restored");
 }
 
     /** @brief SetInterruptPriorities hands the table to the BIOS, which keeps it at 0x06000A80 (32 entries). */
@@ -299,6 +309,21 @@ MU_TEST(system_test_interrupt_priority_table_accessors)
     mu_assert(priorities.at<0>() == 0x11111111 && priorities.at<31>() == 0x22222222 && priorities[15] == 0x33333333, buffer);
 }
 
+    /** @brief Semaphore 0x7F (unused by SRL and SGL): free -> taken -> still taken -> cleared -> free again. */
+MU_TEST(system_test_semaphore_take_and_clear)
+{
+    constexpr uint32_t semaphore = 0x7F;
+    const uint32_t first = System::TestAndSetSemaphore(semaphore);
+    const uint32_t second = System::TestAndSetSemaphore(semaphore);
+    System::ClearSemaphore(semaphore);
+    const uint32_t afterClear = System::TestAndSetSemaphore(semaphore);
+    System::ClearSemaphore(semaphore);
+
+    snprintf(buffer, buffer_size, "TestAndSet returned %lu, %lu, then %lu after Clear (expected 0, non-zero, 0)",
+        (unsigned long)first, (unsigned long)second, (unsigned long)afterClear);
+    mu_assert(first == 0 && second != 0 && afterClear == 0, buffer);
+}
+
 MU_TEST_SUITE(system_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&system_test_setup,
@@ -316,5 +341,6 @@ MU_TEST_SUITE(system_test_suite)
     MU_RUN_TEST(system_test_interrupt_vector_smoke);
     MU_RUN_TEST(system_test_set_interrupt_priorities);
     MU_RUN_TEST(system_test_interrupt_priority_table_accessors);
+    MU_RUN_TEST(system_test_semaphore_take_and_clear);
 }
 }
