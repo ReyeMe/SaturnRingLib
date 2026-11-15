@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Writes the TGA and WAV files of the media campaign into cd/data/.
+"""Writes the TGA, WAV and CubeTile files of the media campaign into cd/data/.
 
-The pixel and sample formulas must match the expected values in Tests/src/testsTGA.hpp and testsWave.hpp.
+The pixel, sample and byte formulas must match the expected values in Tests/src/testsTGA.hpp, testsWave.hpp
+and testsCubeTile.hpp.
 Run it from anywhere: python3 Tests/campaigns/media/make_data.py
 """
 import os
@@ -97,6 +98,16 @@ def wav(name, channels, bits, frames, extra_chunk=False):
     open(os.path.join(OUT, name), "wb").write(struct.pack("<4sI4s", b"RIFF", 4 + len(chunks), b"WAVE") + chunks)
 
 
+def cube(name, seed, color, char_size, plane_size, map_mode, map_pages, cell_size, map_size):
+    """CubeTile file: 8 big-endian words of header, then the palette (16 or 256 colors), the map and the cells."""
+    palette_size = {0x00: 32, 0x10: 512}.get(color, 0)
+    header = struct.pack(">8I", 0, cell_size, map_size, char_size, color, plane_size, map_mode, map_pages)
+    data = bytes((i * 3 + seed) & 0xFF for i in range(palette_size))
+    data += bytes((i * 5 + seed) & 0xFF for i in range(map_size))
+    data += bytes((i * 7 + seed) & 0xFF for i in range(cell_size))
+    open(os.path.join(OUT, name), "wb").write(header + data)
+
+
 os.makedirs(OUT, exist_ok=True)
 tga("TC16BL.TGA", 2, 16, "BL", plain_key)
 tga("TC24TL.TGA", 2, 24, "TL", plain_key)
@@ -113,3 +124,6 @@ wav("M8.WAV", 1, 8, 64)
 wav("M16.WAV", 1, 16, 64, extra_chunk=True)
 wav("S8.WAV", 2, 8, 64)
 wav("S16.WAV", 2, 16, 64)
+cube("TILE16.CUB", 1, 0x00, 1, 0, 0xC000, 1, 256, 64)
+cube("TILE256.CUB", 2, 0x10, 0, 1, 0x0000, 2, 128, 32)
+cube("TILERGB.CUB", 3, 0x30, 1, 3, 0x8000, 0x00020003, 512, 16)

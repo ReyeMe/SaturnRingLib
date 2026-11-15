@@ -72,4 +72,6 @@ Compiler/
 **/.DS_Store
 /[Tt]ests/**/*.d
 /[Tt]ests/campaigns/sound/cd/data/SDDRVS.*
+# Written by campaigns/fld/pre.makefile
+/[Tt]ests/campaigns/fld/cd/data/
 /[Tt]ests/campaigns/sound/cd/data/BOOTSND.MAP
