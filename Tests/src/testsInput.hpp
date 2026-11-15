@@ -115,6 +115,31 @@ MU_TEST(input_connection_and_type)
     mu_assert(Analog(1).IsConnected() && !Digital(1).IsConnected(), "A 3D pad is analog, not digital");
 }
 
+/** @brief GetFamily is the high nibble of the type (Unknown when nothing is connected);
+ *         Gun::IsConnected is true only for a light gun. */
+MU_TEST(input_family_and_gun)
+{
+    using SRL::Input::PeripheralFamily;
+    input_disconnect_all();
+    const PeripheralType types[5] = { PeripheralType::Gamepad, PeripheralType::Analog3dPad, PeripheralType::Mouse,
+        PeripheralType::Keyboard, PeripheralType::MD3ButtonPad };
+    const PeripheralFamily families[6] = { PeripheralFamily::Digital, PeripheralFamily::Analog, PeripheralFamily::Pointing,
+        PeripheralFamily::KeyBoard, PeripheralFamily::Extended, PeripheralFamily::Unknown };
+    for (uint8_t port = 0; port < 5; port++) input_set_pad(port, types[port], input_held(0), input_held(0));
+
+    for (uint8_t port = 0; port < 6; port++)
+    {
+        snprintf(buffer, buffer_size, "Port %d: family 0x%02x, expected 0x%02x", port,
+            static_cast<int>(Management::GetFamily(port)), static_cast<int>(families[port]));
+        mu_assert(Management::GetFamily(port) == families[port] && Digital(port).GetFamily() == families[port], buffer);
+    }
+
+    using SRL::Input::Gun;
+    input_set_pad(6, PeripheralType::Gun, input_held(0), input_held(0));
+    mu_assert(Gun(Gun::Player2).IsConnected(), "A light gun on port 6 is not seen as connected");
+    mu_assert(!Gun(Gun::Player1).IsConnected(), "The gamepad on port 0 is seen as a light gun");
+}
+
 /** @brief FindNthConnectedPeripheral counts connected ports in order, and gives 0xff past the last one. */
 MU_TEST(input_find_nth_connected)
 {
@@ -173,6 +198,7 @@ MU_TEST_SUITE(input_test_suite)
     MU_RUN_TEST(input_digital_is_held);
     MU_RUN_TEST(input_digital_pressed_and_released);
     MU_RUN_TEST(input_connection_and_type);
+    MU_RUN_TEST(input_family_and_gun);
     MU_RUN_TEST(input_find_nth_connected);
     MU_RUN_TEST(input_analog_axes);
     MU_RUN_TEST(input_refresh_keeps_previous_frame);

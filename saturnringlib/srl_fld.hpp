@@ -84,15 +84,17 @@ namespace SRL
          * @param ipFile IP file of the game, in the current directory (usually the root directory)
          * @param gameDir Directory of the game, in the current directory: its first file is the game program
          * @param firstAudioTrack Disc track the game's first CD-DA track is on (track 2 when the game is alone)
-         * @return false if the IP file or the directory is missing or the IP is too big; on success it does not return
+         * @return false if the IP file or the directory is missing, gameDir is not a directory or the IP is too big;
+         * on success it does not return
          */
         static bool ExecGame(const char *ipFile, const char *gameDir, const uint8_t firstAudioTrack)
         {
             const int32_t ipId = GFS_NameToId((int8_t *)ipFile);
             const int32_t dirId = GFS_NameToId((int8_t *)gameDir);
+            GfsDirId dirRecord;
 
-            if (ipId < 0 || dirId < 0 || Cd::File(ipFile).Size.Bytes > IpMaxSize ||
-                GFS_Load(ipId, 0, reinterpret_cast<void *>(IpAddress), IpMaxSize) < 0)
+            if (ipId < 0 || dirId < 0 || GFS_GetDirInfo(dirId, &dirRecord) < 0 || (GFS_DIR_ATR(&dirRecord) & GFS_ATR_DIR) == 0 ||
+                Cd::File(ipFile).Size.Bytes > IpMaxSize || GFS_Load(ipId, 0, reinterpret_cast<void *>(IpAddress), IpMaxSize) < 0)
             {
                 return false;
             }

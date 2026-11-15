@@ -55,11 +55,14 @@ MU_TEST(fld_menu_is_not_started_by_a_menu)
     mu_assert(strcmp(fld_read_text(), "root directory") == 0, buffer);
 }
 
-/** @brief A missing IP file or game directory fails without touching the DDS block. */
+/** @brief A missing IP file or game directory, a file given as the directory, or an IP file over 8 KB (BIG.BIN,
+ *         8193 bytes) fail without touching the DDS block. */
 MU_TEST(fld_exec_game_missing_files)
 {
     mu_assert(!Fld::ExecGame("NOPE.BIN", "GAME", FldGameFirstTrack), "ExecGame accepted a missing IP file");
     mu_assert(!Fld::ExecGame("GAME.BIN", "NODIR", FldGameFirstTrack), "ExecGame accepted a missing directory");
+    mu_assert(!Fld::ExecGame("GAME.BIN", "TEXT.TXT", FldGameFirstTrack), "ExecGame accepted a file as the game directory");
+    mu_assert(!Fld::ExecGame("BIG.BIN", "GAME", FldGameFirstTrack), "ExecGame accepted an IP file over 8 KB");
     mu_assert(!Fld::IsRunningFromMenu(), "A failed ExecGame wrote the DDS block");
 }
 

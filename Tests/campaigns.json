@@ -90,12 +90,16 @@
       }
     },
     "video": {
-      "known_failures": {}
+      "known_failures": {
+        "ascii_set_color_palette_1": "SetColor finds the palette with colorBank >> 6 (64 bytes per palette, not 32): with palette 1 it writes color 33 (palette 2), not 17"
+      }
     },
     "system": {
       "known_failures": {
         "dsp_test_load_start_and_end": "DSP end flag never set (not investigated yet)",
-        "dsp_test_start_and_stop": "DSP end flag never set (not investigated yet)"
+        "dsp_test_start_and_stop": "DSP end flag never set (not investigated yet)",
+        "interrupt_test_getstatus_and_resetstatus": "ResetStatus writes 1 to the bits to clear, but the SCU IST register clears the bits written as 0: it keeps the given status and clears all the others",
+        "interrupt_test_acknowledge_roundtrip": "Get/SetAcknowledge use 0x25FE00BC, which is not an SCU register (AIACK is 0x25FE00A8): the value does not read back"
       }
     },
     "timer": {
@@ -171,7 +175,8 @@
     "vdp2": {
       "known_failures": {
         "vdp2_vram_access_cycles": "bankCycles starts at -1 for A0-B0 but at 2 for B1, so B1 gives 5 cycles, not 6",
-        "vdp2_load_tilemap_then_clear": "ClearVRAM frees NBG0-NBG3 palettes with RBG0's color mode, so a 16-color bank stays used"
+        "vdp2_load_tilemap_then_clear": "ClearVRAM frees NBG0-NBG3 palettes with RBG0's color mode, so a 16-color bank stays used",
+        "vdp2_load_bitmap_16_colors_vram_size": "AutoAllocateBmp writes `sz >= 1` (a comparison) instead of `sz >>= 1`, so a 16-color bitmap takes twice its VRAM (128 KB for 512x256)"
       }
     },
     "input": {
@@ -181,7 +186,10 @@
       "skip_modes": {
         "USBGamers": "the sound driver files are loaded from the disc, which the DevCart upload does not send"
       },
-      "known_failures": {}
+      "known_failures": {
+        "cdda_resume_after_pause": "Resume does not stop at the end of the paused track and plays on into track 3: it looks the next track up as Tracks[TargetTrack + 1] (that is track TargetTrack + 2), in a table whose entries are 8 bytes instead of 4 (see cd_test_tray_and_table_details), so it plays to the end of the disc",
+        "cinepak_load_twice": "LoadMovie does not unload the movie already loaded: its file stays open, so with one GFS file at a time the second LoadMovie cannot open the movie"
+      }
     },
     "transform": {
       "known_failures": {

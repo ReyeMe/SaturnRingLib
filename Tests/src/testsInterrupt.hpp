@@ -90,36 +90,51 @@ MU_TEST(interrupt_test_changemask_identity_smoke)
     mu_assert(afterIdentity == static_cast<uint32_t>(Interrupt::Mask::All), buffer);
 }
 
-    /** @brief Smoke test GetStatus and ResetStatus reachability
- *
- * Verifies:
- * - GetStatus() is callable and returns without crashing
- * - ResetStatus(0) is callable (write-1-to-clear with no bits set)
- * - No assertion on actual status values (hardware-dependent)
+/** @brief Waits (a few frames at most) for V-Blank In to show in GetStatus.
+ * @return true when it does
  */
-MU_TEST(interrupt_test_getstatus_and_resetstatus_smoke)
+static bool interrupt_wait_vblank_in_status()
 {
-    (void)Interrupt::GetStatus();
-    Interrupt::ResetStatus(static_cast<Interrupt::Status>(0u));
-    mu_assert(1, "GetStatus/ResetStatus not callable");
+    for (int32_t i = 0; i < 2000000; i++)
+    {
+        if (static_cast<uint32_t>(Interrupt::GetStatus() & Interrupt::Status::VBlankIn) != 0) return true;
+    }
+
+    return false;
 }
 
-    /** @brief Smoke test A-Bus acknowledge register access
- *
- * Verifies:
- * - GetAcknowledge() is callable and returns without crashing
- * - SetAcknowledge(None) is callable
- * - Original acknowledge value is restored after the test
+    /** @brief A masked V-Blank In shows in GetStatus; ResetStatus(VBlankIn) clears it (documented: write 1 to clear).
  */
-MU_TEST(interrupt_test_acknowledge_roundtrip_smoke)
+MU_TEST(interrupt_test_getstatus_and_resetstatus)
+{
+    const uint32_t previousMask = System::GetInterruptMask();
+
+    // A set mask bit turns the interrupt off: V-Blank In stays pending instead of being handled
+    System::SetInterruptMask(previousMask | static_cast<uint32_t>(Interrupt::Mask::VBlankIn));
+    const bool pending = interrupt_wait_vblank_in_status();
+
+    Interrupt::ResetStatus(Interrupt::Status::VBlankIn);
+    const bool pendingAfterReset = static_cast<uint32_t>(Interrupt::GetStatus() & Interrupt::Status::VBlankIn) != 0;
+
+    // Drop the pending V-Blank In (the SCU clears status bits written as 0) before turning it back on
+    Interrupt::ResetStatus(static_cast<Interrupt::Status>(~static_cast<uint32_t>(Interrupt::Status::VBlankIn)));
+    System::SetInterruptMask(previousMask);
+
+    mu_assert(pending, "A masked V-Blank In does not show in GetStatus");
+    mu_assert(!pendingAfterReset, "ResetStatus(VBlankIn) did not clear the V-Blank In status");
+}
+
+    /** @brief The acknowledge value written with SetAcknowledge reads back with GetAcknowledge. */
+MU_TEST(interrupt_test_acknowledge_roundtrip)
 {
     const auto previous = Interrupt::GetAcknowledge();
 
-    Interrupt::SetAcknowledge(Interrupt::Acknowledge::None);
-    (void)Interrupt::GetAcknowledge();
-
+    Interrupt::SetAcknowledge(Interrupt::Acknowledge::VBlankIn);
+    const auto readBack = Interrupt::GetAcknowledge();
     Interrupt::SetAcknowledge(previous);
-    mu_assert(1, "Acknowledge API not callable");
+
+    snprintf(buffer, buffer_size, "GetAcknowledge() read 0x%08lx after SetAcknowledge(VBlankIn)", (unsigned long)static_cast<uint32_t>(readBack));
+    mu_assert(readBack == Interrupt::Acknowledge::VBlankIn, buffer);
 }
 
     /** @brief Test SetHandler rejects invalid vector numbers
@@ -167,8 +182,8 @@ MU_TEST_SUITE(interrupt_test_suite)
 
     MU_RUN_TEST(interrupt_test_setmask_roundtrip);
     MU_RUN_TEST(interrupt_test_changemask_identity_smoke);
-    MU_RUN_TEST(interrupt_test_getstatus_and_resetstatus_smoke);
-    MU_RUN_TEST(interrupt_test_acknowledge_roundtrip_smoke);
+    MU_RUN_TEST(interrupt_test_getstatus_and_resetstatus);
+    MU_RUN_TEST(interrupt_test_acknowledge_roundtrip);
     MU_RUN_TEST(interrupt_test_sethandler_invalid_vector);
     MU_RUN_TEST(interrupt_test_sethandler_cpu_vector_roundtrip);
 }

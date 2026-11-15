@@ -86,18 +86,17 @@ MU_TEST(palette_test_initialization)
     /**
  * @brief Test the destruction of the Palette struct
  *
- * Verifies that the Palette struct is properly destroyed and that the Colors
- * array is deallocated correctly.
+ * Deleting a palette frees its colors and itself: the heap has as many used blocks as before.
  */
 MU_TEST(palette_test_destruction)
 {
-    size_t colorCount = 10;
-    SRL::Bitmap::Palette* palette = new SRL::Bitmap::Palette(colorCount);
+    const size_t before = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
+    SRL::Bitmap::Palette* palette = new SRL::Bitmap::Palette(10);
     delete palette;
+    const size_t after = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
 
-        // Since we cannot directly test the deallocation, we assume that if no
-        // memory errors occur, the test passes.
-    mu_assert(true, "Palette destruction test passed");
+    snprintf(buffer, buffer_size, "Used blocks %d -> %d after deleting a palette", before, after);
+    mu_assert(after == before, buffer);
 }
 
     /**
