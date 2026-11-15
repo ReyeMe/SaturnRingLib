@@ -75,3 +75,6 @@ Compiler/
 # Written by campaigns/fld/pre.makefile
 /[Tt]ests/campaigns/fld/cd/data/
 /[Tt]ests/campaigns/sound/cd/data/BOOTSND.MAP
+# Written by campaigns/sound/pre.makefile
+/[Tt]ests/campaigns/sound/cd/music/
+/[Tt]ests/campaigns/sound/cd/data/SKYBL.CPK

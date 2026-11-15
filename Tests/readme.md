@@ -28,7 +28,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `memory_simple` | Allocators and memory zones (HWRam, LWRam, CartRam) with the `SIMPLE` allocator. |
 | `memory_tlsf` | The same memory tests with the `TLSF` allocator (the library default). |
 | `memory_cpus_simple`, `memory_cpus_tlsf` | Master and slave CPUs allocating at the same time, on a fresh heap, with each allocator. |
-| `video` | ASCII, color RAM, bitmaps, SGL. |
+| `video` | ASCII (text map cells, fonts, palettes and colors), color RAM, bitmaps, SGL. |
 | `system` | Interrupts, system registers, SCU DSP. |
 | `timer` | Timers: FRT tickstamps, dividers, conversions, overflow. |
 | `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
@@ -37,12 +37,12 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `media` | TGA images, WAV sounds and CubeTile tilemaps loaded from the disc. Its files in `campaigns/media/cd/data/` are written by `campaigns/media/make_data.py`. |
 | `slave` | Tasks on the slave CPU (`Slave`, `ITask`). |
 | `scene` | Mesh and sprite attributes, `Mesh`/`SmoothMesh`, `Scene3D` projection, visibility and drawing. |
-| `string` | `SRL::string` and `snprintfEx` formatting. |
+| `string` | `SRL::string` and `snprintfEx` formatting, `SRL::Logger` output. |
 | `endian` | Reading little-endian numbers from byte buffers (`SRL::Endian`). |
 | `vdp1` | VDP1 texture heap: placement, loading, limits, free memory, reset. Built with `SRL_MAX_TEXTURES = 8`. |
-| `vdp2` | VDP2 VRAM allocator, `Bmp2Tile`, loading a tilemap into NBG1, `ClearVRAM`, TV resolution. NBG3 is left alone: it shows the results. |
+| `vdp2` | VDP2 VRAM allocator, `Bmp2Tile`, loading a tilemap and a bitmap into NBG1, `ClearVRAM`, TV resolution. NBG3 is left alone: it shows the results. |
 | `input` | Digital and analog pads, from pad data the tests write themselves. |
-| `sound` | PCM channels with the SGL sound driver (`SRL_USE_SGL_SOUND_DRIVER = 1`), raw PCM loading. |
+| `sound` | PCM channels with the SGL sound driver (`SRL_USE_SGL_SOUND_DRIVER = 1`), raw PCM loading, CD audio (`Cdda`) on two CD-DA tracks, Cinepak movies (`CinepakPlayer`). `campaigns/sound/pre.makefile` writes the tracks with `sox` and copies the movie of the `VDP1 - Cinepak` sample. |
 | `transform` | `Scene3D` matrix operations: the matrix stack, translate, rotate, scale, multiply, invert, transpose, `LookAt`. |
 | `tilemap` | `TilemapInfo`, `SGLTile`, `Bmp2Tile` conversion and map editing, loading tilemaps into NBG1 (1-word and 2-word maps). |
 | `draw2d` | `Scene2D` drawing: effects, sprite attributes, and the VDP1 commands lines, polygons, clipping and sprites put in VDP1 VRAM. |

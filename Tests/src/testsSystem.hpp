@@ -253,58 +253,31 @@ MU_TEST(system_test_interrupt_vector_smoke)
     System::SetInterruptVector(vectorNumber, previous);
 }
 
-    /** @brief Smoke test SCU interrupt priority table programming
- *
- * Verifies:
- * - SetInterruptPriorities() is reachable and does not crash
- * - Priority values from Sega DTS documentation are accepted
- * - No assertion on hardware behaviour (disruptive operation)
- */
-MU_TEST(system_test_set_interrupt_priorities_smoke)
+    /** @brief SetInterruptPriorities hands the table to the BIOS, which keeps it at 0x06000A80 (32 entries). */
+MU_TEST(system_test_set_interrupt_priorities)
 {
-    System::InterruptPriorityTable priorities;
-    const uint32_t kPriTab[System::InterruptPriorityTable::COUNT] = {
-        0x00f0ffff,
-        0x00e0fffe,
-        0x00d0fffc,
-        0x00c0fff8,
-        0x00b0fff0,
-        0x00a0ffe0,
-        0x0090ffc0,
-        0x0080ff80,
-        0x0080ff80,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-        0x0070fe00,
-    };
-
+    volatile uint32_t *biosTable = reinterpret_cast<volatile uint32_t *>(0x06000A80);
+    System::InterruptPriorityTable original;
+    System::InterruptPriorityTable changed;
     for (size_t index = 0; index < System::InterruptPriorityTable::COUNT; index++)
     {
-        priorities.priorities[index] = kPriTab[index];
+        original[index] = biosTable[index];
+        changed[index] = biosTable[index];
     }
 
-    System::SetInterruptPriorities(priorities);
-    mu_assert(1, "SetInterruptPriorities failed");
+    // Last entry (unused by SRL) with one more mask bit
+    changed[31] = original[31] ^ 0x1;
+    System::SetInterruptPriorities(changed);
+
+    bool same = true;
+    for (size_t index = 0; index < System::InterruptPriorityTable::COUNT; index++) same = same && biosTable[index] == changed[index];
+    const uint32_t lastEntry = biosTable[31];
+
+    System::SetInterruptPriorities(original);
+
+    snprintf(buffer, buffer_size, "BIOS table entry 31 is 0x%08lx, expected 0x%08lx", (unsigned long)lastEntry, (unsigned long)changed[31]);
+    mu_assert(same, buffer);
+    mu_assert(biosTable[31] == original[31], "Setting the original table back did not restore it");
 }
 
     /** @brief Test InterruptPriorityTable compile-time and runtime accessors
@@ -326,32 +299,6 @@ MU_TEST(system_test_interrupt_priority_table_accessors)
     mu_assert(priorities.at<0>() == 0x11111111 && priorities.at<31>() == 0x22222222 && priorities[15] == 0x33333333, buffer);
 }
 
-    /** @brief Smoke test CheckMpeg BIOS call
- *
- * Verifies:
- * - CheckMpeg(0) is reachable and returns without crashing
- * - No assertion on return value (MPEG cartridge may be absent)
- */
-MU_TEST(system_test_check_mpeg_smoke)
-{
-    (void)System::CheckMpeg(0);
-    mu_assert(1, "CheckMpeg failed");
-}
-
-    /** @brief Verify System::Exit symbol is linkable
- *
- * Verifies:
- * - Exit function pointer can be taken (symbol is linked)
- * - Does NOT invoke Exit (it is [[noreturn]] and would halt the test)
- */
-MU_TEST(system_test_exit_is_callable)
-{
-    using ExitSignature = void (*)(int32_t);
-    ExitSignature ptr = &System::Exit;
-    (void)ptr;
-    mu_assert(1, "Exit symbol not callable");
-}
-
 MU_TEST_SUITE(system_test_suite)
 {
     MU_SUITE_CONFIGURE_WITH_HEADER(&system_test_setup,
@@ -367,9 +314,7 @@ MU_TEST_SUITE(system_test_suite)
     MU_RUN_TEST(system_test_power_off_clear_memory_roundtrip);
     MU_RUN_TEST(system_test_interrupt_handler_smoke);
     MU_RUN_TEST(system_test_interrupt_vector_smoke);
-    MU_RUN_TEST(system_test_set_interrupt_priorities_smoke);
+    MU_RUN_TEST(system_test_set_interrupt_priorities);
     MU_RUN_TEST(system_test_interrupt_priority_table_accessors);
-    MU_RUN_TEST(system_test_check_mpeg_smoke);
-    MU_RUN_TEST(system_test_exit_is_callable);
 }
 }

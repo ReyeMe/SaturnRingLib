@@ -1,6 +1,7 @@
 // Tests/src/testsVDP2.hpp
 // SRL::VDP2: the VRAM allocator (alignment, limits, access cycles, reset), converting a bitmap to a tilemap (Bmp2Tile),
-// loading it into NBG1, ClearVRAM freeing its palette, and the TV resolution. Only NBG1 is used: NBG3 shows the results.
+// loading it into NBG1, ClearVRAM freeing its palette, loading a bitmap into NBG1 (LoadBitmap), and the TV resolution.
+// Only NBG1 is used: NBG3 shows the results.
 #pragma once
 
 #include <srl.hpp>
@@ -189,6 +190,66 @@ MU_TEST(vdp2_load_tilemap_then_clear)
     mu_assert(!usedAfterClear, buffer);
 }
 
+/** @brief The 320x4 16-color test bitmap for LoadBitmap: 160 bytes per row, every byte different from its neighbours. */
+static uint8_t vdp2_wide_bitmap_data[320 * 4 / 2];
+
+static void vdp2_fill_wide_bitmap()
+{
+    for (int i = 0; i < 320 * 4 / 2; i++) vdp2_wide_bitmap_data[i] = static_cast<uint8_t>(1 + (i * 7) % 251);
+}
+
+/**
+ * @brief LoadBitmap on NBG1 (16 colors, 320 pixels wide): each 160-byte row lands at the start of a 512-pixel
+ *        (256-byte) VRAM row, and the screen takes a CRAM palette on a 256-color boundary (bitmap palettes need it).
+ */
+MU_TEST(vdp2_load_bitmap_rows_and_palette)
+{
+    vdp2_fill_wide_bitmap();
+    Bitmap::Palette palette(16);
+    MockBitmap bitmap(vdp2_wide_bitmap_data, Bitmap::BitmapInfo(320, 4, &palette));
+
+    VDP2::NBG1::LoadBitmap(&bitmap);
+    slDMAWait();
+
+    const volatile uint8_t *vram = static_cast<const volatile uint8_t *>(VDP2::NBG1::CellAddress);
+    const bool loaded = reinterpret_cast<uint32_t>(VDP2::NBG1::CellAddress) >= VDP2_VRAM_A0 && VDP2::NBG1::TilePalette.GetData() != nullptr;
+    const uint16_t bank = VDP2::NBG1::TilePalette.GetId();
+    const bool bankUsed = loaded && CRAM::GetBankUsedState(bank, CRAM::TextureColorMode::Paletted16);
+    if (bankUsed) CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted16, false); // ClearVRAM frees it with the wrong mode
+
+    mu_assert(loaded, "LoadBitmap did not give NBG1 VRAM and a CRAM palette");
+    for (int y = 0; y < 4; y++)
+    {
+        for (int i = 0; i < 160; i++)
+        {
+            snprintf(buffer, buffer_size, "Row %d byte %d is 0x%02x in VRAM, expected 0x%02x (rows are 256 bytes apart)", y, i,
+                vram[y * 256 + i], vdp2_wide_bitmap_data[y * 160 + i]);
+            mu_assert(vram[y * 256 + i] == vdp2_wide_bitmap_data[y * 160 + i], buffer);
+        }
+    }
+
+    snprintf(buffer, buffer_size, "CRAM bank %d: used %d, expected a used bank that is a multiple of 16", bank, bankUsed);
+    mu_assert(bankUsed && (bank & 0xf) == 0, buffer);
+}
+
+/** @brief A 16-color bitmap up to 512x256 takes 512 * 256 / 2 = 64 KB of VRAM: half of bank A0 stays free. */
+MU_TEST(vdp2_load_bitmap_16_colors_vram_size)
+{
+    vdp2_fill_wide_bitmap();
+    Bitmap::Palette palette(16);
+    MockBitmap bitmap(vdp2_wide_bitmap_data, Bitmap::BitmapInfo(320, 4, &palette));
+
+    VDP2::NBG1::LoadBitmap(&bitmap);
+    slDMAWait();
+
+    const uint16_t bank = VDP2::NBG1::TilePalette.GetId();
+    if (VDP2::NBG1::TilePalette.GetData() != nullptr) CRAM::SetBankUsedState(bank, CRAM::TextureColorMode::Paletted16, false);
+
+    snprintf(buffer, buffer_size, "Bank A0 has %u bytes free, expected %u (block size %d)", static_cast<unsigned>(VDP2::VRAM::GetAvailable(VramBank::A0)),
+        0x10000u, static_cast<int>(VDP2::NBG1::CellAllocSize));
+    mu_assert(VDP2::VRAM::GetAvailable(VramBank::A0) == 0x10000, buffer);
+}
+
 /** @brief The campaign starts in the default NTSC resolution, 320x240. */
 MU_TEST(vdp2_tv_default_resolution)
 {
@@ -207,5 +268,7 @@ MU_TEST_SUITE(vdp2_test_suite)
     MU_RUN_TEST(vdp2_clear_vram_empties_banks);
     MU_RUN_TEST(vdp2_bmp2tile_16_colors);
     MU_RUN_TEST(vdp2_load_tilemap_then_clear);
+    MU_RUN_TEST(vdp2_load_bitmap_rows_and_palette);
+    MU_RUN_TEST(vdp2_load_bitmap_16_colors_vram_size);
     MU_RUN_TEST(vdp2_tv_default_resolution);
 }
