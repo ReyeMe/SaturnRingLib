@@ -47,6 +47,9 @@ namespace SRL
         /** @brief Entry of the IP code (after its 0x100 bytes of header) */
         static constexpr uintptr_t IpCodeAddress = 0x06002100;
 
+        /** @brief Stack top the BIOS gives the IP code at boot (default master stack) */
+        static constexpr uintptr_t BootStackAddress = 0x06002000;
+
         /** @brief Vector the IP code calls to load the first program file: the BIOS loader by default */
         static constexpr uintptr_t IpLoaderVector = 0x06002270;
 
@@ -116,8 +119,10 @@ namespace SRL
             *reinterpret_cast<volatile uint32_t *>(IpLoaderVector) = KernelAddress;
             *reinterpret_cast<volatile uint8_t *>(CacheControlRegister) |= 0x10; // purge: the IP was written by DMA
 
-            reinterpret_cast<void (*)()>(IpCodeAddress)();
-            return false;
+            // The game may load up to 0x06100000, over the menu stack (SGL's MasterStack): run the IP code and the
+            // kernel on the stack the BIOS uses at boot, below the IP
+            __asm__ volatile("mov %0,r15\n\tjmp @%1\n\tnop" : : "r"(BootStackAddress), "r"(IpCodeAddress));
+            __builtin_unreachable();
         }
 
         /** @brief Whether this program was started by an FLD menu
