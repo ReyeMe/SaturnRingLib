@@ -34,7 +34,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
 | `datetime` | Date and time (`DateTime`): ordering, leap years, backup unit dates, RTC. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
-| `media` | TGA images and WAV sounds loaded from the disc. Its files in `campaigns/media/cd/data/` are written by `campaigns/media/make_data.py`. |
+| `media` | TGA images, WAV sounds and CubeTile tilemaps loaded from the disc. Its files in `campaigns/media/cd/data/` are written by `campaigns/media/make_data.py`. |
 | `slave` | Tasks on the slave CPU (`Slave`, `ITask`). |
 | `scene` | Mesh and sprite attributes, `Mesh`/`SmoothMesh`, `Scene3D` projection, visibility and drawing. |
 | `string` | `SRL::string` and `snprintfEx` formatting. |
@@ -43,6 +43,10 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `vdp2` | VDP2 VRAM allocator, `Bmp2Tile`, loading a tilemap into NBG1, `ClearVRAM`, TV resolution. NBG3 is left alone: it shows the results. |
 | `input` | Digital and analog pads, from pad data the tests write themselves. |
 | `sound` | PCM channels with the SGL sound driver (`SRL_USE_SGL_SOUND_DRIVER = 1`), raw PCM loading. |
+| `transform` | `Scene3D` matrix operations: the matrix stack, translate, rotate, scale, multiply, invert, transpose, `LookAt`. |
+| `tilemap` | `TilemapInfo`, `SGLTile`, `Bmp2Tile` conversion and map editing, loading tilemaps into NBG1 (1-word and 2-word maps). |
+| `draw2d` | `Scene2D` drawing: effects, sprite attributes, and the VDP1 commands lines, polygons, clipping and sprites put in VDP1 VRAM. |
+| `fld` | File loader (`SRL::Fld`): the campaign program is a menu that starts `campaigns/fld_game` from a sub-directory of its disc; the game checks its root directory and CD-DA tracks and reports. `fld_game` is built by `campaigns/fld/pre.makefile`, it is not a campaign of its own. |
 
 Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `makefile` and a short `main.cxx` that lists its suites.
 Shared build settings are in `campaign.mk`.
@@ -75,7 +79,7 @@ Listed tests that pass are printed as a reminder. A test that would crash or han
 To run every campaign:
 
 ```bash
-for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system timer event datetime cd media slave scene string endian vdp1 vdp2 input sound; do ./run_tests.bat mednafen $c; done
+for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system timer event datetime cd media slave scene string endian vdp1 vdp2 input sound transform tilemap draw2d fld; do ./run_tests.bat mednafen $c; done
 ```
 
 The log looks like this:
@@ -135,5 +139,5 @@ To install the WinUSB driver:
 
 The script resets the USB device, uploads `campaigns/<campaign>/cd/data/0.bin` to address `0x06004000`, and then starts the capture flow.
 The output still goes to `uts_<campaign>.log` like the emulator runs.
-Campaigns with `USBGamers` in their `skip_modes` in `campaigns.json` are skipped in this mode with exit 0. `cd`, `media` and `sound` are: the upload sends only the program, not the disc (and `sound` loads its driver from the disc).
+Campaigns with `USBGamers` in their `skip_modes` in `campaigns.json` are skipped in this mode with exit 0. `cd`, `media`, `sound` and `fld` are: the upload sends only the program, not the disc (`sound` loads its driver from it, `fld` its game).
 

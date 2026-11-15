@@ -1,0 +1,8 @@
+# Build binaries and object files
+**.o
+0.bin
+[Bb]uild[Dd]rop/**
+
+# Written by pre.makefile
+cd/data/*
+cd/music/*

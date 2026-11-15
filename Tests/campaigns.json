@@ -182,6 +182,30 @@
         "USBGamers": "the sound driver files are loaded from the disc, which the DevCart upload does not send"
       },
       "known_failures": {}
+    },
+    "transform": {
+      "known_failures": {
+        "transform_set_matrix_matches_matrix43": "SGL reads a Matrix43 row as a column: Matrix43::TransformPoint uses Row0-Row2 as rows, SGL (and Matrix43::CreateRotation*) as columns, so they turn points opposite ways (SaturnMathPP)"
+      }
+    },
+    "tilemap": {
+      "known_failures": {
+        "tilemap_bmp2tile_refuses_partial_tiles": "the size check masks 16x16 characters with 0x7 instead of 0xf (byte width and height), so 24-pixel 256-color bitmaps are converted with drifting rows",
+        "tilemap_bmp2tile_refused_no_leak": "a refused bitmap sets cellData, mapData and palData to NULL without deleting them (3 blocks leak)",
+        "tilemap_load_into_nbg1_2word": "Map2VRAM puts the palette at bit 20 of 2-word map data: right for 256 colors, but 16-color palettes belong at bit 16"
+      }
+    },
+    "draw2d": {
+      "known_failures": {
+        "draw2d_rotated_sprite_zoom_point": "the rotated path offsets the corners by -halfSize for UpperLeft (and the other zoom points), so the sprite is drawn on the opposite side of its location",
+        "draw2d_rotated_sprite_size": "the rotated path uses corners at +-halfSize, one pixel more than the unrotated scaled sprite (VDP1 coordinates are inclusive)"
+      }
+    },
+    "fld": {
+      "skip_modes": {
+        "USBGamers": "the game the menu starts is on the disc, which the DevCart upload does not send"
+      },
+      "known_failures": {}
     }
   }
 }
