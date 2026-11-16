@@ -3,6 +3,7 @@
 #include "srl_base.hpp"
 #include "srl_cd.hpp"
 #include "srl_interrupt.hpp"
+#include "srl_system.hpp"
 
 #include <sega_sys.h>
 
@@ -21,7 +22,7 @@ namespace SRL
      * @details A menu program calls ExecGame() with the IP file and the directory of a game. The game boots as
      * if it were alone on the disc: its directory is its root directory (GFS reads the DDS block the loader
      * writes), its first CD-DA track is the one the menu gave (SRL::Sound::Cdda takes care of it), and it can
-     * go back to the menu with ReturnToMenu().
+     * go back to the menu with ReturnToMenu() or the Reset button (see ReturnToMenuOnReset()).
      *
      * Disc layout:
      * @code
@@ -53,6 +54,13 @@ namespace SRL
         /** @brief Vector the IP code calls to load the first program file: the BIOS loader by default */
         static constexpr uintptr_t IpLoaderVector = 0x06002270;
 
+        /** @brief BIOS vector of the reset/exit path (Reset button, SYS_Exit), and where the BIOS keeps the address
+         * the IP code copies its hook routine to. The IP points the vector at that routine, which calls the
+         * vector it replaced, saved at HookChainOffset in the routine */
+        static constexpr uintptr_t BiosExitVector = 0x060002DC;
+        static constexpr uintptr_t BiosExitHookAddress = 0x06000260;
+        static constexpr uintptr_t HookChainOffset = 0x54;
+
         /** @brief Where the FLD kernel runs (low work RAM) */
         static constexpr uintptr_t KernelAddress = 0x00200000;
 
@@ -64,6 +72,22 @@ namespace SRL
 
         /** @brief SH-2 cache control register */
         static constexpr uintptr_t CacheControlRegister = 0xFFFFFE92;
+
+        /** @brief SMPC command register, and its status flag (bit 0 set while a command runs) */
+        static constexpr uintptr_t SmpcCommandRegister = 0x2010001F;
+        static constexpr uintptr_t SmpcStatusFlag = 0x20100063;
+
+        /** @brief SMPC command SSHOFF: holds the slave CPU in reset */
+        static constexpr uint8_t SmpcSlaveOff = 0x03;
+
+        /** @brief Offset of the NMI vector (vector 11, sent by the Reset button) in the vector table */
+        static constexpr uintptr_t NmiVectorOffset = 11 * 4;
+
+        /** @brief NMI handler of a game started by the menu: goes back to the menu instead of the BIOS reset */
+        [[noreturn]] static void ResetHandler()
+        {
+            Fld::ReturnToMenu();
+        }
 
         /** @brief SH-2 interrupt priority registers: IPRA (DIVU, DMAC, WDT) and IPRB (SCI, FRT) */
         static constexpr uintptr_t OnChipPriorityA = 0xFFFFFEE2;
@@ -108,14 +132,32 @@ namespace SRL
             *reinterpret_cast<volatile uint8_t *>(GFS_DDS_ADDR + 1) = firstAudioTrack;
             *reinterpret_cast<volatile uint16_t *>(GFS_DDS_ADDR + 2) = static_cast<uint16_t>(dirId);
 
-            // From here the menu is gone: the slave CPU would run code the game overwrites, and nothing may run on
-            // top of the kernel, which overwrites the low work RAM heap
-            slSlaveOffWait();
+            // From here the menu is gone: nothing may run on top of the kernel, which overwrites the low work RAM heap
             Interrupt::SetMask(Interrupt::Mask::All);
+
+            // The slave CPU runs SGL's idle loop inside the menu program, which the game overwrites: hold it in reset.
+            // slSlaveOffWait() left it running (it then ran the game's code and could corrupt the BIOS vectors), so
+            // the command goes to the SMPC directly
+            volatile uint8_t &smpcStatus = *reinterpret_cast<volatile uint8_t *>(SmpcStatusFlag);
+            while ((smpcStatus & 1) != 0) { }
+            smpcStatus = 1;
+            *reinterpret_cast<volatile uint8_t *>(SmpcCommandRegister) = SmpcSlaveOff;
+            while ((smpcStatus & 1) != 0) { }
 
             // The SCU mask does not stop SH-2 on-chip interrupts (the FRT of SRL::Timer...): priority 0 does
             *reinterpret_cast<volatile uint16_t *>(OnChipPriorityA) = 0;
             *reinterpret_cast<volatile uint16_t *>(OnChipPriorityB) = 0;
+
+            // The menu's IP already hooked the exit vector: running the game's IP again would make the hook call
+            // itself, and Reset or ReturnToMenu() would then loop forever. Put back the vector it replaced.
+            // shortcut: HookChainOffset is the layout of SEGA's IP code in SRL's IP.BIN, check it for another IP
+            const uintptr_t hook = *reinterpret_cast<volatile uint32_t *>(BiosExitHookAddress);
+            volatile uint32_t &exitVector = *reinterpret_cast<volatile uint32_t *>(BiosExitVector);
+
+            if (exitVector == hook)
+            {
+                exitVector = *reinterpret_cast<volatile uint32_t *>(hook + HookChainOffset);
+            }
 
             memcpy(reinterpret_cast<void *>(KernelAddress), FldKernel, FldKernelEnd - FldKernel);
             *reinterpret_cast<volatile uint32_t *>(IpLoaderVector) = KernelAddress;
@@ -146,9 +188,21 @@ namespace SRL
         /** @brief Goes back to the menu that started this program (or to the CD player if there is none)
          * @details The BIOS checks the disc again and boots it, which starts the menu.
          */
-        static void ReturnToMenu()
+        [[noreturn]] static void ReturnToMenu()
         {
-            SYS_Exit(0);
+            System::Exit(0);
+        }
+
+        /** @brief Makes the Reset button go back to the menu
+         * @details The BIOS answers the Reset button with a full system reset, which boots a cartridge (a dev
+         * cartridge menu...) before the disc. This points the NMI the Reset button sends to ReturnToMenu() instead.
+         * SRL::Core::Initialize() calls it when the program was started by a menu.
+         */
+        static void ReturnToMenuOnReset()
+        {
+            uintptr_t vbr;
+            __asm__ volatile("stc vbr,%0" : "=r"(vbr));
+            *reinterpret_cast<volatile uintptr_t *>(vbr + NmiVectorOffset) = reinterpret_cast<uintptr_t>(&Fld::ResetHandler);
         }
     };
 }
