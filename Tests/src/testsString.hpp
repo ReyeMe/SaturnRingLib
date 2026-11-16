@@ -301,20 +301,20 @@ MU_TEST(string_snprintfEx_zero_padding)
     mu_assert(string_check_format(out, written, "[1234]"), buffer);
 }
 
-/** @brief %f prints a 16.16 fixed point number (passed by pointer) with 5 decimals. */
+/** @brief %f prints a 16.16 fixed point number (passed by value, as SRL::Debug::Print does) with 5 decimals. */
 MU_TEST(string_snprintfEx_fixed_point)
 {
     char out[64];
     SRL::Math::Types::Fxp value(1.5);
-    int written = SRL::string().snprintfEx(out, sizeof(out), "%f", &value);
+    int written = SRL::string().snprintfEx(out, sizeof(out), "%f", value);
     mu_assert(string_check_format(out, written, "1.50000"), buffer);
 
     value = SRL::Math::Types::Fxp(0.0);
-    written = SRL::string().snprintfEx(out, sizeof(out), "%f", &value);
+    written = SRL::string().snprintfEx(out, sizeof(out), "%f", value);
     mu_assert(string_check_format(out, written, "0.00000"), buffer);
 
     value = SRL::Math::Types::Fxp(-2.25);
-    written = SRL::string().snprintfEx(out, sizeof(out), "%f", &value);
+    written = SRL::string().snprintfEx(out, sizeof(out), "%f", value);
     mu_assert(string_check_format(out, written, "-2.25000"), buffer);
 }
 
