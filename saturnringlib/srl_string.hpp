@@ -120,7 +120,7 @@ namespace SRL
         }
 
          /**
-         * @brief Extension of snprintf with support of SRL::Math::Types::Fxp. Supported format specifiers %c , %s , %u , %d, %x and %f. %f is used for FXP types. %0Nd where N is the total lenght of the printed number. If under N , the number will be padded with 0's until the printed string has N characters
+         * @brief Extension of snprintf with support of SRL::Math::Types::Fxp. Supported format specifiers %c , %s , %u , %d, %x and %f. %f is used for FXP types, passed by value. %0Nd where N is the total lenght of the printed number. If under N , the number will be padded with 0's until the printed string has N characters
          * @param buffer Buffer where the string will be written to
          * @param size maximum size of string to be written into buffer
          * @param format format string
@@ -253,9 +253,9 @@ namespace SRL
                             char tmpBuffer[14] = {0};
                             int bufferPos = 0;
                             
-                            SRL::Math::Types::Fxp *arg = va_arg(args,  SRL::Math::Types::Fxp*);
+                            SRL::Math::Types::Fxp arg = va_arg(args, SRL::Math::Types::Fxp);
                             
-                            int32_t val = arg->RawValue();
+                            int32_t val = arg.RawValue();
                             
                             //determine if value is negative
                             bool isNegative = val < 0;
@@ -264,7 +264,7 @@ namespace SRL
                             int32_t IntegerPart = absValue  >> 16;
                                                              
                             // Scale fractional part to 5 decimal digits
-                            int32_t FractionPart = SRL::Math::Abs((arg->GetFraction() * 1.5258789).RawValue());
+                            int32_t FractionPart = SRL::Math::Abs((arg.GetFraction() * 1.5258789).RawValue());
                             
                             if(isNegative)
                             {

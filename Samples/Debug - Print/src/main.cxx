@@ -60,7 +60,10 @@ int main()
     SRL::Debug::Print(1,25, "\%c (ASCII index):");
     SRL::Debug::Print(4,26, "Char: \"%c\" expected \"A\"", Character);
 
-    SRL::Core::Synchronize();
+    while (true)
+    {
+        SRL::Core::Synchronize();
+    }
 
     return 0;
 }
