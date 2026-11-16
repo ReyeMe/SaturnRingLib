@@ -132,9 +132,9 @@ class UiManager
         }
 
         //ensure Opacity is in valid range:
-        TriangleOpacity = TriangleOpacity.Clamp(0.0,1.0);
-        SquareOpacity = SquareOpacity.Clamp(0.0,1.0);
-        CircleOpacity = CircleOpacity.Clamp(0.0,1.0);
+        TriangleOpacity = Fxp::Clamp(TriangleOpacity,0.0,1.0);
+        SquareOpacity = Fxp::Clamp(SquareOpacity,0.0,1.0);
+        CircleOpacity = Fxp::Clamp(CircleOpacity,0.0,1.0);
         
         //Update the opacities of the ScrollScreens corresponding to the shapes:
         SRL::VDP2::NBG0::SetOpacity(TriangleOpacity);
