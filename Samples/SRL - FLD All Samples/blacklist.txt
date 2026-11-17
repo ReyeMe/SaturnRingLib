@@ -1,0 +1,4 @@
+# Samples left off the FLD All Samples disc: one folder name of Samples/ per line, as written there.
+# Lines starting with # are comments.
+SRL - FLD All Samples
+SRL - FLD menu
