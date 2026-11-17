@@ -95,20 +95,33 @@ MU_TEST(trigonometry_atan2_key_directions)
     mu_assert(a225 >= Angle::FromDegrees(224.9) && a225 <= Angle::FromDegrees(225.1), "Atan2(-1,-1) should be ~225");
 }
 
-    // Disabled: Asin() is a static_assert "work in progress" in the pinned SaturnMathPP, so it cannot be called yet.
-    // MU_TEST(trigonometry_asin_clamp_and_values)
-    // {
-    //     mu_assert(SRL::Math::Trigonometry::Asin(Fxp(0)) == Angle::Zero(), "Asin(0) should be 0");
-    //     mu_assert(SRL::Math::Trigonometry::Asin(Fxp(1)) == Angle::HalfPi(), "Asin(1) should be 90");
-    //     mu_assert(SRL::Math::Trigonometry::Asin(Fxp(-1)) == Angle::ThreeQuarterPi(), "Asin(-1) should be -90 (270)");
+/** @brief Checks Asin(x) against an angle, within tol raw units (1/65536 turn); prints both raw values on failure. */
+#define ASIN_ASSERT(x, expected, tol, what)                                                                 \
+    do                                                                                                      \
+    {                                                                                                       \
+        const uint16_t asinGot = SRL::Math::Trigonometry::Asin(Fxp(x)).RawValue();                         \
+        const uint16_t asinExpected = (expected).RawValue();                                                \
+        const int16_t asinDiff = static_cast<int16_t>(asinGot - asinExpected);                             \
+        snprintf(buffer, buffer_size, "%s: raw 0x%04x, expected 0x%04x", what, asinGot, asinExpected);     \
+        mu_assert(asinDiff >= -(tol) && asinDiff <= (tol), buffer);                                         \
+    } while (0)
 
-    //     // Clamp behavior outside domain
-    //     mu_assert(SRL::Math::Trigonometry::Asin(Fxp(2)) == Angle::HalfPi(), "Asin(>1) should clamp to 90");
-    //     mu_assert(SRL::Math::Trigonometry::Asin(Fxp(-2)) == Angle::ThreeQuarterPi(), "Asin(<-1) should clamp to -90 (270)");
+    /**
+ * @brief Asin: exact at 0 and +-1, clamped outside [-1, 1], about 30 degrees at 0.5.
+ */
+MU_TEST(trigonometry_asin_clamp_and_values)
+{
+    ASIN_ASSERT(0, Angle::Zero(), 0, "Asin(0) should be 0");
+    ASIN_ASSERT(1, Angle::HalfPi(), 0, "Asin(1) should be 90");
+    ASIN_ASSERT(-1, Angle::ThreeQuarterPi(), 0, "Asin(-1) should be -90 (270)");
 
-    //     const Angle a30 = SRL::Math::Trigonometry::Asin(Fxp(0.5));
-    //     mu_assert(a30 >= Angle::FromDegrees(29.0) && a30 <= Angle::FromDegrees(31.0), "Asin(0.5) should be ~30 degrees");
-    // }
+    // Clamped outside the domain
+    ASIN_ASSERT(2, Angle::HalfPi(), 0, "Asin(2) should clamp to 90");
+    ASIN_ASSERT(-2, Angle::ThreeQuarterPi(), 0, "Asin(-2) should clamp to -90 (270)");
+
+    // 1 degree is 182 raw units
+    ASIN_ASSERT(0.5, Angle::FromDegrees(30.0), 182, "Asin(0.5) should be 30 degrees");
+}
 
 using Trig = SRL::Math::Trigonometry;
 
@@ -271,6 +284,6 @@ MU_TEST_SUITE(trigonometry_test_suite)
     MU_RUN_TEST(trigonometry_tan_matches_sin_over_cos);
     MU_RUN_TEST(trigonometry_atan2_roundtrip_and_scale);
     MU_RUN_TEST(trigonometry_slerp);
-    // MU_RUN_TEST(trigonometry_asin_clamp_and_values); // Asin() not ready in the pinned SaturnMathPP
+    MU_RUN_TEST(trigonometry_asin_clamp_and_values);
 }
 }

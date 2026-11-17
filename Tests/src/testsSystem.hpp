@@ -131,6 +131,9 @@ MU_TEST(system_test_change_interrupt_mask_identity)
  */
 MU_TEST(system_test_clock_mode_roundtrip)
 {
+    // Not run: changing the clock mode resets the VDPs, so the next frame sync never returns and the campaign hangs.
+    // Reported as a failure so the bug stays visible in campaigns.json; remove this line once it is fixed.
+    mu_fail("not run: SetClockMode resets the VDPs and the next Synchronize never returns");
     const auto previousMode = System::GetClockMode();
 
         // Try to set 26MHz mode
@@ -307,8 +310,7 @@ MU_TEST_SUITE(system_test_suite)
     MU_RUN_TEST(system_test_interrupt_mask_extremes);
     MU_RUN_TEST(system_test_get_interrupt_mask_matches_doc_example);
     MU_RUN_TEST(system_test_change_interrupt_mask_identity);
-    // Disabled: changing the clock mode resets the VDPs, so the next frame sync never returns and the campaign hangs.
-    // MU_RUN_TEST(system_test_clock_mode_roundtrip);
+    MU_RUN_TEST(system_test_clock_mode_roundtrip);
     MU_RUN_TEST(system_test_power_off_clear_memory_roundtrip);
     MU_RUN_TEST(system_test_interrupt_handler_smoke);
     MU_RUN_TEST(system_test_interrupt_vector_smoke);
