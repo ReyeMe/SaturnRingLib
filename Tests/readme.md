@@ -93,11 +93,8 @@ Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<
 The script exits with an error if a test fails that is not listed under the campaign's `known_failures` in `campaigns.json`.
 That file holds the settings of every campaign: `known_failures` maps each test that fails because of a known library bug to that bug (remove the entry once it is fixed), and `skip_modes` maps a `run_tests.bat` mode to the reason the campaign is not run in it.
 Listed tests that pass are printed as a reminder. A test that would crash or hang the console skips itself and fails, so it can be listed too.
-To run every campaign:
-
-```bash
-for c in math memory_simple memory_tlsf memory_cpus_simple memory_cpus_tlsf video system timer event datetime cd media slave scene string endian vdp1 vdp2 input sound transform tilemap draw2d fld; do ./run_tests.bat mednafen $c; done
-```
+To run every campaign of `CAMPAIGNS` in the `makefile`, leave the campaign out (or write `all`): `./run_tests.bat mednafen`.
+It prints the campaigns that failed at the end, and exits with an error if there is one.
 
 The log looks like this:
 
@@ -152,7 +149,7 @@ To install the WinUSB driver:
 ### Run
 
 1. Build tests with `make all SRL_LOG_OUTPUT=DEV_CART`.
-2. Run `./run_tests.bat USBGamers <campaign> [device-ip]`. The optional `device-ip` is the network power switch used to power-cycle the Saturn.
+2. Run `./run_tests.bat USBGamers <campaign> [device-ip]`, or `./run_tests.bat USBGamers all [device-ip]` for every campaign. The optional `device-ip` is the network power switch used to power-cycle the Saturn.
 
 The script resets the USB device, uploads `campaigns/<campaign>/cd/data/0.bin` to address `0x06004000`, and then starts the capture flow.
 The output still goes to `uts_<campaign>.log` like the emulator runs.
