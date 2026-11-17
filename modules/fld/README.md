@@ -8,15 +8,9 @@ sub-directories of the same disc. SRL wraps it in `saturnringlib/srl_fld.hpp` (`
 
 | File | What it is |
 |---|---|
-| `fld_knl.bin` | The kernel rebuilt from `src/fld_knl.c` (1700 bytes). Used by default (`SRL_FLD_KERNEL`). |
+| `fld_knl.bin` | The kernel rebuilt from `src/fld_knl.c` (1700 bytes). Used by default (`SRL_FLD_KERNEL`); not committed, `shared.mk` builds it when a project with `SRL_USE_FLD = 1` needs it. |
 | `src/fld_knl.c`, `fld_knl.ld`, `makefile` | Its source, linker script (image at `0x00200000`, entry pointer first) and build: `make` in this directory with the sh-elf toolchain. |
-| `original/fld_knl.bin` | SEGA's kernel, FLD 1.21 (1996-02-28), 4984 bytes, md5 `ea30d5124580b1aeab7d9abcf06594b0` (DTS CD `netlink/h2h/library/fld_knl.bin`). Set `SRL_FLD_KERNEL` to it to compare. |
 | `fld_kernel.S` | Puts the kernel selected by `SRL_FLD_KERNEL` in the program as `FldKernel` / `FldKernelEnd`. |
-| `tools/FldSetup.java`, `tools/FldExport.java` | Ghidra 12 headless scripts used for the decompilation (see below). |
-
-The 9326-byte `fld_knl.bin` ("FLD Version 1.21" + "CDC Version 1.22 1997-02-27") found in some SBL6 packages is
-**broken**: from about 0x200940 its code sits one byte after the addresses its own calls use, so it crashes as soon
-as `FLD_1stRead` calls into that part. Do not use it.
 
 ## How a game starts
 
@@ -63,14 +57,3 @@ Its only variable (HIRQ bits seen by the commands) is part of the binary, right 
 | `0x060022E4`, `0x06002D80` | VBlank-in handler and logo counter of SEGA's IP security code |
 | `0x25890008` - `0x25898000` | CD block registers (HIRQ, CR1-CR4, data) and `0x25818000` (32-bit data port) |
 
-## How it was decompiled
-
-```sh
-analyzeHeadless <project dir> fld -import original/fld_knl.bin -loader BinaryLoader \
-    -loader-baseAddr 0x00200000 -processor "SuperH:BE:32:SH-2" \
-    -scriptPath tools -preScript FldSetup.java -postScript FldExport.java <output.c>
-```
-
-Ghidra 12 needs JDK 21. The output still calls through literal-pool slots (`PTR_FUN_...`); reading their values
-and the disassembly (`sh-elf-objdump -D -b binary -m sh2 --adjust-vma=0x200000 -EB`) gives the rest. The
-`fld` test campaign passes with both kernels.
