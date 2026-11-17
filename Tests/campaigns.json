@@ -2,7 +2,8 @@
   "about": [
     "Per-campaign settings read by run_tests.bat.",
     "known_failures: test name -> library bug that makes it fail. These failures do not fail the run; remove an entry once its bug is fixed.",
-    "skip_modes: run_tests.bat mode -> why the campaign is not run in that mode (it exits 0)."
+    "skip_modes: run_tests.bat mode -> why the campaign is not run in that mode (it exits 0).",
+    "mednafen_args: extra mednafen settings for the campaign (timer_pal starts mednafen as a European, PAL console)."
   ],
   "campaigns": {
     "math": {
@@ -110,6 +111,10 @@
       }
     },
     "timer": {
+      "known_failures": {}
+    },
+    "timer_pal": {
+      "mednafen_args": "-ss.region_autodetect 0 -ss.region_default eu",
       "known_failures": {}
     },
     "event": {

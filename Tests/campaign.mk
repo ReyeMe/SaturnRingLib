@@ -3,7 +3,7 @@
 
 # Configuration
 SRL_MAX_TEXTURES ?= 1           # Number of VDP1 texture slots
-SRL_MODE = NTSC                 # Valid options are PAL or NTSC
+SRL_MODE ?= NTSC                # Valid options are PAL or NTSC; timer_pal sets PAL
 SRL_HIGH_RES = 0                # 480i mode
 SRL_FRAMERATE = 1               # Framerate control (0=dynamic, 1=< 60/value)
 SRL_MAX_CD_BACKGROUND_JOBS = 1  # Maximum number of files GFS can open at once
