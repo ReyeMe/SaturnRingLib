@@ -13,30 +13,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void utils_test_setup(void)
-{
-        // No initialization needed
-}
-
-void utils_test_teardown(void)
-{
-        // No cleanup required
-}
-
-void utils_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_UTILS****");
-        }
-        else
-        {
-            LogInfo("****UT_UTILS_ERROR(S)****");
-        }
-    }
-}
 
     /**
  * @brief Tests the basic math utility functions: Abs, Min, Max, and Clamp.
@@ -121,10 +97,6 @@ MU_TEST(utils_fast_sqrt_values)
 
 MU_TEST_SUITE(utils_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&utils_test_setup,
-        &utils_test_teardown,
-        &utils_test_output_header);
-
     MU_RUN_TEST(utils_abs_min_max_clamp);
     MU_RUN_TEST(utils_fast_sqrt_basic);
     MU_RUN_TEST(utils_fast_sqrt_values);

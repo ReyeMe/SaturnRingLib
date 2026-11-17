@@ -15,40 +15,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Sets up the environment for fixed-point (Fxp) unit tests.
- */
-void fxp_test_setup(void)
-{
-        // No initialization needed
-}
-
-    /**
- * @brief Cleans up the environment after each fixed-point (Fxp) unit test.
- */
-void fxp_test_teardown(void)
-{
-        // No cleanup required
-}
-
-    /**
- * @brief Displays a header for the fixed-point (Fxp) test suite upon the first error.
- */
-void fxp_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_FXP****");
-        }
-        else
-        {
-            LogInfo("****UT_FXP_ERROR(S)****");
-        }
-    }
-}
-
     /** @brief Tests initialization of a fixed-point number with zero. */
 MU_TEST(fxp_initialization_zero)
 {
@@ -1111,10 +1077,6 @@ MU_TEST(fxp_add_sub_runtime_matches_compile_time)
 
 MU_TEST_SUITE(fxp_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
-        &fxp_test_teardown,
-        &fxp_test_output_header);
-
     MU_RUN_TEST(fxp_initialization_zero);
     MU_RUN_TEST(fxp_initialization_one);
     MU_RUN_TEST(fxp_initialization_unsigned_int);

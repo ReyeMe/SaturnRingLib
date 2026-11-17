@@ -11,39 +11,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-    /**
- * @brief Sets up the environment for Matrix Stack unit tests.
- */
-void matrix_stack_test_setup(void)
-{
-        // No initialization needed
-}
-
-    /**
- * @brief Cleans up the environment after each Matrix Stack unit test.
- */
-void matrix_stack_test_teardown(void)
-{
-        // No cleanup required
-}
-
-    /**
- * @brief Displays a header for the Matrix Stack test suite upon the first error.
- */
-void matrix_stack_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MATRIX_STACK****");
-        }
-        else
-        {
-            LogInfo("****UT_MATRIX_STACK_ERROR(S)****");
-        }
-    }
-}
 
 static inline bool matrix43_is_identity(const Matrix43& m)
 {
@@ -167,10 +134,6 @@ MU_TEST(matrix_stack_pop_underflow_and_parent_restore)
  */
 MU_TEST_SUITE(matrix_stack_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&matrix_stack_test_setup,
-        &matrix_stack_test_teardown,
-        &matrix_stack_test_output_header);
-
     MU_RUN_TEST(matrix_stack_construction_and_identity);
     MU_RUN_TEST(matrix_stack_push_pop_clear);
     MU_RUN_TEST(matrix_stack_overflow_is_ignored);

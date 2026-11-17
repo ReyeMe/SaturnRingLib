@@ -14,33 +14,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Sets up the environment for 3x3 Matrix (Mat33) unit tests.
- */
-void mat33_test_setup(void) {}
-    /**
- * @brief Cleans up the environment after each 3x3 Matrix (Mat33) unit test.
- */
-void mat33_test_teardown(void) {}
-
-    /**
- * @brief Displays a header for the 3x3 Matrix (Mat33) test suite upon the first error.
- */
-void mat33_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MAT33****");
-        }
-        else
-        {
-            LogInfo("****UT_MAT33_ERROR(S)****");
-        }
-    }
-}
-
 /** @brief Row-by-row equality (Matrix33 has no operator==). */
 static bool mat33_equal(const Matrix33& a, const Matrix33& b)
 {
@@ -237,10 +210,6 @@ MU_TEST(mat33_tryinverse_non_uniform_scale)
 
 MU_TEST_SUITE(mat33_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&mat33_test_setup,
-        &mat33_test_teardown,
-        &mat33_test_output_header);
-
     MU_RUN_TEST(mat33_identity_and_vector_multiply);
     MU_RUN_TEST(mat33_scale_determinant_transpose);
     MU_RUN_TEST(mat33_transpose_involution);

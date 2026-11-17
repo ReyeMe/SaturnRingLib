@@ -31,24 +31,6 @@ void cd_test_teardown(void)
 }
 
     /**
- * @brief Displays a header for the CD test suite upon the first error.
- */
-void cd_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_CD****");
-        }
-        else
-        {
-            LogInfo("****UT_CD_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Tests basic file operations: existence check, opening, and closing.
  * @details Verifies that a known file exists, can be successfully opened (retrieving a valid identifier),
  *          and then properly closed.
@@ -1225,9 +1207,7 @@ MU_TEST(cd_test_directory_edges)
  */
 MU_TEST_SUITE(cd_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&cd_test_setup,
-        &cd_test_teardown,
-        &cd_test_output_header);
+    MU_SUITE_CONFIGURE(&cd_test_setup, &cd_test_teardown);
 
     MU_RUN_TEST(cd_test_file_exists);
     MU_RUN_TEST(cd_test_read_file);

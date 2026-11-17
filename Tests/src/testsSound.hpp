@@ -50,14 +50,6 @@ static bool sound_stop_all()
 void sound_test_setup(void) { sound_stop_all(); }
 void sound_test_teardown(void) { sound_stop_all(); }
 
-void sound_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_SOUND_ERROR(S)****");
-    }
-}
-
 /** @brief The sound driver files are on the disc (else every other test here fails for that reason). */
 MU_TEST(sound_driver_files_on_disc)
 {
@@ -135,7 +127,7 @@ MU_TEST(sound_channel_out_of_range)
 
 MU_TEST_SUITE(sound_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&sound_test_setup, &sound_test_teardown, &sound_test_output_header);
+    MU_SUITE_CONFIGURE(&sound_test_setup, &sound_test_teardown);
 
     MU_RUN_TEST(sound_driver_files_on_disc);
     MU_RUN_TEST(sound_raw_pcm_load);
@@ -193,16 +185,7 @@ static uint8_t cdda_wait_end(int frames)
     return 0xff;
 }
 
-void cdda_test_setup(void) {}
 void cdda_test_teardown(void) { Sound::Cdda::StopPause(); }
-
-void cdda_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_CDDA_ERROR(S)****");
-    }
-}
 
 /** @brief Track flags in the table of contents: track 1 is data, track 2 audio; neither is incremental or copyable. */
 MU_TEST(cdda_toc_track_flags)
@@ -277,7 +260,7 @@ MU_TEST(cdda_resume_after_pause)
 
 MU_TEST_SUITE(cdda_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&cdda_test_setup, &cdda_test_teardown, &cdda_test_output_header);
+    MU_SUITE_CONFIGURE(NULL, &cdda_test_teardown);
 
     MU_RUN_TEST(cdda_toc_track_flags);
     MU_RUN_TEST(cdda_play_single_stops_at_track_end);

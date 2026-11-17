@@ -17,17 +17,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void wave_test_setup(void) {}
-void wave_test_teardown(void) {}
-
-void wave_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_WAVE_ERROR(S)****");
-    }
-}
-
 static constexpr int WaveFrames = 64;
 
 /** @brief Unsigned 8-bit sample of frame f, channel c, as stored in the file. */
@@ -143,8 +132,6 @@ MU_TEST(wave_no_leak)
 
 MU_TEST_SUITE(wave_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&wave_test_setup, &wave_test_teardown, &wave_test_output_header);
-
     MU_RUN_TEST(wave_mono_8bit);
     MU_RUN_TEST(wave_mono_16bit);
     MU_RUN_TEST(wave_stereo_16bit);

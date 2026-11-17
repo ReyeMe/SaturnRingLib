@@ -18,30 +18,6 @@ void memory_CartRam_test_setup(void) { memory_leak_check_setup(); }
 void memory_CartRam_test_teardown(void) { memory_leak_check_teardown(); }
 
     /**
- * @brief Output header for CartRam test suite error reporting
- *
- * This function is called on the first test failure to print
- * a header indicating that CartRam memory unit test errors have occurred.
- * It increments a global error counter to ensure the header
- * is printed only once per test suite run.
- */
-void memory_CartRam_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MEMORY_CartRam****");
-        }
-        else
-        {
-            LogInfo("****UT_MEMORY_CartRam_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Test memory allocation and deallocation in CartRam
  *
  * Verifies that memory can be allocated and freed correctly in CartRam.
@@ -612,9 +588,7 @@ MU_TEST_SUITE(memory_CartRam_test_suite)
         return;
     }
 
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_CartRam_test_setup,
-        &memory_CartRam_test_teardown,
-        &memory_CartRam_test_output_header);
+    MU_SUITE_CONFIGURE(&memory_CartRam_test_setup, &memory_CartRam_test_teardown);
 
     MU_RUN_TEST(memory_CartRam_test_malloc_free);
     MU_RUN_TEST(memory_CartRam_test_multiple_sizes_malloc_free);

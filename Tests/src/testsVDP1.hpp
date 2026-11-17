@@ -20,14 +20,6 @@ extern char buffer[];
 void vdp1_test_setup(void) { VDP1::ResetTextureHeap(); }
 void vdp1_test_teardown(void) { VDP1::ResetTextureHeap(); }
 
-void vdp1_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_VDP1_ERROR(S)****");
-    }
-}
-
 /** @brief VRAM byte address of texture id. */
 static uint32_t vdp1_texture_start(int32_t id) { return SpriteVRAM + (VDP1::Textures[id].Address << 3); }
 
@@ -185,7 +177,7 @@ MU_TEST(vdp1_load_paletted_bitmap)
 
 MU_TEST_SUITE(vdp1_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&vdp1_test_setup, &vdp1_test_teardown, &vdp1_test_output_header);
+    MU_SUITE_CONFIGURE(&vdp1_test_setup, &vdp1_test_teardown);
 
     MU_RUN_TEST(vdp1_first_texture_at_start);
     MU_RUN_TEST(vdp1_textures_do_not_overlap);

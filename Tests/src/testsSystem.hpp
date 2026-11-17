@@ -15,29 +15,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void system_test_setup(void)
-{
-}
-
-void system_test_teardown(void)
-{
-}
-
-void system_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_SYSTEM****");
-        }
-        else
-        {
-            LogInfo("****UT_SYSTEM_ERROR(S)****");
-        }
-    }
-}
-
 static void DummyHandler(void)
 {
 }
@@ -326,10 +303,6 @@ MU_TEST(system_test_semaphore_take_and_clear)
 
 MU_TEST_SUITE(system_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&system_test_setup,
-        &system_test_teardown,
-        &system_test_output_header);
-
     MU_RUN_TEST(system_test_interrupt_mask_roundtrip);
     MU_RUN_TEST(system_test_interrupt_mask_extremes);
     MU_RUN_TEST(system_test_get_interrupt_mask_matches_doc_example);

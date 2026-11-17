@@ -15,7 +15,6 @@ extern "C" {
 
 extern const uint8_t buffer_size;
 extern char buffer[];
-extern uint32_t suite_error_counter;
 
 /** @brief Text map set up by VDP2::Initialize: 64x64 one-word cells */
 static volatile uint16_t *const ascii_map = reinterpret_cast<volatile uint16_t *>(VDP2_VRAM_B1 + 0x1E000);
@@ -50,22 +49,6 @@ void ascii_test_teardown(void)
     ASCII::Clear();
     ASCII::SetPalette(0);
     ASCII::SetFont(0);
-}
-
-    // UT output header function, called on the first test failure
-void ascii_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_ASCII****");
-        }
-        else
-        {
-            LogInfo("****UT_ASCII_ERROR(S)****");
-        }
-    }
 }
 
 /** @brief Print writes one map cell per character from (x, y), with font 0 and palette 0, and nothing around them. */
@@ -237,9 +220,7 @@ MU_TEST(ascii_load_font_bitmap)
 
 MU_TEST_SUITE(ascii_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&ascii_test_setup,
-        &ascii_test_teardown,
-        &ascii_test_output_header);
+    MU_SUITE_CONFIGURE(&ascii_test_setup, &ascii_test_teardown);
 
     MU_RUN_TEST(ascii_print_writes_map);
     MU_RUN_TEST(ascii_clear_empties_map);

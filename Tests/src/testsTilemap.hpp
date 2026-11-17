@@ -37,14 +37,6 @@ static void tilemap_release_nbg1()
 void tilemap_test_setup(void) { VDP2::ClearVRAM(); }
 void tilemap_test_teardown(void) { tilemap_release_nbg1(); }
 
-void tilemap_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_TILEMAP_ERROR(S)****");
-    }
-}
-
 /** @brief Used blocks of both work RAM heaps, to check that tilemaps give their memory back. */
 static size_t tilemap_used_blocks()
 {
@@ -386,7 +378,7 @@ MU_TEST(tilemap_load_into_nbg1_2word)
 
 MU_TEST_SUITE(tilemap_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&tilemap_test_setup, &tilemap_test_teardown, &tilemap_test_output_header);
+    MU_SUITE_CONFIGURE(&tilemap_test_setup, &tilemap_test_teardown);
 
     MU_RUN_TEST(tilemap_info_sgl_color_mode);
     MU_RUN_TEST(tilemap_sgltile_passes_data_through);

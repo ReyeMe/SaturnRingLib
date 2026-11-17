@@ -18,17 +18,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void slave_test_setup(void) {}
-void slave_test_teardown(void) {}
-
-void slave_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_SLAVE_ERROR(S)****");
-    }
-}
-
 /** @brief Spin count before the master gives up waiting for the slave (a few seconds). */
 static constexpr int SlaveSpinLimit = 20000000;
 
@@ -155,8 +144,6 @@ MU_TEST(slave_reset_task_while_running)
 
 MU_TEST_SUITE(slave_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&slave_test_setup, &slave_test_teardown, &slave_test_output_header);
-
     MU_RUN_TEST(slave_task_runs_and_finishes);
     MU_RUN_TEST(slave_task_runs_again);
     MU_RUN_TEST(slave_two_tasks_back_to_back);

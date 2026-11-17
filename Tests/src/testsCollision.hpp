@@ -14,24 +14,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void collision_test_setup(void) {}
-void collision_test_teardown(void) {}
-
-void collision_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_COLLISION****");
-        }
-        else
-        {
-            LogInfo("****UT_COLLISION_ERROR(S)****");
-        }
-    }
-}
-
     /**
  * @brief Tests which side of a plane a point is on, from the sign of Plane::GetSignedDistance().
  */
@@ -118,10 +100,6 @@ MU_TEST(collision_intersects_and_contains_nominal)
  */
 MU_TEST_SUITE(collision_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&collision_test_setup,
-        &collision_test_teardown,
-        &collision_test_output_header);
-
     MU_RUN_TEST(collision_point_plane_side);
     MU_RUN_TEST(collision_sphere_plane);
     MU_RUN_TEST(collision_aabb_plane);

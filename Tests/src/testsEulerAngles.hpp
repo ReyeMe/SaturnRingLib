@@ -12,41 +12,6 @@ extern "C" {
 
 extern const uint8_t buffer_size;
 extern char buffer[];
-extern uint32_t suite_error_counter;
-
-    /**
- * @brief Sets up the environment for Euler Angles unit tests.
- */
-void euler_angles_test_setup(void)
-{
-        // Nothing to do here
-}
-
-    /**
- * @brief Cleans up the environment after each Euler Angles unit test.
- */
-void euler_angles_test_teardown(void)
-{
-        /* Nothing */
-}
-
-    /**
- * @brief Displays a header for the Euler Angles test suite upon the first error.
- */
-void euler_angles_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_EULER_ANGLES****");
-        }
-        else
-        {
-            LogInfo("****UT_EULER_ANGLES_ERROR(S)****");
-        }
-    }
-}
 
 /** @brief True if the angle is within 2 raw units (~0.01 degree) of the expected degrees; wraps around 360. */
 static bool euler_angle_near(const Angle& angle, int16_t degrees)
@@ -111,10 +76,6 @@ MU_TEST(euler_angles_test_normalization)
  */
 MU_TEST_SUITE(euler_angles_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&euler_angles_test_setup,
-        &euler_angles_test_teardown,
-        &euler_angles_test_output_header);
-
     MU_RUN_TEST(euler_angles_test_initialization_zero);
     MU_RUN_TEST(euler_angles_test_set_angles);
     MU_RUN_TEST(euler_angles_test_normalization);

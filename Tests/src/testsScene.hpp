@@ -25,17 +25,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void scene_test_setup(void) {}
-void scene_test_teardown(void) {}
-
-void scene_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_SCENE_ERROR(S)****");
-    }
-}
-
 /** @brief Used blocks of both work RAM heaps, to check that objects give their memory back. */
 static size_t scene_used_blocks()
 {
@@ -199,8 +188,6 @@ MU_TEST(scene3d_draw_mesh_until_full)
 
 MU_TEST_SUITE(scene_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&scene_test_setup, &scene_test_teardown, &scene_test_output_header);
-
     MU_RUN_TEST(scene_attribute_matches_sgl_macro);
     MU_RUN_TEST(scene_attribute_rgb_texture);
     MU_RUN_TEST(scene_attribute_paletted_texture);

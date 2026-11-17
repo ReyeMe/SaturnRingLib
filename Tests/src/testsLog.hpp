@@ -42,15 +42,6 @@ public:
 };
 
 void log_test_setup(void) { LogCapture::Clear(); }
-void log_test_teardown(void) {}
-
-void log_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_LOG_ERROR(S)****");
-    }
-}
 
 /** @brief Each level writes "LEVEL : message" and a new line; TRACE is below TESTING, so it writes nothing. */
 MU_TEST(log_levels_prefix_and_filter)
@@ -90,7 +81,7 @@ MU_TEST(log_newline_and_long_message)
 
 MU_TEST_SUITE(log_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&log_test_setup, &log_test_teardown, &log_test_output_header);
+    MU_SUITE_CONFIGURE(&log_test_setup, NULL);
 
     MU_RUN_TEST(log_levels_prefix_and_filter);
     MU_RUN_TEST(log_newline_and_long_message);

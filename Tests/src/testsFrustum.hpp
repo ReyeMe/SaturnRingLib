@@ -14,24 +14,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void frustum_test_setup(void) {}
-void frustum_test_teardown(void) {}
-
-void frustum_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_FRUSTUM****");
-        }
-        else
-        {
-            LogInfo("****UT_FRUSTUM_ERROR(S)****");
-        }
-    }
-}
-
 // Test frustum: 90 degree vertical FOV, 4:3 aspect, near 1, far 10, looking down -Z.
 // Frustum has no accessors in this SaturnMathPP version, so tests use these values directly.
 static const Fxp kNear = Fxp(int16_t{1});
@@ -202,10 +184,6 @@ MU_TEST(frustum_translated_rotated_view)
 
 MU_TEST_SUITE(frustum_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&frustum_test_setup,
-        &frustum_test_teardown,
-        &frustum_test_output_header);
-
     MU_RUN_TEST(frustum_frustum_intersection);
     MU_RUN_TEST(frustum_contains_point_sphere_aabb);
     MU_RUN_TEST(frustum_update_rotated_view);

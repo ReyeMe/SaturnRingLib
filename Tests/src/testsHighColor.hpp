@@ -14,57 +14,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 
     /**
- * @brief Preparation routine for HighColor unit tests
- *
- * This function is called before each test in the HighColor test suite.
- * Currently serves as a placeholder for potential future test initialization
- * requirements, such as setting up test data or resetting test environment.
- */
-void highcolor_test_setup(void)
-{
-        // Placeholder for any future test initialization needs
-        // Can be expanded to include specific setup operations
-        // for more complex HighColor testing scenarios
-}
-
-    /**
- * @brief Cleanup routine for HighColor unit tests
- *
- * This function is called after each test in the HighColor test suite.
- * Currently serves as a placeholder for potential resource release
- * or state reset operations that might be needed during testing.
- */
-void highcolor_test_teardown(void)
-{
-        // Placeholder for any future test cleanup requirements
-        // Can be used to free resources, reset global states,
-        // or perform any necessary post-test operations
-}
-
-    /**
- * @brief Error reporting header for HighColor test suite
- *
- * Prints a standardized error header when the first test failure occurs.
- * Uses a global error counter to ensure the header is printed only once
- * during a test suite execution, preventing redundant error messages.
- */
-void highcolor_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_HIGHCOLOR****");
-        }
-        else
-        {
-            LogInfo("****UT_HIGHCOLOR_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Test the initialization of HighColor with specific values
  *
  * Verifies that a HighColor object can be correctly initialized
@@ -219,17 +168,12 @@ MU_TEST(highcolor_test_from_integer)
     /**
  * @brief Configure and register HighColor test suite
  *
- * Sets up the test suite with initialization, cleanup, and error reporting
+ * Sets up the test suite with initialization and cleanup
  * functions. Registers all individual test cases to be executed during
  * the HighColor unit testing process.
  */
 MU_TEST_SUITE(highcolor_test_suite)
 {
-        // Configure test suite with setup, teardown, and error reporting functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&highcolor_test_setup,
-        &highcolor_test_teardown,
-        &highcolor_test_output_header);
-
         // Register individual test cases for execution
     MU_RUN_TEST(highcolor_test_initialization);
     MU_RUN_TEST(highcolor_test_max_values);

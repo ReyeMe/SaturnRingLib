@@ -18,24 +18,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void datetime_test_setup(void) {}
-void datetime_test_teardown(void) {}
-
-void datetime_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_DATETIME****");
-        }
-        else
-        {
-            LogInfo("****UT_DATETIME_ERROR(S)****");
-        }
-    }
-}
-
 /** @brief Shorter constructor: year, month, day, hour, minute, second (week 0). */
 static DateTime datetime_make(uint16_t year, uint8_t month, uint8_t day, uint8_t hour = 0, uint8_t minute = 0, uint8_t second = 0)
 {
@@ -222,10 +204,6 @@ MU_TEST(datetime_now)
 
 MU_TEST_SUITE(datetime_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&datetime_test_setup,
-        &datetime_test_teardown,
-        &datetime_test_output_header);
-
     MU_RUN_TEST(datetime_getters);
     MU_RUN_TEST(datetime_month_boundaries);
     MU_RUN_TEST(datetime_months_in_order);

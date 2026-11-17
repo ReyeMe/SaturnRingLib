@@ -61,7 +61,9 @@ extern "C"
 	/*  Test setup and teardown function pointers */
 	static void (*minunit_setup)(void) = NULL;
 	static void (*minunit_teardown)(void) = NULL;
-	static void (*minunit_output_header)(void) = NULL;
+
+	/*  Name of the running suite: its first failure prints a header with it */
+	static const char *minunit_suite_name = NULL;
 
 /*  Definitions */
 #define MU_TEST(method_name) static void method_name(void)
@@ -75,24 +77,16 @@ extern "C"
 
 /*  Run test suite and unset setup and teardown functions */
 #define MU_RUN_SUITE(suite_name) MU__SAFE_BLOCK( \
+	suite_error_counter = 0;                     \
+	minunit_suite_name = #suite_name;            \
 	suite_name();                                \
 	minunit_setup = NULL;                        \
-	minunit_teardown = NULL;                     \
-	minunit_output_header = NULL;)
+	minunit_teardown = NULL;)
 
 /*  Configure setup and teardown functions */
 #define MU_SUITE_CONFIGURE(setup_fun, teardown_fun) MU__SAFE_BLOCK( \
-	suite_error_counter = 0;                                        \
 	minunit_setup = setup_fun;                                      \
-	minunit_teardown = teardown_fun;                                \
-	minunit_output_header = NULL;)
-
-/*  Configure setup and teardown functions */
-#define MU_SUITE_CONFIGURE_WITH_HEADER(setup_fun, teardown_fun, output_header) MU__SAFE_BLOCK( \
-	suite_error_counter = 0;                                                                   \
-	minunit_setup = setup_fun;                                                                 \
-	minunit_teardown = teardown_fun;                                                           \
-	minunit_output_header = output_header;)
+	minunit_teardown = teardown_fun;)
 
 /*  Test runner */
 #define MU_RUN_TEST(test) MU__SAFE_BLOCK(                            \
@@ -106,9 +100,9 @@ extern "C"
 	/* Teardown before reporting, so it can fail the test (leak checks) */ \
 	if (minunit_teardown)(*minunit_teardown)();                      \
 	++minunit_run;                                                   \
-	if (minunit_status && minunit_output_header)                 \
-			(*minunit_output_header)();  							 \
 	if (minunit_status) {                                            \
+		if (!suite_error_counter++)                                  \
+			Log::LogPrint<LogLevels::INFO>("****UT_%s_ERROR(S)****", minunit_suite_name); \
 		++minunit_fail;												 \
 		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
 	} else { 														 \

@@ -14,24 +14,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void sphere_test_setup(void) {}
-void sphere_test_teardown(void) {}
-
-void sphere_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_SPHERE****");
-        }
-        else
-        {
-            LogInfo("****UT_SPHERE_ERROR(S)****");
-        }
-    }
-}
-
 MU_TEST(sphere_construction)
 {
     const Sphere s(Vector3D(1, 2, 3), 4);
@@ -59,10 +41,6 @@ MU_TEST(sphere_contains_point)
 
 MU_TEST_SUITE(sphere_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&sphere_test_setup,
-        &sphere_test_teardown,
-        &sphere_test_output_header);
-
     MU_RUN_TEST(sphere_construction);
     MU_RUN_TEST(sphere_intersects_sphere);
     MU_RUN_TEST(sphere_contains_point);

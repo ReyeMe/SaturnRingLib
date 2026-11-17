@@ -77,21 +77,6 @@ void memory_leak_check_teardown(void)
 void memory_common_test_setup(void) { memory_leak_check_setup(); }
 void memory_common_test_teardown(void) { memory_leak_check_teardown(); }
 
-void memory_common_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MEMORY_COMMON****");
-        }
-        else
-        {
-            LogInfo("****UT_MEMORY_COMMON_ERROR(S)****");
-        }
-    }
-}
-
 /** @brief True if all len bytes at ptr equal value. */
 static bool mem_all_equal(const void *ptr, uint8_t value, size_t len)
 {
@@ -1345,9 +1330,7 @@ MU_TEST(memory_common_both_cpus_hwram)
 
 MU_TEST_SUITE(memory_common_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
-        &memory_common_test_teardown,
-        &memory_common_test_output_header);
+    MU_SUITE_CONFIGURE(&memory_common_test_setup, &memory_common_test_teardown);
 
     MU_RUN_TEST(memory_common_accounting_hwram);
     MU_RUN_TEST(memory_common_accounting_lwram);
@@ -1399,9 +1382,7 @@ MU_TEST_SUITE(memory_common_test_suite)
  */
 MU_TEST_SUITE(memory_common_risky_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
-        &memory_common_test_teardown,
-        &memory_common_test_output_header);
+    MU_SUITE_CONFIGURE(&memory_common_test_setup, &memory_common_test_teardown);
 
     MU_RUN_TEST(memory_common_wrong_zone_hwram);
     MU_RUN_TEST(memory_common_wrong_zone_lwram);
@@ -1424,9 +1405,7 @@ MU_TEST_SUITE(memory_common_risky_test_suite)
  */
 MU_TEST_SUITE(memory_common_cpus_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
-        &memory_common_test_teardown,
-        &memory_common_test_output_header);
+    MU_SUITE_CONFIGURE(&memory_common_test_setup, &memory_common_test_teardown);
 
     MU_RUN_TEST(memory_common_both_cpus_hwram);
 }

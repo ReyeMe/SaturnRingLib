@@ -11,30 +11,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void precision_test_setup(void)
-{
-        // No initialization needed
-}
-
-void precision_test_teardown(void)
-{
-        // No cleanup required
-}
-
-void precision_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_PRECISION****");
-        }
-        else
-        {
-            LogInfo("****UT_PRECISION_ERROR(S)****");
-        }
-    }
-}
 
 MU_TEST(precision_default_is_valid)
 {
@@ -63,10 +39,6 @@ MU_TEST(precision_default_is_fast_without_config)
 
 MU_TEST_SUITE(precision_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&precision_test_setup,
-        &precision_test_teardown,
-        &precision_test_output_header);
-
     MU_RUN_TEST(precision_default_is_valid);
     MU_RUN_TEST(precision_values_are_distinct);
     MU_RUN_TEST(precision_default_is_fast_without_config);

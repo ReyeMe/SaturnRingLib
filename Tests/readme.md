@@ -52,6 +52,23 @@ Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `m
 Shared build settings are in `campaign.mk`.
 
 To add a suite, include its header and add a `RUN_AND_DISPLAY_SUITE(...)` line in the campaign's `main.cxx`.
+
+A suite can set things up at two levels:
+
+```cpp
+MU_TEST_SUITE(my_test_suite)
+{
+    MySuiteSetup();                                  // once, before the suite's first test
+
+    MU_SUITE_CONFIGURE(&my_setup, &my_teardown);     // around each test; either can be NULL
+    MU_RUN_TEST(my_first_test);
+    MU_RUN_TEST(my_second_test);
+
+    MySuiteTeardown();                               // once, after the last test
+}
+```
+
+A failed check only ends its own test, so the per-test teardown and the suite's last lines still run.
 To add a campaign, copy a folder in `campaigns/`, change `CD_NAME` in its `makefile`, add its name to `CAMPAIGNS` in `makefile` and to the CI matrix in `.github/workflows/main.yml`, and give it an entry in `campaigns.json`.
 
 ## Build the tests
@@ -86,7 +103,7 @@ The log looks like this:
 
 ````
 INFO : ***UT_START***
-INFO : ****UT_ANGLE_ERROR(S)****
+INFO : ****UT_angle_test_suite_ERROR(S)****
 FATAL : angle_test_operator_addition_wrap_around failed:
 	src/testsAngle.hpp:900: Addition wrap-around failed: 9 != 10
 FATAL : angle_test_operator_subtraction_wrap_around failed:
@@ -94,7 +111,7 @@ FATAL : angle_test_operator_subtraction_wrap_around failed:
 ...
 FATAL : memory_test_memory_leaks failed:
 	src/testsMemory.hpp:844: Memory allocation failed
-INFO : ****UT_bitmap_ERROR(S)****
+INFO : ****UT_bitmap_test_suite_ERROR(S)****
 FATAL : palette_test_initialization failed:
 	src/testsBitmap.hpp:77: Palette colors not allocated correctly: 0
 INFO : 219 tests, 327 assertions, 23 failures

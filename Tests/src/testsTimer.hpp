@@ -53,16 +53,6 @@ void timer_test_setup(void)
         // Initialize with current clock mode (auto-detected)
     SRL::TimerTest::InitDivider();
 }
-void timer_test_teardown(void) {}
-
-void timer_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-            LogDebug("****UT_TIMER****");
-    }
-}
 }
 
 /** @brief Test Tickstamp construction using FromTicks
@@ -798,7 +788,7 @@ MU_TEST(timer_diagnostic_overflow)
 // Test suite definition - Updated for current API with hybrid builders
 MU_TEST_SUITE(test_timer_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&timer_test_setup, &timer_test_teardown, &timer_test_output_header);
+    MU_SUITE_CONFIGURE(&timer_test_setup, NULL);
 
     // Tickstamp basic tests
     MU_RUN_TEST(timer_tickstamp_construction);

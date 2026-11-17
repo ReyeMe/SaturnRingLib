@@ -17,24 +17,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void interpolation_test_setup(void) {}
-void interpolation_test_teardown(void) {}
-
-void interpolation_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_INTERPOLATION****");
-        }
-        else
-        {
-            LogInfo("****UT_INTERPOLATION_ERROR(S)****");
-        }
-    }
-}
-
 /** @brief True if a is within tol raw units (1/65536) of b. */
 static bool interp_near(const Fxp& a, const Fxp& b, int32_t tol)
 {
@@ -197,10 +179,6 @@ MU_TEST(interpolation_elastic_ease_in)
 
 MU_TEST_SUITE(interpolation_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&interpolation_test_setup,
-        &interpolation_test_teardown,
-        &interpolation_test_output_header);
-
     MU_RUN_TEST(interpolation_lerp);
     MU_RUN_TEST(interpolation_smoothstep);
     MU_RUN_TEST(interpolation_clamp);

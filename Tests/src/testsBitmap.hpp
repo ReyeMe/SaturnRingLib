@@ -14,58 +14,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 
     /**
- * @brief Set up routine for bitmap unit tests
- *
- * This function is called before each test in the bitmap test suite.
- * Currently, it does not perform any specific setup operations,
- * but provides a hook for future initialization requirements.
- */
-void bitmap_test_setup(void)
-{
-        // Placeholder for any necessary test initialization
-        // Future implementations might include resetting bitmap state,
-        // clearing buffers, or preparing test environments
-}
-
-    /**
- * @brief Tear down routine for bitmap unit tests
- *
- * This function is called after each test in the bitmap test suite.
- * Currently, it does not perform any specific cleanup operations,
- * but provides a hook for future resource release or state reset.
- */
-void bitmap_test_teardown(void)
-{
-        // Placeholder for any necessary test cleanup
-        // Future implementations might include freeing resources,
-        // resetting global state, or clearing temporary data
-}
-
-    /**
- * @brief Output header for test suite error reporting
- *
- * This function is called on the first test failure to print
- * a header indicating that bitmap unit test errors have occurred.
- * It increments a global error counter to ensure the header
- * is printed only once per test suite run.
- */
-void bitmap_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_BITMAP****");
-        }
-        else
-        {
-            LogInfo("****UT_BITMAP_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Test the initialization of the Palette struct
  *
  * Verifies that the Palette struct is properly initialized with the correct
@@ -189,17 +137,12 @@ MU_TEST(ibitmap_test_get_info)
     /**
  * @brief bitmap test suite configuration and test case registration
  *
- * Configures the test suite with setup, teardown, and error reporting functions.
+ * Configures the test suite with setup and teardown functions.
  * Registers individual test cases to be executed during the test run.
  * Currently runs the base address initialization test and palette tests.
  */
 MU_TEST_SUITE(bitmap_test_suite)
 {
-        // Configure test suite with setup, teardown, and error reporting functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&bitmap_test_setup,
-        &bitmap_test_teardown,
-        &bitmap_test_output_header);
-
         // Register test cases to be executed
     MU_RUN_TEST(palette_test_initialization);
     MU_RUN_TEST(palette_test_destruction);

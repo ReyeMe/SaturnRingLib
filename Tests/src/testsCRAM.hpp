@@ -33,39 +33,6 @@ void cram_test_setup(void)
 }
 
     /**
- * @brief Tear down routine for CRAM unit tests
- *
- * This function is called after each test in the CRAM test suite.
- * Currently, it does not perform any specific cleanup operations,
- * but provides a hook for future resource release or state reset.
- */
-void cram_test_teardown(void)
-{
-        // Placeholder for any necessary test cleanup
-        // Future implementations might include freeing resources,
-        // resetting global state, or clearing temporary data
-}
-
-    /**
- * @brief Displays a header for the CRAM test suite upon the first error.
- */
-void cram_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_CRAM****");
-        }
-        else
-        {
-            LogInfo("****UT_CRAM_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Tests that the CRAM base address is a valid, non-null pointer.
  * @details This is a minimal sanity check that the `CRAM::BaseAddress` constant is properly initialized.
  */
@@ -286,10 +253,8 @@ MU_TEST(cram_test_get_free_bank_basic)
  */
 MU_TEST_SUITE(cram_test_suite)
 {
-        // Configure test suite with setup, teardown, and error reporting functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&cram_test_setup,
-        &cram_test_teardown,
-        &cram_test_output_header);
+        // Configure test suite with setup and teardown functions
+    MU_SUITE_CONFIGURE(&cram_test_setup, NULL);
 
         // Register test cases to be executed
     MU_RUN_TEST(cram_test_base_address);
