@@ -1,11 +1,28 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
-  # Usage: ./run_tests.bat <kronos|mednafen|USBGamers> <campaign> [device-ip]
+  # Usage: ./run_tests.bat <kronos|mednafen|USBGamers> [campaign|all] [device-ip]
   # <campaign> is a folder of campaigns/ (math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, event, datetime, cd, media, slave, scene, string, endian, vdp1, vdp2, input, sound, transform, tilemap, draw2d, fld)
+  # No campaign, or "all": runs every campaign of CAMPAIGNS in the makefile, one after the other
 
-  if [ -z "$1" ] || [ -z "$2" ]; then
-    echo "Usage: $0 <kronos|mednafen|USBGamers> <campaign> [device-ip]"
+  if [ -z "$1" ]; then
+    echo "Usage: $0 <kronos|mednafen|USBGamers> [campaign|all] [device-ip]"
     exit 1
+  fi
+
+  if [ -z "$2" ] || [ "$2" = "all" ]; then
+    # Ctrl-C stops the running campaign, then this loop
+    trap 'exit 1' TERM INT
+    failed=""
+    for c in $(sed -n 's/^CAMPAIGNS = //p' makefile); do
+      echo "===== $c ====="
+      bash "$0" "$1" "$c" "$3" || failed="$failed $c"
+    done
+    if [ -n "$failed" ]; then
+      echo "Failed campaigns:$failed"
+      exit 1
+    fi
+    echo "All campaigns passed"
+    exit 0
   fi
 
   MODE="$1"
