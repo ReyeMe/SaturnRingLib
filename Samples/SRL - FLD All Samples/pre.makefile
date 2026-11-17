@@ -1,5 +1,5 @@
-# Builds every other sample (each folder of Samples/ with a makefile, except the two FLD menus) and puts them all on
-# this disc:
+# Builds every other sample (each folder of Samples/ with a makefile, except those listed in blacklist.txt) and puts
+# them all on this disc:
 #   SAMPLES.BIN   IP file shared by all samples (the standard SRL IP)
 #   Snn/          cd/data of sample nn: its 0.bin (the first file of the directory) and its files
 #   cd/music      the CD-DA tracks of every sample, one after the other, in each sample's own order
@@ -7,6 +7,7 @@
 # shortcut: every sample boots with SRL's IP.BIN; a sample with its own SRL_IPBIN would need its own IP file.
 
 FLD_ALL_SELF = $(notdir $(CURDIR))
+FLD_ALL_BLACKLIST = ./blacklist.txt
 FLD_ALL_HEADER = ./src/samples.gen.hpp
 
 # Prints the converted (.raw) CD-DA tracks of sample directory $1, in the order its own build puts them on its disc
@@ -38,7 +39,9 @@ pre_build:
 	for dir in ../*/; do \
 		name=$$(basename "$$dir"); \
 		[ -f "$$dir/makefile" ] || continue; \
-		[ "$$name" = "SRL - FLD menu" ] || [ "$$name" = "$(FLD_ALL_SELF)" ] && continue; \
+		sed 's/\r$$//;s/[[:space:]]*$$//;/^[[:space:]]*#/d' $(FLD_ALL_BLACKLIST) | grep -Fxq -- "$$name" && continue; \
+		: "This disc itself, even when renamed: building it from here would never end"; \
+		[ "$$name" = "$(FLD_ALL_SELF)" ] && continue; \
 		id=$$((id + 1)); sid=$$(printf 'S%02d' $$id); \
 		echo "****** $$sid: $$name ******"; \
 		$(MAKE) -C "$$dir" SRL_INSTALL_ROOT="$(SRL_INSTALL_ROOT)" all || exit 1; \
