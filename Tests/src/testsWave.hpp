@@ -1,6 +1,6 @@
 // Tests/src/testsWave.hpp
 // SRL::Sound::Pcm::WaveSound: loading 8 and 16-bit, mono and stereo WAV files into PCM data (no playback).
-// The 64-frame files are written by Tests/campaigns/media/make_data.py: the formulas below must match it.
+// The 64-frame files are written by Tests/campaigns/media/makefile: the formulas below must match it.
 #pragma once
 
 #include <srl.hpp>
