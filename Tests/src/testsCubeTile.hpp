@@ -1,6 +1,6 @@
 // Tests/src/testsCubeTile.hpp
 // SRL::Tilemap::Interfaces::CubeTile: loading tilemap files from the disc. The files come from
-// Tests/campaigns/media/make_data.py: palette byte i = i * 3 + seed, map byte i = i * 5 + seed, cell byte i = i * 7 + seed.
+// Tests/campaigns/media/makefile: palette byte i = i * 3 + seed, map byte i = i * 5 + seed, cell byte i = i * 7 + seed.
 #pragma once
 
 #include <srl.hpp>

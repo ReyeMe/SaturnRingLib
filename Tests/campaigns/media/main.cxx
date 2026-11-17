@@ -1,5 +1,5 @@
 // Tests/campaigns/media/main.cxx
-// Loading media files from the disc: TGA images, WAV sounds and CubeTile tilemaps. The files come from make_data.py.
+// Loading media files from the disc: TGA images, WAV sounds and CubeTile tilemaps. The files are written by this campaign's makefile.
 #include "campaign.hpp"
 
 #include "testsCubeTile.hpp"

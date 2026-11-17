@@ -35,7 +35,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
 | `datetime` | Date and time (`DateTime`): ordering, leap years, backup unit dates, RTC. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
-| `media` | TGA images, WAV sounds and CubeTile tilemaps loaded from the disc. Its files in `campaigns/media/cd/data/` are written by `campaigns/media/make_data.py`. |
+| `media` | TGA images, WAV sounds and CubeTile tilemaps loaded from the disc. Its files in `campaigns/media/cd/data/` are not committed: `campaigns/media/makefile` writes them before making the disc. |
 | `slave` | Tasks on the slave CPU (`Slave`, `ITask`). |
 | `scene` | Mesh and sprite attributes, `Mesh`/`SmoothMesh`, `Scene3D` projection, visibility and drawing. |
 | `string` | `SRL::string` and `snprintfEx` formatting, `SRL::Logger` output. |

@@ -1,6 +1,6 @@
 // Tests/src/testsTGA.hpp
 // SRL::Bitmap::TGA: true color (16, 24, 32 bit) and paletted (16, 256 colors) images, plain and RLE, in all four
-// origins. The 8x4 images are written by Tests/campaigns/media/make_data.py: the formulas below must match it.
+// origins. The 8x4 images are written by Tests/campaigns/media/makefile: the formulas below must match it.
 #pragma once
 
 #include <srl.hpp>
