@@ -24,17 +24,6 @@ extern char buffer[];
 /** @brief Disc track the fld campaign gives as the game's first CD-DA track */
 static constexpr uint8_t FldGameFirstTrack = 5;
 
-void fld_test_setup(void) {}
-void fld_test_teardown(void) {}
-
-void fld_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_FLD_ERROR(S)****");
-    }
-}
-
 /** @brief Reads TEXT.TXT of the current root directory into buffer. */
 static const char *fld_read_text()
 {
@@ -76,8 +65,6 @@ MU_TEST(fld_exec_game_starts)
 
 MU_TEST_SUITE(fld_menu_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&fld_test_setup, &fld_test_teardown, &fld_test_output_header);
-
     MU_RUN_TEST(fld_menu_is_not_started_by_a_menu);
     MU_RUN_TEST(fld_exec_game_missing_files);
     MU_RUN_TEST(fld_exec_game_starts);
@@ -108,8 +95,6 @@ MU_TEST(fld_game_audio_tracks)
 
 MU_TEST_SUITE(fld_game_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&fld_test_setup, &fld_test_teardown, &fld_test_output_header);
-
     MU_RUN_TEST(fld_game_started_by_menu);
     MU_RUN_TEST(fld_game_directory_is_root);
     MU_RUN_TEST(fld_game_audio_tracks);

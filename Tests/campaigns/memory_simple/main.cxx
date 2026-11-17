@@ -13,9 +13,7 @@
  */
 MU_TEST_SUITE(memory_last_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_common_test_setup,
-        &memory_common_test_teardown,
-        &memory_common_test_output_header);
+    MU_SUITE_CONFIGURE(&memory_common_test_setup, &memory_common_test_teardown);
 
     MU_RUN_TEST(memory_common_largest_block_lwram);
     MU_RUN_TEST(memory_common_largest_block_hwram);

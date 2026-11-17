@@ -44,14 +44,6 @@ void input_test_teardown(void)
     }
 }
 
-void input_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_INPUT_ERROR(S)****");
-    }
-}
-
 /** @brief Marks every port as having nothing connected (id 0xff), in this frame and the previous one. */
 static void input_disconnect_all()
 {
@@ -193,7 +185,7 @@ MU_TEST(input_refresh_keeps_previous_frame)
 
 MU_TEST_SUITE(input_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&input_test_setup, &input_test_teardown, &input_test_output_header);
+    MU_SUITE_CONFIGURE(&input_test_setup, &input_test_teardown);
 
     MU_RUN_TEST(input_digital_is_held);
     MU_RUN_TEST(input_digital_pressed_and_released);

@@ -17,17 +17,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void tga_test_setup(void) {}
-void tga_test_teardown(void) {}
-
-void tga_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_TGA_ERROR(S)****");
-    }
-}
-
 static constexpr uint16_t TgaWidth = 8;
 static constexpr uint16_t TgaHeight = 4;
 
@@ -175,8 +164,6 @@ MU_TEST(tga_no_leak)
 
 MU_TEST_SUITE(tga_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&tga_test_setup, &tga_test_teardown, &tga_test_output_header);
-
     MU_RUN_TEST(tga_true_color_16bit_bottom_left);
     MU_RUN_TEST(tga_true_color_24bit_top_left);
     MU_RUN_TEST(tga_true_color_32bit_top_right);

@@ -18,29 +18,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void interrupt_test_setup(void)
-{
-}
-
-void interrupt_test_teardown(void)
-{
-}
-
-void interrupt_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_INTERRUPT****");
-        }
-        else
-        {
-            LogInfo("****UT_INTERRUPT_ERROR(S)****");
-        }
-    }
-}
-
     /** @brief Test Interrupt::SetMask round-trip via System::GetInterruptMask
  *
  * Verifies:
@@ -176,10 +153,6 @@ MU_TEST(interrupt_test_sethandler_cpu_vector_roundtrip)
 
 MU_TEST_SUITE(interrupt_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&interrupt_test_setup,
-        &interrupt_test_teardown,
-        &interrupt_test_output_header);
-
     MU_RUN_TEST(interrupt_test_setmask_roundtrip);
     MU_RUN_TEST(interrupt_test_changemask_identity_smoke);
     MU_RUN_TEST(interrupt_test_getstatus_and_resetstatus);

@@ -17,17 +17,6 @@ extern "C" {
     // External declarations for global variables used in testing
 extern const uint8_t buffer_size; // Size of the test buffer
 extern char buffer[]; // Test buffer for string operations
-extern uint32_t suite_error_counter; // Counter for tracking test suite errors
-
-    /**
- * @brief Setup function called before each test to initialize the environment.
- *
- * This function is used to perform any necessary initialization before each test case.
- */
-void string_test_setup(void)
-{
-        // Initialization logic, if necessary (currently empty)
-}
 
     /**
  * @brief Teardown function called after each test to clean up resources.
@@ -39,28 +28,6 @@ void string_test_teardown(void)
         // Cleanup logic to reset the ASCII display state
     ASCII::Clear(); // Clear the ASCII display
     ASCII::SetPalette(0); // Reset the palette to default
-}
-
-    /**
- * @brief Output header function called on the first test failure to log the suite status.
- *
- * This function is used to log the test suite status when the first test failure occurs.
- */
-void string_test_output_header(void)
-{
-        // Increment error counter and check if this is the first failure
-    if (!suite_error_counter++)
-    {
-            // Log based on the current log level
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_STRING****"); // Log test suite start in debug mode
-        }
-        else
-        {
-            LogInfo("****UT_STRING_ERROR(S)****"); // Log error header in info mode
-        }
-    }
 }
 
     /**
@@ -366,10 +333,8 @@ MU_TEST(string_copy_of_empty)
  */
 MU_TEST_SUITE(string_test_suite)
 {
-        // Configure the test suite with setup, teardown, and error header functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&string_test_setup,
-        &string_test_teardown,
-        &string_test_output_header);
+        // Configure the test suite with setup and teardown functions
+    MU_SUITE_CONFIGURE(NULL, &string_test_teardown);
 
         // Register all test cases
     MU_RUN_TEST(string_test_default_constructor);

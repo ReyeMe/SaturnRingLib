@@ -16,40 +16,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 
     /**
- * @brief Sets up the environment for Vector3D unit tests.
- */
-void vector3d_test_setup(void)
-{
-        // No initialization needed
-}
-
-    /**
- * @brief Cleans up the environment after each Vector3D unit test.
- */
-void vector3d_test_teardown(void)
-{
-        // No cleanup required
-}
-
-    /**
- * @brief Displays a header for the Vector3D test suite upon the first error.
- */
-void vector3d_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_VECTOR3D****");
-        }
-        else
-        {
-            LogInfo("****UT_VECTOR3D_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Helper to compare two Fxp values for near-equality.
  */
 static inline bool fxp_near_vec3(const Fxp& a, const Fxp& b, const Fxp& tol)
@@ -310,10 +276,6 @@ MU_TEST(vector3d_arithmetic_operators)
 
 MU_TEST_SUITE(vector3d_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&vector3d_test_setup,
-        &vector3d_test_teardown,
-        &vector3d_test_output_header);
-
     MU_RUN_TEST(vector3d_construction);
     MU_RUN_TEST(vector3d_abs_sort_and_comparisons);
     MU_RUN_TEST(vector3d_dot_cross_multidot);

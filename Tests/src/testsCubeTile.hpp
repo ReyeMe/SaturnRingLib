@@ -19,17 +19,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void cubetile_test_setup(void) {}
-void cubetile_test_teardown(void) {}
-
-void cubetile_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_CUBETILE_ERROR(S)****");
-    }
-}
-
 /** @brief What one test file holds. */
 struct CubeTileFile
 {
@@ -139,8 +128,6 @@ MU_TEST(cubetile_no_leak)
 
 MU_TEST_SUITE(cubetile_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&cubetile_test_setup, &cubetile_test_teardown, &cubetile_test_output_header);
-
     MU_RUN_TEST(cubetile_16_colors);
     MU_RUN_TEST(cubetile_256_colors_plane_2x1);
     MU_RUN_TEST(cubetile_rgb_width_and_height);

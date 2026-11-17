@@ -11,34 +11,10 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void trigonometry_test_setup(void)
-{
-        // No initialization needed
-}
-
-void trigonometry_test_teardown(void)
-{
-        // No cleanup required
-}
 
 static inline bool fxp_near_trig(const Fxp& a, const Fxp& b, const Fxp& tol)
 {
     return (a - b).Abs() <= tol;
-}
-
-void trigonometry_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_TRIGONOMETRY****");
-        }
-        else
-        {
-            LogInfo("****UT_TRIGONOMETRY_ERROR(S)****");
-        }
-    }
 }
 
 MU_TEST(trigonometry_sin_cos_key_angles)
@@ -285,10 +261,6 @@ MU_TEST(trigonometry_slerp)
 
 MU_TEST_SUITE(trigonometry_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&trigonometry_test_setup,
-        &trigonometry_test_teardown,
-        &trigonometry_test_output_header);
-
     MU_RUN_TEST(trigonometry_sin_cos_key_angles);
     MU_RUN_TEST(trigonometry_tan_basic);
     MU_RUN_TEST(trigonometry_tan_near_asymptote);

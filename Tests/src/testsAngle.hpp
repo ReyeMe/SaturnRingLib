@@ -12,37 +12,8 @@ extern "C" {
 
 extern const uint8_t buffer_size;
 extern char buffer[];
-extern uint32_t suite_error_counter;
 
 constexpr double PI = 3.14159;
-
-    // UT setup function, called before every tests
-void angle_test_setup(void)
-{
-        // Nothomg to do here
-}
-
-    // UT teardown function, called after every tests
-void angle_test_teardown(void)
-{
-        /* Nothing */
-}
-
-    // UT output header function, called on the first test failure
-void angle_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_ANGLE****");
-        }
-        else
-        {
-            LogInfo("****UT_ANGLE_ERROR(S)****");
-        }
-    }
-}
 
     /** @brief Tests that an angle initialized to zero degrees is also zero radians. */
 MU_TEST(angle_test_initialization_zero)
@@ -1024,10 +995,6 @@ MU_TEST(angle_test_operator_unary_minus_opposite)
     // Define the test suite with all unit tests
 MU_TEST_SUITE(angle_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&angle_test_setup,
-        &angle_test_teardown,
-        &angle_test_output_header);
-
     MU_RUN_TEST(angle_test_initialization_zero);
     MU_RUN_TEST(angle_test_subtraction_half_circle_minus_quarter_circle);
     MU_RUN_TEST(angle_test_subtraction_zero_minus_quarter_circle);

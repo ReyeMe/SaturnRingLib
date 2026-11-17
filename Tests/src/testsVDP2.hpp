@@ -25,14 +25,6 @@ extern char buffer[];
 void vdp2_test_setup(void) { VDP2::ClearVRAM(); }
 void vdp2_test_teardown(void) { VDP2::ClearVRAM(); }
 
-void vdp2_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_VDP2_ERROR(S)****");
-    }
-}
-
 /** @brief Size of each VRAM bank the allocator hands out: B1 keeps its top 0x8000 bytes (ASCII font and map, back color). */
 static uint32_t vdp2_bank_size(VramBank bank) { return bank == VramBank::B1 ? 0x18000 : 0x20000; }
 
@@ -508,7 +500,7 @@ MU_TEST(vdp2_rotation_settings)
 
 MU_TEST_SUITE(vdp2_settings_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&vdp2_settings_setup, &vdp2_settings_teardown, &vdp2_test_output_header);
+    MU_SUITE_CONFIGURE(&vdp2_settings_setup, &vdp2_settings_teardown);
 
     MU_RUN_TEST(vdp2_default_sprite_priorities);
     MU_RUN_TEST(vdp2_scroll_priority);
@@ -528,7 +520,7 @@ MU_TEST_SUITE(vdp2_settings_test_suite)
 
 MU_TEST_SUITE(vdp2_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&vdp2_test_setup, &vdp2_test_teardown, &vdp2_test_output_header);
+    MU_SUITE_CONFIGURE(&vdp2_test_setup, &vdp2_test_teardown);
 
     MU_RUN_TEST(vdp2_vram_allocate_aligned);
     MU_RUN_TEST(vdp2_vram_allocate_too_big);

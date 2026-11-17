@@ -19,24 +19,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void event_test_setup(void) {}
-void event_test_teardown(void) {}
-
-void event_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_EVENT****");
-        }
-        else
-        {
-            LogInfo("****UT_EVENT_ERROR(S)****");
-        }
-    }
-}
-
 /** @brief Call log shared by the callbacks: each call appends its id. */
 static char event_log[32];
 static int event_log_length = 0;
@@ -304,10 +286,6 @@ MU_TEST(event_core_sync_and_vblank)
 
 MU_TEST_SUITE(event_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&event_test_setup,
-        &event_test_teardown,
-        &event_test_output_header);
-
     MU_RUN_TEST(event_static_and_member);
     MU_RUN_TEST(event_lambda_proxy);
     MU_RUN_TEST(event_call_order);

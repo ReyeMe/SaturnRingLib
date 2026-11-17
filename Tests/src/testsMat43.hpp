@@ -15,33 +15,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 
     /**
- * @brief Sets up the environment for 4x3 Matrix (Mat43) unit tests.
- */
-void mat43_test_setup(void) {}
-    /**
- * @brief Cleans up the environment after each 4x3 Matrix (Mat43) unit test.
- */
-void mat43_test_teardown(void) {}
-
-    /**
- * @brief Displays a header for the 4x3 Matrix (Mat43) test suite upon the first error.
- */
-void mat43_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MAT43****");
-        }
-        else
-        {
-            LogInfo("****UT_MAT43_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Tests that an identity matrix transformation does not alter points or vectors.
  */
 MU_TEST(mat43_identity_transform)
@@ -191,10 +164,6 @@ MU_TEST(mat43_create_transform)
 
 MU_TEST_SUITE(mat43_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&mat43_test_setup,
-        &mat43_test_teardown,
-        &mat43_test_output_header);
-
     MU_RUN_TEST(mat43_identity_transform);
     MU_RUN_TEST(mat43_translation_and_invert);
     MU_RUN_TEST(mat43_multiplication_combines_translations);

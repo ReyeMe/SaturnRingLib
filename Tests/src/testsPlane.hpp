@@ -14,24 +14,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void plane_test_setup(void) {}
-void plane_test_teardown(void) {}
-
-void plane_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_PLANE****");
-        }
-        else
-        {
-            LogInfo("****UT_PLANE_ERROR(S)****");
-        }
-    }
-}
-
     /**
  * @brief Tests the default constructor and signed distance.
  * @details A default plane passes through the origin with a +Y normal; GetSignedDistance() is normal·p - d,
@@ -107,10 +89,6 @@ MU_TEST(plane_normalize)
  */
 MU_TEST_SUITE(plane_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&plane_test_setup,
-        &plane_test_teardown,
-        &plane_test_output_header);
-
     MU_RUN_TEST(plane_default_and_distance);
     MU_RUN_TEST(plane_from_normal_and_point);
     MU_RUN_TEST(plane_from_three_points);

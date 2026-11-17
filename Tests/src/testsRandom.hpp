@@ -14,30 +14,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void random_test_setup(void)
-{
-        // No initialization needed
-}
-
-void random_test_teardown(void)
-{
-        // No cleanup required
-}
-
-void random_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_RANDOM****");
-        }
-        else
-        {
-            LogInfo("****UT_RANDOM_ERROR(S)****");
-        }
-    }
-}
 
     // Compare raw and ranged GetNumber() for all types <=32bit, using numeric_limits - 1
 
@@ -541,10 +517,6 @@ MU_TEST(random_signed_wide_range)
 
 MU_TEST_SUITE(random_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&random_test_setup,
-        &random_test_teardown,
-        &random_test_output_header);
-
     MU_RUN_TEST(random_same_seed_same_sequence_u32);
     MU_RUN_TEST(random_range_is_inclusive_and_order_independent_u32);
     MU_RUN_TEST(random_range_signed_i32);

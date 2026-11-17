@@ -11,30 +11,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void sort_order_test_setup(void)
-{
-        // No initialization needed
-}
-
-void sort_order_test_teardown(void)
-{
-        // No cleanup required
-}
-
-void sort_order_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_SORT_ORDER****");
-        }
-        else
-        {
-            LogInfo("****UT_SORT_ORDER_ERROR(S)****");
-        }
-    }
-}
 
 MU_TEST(sort_order_values_are_distinct)
 {
@@ -52,10 +28,6 @@ MU_TEST(sort_order_instantiates_vector_sort)
 
 MU_TEST_SUITE(sort_order_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&sort_order_test_setup,
-        &sort_order_test_teardown,
-        &sort_order_test_output_header);
-
     MU_RUN_TEST(sort_order_values_are_distinct);
     MU_RUN_TEST(sort_order_instantiates_vector_sort);
 }

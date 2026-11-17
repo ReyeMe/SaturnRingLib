@@ -26,14 +26,6 @@ extern char buffer[];
 void transform_test_setup(void) { Scene3D::PushIdentityMatrix(); }
 void transform_test_teardown(void) { Scene3D::PopMatrix(); }
 
-void transform_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_TRANSFORM_ERROR(S)****");
-    }
-}
-
 /** @brief Fxp value in thousandths, for messages. */
 static int32_t transform_milli(const Fxp &value) { return static_cast<int32_t>((static_cast<int64_t>(value.RawValue()) * 1000) >> 16); }
 
@@ -338,7 +330,7 @@ MU_TEST(transform_look_at)
 
 MU_TEST_SUITE(transform_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&transform_test_setup, &transform_test_teardown, &transform_test_output_header);
+    MU_SUITE_CONFIGURE(&transform_test_setup, &transform_test_teardown);
 
     MU_RUN_TEST(transform_identity);
     MU_RUN_TEST(transform_translate);

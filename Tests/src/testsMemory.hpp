@@ -18,30 +18,6 @@ void memory_test_setup(void) { memory_leak_check_setup(); }
 void memory_test_teardown(void) { memory_leak_check_teardown(); }
 
     /**
- * @brief Output header for test suite error reporting
- *
- * This function is called on the first test failure to print
- * a header indicating that memory unit test errors have occurred.
- * It increments a global error counter to ensure the header
- * is printed only once per test suite run.
- */
-void memory_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MEMORY****");
-        }
-        else
-        {
-            LogInfo("****UT_MEMORY_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Test PlacementMalloc with address in HighWorkRam
  *
  * Verifies that PlacementMalloc allocates memory correctly in HighWorkRam.
@@ -257,15 +233,13 @@ MU_TEST(memory_test_move_memory_blocks_edge_cases)
     /**
  * @brief Memory test suite configuration and test case registration
  *
- * Configures the test suite with setup, teardown, and error reporting functions.
+ * Configures the test suite with setup and teardown functions.
  * Registers individual test cases to be executed during the test run.
  */
 MU_TEST_SUITE(memory_test_suite)
 {
-        // Configure test suite with setup, teardown, and error reporting functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_test_setup,
-        &memory_test_teardown,
-        &memory_test_output_header);
+        // Configure test suite with setup and teardown functions
+    MU_SUITE_CONFIGURE(&memory_test_setup, &memory_test_teardown);
 
         // Register test cases to be executed
     MU_RUN_TEST(memory_test_placement_malloc_highworkram);

@@ -16,17 +16,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 }
 
-void endian_test_setup(void) {}
-void endian_test_teardown(void) {}
-
-void endian_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_ENDIAN_ERROR(S)****");
-    }
-}
-
 /** @brief Least significant byte first. */
 MU_TEST(endian_little_endian_values)
 {
@@ -75,8 +64,6 @@ MU_TEST(endian_zero)
 
 MU_TEST_SUITE(endian_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&endian_test_setup, &endian_test_teardown, &endian_test_output_header);
-
     MU_RUN_TEST(endian_little_endian_values);
     MU_RUN_TEST(endian_high_bytes_not_sign_extended);
     MU_RUN_TEST(endian_unaligned_buffer);

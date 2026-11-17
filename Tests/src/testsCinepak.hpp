@@ -39,15 +39,6 @@ static bool cinepak_wait_frames(int count, int limit)
 }
 
 void cinepak_test_setup(void) { cinepak_frames = 0; }
-void cinepak_test_teardown(void) {}
-
-void cinepak_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_CINEPAK_ERROR(S)****");
-    }
-}
 
 /** @brief A missing movie is refused, and the player keeps no memory. */
 MU_TEST(cinepak_missing_file)
@@ -122,7 +113,7 @@ MU_TEST(cinepak_load_twice)
 
 MU_TEST_SUITE(cinepak_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&cinepak_test_setup, &cinepak_test_teardown, &cinepak_test_output_header);
+    MU_SUITE_CONFIGURE(&cinepak_test_setup, NULL);
 
     MU_RUN_TEST(cinepak_missing_file);
     MU_RUN_TEST(cinepak_play_pause_unload);

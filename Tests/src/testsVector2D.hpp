@@ -16,34 +16,9 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-void vector2d_test_setup(void)
-{
-        // No initialization needed
-}
-
-void vector2d_test_teardown(void)
-{
-        // No cleanup required
-}
-
 static inline bool fxp_near_vec2(const Fxp& a, const Fxp& b, const Fxp& tol)
 {
     return (a - b).Abs() <= tol;
-}
-
-void vector2d_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_VECTOR2D****");
-        }
-        else
-        {
-            LogInfo("****UT_VECTOR2D_ERROR(S)****");
-        }
-    }
 }
 
     /**
@@ -274,10 +249,6 @@ MU_TEST(vector2d_arithmetic_operators)
 
 MU_TEST_SUITE(vector2d_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&vector2d_test_setup,
-        &vector2d_test_teardown,
-        &vector2d_test_output_header);
-
     MU_RUN_TEST(vector2d_construction);
     MU_RUN_TEST(vector2d_abs_and_sort);
     MU_RUN_TEST(vector2d_dot_cross_multidot);

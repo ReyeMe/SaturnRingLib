@@ -54,14 +54,6 @@ void draw2d_test_teardown(void)
     VDP1::ResetTextureHeap();
 }
 
-void draw2d_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        LogInfo("****UT_DRAW2D_ERROR(S)****");
-    }
-}
-
 /** @brief Depth used for every drawing: in front of the camera, as in the samples. */
 static const Fxp draw2d_depth = 500.0;
 
@@ -367,7 +359,7 @@ MU_TEST(draw2d_draw_until_full)
 
 MU_TEST_SUITE(draw2d_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&draw2d_test_setup, &draw2d_test_teardown, &draw2d_test_output_header);
+    MU_SUITE_CONFIGURE(&draw2d_test_setup, &draw2d_test_teardown);
 
     MU_RUN_TEST(draw2d_effects_round_trip);
     MU_RUN_TEST(draw2d_sprite_attribute_defaults);

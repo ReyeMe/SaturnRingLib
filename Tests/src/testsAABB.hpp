@@ -14,37 +14,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /** @brief Setup routine for AABB unit tests.
- */
-void aabb_test_setup(void)
-{
-        // No initialization needed
-}
-
-    /** @brief Tear down routine for AABB unit tests.
- */
-void aabb_test_teardown(void)
-{
-        // No cleanup required
-}
-
-    /** @brief Output header for AABB test suite error reporting.
- */
-void aabb_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_AABB****");
-        }
-        else
-        {
-            LogInfo("****UT_AABB_ERROR(S)****");
-        }
-    }
-}
-
     /**
  * @brief Tests that a default-constructed AABB is a zero-sized box at the origin.
  */
@@ -277,10 +246,6 @@ MU_TEST(aabb_contains_point_and_aabb)
 
 MU_TEST_SUITE(aabb_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&aabb_test_setup,
-        &aabb_test_teardown,
-        &aabb_test_output_header);
-
     MU_RUN_TEST(aabb_default_construction);
     MU_RUN_TEST(aabb_construction_center_and_uniform_size);
     MU_RUN_TEST(aabb_construction_center_and_half_extents);
