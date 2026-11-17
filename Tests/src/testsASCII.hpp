@@ -88,6 +88,43 @@ MU_TEST(ascii_print_out_of_bounds_clamps)
     mu_assert(ascii_map[63 + 63 * 64] == 'X' + ascii_font0_base, buffer);
 }
 
+/**
+ * @brief Text that runs past the last cell is cut there: Print returns false and writes nothing after the map.
+ * @details The map ends at the end of VDP2 VRAM (0x25E80000). VDP2 VRAM is mirrored in its 1 MB window (mednafen maps
+ *          0x25E00000-0x25EFFFFF onto the 512 KB), so a write past the map lands at the start of VRAM A0: the test
+ *          watches its first words, then puts them back.
+ */
+MU_TEST(ascii_print_stops_at_map_end)
+{
+    volatile uint16_t *const vramStart = reinterpret_cast<volatile uint16_t *>(VDP2_VRAM_A0);
+    uint16_t saved[4];
+    for (int i = 0; i < 4; i++)
+    {
+        saved[i] = vramStart[i];
+        vramStart[i] = 0x1234;
+    }
+
+    const bool printed = ASCII::Print("ABCDE", 62, 63);
+
+    uint16_t after[4];
+    for (int i = 0; i < 4; i++)
+    {
+        after[i] = vramStart[i];
+        vramStart[i] = saved[i];
+    }
+
+    const int last = 63 * 64;
+    snprintf(buffer, buffer_size, "Last cells 0x%04x 0x%04x, expected 0x%04x 0x%04x", ascii_map[last + 62], ascii_map[last + 63],
+        'A' + ascii_font0_base, 'B' + ascii_font0_base);
+    mu_assert(ascii_map[last + 62] == 'A' + ascii_font0_base && ascii_map[last + 63] == 'B' + ascii_font0_base, buffer);
+
+    snprintf(buffer, buffer_size, "\"CDE\" went past the map: VRAM start 0x%04x 0x%04x 0x%04x 0x%04x, expected 0x1234",
+        after[0], after[1], after[2], after[3]);
+    mu_assert(after[0] == 0x1234 && after[1] == 0x1234 && after[2] == 0x1234 && after[3] == 0x1234, buffer);
+
+    mu_assert(!printed, "Print(\"ABCDE\", 62, 63) returned true, but only \"AB\" fits");
+}
+
 /** @brief The palette goes in bits 12-15 of the cell; out of range it is clamped to palette 7. */
 MU_TEST(ascii_palette_in_map)
 {
@@ -225,6 +262,7 @@ MU_TEST_SUITE(ascii_test_suite)
     MU_RUN_TEST(ascii_print_writes_map);
     MU_RUN_TEST(ascii_clear_empties_map);
     MU_RUN_TEST(ascii_print_out_of_bounds_clamps);
+    MU_RUN_TEST(ascii_print_stops_at_map_end);
     MU_RUN_TEST(ascii_palette_in_map);
     MU_RUN_TEST(ascii_font_in_map);
     MU_RUN_TEST(ascii_set_color_palette_0);

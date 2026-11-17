@@ -151,6 +151,71 @@ MU_TEST(interrupt_test_sethandler_cpu_vector_roundtrip)
     mu_assert(readBack == reinterpret_cast<void *>(+handler), buffer);
 }
 
+/** @brief Times the handler installed through Interrupt::SetHandler(Vector::Illegal) ran. */
+volatile uint32_t interrupt_illegal_api_hits = 0;
+
+/** @brief Times the fallback handler on the SH-2 general illegal instruction vector (4) ran. */
+volatile uint32_t interrupt_illegal_cpu_hits = 0;
+
+void interrupt_illegal_api_handler(void);
+void interrupt_illegal_cpu_handler(void);
+
+// Exception handlers: count the hit, then step over the illegal instruction. On a general illegal instruction the
+// SH-2 pushes SR, then the PC of the instruction itself; after the two registers saved here, that PC is at @(8, r15).
+#define INTERRUPT_ILLEGAL_HANDLER(name, counter) \
+    ".align 2\n"                                 \
+    ".global _" name "\n"                        \
+    "_" name ":\n"                               \
+    "    mov.l r0, @-r15\n"                      \
+    "    mov.l r1, @-r15\n"                      \
+    "    mov.l 1f, r0\n"                         \
+    "    mov.l @r0, r1\n"                        \
+    "    add #1, r1\n"                           \
+    "    mov.l r1, @r0\n"                        \
+    "    mov.l @(8, r15), r1\n"                  \
+    "    add #2, r1\n"                           \
+    "    mov.l r1, @(8, r15)\n"                  \
+    "    mov.l @r15+, r1\n"                      \
+    "    mov.l @r15+, r0\n"                      \
+    "    rte\n"                                  \
+    "    nop\n"                                  \
+    ".align 2\n"                                 \
+    "1:  .long _" counter "\n"
+
+asm(".text\n"
+    INTERRUPT_ILLEGAL_HANDLER("interrupt_illegal_api_handler", "interrupt_illegal_api_hits")
+    INTERRUPT_ILLEGAL_HANDLER("interrupt_illegal_cpu_handler", "interrupt_illegal_cpu_hits"));
+
+/**
+ * @brief A handler set with SetHandler(Vector::Illegal) runs on an illegal instruction.
+ * @details The SH-2 takes a general illegal instruction on vector 4 (and a slot illegal instruction on vector 6).
+ *          Vector::Illegal is 0x63, the 68000's numbering, so the CPU never calls that handler. A fallback handler on
+ *          vector 4 keeps the console alive and shows where the exception really went.
+ */
+MU_TEST(interrupt_test_illegal_instruction_handler)
+{
+    constexpr uint32_t sh2IllegalInstruction = 4;
+    void *previousApi = System::GetInterruptVector(static_cast<uint32_t>(Interrupt::Vector::Illegal));
+    void *previousCpu = System::GetInterruptVector(sh2IllegalInstruction);
+
+    interrupt_illegal_api_hits = 0;
+    interrupt_illegal_cpu_hits = 0;
+    const bool installed = Interrupt::SetHandler(Interrupt::Vector::Illegal, interrupt_illegal_api_handler);
+    System::SetInterruptVector(sh2IllegalInstruction, reinterpret_cast<void *>(interrupt_illegal_cpu_handler));
+
+    // 0xFFFF is not an SH-2 instruction
+    asm volatile(".word 0xffff");
+
+    System::SetInterruptVector(static_cast<uint32_t>(Interrupt::Vector::Illegal), previousApi);
+    System::SetInterruptVector(sh2IllegalInstruction, previousCpu);
+
+    mu_assert(installed, "SetHandler(Vector::Illegal) returned false");
+    snprintf(buffer, buffer_size,
+        "Illegal instruction: SetHandler(Vector::Illegal = 0x%02x) handler ran %lu times, SH-2 vector 4 ran %lu times; expected 1 and 0",
+        static_cast<unsigned>(Interrupt::Vector::Illegal), (unsigned long)interrupt_illegal_api_hits, (unsigned long)interrupt_illegal_cpu_hits);
+    mu_assert(interrupt_illegal_api_hits == 1 && interrupt_illegal_cpu_hits == 0, buffer);
+}
+
 MU_TEST_SUITE(interrupt_test_suite)
 {
     MU_RUN_TEST(interrupt_test_setmask_roundtrip);
@@ -159,5 +224,6 @@ MU_TEST_SUITE(interrupt_test_suite)
     MU_RUN_TEST(interrupt_test_acknowledge_roundtrip);
     MU_RUN_TEST(interrupt_test_sethandler_invalid_vector);
     MU_RUN_TEST(interrupt_test_sethandler_cpu_vector_roundtrip);
+    MU_RUN_TEST(interrupt_test_illegal_instruction_handler);
 }
 }
