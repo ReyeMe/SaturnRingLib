@@ -47,7 +47,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `transform` | `Scene3D` matrix operations: the matrix stack, translate, rotate, scale, multiply, invert, transpose, `LookAt`. |
 | `tilemap` | `TilemapInfo`, `SGLTile`, `Bmp2Tile` conversion and map editing, loading tilemaps into NBG1 (1-word and 2-word maps). |
 | `draw2d` | `Scene2D` drawing: effects, sprite attributes, and the VDP1 commands lines, polygons, clipping and sprites put in VDP1 VRAM. |
-| `fld` | File loader (`SRL::Fld`): the campaign program is a menu that starts `campaigns/fld_game` from a sub-directory of its disc; the game checks its root directory and CD-DA tracks and reports. `fld_game` is built by `campaigns/fld/pre.makefile`, it is not a campaign of its own. |
+| `fld` | File loader (`SRL::Fld`): the campaign program is a menu that starts `campaigns/fld_game` from a sub-directory of its disc; the game checks its root directory and CD-DA tracks and reports. `fld_game` is built by `campaigns/fld/pre.makefile`, it is not a campaign of its own. Not run in CI: the CI build runs with `-j 8`, which builds the disc before `pre.makefile` puts the game on it. |
 
 Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `makefile` and a short `main.cxx` that lists its suites.
 Shared build settings are in `campaign.mk`.
