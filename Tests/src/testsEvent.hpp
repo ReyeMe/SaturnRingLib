@@ -209,21 +209,30 @@ static void event_remove_self(int) { event_log_add('r'); event_changing -= event
 static void event_add_b(int) { event_log_add('+'); event_changing += event_static_b; }
 
     /**
- * @brief A callback that removes itself during Invoke does not make the next callback get skipped.
+ * @brief A callback that removes itself during Invoke: each of the others still runs once.
+ * @note Three callbacks: with two, the slot freed at the end still held a stale copy of the last one, so a broken
+ *       Invoke looked right; with three it skips 'a' and calls 'b' twice ("rbb").
  */
 MU_TEST(event_remove_during_invoke)
 {
     event_log_reset();
     event_changing -= event_remove_self;
     event_changing -= event_static_a;
+    event_changing -= event_static_b;
     event_changing += event_remove_self;
     event_changing += event_static_a;
+    event_changing += event_static_b;
 
     event_changing.Invoke(1);
-    snprintf(buffer, buffer_size, "Callback removing itself during Invoke: calls '%s' (expected 'ra': the next callback still runs)", event_log);
-    event_changing -= event_remove_self;
+    char firstCalls[32];
+    snprintf(firstCalls, sizeof(firstCalls), "%s", event_log);
+
+    event_log_reset();
+    event_changing.Invoke(1);
+    snprintf(buffer, buffer_size, "Callback removing itself during Invoke: calls '%s' (expected 'rab'), next Invoke '%s' (expected 'ab')", firstCalls, event_log);
     event_changing -= event_static_a;
-    mu_assert(strcmp(event_log, "ra") == 0, buffer);
+    event_changing -= event_static_b;
+    mu_assert(strcmp(firstCalls, "rab") == 0 && strcmp(event_log, "ab") == 0, buffer);
 }
 
     /**
