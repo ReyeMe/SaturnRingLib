@@ -54,8 +54,12 @@
   trap 'exit 1' TERM INT
 
   # Start watchdog in background (TERM, not KILL, so cleanup still runs)
+  # cleanup kills the watchdog with TERM; the trap also kills its sleep, or the sleep would keep this script's output open
   (
-      sleep $TIMEOUT
+      trap 'kill $SLEEP_PID 2>/dev/null; exit' TERM
+      sleep $TIMEOUT &
+      SLEEP_PID=$!
+      wait $SLEEP_PID
       echo "Script timed out after $TIMEOUT seconds"
       kill -TERM $$ 2>/dev/null
   ) &

@@ -202,38 +202,26 @@ MU_TEST(timer_elapsed_time_conversion)
 /** @brief Test Timer Update() and delta time calculations
  *
  * Verifies:
- * - Update() captures current timestamp and calculates deltas
- * - DeltaTicks, DeltaSeconds, DeltaMilliseconds are populated
- * - Deltas are non-negative when time advances
- * - FRT hardware provides measurable tick differences
- * - All delta values use Fxp 16.16 (no float conversion)
+ * - One frame, measured by Update() (run by Core::Synchronize), is 10 to 25 ms
+ * - DeltaSeconds and DeltaMilliseconds give the same time
  */
 MU_TEST(timer_update_and_delta_variables)
 {
-    // Initialize timer hardware first
+    // Init clears the FRT, so the counter does not wrap during the test
     TimerTest::Init();
 
-    // First Update() establishes baseline
-    TimerTest::Update();
+    // Core::Synchronize waits for the next frame, then runs Timer::Update.
+    // The first call reaches a frame start, the second measures one whole frame (NTSC 60 Hz: ~16.7 ms).
+    SRL::Core::Synchronize();
+    SRL::Core::Synchronize();
 
-    // Let some FRT ticks pass (busy-wait ensures measurable difference)
-    // 10000 iterations needed for PHI_128 on Mednafen due to emulation granularity
-    for (int i = 0; i < 10000; i++)
-    {
-        __asm__ volatile("nop");
-    }
+    const int32_t ms = SRL::Timer::DeltaMilliseconds().As<int32_t>();
+    snprintf(buffer, buffer_size, "One frame measured %ld ms, expected 10 to 25", (long)ms);
+    mu_assert(ms >= 10 && ms <= 25, buffer);
 
-    // Second Update() should produce a small but positive delta
-    TimerTest::Update();
-
-    mu_assert(SRL::Timer::DeltaSeconds() >= Fxp(0.0), "DeltaSeconds should be non-negative after Update");
-    mu_assert(SRL::Timer::DeltaMilliseconds() >= Fxp(0.0), "DeltaMilliseconds should be non-negative after Update");
-
-    // DeltaTicks should represent some elapsed time
-    // Note: On Mednafen emulator, FRT may not advance during busy-wait
-    // but on real hardware it should. We just check operation completed.
-    (void)SRL::Timer::DeltaTicks().High;  // Access to verify no crash
-    (void)SRL::Timer::DeltaTicks().Low;
+    const int32_t msFromSeconds = (SRL::Timer::DeltaSeconds() * Fxp(1000)).As<int32_t>();
+    snprintf(buffer, buffer_size, "DeltaSeconds gives %ld ms, DeltaMilliseconds %ld ms", (long)msFromSeconds, (long)ms);
+    mu_assert(msFromSeconds >= ms - 1 && msFromSeconds <= ms + 1, buffer);
 }
 
 /** @brief Test precision with small vs large tick values
@@ -413,53 +401,36 @@ MU_TEST(timer_delta_minutes)
 {
     TimerTest::Init();
 
-    // Run a few updates to get measurable deltas
-    TimerTest::Update();
-    for (int i = 0; i < 5000; i++)
-    {
-        __asm__ volatile("nop");
-    }
-    TimerTest::Update();
+    // One whole frame (~16.7 ms, see timer_update_and_delta_variables): DeltaMinutes is ~18 raw units
+    SRL::Core::Synchronize();
+    SRL::Core::Synchronize();
 
-    float secs = SRL::Timer::DeltaSeconds().As<float>();
-    float mins = SRL::Timer::DeltaMinutes().As<float>();
-
-    mu_assert(mins >= 0.0f, "DeltaMinutes should be non-negative");
-    // Minutes should be approximately seconds / 60
-    if (secs > 0.001f)
-    {  // Only check if seconds is measurable
-        float ratio = secs / mins;
-        mu_assert(ratio >= 50.0f && ratio <= 70.0f,
-            "Seconds/Minutes ratio should be ~60");
-    }
+    const int32_t secsRaw = SRL::Timer::DeltaSeconds().RawValue();
+    const int32_t minsRaw = SRL::Timer::DeltaMinutes().RawValue();
+    snprintf(buffer, buffer_size, "DeltaSeconds raw %ld, DeltaMinutes raw %ld: ratio should be ~60", (long)secsRaw, (long)minsRaw);
+    mu_assert(minsRaw > 0 && secsRaw >= minsRaw * 55 && secsRaw <= minsRaw * 65, buffer);
 }
 
 /** @brief Test multiple Update() calls accumulate correctly
  *
  * Verifies:
- * - Multiple Update() calls produce consistent delta values
- * - Frame snapshot is updated correctly between calls
+ * - Each Update() measures from the previous Update(), not from Init()
  */
 MU_TEST(timer_multiple_updates)
 {
     TimerTest::Init();
 
-    // First update
+    // Each Synchronize runs Update; the last one leaves the frame snapshot at "now"
+    SRL::Core::Synchronize();
+    SRL::Core::Synchronize();
+    SRL::Core::Synchronize();
     TimerTest::Update();
-    SRL::Tickstamp firstDelta = SRL::Timer::DeltaTicks();
 
-    // Second update
-    for (int i = 0; i < 5000; i++)
-    {
-        __asm__ volatile("nop");
-    }
-    TimerTest::Update();
-    SRL::Tickstamp secondDelta = SRL::Timer::DeltaTicks();
-
-    // Both should have valid delta timestamps
-    // Note: On Mednafen emulator, FRT may not advance, but values should be valid
-    mu_assert(firstDelta.High == 0, "First update in simple test should have High = 0");
-    mu_assert(secondDelta.High == 0, "Second update in simple test should have High = 0");
+    // So this delta is only the time since that last Update, not the ~50 ms since Init
+    const int32_t ms = SRL::Timer::DeltaMilliseconds().As<int32_t>();
+    snprintf(buffer, buffer_size, "Update right after Synchronize measured %ld ms, expected under 5", (long)ms);
+    mu_assert(ms < 5, buffer);
+    mu_assert(SRL::Timer::DeltaTicks().High == 0, "A delta of a few ms should have High = 0");
 }
 
 /** @brief Test Tickstamp subtraction with edge case values
@@ -649,34 +620,23 @@ MU_TEST(timer_conversion_consistency)
 /** @brief Test hardware timer capture and integration
  *
  * Verifies:
- * - FRT hardware is running and accessible via Capture()
- * - Real timestamp differences are measurable
- * - End-to-end workflow works with live hardware
+ * - Capture() advances over two frames, by 10 to 40 ms
  */
 MU_TEST(timer_hardware_integration)
 {
-    // Initialize timer hardware
+    // Init clears the FRT, so the counter does not wrap during the test
     TimerTest::Init();
 
-    // Capture two timestamps with a small gap
-    SRL::Tickstamp t1 = SRL::Timer::Capture();
-    for (int i = 0; i < 10000; i++)
-    {
-        __asm__ volatile("nop");
-    }
-    SRL::Tickstamp t2 = SRL::Timer::Capture();
+    // Two frames apart: between ~16.7 and ~33.4 ms, depending on where in the frame t1 is
+    const SRL::Tickstamp t1 = SRL::Timer::Capture();
+    SRL::Core::Synchronize();
+    SRL::Core::Synchronize();
+    const SRL::Tickstamp t2 = SRL::Timer::Capture();
 
-    // Time should have advanced or at least be valid
-    // Note: On Mednafen emulator, FRT may not advance during busy-wait
-    SRL::Tickstamp diff = t2 - t1;
-    (void)diff.High;  // Access to verify no crash
-    (void)diff.Low;
-
-    // Conversion should produce valid results
-    Fxp secs = diff.ToSeconds();
-    Fxp ms = diff.ToMilliseconds();
-    mu_assert(secs >= Fxp(0.0), "Elapsed seconds should be non-negative");
-    mu_assert(ms >= Fxp(0.0), "Elapsed milliseconds should be non-negative");
+    mu_assert(t2 > t1, "Capture() did not advance over two frames");
+    const int32_t ms = (t2 - t1).ToMilliseconds().As<int32_t>();
+    snprintf(buffer, buffer_size, "Two frames measured %ld ms, expected 10 to 40", (long)ms);
+    mu_assert(ms >= 10 && ms <= 40, buffer);
 }
 
 /** @brief Test Timer initialization and reset
@@ -816,69 +776,23 @@ MU_TEST(timer_from_minutes_builder)
     mu_assert(ts_28.Low > 0, "5 minutes @ 28MHz: Low should be non-zero");
 }
 
-/** @brief Diagnostic: Force FRT overflow and check if timer32 increments
- *
- * Logs FRT register values, timer32, and interrupt configuration
- * at multiple points to diagnose overflow handler issues.
+/** @brief The FRT overflow interrupt increments timer32 (the high part of a Tickstamp).
  */
 MU_TEST(timer_diagnostic_overflow)
 {
-
-    // Initialize timer
     TimerTest::Init();
+    const uint32_t before = SRL::TimerTest::GetTimer32();
 
-    // Read initial register state
-    volatile uint8_t* tierPtr = reinterpret_cast<volatile uint8_t*>(0xFFFFFE10);
-    volatile uint8_t* tcsrPtr = reinterpret_cast<volatile uint8_t*>(0xFFFFFE11);
-    volatile uint8_t* tcrPtr = reinterpret_cast<volatile uint8_t*>(0xFFFFFE16);
-    volatile uint16_t* frcPtr = reinterpret_cast<volatile uint16_t*>(0xFFFFFE12);
-    volatile uint16_t* vcrdPtr = reinterpret_cast<volatile uint16_t*>(0xFFFFFE68);
-    volatile uint16_t* iprbPtr = reinterpret_cast<volatile uint16_t*>(0xFFFFFE60);
-
-    uint8_t tier0 = *tierPtr;
-    uint8_t tcsr0 = *tcsrPtr;
-    uint8_t tcr0 = *tcrPtr;
-    uint16_t vcrd0 = *vcrdPtr;
-    uint16_t iprb0 = *iprbPtr;
-    uint16_t frc0 = *frcPtr;
-    uint32_t t32_0 = SRL::TimerTest::GetTimer32();
-
-    // Wait long enough for multiple overflows
-    // PHI_8 @ ~28MHz: overflow every ~18.4ms
-    // PHI_128 @ ~28MHz: overflow every ~295ms
-    // 500000 NOPs should be well over 20ms
-    for (int i = 0; i < 500000; i++)
+    // At PHI/128 the 16-bit FRT wraps every ~295 ms; wait 30 frames (~500 ms)
+    for (int frame = 0; frame < 30; frame++)
     {
-        __asm__ volatile("nop");
+        SRL::Core::Synchronize();
     }
 
-    uint16_t frc1 = *frcPtr;
-    uint8_t tcsr1 = *tcsrPtr;
-    uint32_t t32_1 = SRL::TimerTest::GetTimer32();
-
-    // Wait again
-    for (int i = 0; i < 500000; i++)
-    {
-        __asm__ volatile("nop");
-    }
-
-    uint16_t frc2 = *frcPtr;
-    uint8_t tcsr2 = *tcsrPtr;
-    uint32_t t32_2 = SRL::TimerTest::GetTimer32();
-
-    // Wait a third time
-    for (int i = 0; i < 500000; i++)
-    {
-        __asm__ volatile("nop");
-    }
-
-    uint16_t frc3 = *frcPtr;
-    uint8_t tcsr3 = *tcsrPtr;
-    uint32_t t32_3 = SRL::TimerTest::GetTimer32();
-
-    // Check: did the OVF flag in TCSR get set? (bit 1 = OVF)
-    // The real test: did timer32 increment?
-    mu_assert(t32_3 > 0, "timer32 should have incremented after waiting for overflow");
+    const uint32_t after = SRL::TimerTest::GetTimer32();
+    snprintf(buffer, buffer_size, "timer32 went from %lu to %lu over ~500 ms, expected at least one overflow",
+        (unsigned long)before, (unsigned long)after);
+    mu_assert(after > before, buffer);
 }
 
 // Test suite definition - Updated for current API with hybrid builders

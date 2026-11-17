@@ -65,30 +65,27 @@ void sgl_test_output_header(void)
 }
 
     /**
- * @brief Tests the `SrlType` class template for wrapping C++ objects for SGL compatibility.
- * @details This test verifies that the `SglType` wrapper can correctly provide a C-style
- *          pointer to its underlying C++ object, allowing for interoperability between
- *          C++ code and C-style SGL functions.
+ * @brief Tests the `SglType` wrapper, used as SRL types use it (`struct Polygon : SglType<Polygon, POLYGON>`).
+ * @details SglPtr() and SglConstPtr() must point at the object itself, so SGL reads the C++ object's fields.
  */
+struct SglTypeTestSgl
+{
+    int value;
+};
+
+struct SglTypeTestClass : public SRL::SGL::SglType<SglTypeTestClass, SglTypeTestSgl>
+{
+    int value;
+};
+
 MU_TEST(sgl_test_sgltype)
 {
-    struct MyClass
-    {
-        int value;
-    };
+    // Pointers only: reading the fields through both types breaks strict aliasing (the build uses -O2)
+    SglTypeTestClass object;
+    const SglTypeTestClass &constObject = object;
 
-    struct SGLType
-    {
-        int value;
-    };
-
-    SRL::SGL::SglType<MyClass, SGLType> sglTypeInstance;
-    MyClass myClassInstance = {42};
-    SGLType* sglPtr = sglTypeInstance.SglPtr();
-    sglPtr->value = myClassInstance.value;
-
-    snprintf(buffer, buffer_size, "SglType cast failed: %d != %d", sglPtr->value, myClassInstance.value);
-    mu_assert(sglPtr->value == myClassInstance.value, buffer);
+    mu_assert(static_cast<void*>(object.SglPtr()) == static_cast<void*>(&object), "SglPtr() does not point at the object");
+    mu_assert(static_cast<const void*>(constObject.SglConstPtr()) == static_cast<const void*>(&object), "SglConstPtr() does not point at the object");
 }
 
     /**
