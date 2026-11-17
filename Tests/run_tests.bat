@@ -87,8 +87,9 @@
     echo "Using mednafen emulator"
     # Disable video output and enable debug cart
     export SDL_VIDEODRIVER=dummy
-    # Extra settings of the campaign (timer_pal: boot as a European, PAL console)
-    mednafen_args=$(python3 -c 'import json, sys; print(json.load(open("campaigns.json"))["campaigns"].get(sys.argv[1], {}).get("mednafen_args", ""))' "$CAMPAIGN")
+    # Extra settings of the campaign (timer_pal: boot as a European, PAL console). mednafen saves command-line
+    # settings in its config, so the other campaigns turn region detection back on (their discs boot as USA)
+    mednafen_args=$(python3 -c 'import json, sys; print(json.load(open("campaigns.json"))["campaigns"].get(sys.argv[1], {}).get("mednafen_args", "-ss.region_autodetect 1"))' "$CAMPAIGN")
     command="mednafen -sound 0 -ss.cart debug -force_module ss $mednafen_args $DIR/BuildDrop/$CAMPAIGN.cue"
   elif [ "$1" = "kronos" ]; then
     echo "Using kronos emulator"
