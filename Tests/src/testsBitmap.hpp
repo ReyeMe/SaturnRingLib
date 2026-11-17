@@ -141,11 +141,36 @@ MU_TEST(ibitmap_test_get_info)
  * Registers individual test cases to be executed during the test run.
  * Currently runs the base address initialization test and palette tests.
  */
+/**
+ * @brief A palette built around the caller's colors (Palette(colors, count)) does not free them: the caller owns them.
+ * @details The colors are a heap block here, so a wrong free shows up in the used block count instead of corrupting
+ *          the heap (with a stack or static array, the destructor would hand the allocator a pointer it never gave).
+ */
+MU_TEST(palette_test_wrapped_colors_not_freed)
+{
+    SRL::Types::HighColor *colors = new SRL::Types::HighColor[16];
+    const size_t before = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
+
+    {
+        SRL::Bitmap::Palette palette(colors, 16);
+    }
+
+    const size_t after = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
+    if (after == before)
+    {
+        delete[] colors;
+    }
+
+    snprintf(buffer, buffer_size, "Used blocks %d -> %d: the palette freed the caller's colors", (int)before, (int)after);
+    mu_assert(after == before, buffer);
+}
+
 MU_TEST_SUITE(bitmap_test_suite)
 {
         // Register test cases to be executed
     MU_RUN_TEST(palette_test_initialization);
     MU_RUN_TEST(palette_test_destruction);
+    MU_RUN_TEST(palette_test_wrapped_colors_not_freed);
     MU_RUN_TEST(bitmap_info_test_initialization_no_palette);
     MU_RUN_TEST(bitmap_info_test_initialization_with_palette);
     MU_RUN_TEST(ibitmap_test_get_data);
