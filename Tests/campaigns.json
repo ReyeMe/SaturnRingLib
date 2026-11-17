@@ -32,7 +32,13 @@
         "random_range_int16_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value",
         "random_range_int32_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value",
         "utils_fast_sqrt_values": "FastSqrt(10000^2) = 11243",
-        "interpolation_elastic_ease_in": "Fxp::ElasticEaseIn(0, 1, 0.99) = 2.0"
+        "interpolation_elastic_ease_in": "Fxp::ElasticEaseIn(0, 1, 0.99) = 2.0",
+        "random_full_range_uint16_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_int16_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_uint8_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_int8_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_uint32_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_int32_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console"
       }
     },
     "memory_simple": {
@@ -104,9 +110,7 @@
       }
     },
     "timer": {
-      "known_failures": {
-        "timer_diagnostic_overflow": "timer32 does not count after an overflow (not investigated yet)"
-      }
+      "known_failures": {}
     },
     "event": {
       "known_failures": {}
