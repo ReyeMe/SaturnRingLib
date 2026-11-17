@@ -1,7 +1,7 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
   # Usage: ./run_tests.bat <kronos|mednafen|USBGamers> [campaign|all] [device-ip]
-  # <campaign> is a folder of campaigns/ (math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, event, datetime, cd, media, slave, scene, string, endian, vdp1, vdp2, input, sound, transform, tilemap, draw2d, fld)
+  # <campaign> is a folder of campaigns/ (math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, timer_pal, event, datetime, cd, media, slave, scene, string, endian, vdp1, vdp2, input, sound, transform, tilemap, draw2d, fld)
   # No campaign, or "all": runs every campaign of CAMPAIGNS in the makefile, one after the other
 
   if [ -z "$1" ]; then
@@ -87,7 +87,9 @@
     echo "Using mednafen emulator"
     # Disable video output and enable debug cart
     export SDL_VIDEODRIVER=dummy
-    command="mednafen -sound 0 -ss.cart debug -force_module ss $DIR/BuildDrop/$CAMPAIGN.cue"
+    # Extra settings of the campaign (timer_pal: boot as a European, PAL console)
+    mednafen_args=$(python3 -c 'import json, sys; print(json.load(open("campaigns.json"))["campaigns"].get(sys.argv[1], {}).get("mednafen_args", ""))' "$CAMPAIGN")
+    command="mednafen -sound 0 -ss.cart debug -force_module ss $mednafen_args $DIR/BuildDrop/$CAMPAIGN.cue"
   elif [ "$1" = "kronos" ]; then
     echo "Using kronos emulator"
     # Run kronos in automation mode with no sound

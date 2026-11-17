@@ -31,6 +31,7 @@ Tests are split into campaigns. Each campaign is its own disc image, so a crash 
 | `video` | ASCII (text map cells, fonts, palettes and colors), color RAM, bitmaps, SGL. |
 | `system` | Interrupts, system registers, BIOS semaphores, SCU DSP. |
 | `timer` | Timers: FRT tickstamps, dividers, conversions, overflow. |
+| `timer_pal` | The `timer` suites built with `SRL_MODE = PAL`. mednafen runs it as a European (PAL) console: other campaigns' discs list Japan, Taiwan, USA and Europe, and mednafen boots them as USA (NTSC). |
 | `event` | Events (`Event`, `MemberProxy`) and the Core sync / v-blank events. |
 | `datetime` | Date and time (`DateTime`): ordering, leap years, backup unit dates, RTC. |
 | `cd` | CD block and file system. Uses the files in `campaigns/cd/cd/data/`. |
@@ -91,7 +92,7 @@ Campaigns use the `SIMPLE` allocator, except `memory_tlsf` and `memory_cpus_tlsf
 Execute `run_tests.bat <emulator> <campaign>` within the `SaturnRingLib/Tests` directory from a terminal, e.g. `./run_tests.bat mednafen math`.
 Tests results will be output in both the terminal and `SaturnRingLib/Tests/uts_<campaign>.log`.
 The script exits with an error if a test fails that is not listed under the campaign's `known_failures` in `campaigns.json`.
-That file holds the settings of every campaign: `known_failures` maps each test that fails because of a known library bug to that bug (remove the entry once it is fixed), and `skip_modes` maps a `run_tests.bat` mode to the reason the campaign is not run in it.
+That file holds the settings of every campaign: `known_failures` maps each test that fails because of a known library bug to that bug (remove the entry once it is fixed), `skip_modes` maps a `run_tests.bat` mode to the reason the campaign is not run in it, and `mednafen_args` adds settings to the mednafen command line.
 Listed tests that pass are printed as a reminder. A test that would crash or hang the console skips itself and fails, so it can be listed too.
 To run every campaign of `CAMPAIGNS` in the `makefile`, leave the campaign out (or write `all`): `./run_tests.bat mednafen`.
 It prints the campaigns that failed at the end, and exits with an error if there is one.
