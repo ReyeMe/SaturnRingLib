@@ -44,7 +44,9 @@ protected:
     void Do() override
     {
         this->started = true;
-        while (!ReadUncached(this->open)) { }
+        while (!ReadUncached(this->open))
+        {
+        }
         SlaveCounterTask::Do();
     }
 };

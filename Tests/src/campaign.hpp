@@ -31,7 +31,10 @@ public:
     uint8_t *data;
     SRL::Bitmap::BitmapInfo info;
 
-    MockBitmap(uint8_t *data, SRL::Bitmap::BitmapInfo info) : data(data), info(info) {}
+    MockBitmap(uint8_t *data, SRL::Bitmap::BitmapInfo info) :
+        data(data),
+        info(info)
+    {}
 
     uint8_t *GetData() override { return data; }
     SRL::Bitmap::BitmapInfo GetInfo() const override { return info; }

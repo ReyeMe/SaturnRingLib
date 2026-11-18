@@ -163,11 +163,11 @@ MU_TEST(scene3d_project_to_screen)
 /** @brief DrawMesh accepts a quad in front of the camera and refuses polygons once the SGL polygon buffer is full. */
 MU_TEST(scene3d_draw_mesh_until_full)
 {
-    static Vector3D vertices[4] = { Vector3D(-10, -10, 0), Vector3D(10, -10, 0), Vector3D(10, 10, 0), Vector3D(-10, 10, 0) };
-    static const uint16_t indices[4] = { 0, 1, 2, 3 };
-    static Types::Polygon faces[1] = { Types::Polygon(Vector3D(0, 0, -1), indices) };
-    static Types::Attribute attributes[1] = { Types::Attribute(Types::Attribute::DoubleSided, Types::Attribute::Center,
-        No_Texture, 0x7fff, No_Gouraud, CL32KRGB | MESHoff, sprPolygon, No_Option) };
+    static Vector3D vertices[4] = {Vector3D(-10, -10, 0), Vector3D(10, -10, 0), Vector3D(10, 10, 0), Vector3D(-10, 10, 0)};
+    static const uint16_t indices[4] = {0, 1, 2, 3};
+    static Types::Polygon faces[1] = {Types::Polygon(Vector3D(0, 0, -1), indices)};
+    static Types::Attribute attributes[1] = {Types::Attribute(Types::Attribute::DoubleSided, Types::Attribute::Center,
+        No_Texture, 0x7fff, No_Gouraud, CL32KRGB | MESHoff, sprPolygon, No_Option)};
     Types::MeshData mesh;
     mesh.Vertices = vertices;
     mesh.VertexCount = 4;

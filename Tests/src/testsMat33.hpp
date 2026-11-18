@@ -149,17 +149,23 @@ MU_TEST(mat33_rotate_in_place_matches_create)
 {
     const Angle a = Angle::FromDegrees(Fxp(35));
 
-    Matrix33 mx = Matrix33::Identity(); mx.RotateX(a);
-    Matrix33 my = Matrix33::Identity(); my.RotateY(a);
-    Matrix33 mz = Matrix33::Identity(); mz.RotateZ(a);
+    Matrix33 mx = Matrix33::Identity();
+    mx.RotateX(a);
+    Matrix33 my = Matrix33::Identity();
+    my.RotateY(a);
+    Matrix33 mz = Matrix33::Identity();
+    mz.RotateZ(a);
     mu_assert(m33_near(mx, Matrix33::CreateRotationX(a), 4), "Identity.RotateX(a) should equal CreateRotationX(a)");
     mu_assert(m33_near(my, Matrix33::CreateRotationY(a), 4), "Identity.RotateY(a) should equal CreateRotationY(a)");
     mu_assert(m33_near(mz, Matrix33::CreateRotationZ(a), 4), "Identity.RotateZ(a) should equal CreateRotationZ(a)");
 
     const Matrix33 base = Matrix33::CreateRotation(Angle::FromDegrees(Fxp(10)), Angle::FromDegrees(Fxp(20)), Angle::FromDegrees(Fxp(30)));
-    Matrix33 bx = base; bx.RotateX(a);
-    Matrix33 by = base; by.RotateY(a);
-    Matrix33 bz = base; bz.RotateZ(a);
+    Matrix33 bx = base;
+    bx.RotateX(a);
+    Matrix33 by = base;
+    by.RotateY(a);
+    Matrix33 bz = base;
+    bz.RotateZ(a);
     mu_assert(m33_near(bx, base * Matrix33::CreateRotationX(a), kRotTol), "M.RotateX(a) should equal M * CreateRotationX(a)");
     mu_assert(m33_near(by, base * Matrix33::CreateRotationY(a), kRotTol), "M.RotateY(a) should equal M * CreateRotationY(a)");
     mu_assert(m33_near(bz, base * Matrix33::CreateRotationZ(a), kRotTol), "M.RotateZ(a) should equal M * CreateRotationZ(a)");

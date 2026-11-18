@@ -182,9 +182,8 @@ void interrupt_illegal_cpu_handler(void);
     ".align 2\n"                                 \
     "1:  .long _" counter "\n"
 
-asm(".text\n"
-    INTERRUPT_ILLEGAL_HANDLER("interrupt_illegal_api_handler", "interrupt_illegal_api_hits")
-    INTERRUPT_ILLEGAL_HANDLER("interrupt_illegal_cpu_handler", "interrupt_illegal_cpu_hits"));
+asm(".text\n" INTERRUPT_ILLEGAL_HANDLER("interrupt_illegal_api_handler", "interrupt_illegal_api_hits")
+        INTERRUPT_ILLEGAL_HANDLER("interrupt_illegal_cpu_handler", "interrupt_illegal_cpu_hits"));
 
 /**
  * @brief A handler set with SetHandler(Vector::Illegal) runs on an illegal instruction.

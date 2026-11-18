@@ -53,6 +53,7 @@ Test headers live in `src/`. Each campaign is a folder in `campaigns/` with a `m
 Shared build settings are in `campaign.mk`.
 
 To add a suite, include its header and add a `RUN_AND_DISPLAY_SUITE(...)` line in the campaign's `main.cxx`.
+Test code follows the code style of `.github/CONTRIBUTING.md`, except that `MU_TEST(...)` names stay in snake_case: `campaigns.json` and the log tools use them.
 
 A suite can set things up at two levels:
 

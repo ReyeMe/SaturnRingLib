@@ -32,8 +32,8 @@ MU_TEST(sgl_test_sgltype)
     SglTypeTestClass object;
     const SglTypeTestClass &constObject = object;
 
-    mu_assert(static_cast<void*>(object.SglPtr()) == static_cast<void*>(&object), "SglPtr() does not point at the object");
-    mu_assert(static_cast<const void*>(constObject.SglConstPtr()) == static_cast<const void*>(&object), "SglConstPtr() does not point at the object");
+    mu_assert(static_cast<void *>(object.SglPtr()) == static_cast<void *>(&object), "SglPtr() does not point at the object");
+    mu_assert(static_cast<const void *>(constObject.SglConstPtr()) == static_cast<const void *>(&object), "SglConstPtr() does not point at the object");
 }
 
     /**

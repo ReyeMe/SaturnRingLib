@@ -85,31 +85,31 @@ static bool cubetile_check_file(const CubeTileFile &file)
     }
 
     return (file.paletteSize == 0 || cubetile_check_bytes("palette", file, static_cast<const uint8_t *>(tile.GetPalData()), file.paletteSize, 3)) &&
-        cubetile_check_bytes("map", file, static_cast<const uint8_t *>(tile.GetMapData()), file.mapSize, 5) &&
-        cubetile_check_bytes("cell", file, static_cast<const uint8_t *>(tile.GetCellData()), file.cellSize, 7);
+           cubetile_check_bytes("map", file, static_cast<const uint8_t *>(tile.GetMapData()), file.mapSize, 5) &&
+           cubetile_check_bytes("cell", file, static_cast<const uint8_t *>(tile.GetCellData()), file.cellSize, 7);
 }
 
 /** @brief 16 colors, 16x16 characters, one 32x32 page: palette, map and cells are read in that order. */
 MU_TEST(cubetile_16_colors)
 {
-    const CubeTileFile file = { "TILE16.CUB", 1, CRAM::TextureColorMode::Paletted16, CHAR_SIZE_2x2, PL_SIZE_1x1, PNB_1WORD | CN_12BIT,
-        32, 32, 256, 64, 32 };
+    const CubeTileFile file = {"TILE16.CUB", 1, CRAM::TextureColorMode::Paletted16, CHAR_SIZE_2x2, PL_SIZE_1x1, PNB_1WORD | CN_12BIT,
+        32, 32, 256, 64, 32};
     mu_assert(cubetile_check_file(file), buffer);
 }
 
 /** @brief 256 colors, 8x8 characters (twice as many per side) and 2x1 planes (twice as wide): a 256x128 map. */
 MU_TEST(cubetile_256_colors_plane_2x1)
 {
-    const CubeTileFile file = { "TILE256.CUB", 2, CRAM::TextureColorMode::Paletted256, CHAR_SIZE_1x1, PL_SIZE_2x1, PNB_2WORD,
-        256, 128, 128, 32, 512 };
+    const CubeTileFile file = {"TILE256.CUB", 2, CRAM::TextureColorMode::Paletted256, CHAR_SIZE_1x1, PL_SIZE_2x1, PNB_2WORD,
+        256, 128, 128, 32, 512};
     mu_assert(cubetile_check_file(file), buffer);
 }
 
 /** @brief RGB with no palette; the header gives 3x2 pages, and 2x2 planes double both sides: a 192x128 map. */
 MU_TEST(cubetile_rgb_width_and_height)
 {
-    const CubeTileFile file = { "TILERGB.CUB", 3, CRAM::TextureColorMode::RGB555, CHAR_SIZE_2x2, PL_SIZE_2x2, PNB_1WORD,
-        192, 128, 512, 16, 0 };
+    const CubeTileFile file = {"TILERGB.CUB", 3, CRAM::TextureColorMode::RGB555, CHAR_SIZE_2x2, PL_SIZE_2x2, PNB_1WORD,
+        192, 128, 512, 16, 0};
     mu_assert(cubetile_check_file(file), buffer);
 }
 

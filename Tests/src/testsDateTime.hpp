@@ -190,8 +190,9 @@ MU_TEST(datetime_now)
     datetime_format(first, a, sizeof(a));
     snprintf(buffer, buffer_size, "Now() = %s week %u: a field is out of range", a, first.Week());
     mu_assert(first.Year() >= DateTime::BaseYear && first.Year() <= 2099 &&
-        first.Month() >= 1 && first.Month() <= 12 && first.Day() >= 1 && first.Day() <= 31 &&
-        first.Hour() < 24 && first.Minute() < 60 && first.Second() < 60 && first.Week() < 7, buffer);
+                  first.Month() >= 1 && first.Month() <= 12 && first.Day() >= 1 && first.Day() <= 31 &&
+                  first.Hour() < 24 && first.Minute() < 60 && first.Second() < 60 && first.Week() < 7,
+        buffer);
 
     for (int frame = 0; frame < 70; frame++) SRL::Core::Synchronize();     // a bit over one second
 

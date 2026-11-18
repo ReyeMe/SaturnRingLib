@@ -96,15 +96,16 @@ MU_TEST(trigonometry_atan2_key_directions)
 }
 
 /** @brief Checks Asin(x) against an angle, within tol raw units (1/65536 turn); prints both raw values on failure. */
-#define ASIN_ASSERT(x, expected, tol, what)                                                                 \
-    do                                                                                                      \
-    {                                                                                                       \
-        const uint16_t asinGot = SRL::Math::Trigonometry::Asin(Fxp(x)).RawValue();                         \
-        const uint16_t asinExpected = (expected).RawValue();                                                \
-        const int16_t asinDiff = static_cast<int16_t>(asinGot - asinExpected);                             \
-        snprintf(buffer, buffer_size, "%s: raw 0x%04x, expected 0x%04x", what, asinGot, asinExpected);     \
-        mu_assert(asinDiff >= -(tol) && asinDiff <= (tol), buffer);                                         \
-    } while (0)
+#define ASIN_ASSERT(x, expected, tol, what)                                                            \
+    do                                                                                                 \
+    {                                                                                                  \
+        const uint16_t asinGot = SRL::Math::Trigonometry::Asin(Fxp(x)).RawValue();                     \
+        const uint16_t asinExpected = (expected).RawValue();                                           \
+        const int16_t asinDiff = static_cast<int16_t>(asinGot - asinExpected);                         \
+        snprintf(buffer, buffer_size, "%s: raw 0x%04x, expected 0x%04x", what, asinGot, asinExpected); \
+        mu_assert(asinDiff >= -(tol) && asinDiff <= (tol), buffer);                                    \
+    }                                                                                                  \
+    while (0)
 
     /**
  * @brief Asin: exact at 0 and +-1, clamped outside [-1, 1], about 30 degrees at 0.5.

@@ -132,7 +132,6 @@ MU_TEST(vector3d_distance)
     mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "Distance should be ~7.071 for (1,2,3)-(4,6,8)");
 }
 
-
     /**
  * @brief Tests shift operations for Vector3D with negative values.
  * @details Verifies left and right shift scaling for negative components.
@@ -252,11 +251,16 @@ MU_TEST(vector3d_arithmetic_operators)
     mu_assert(-a == Vector3D(-1, -2, -3), "-a incorrect");
 
     Vector3D v = a;
-    v += b; mu_assert(v == Vector3D(Fxp(1.5), -1, 7), "v += b incorrect");
-    v -= b; mu_assert(v == a, "v -= b should undo +=");
-    v *= Fxp(2); mu_assert(v == Vector3D(2, 4, 6), "v *= Fxp incorrect");
-    v /= Fxp(2); mu_assert(v == Vector3D(1, 2, 3), "v /= Fxp incorrect");
-    v /= 2; mu_assert(v == Vector3D(Fxp(0.5), 1, Fxp(1.5)), "v /= int incorrect");
+    v += b;
+    mu_assert(v == Vector3D(Fxp(1.5), -1, 7), "v += b incorrect");
+    v -= b;
+    mu_assert(v == a, "v -= b should undo +=");
+    v *= Fxp(2);
+    mu_assert(v == Vector3D(2, 4, 6), "v *= Fxp incorrect");
+    v /= Fxp(2);
+    mu_assert(v == Vector3D(1, 2, 3), "v /= Fxp incorrect");
+    v /= 2;
+    mu_assert(v == Vector3D(Fxp(0.5), 1, Fxp(1.5)), "v /= int incorrect");
 
     mu_assert(a == Vector3D(1, 2, 3) && !(a != Vector3D(1, 2, 3)), "== / != on equal vectors");
     mu_assert(a != b && !(a == b), "== / != on different vectors");

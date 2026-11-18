@@ -25,9 +25,9 @@ extern char buffer[];
 }
 
 /** @brief Every effect, for resetting them. */
-static const SpriteEffect draw2d_effects[] = { SpriteEffect::Gouraud, SpriteEffect::ScreenDoors, SpriteEffect::HalfTransparency,
+static const SpriteEffect draw2d_effects[] = {SpriteEffect::Gouraud, SpriteEffect::ScreenDoors, SpriteEffect::HalfTransparency,
     SpriteEffect::Clipping, SpriteEffect::Flip, SpriteEffect::OpacityBank, SpriteEffect::EnableHSS, SpriteEffect::EnableECD,
-    SpriteEffect::DisablePreClip, SpriteEffect::HalfBrightness };
+    SpriteEffect::DisablePreClip, SpriteEffect::HalfBrightness};
 
 static void draw2d_reset_effects()
 {
@@ -129,19 +129,24 @@ static const Draw2DCommand *draw2d_find_sprite(int count)
 /** @brief Each effect keeps the value it is set to, within its bit width; -1 turns it off. */
 MU_TEST(draw2d_effects_round_trip)
 {
-    struct { SpriteEffect effect; int32_t set; int32_t expected; } cases[] = {
-        { SpriteEffect::Gouraud, 12, 12 },
-        { SpriteEffect::ScreenDoors, 1, 1 },
-        { SpriteEffect::HalfTransparency, 1, 1 },
-        { SpriteEffect::Clipping, Scene2D::ClipInside, Scene2D::ClipInside },
-        { SpriteEffect::Clipping, 7, 3 },
-        { SpriteEffect::Flip, Scene2D::HorizontalFlip | Scene2D::VerticalFlip, 3 },
-        { SpriteEffect::OpacityBank, 9, 1 },
-        { SpriteEffect::EnableHSS, 1, 1 },
-        { SpriteEffect::EnableECD, 1, 1 },
-        { SpriteEffect::DisablePreClip, 1, 1 },
-        { SpriteEffect::HalfBrightness, 1, 1 },
-        { SpriteEffect::HalfBrightness, 2, 0 },
+    struct
+    {
+        SpriteEffect effect;
+        int32_t set;
+        int32_t expected;
+    } cases[] = {
+        {SpriteEffect::Gouraud, 12, 12},
+        {SpriteEffect::ScreenDoors, 1, 1},
+        {SpriteEffect::HalfTransparency, 1, 1},
+        {SpriteEffect::Clipping, Scene2D::ClipInside, Scene2D::ClipInside},
+        {SpriteEffect::Clipping, 7, 3},
+        {SpriteEffect::Flip, Scene2D::HorizontalFlip | Scene2D::VerticalFlip, 3},
+        {SpriteEffect::OpacityBank, 9, 1},
+        {SpriteEffect::EnableHSS, 1, 1},
+        {SpriteEffect::EnableECD, 1, 1},
+        {SpriteEffect::DisablePreClip, 1, 1},
+        {SpriteEffect::HalfBrightness, 1, 1},
+        {SpriteEffect::HalfBrightness, 2, 0},
     };
 
     for (const auto &c : cases)
@@ -167,7 +172,8 @@ MU_TEST(draw2d_sprite_attribute_defaults)
         attr.texno, attr.atrb, attr.colno, attr.gstb, attr.dir, static_cast<int>(draw2d_texture), ECdis | Pclpon | HSSoff | CL32KRGB,
         FUNC_Texture | (Scene2D::ZoomPoint::UpperLeft << 8));
     mu_assert(attr.texno == draw2d_texture && attr.atrb == (ECdis | Pclpon | HSSoff | CL32KRGB) && attr.colno == 0 &&
-        attr.gstb == 0 && attr.dir == (FUNC_Texture | (Scene2D::ZoomPoint::UpperLeft << 8)), buffer);
+                  attr.gstb == 0 && attr.dir == (FUNC_Texture | (Scene2D::ZoomPoint::UpperLeft << 8)),
+        buffer);
 }
 
 /** @brief Each effect sets its own bits in the sprite attribute. */
@@ -193,7 +199,8 @@ MU_TEST(draw2d_sprite_attribute_effects)
     attr = Scene2D::GetSpriteAttribute(draw2d_texture, &rgb);
     snprintf(buffer, buffer_size, "atrb 0x%04x: expected high-speed shrink, end codes on, no pre-clipping, mesh and window-in bits", attr.atrb);
     mu_assert((attr.atrb & HSSon) && !(attr.atrb & ECdis) && (attr.atrb & Pclpoff) && (attr.atrb & MESHon) &&
-        (attr.atrb & (3 << 9)) == Window_In, buffer);
+                  (attr.atrb & (3 << 9)) == Window_In,
+        buffer);
     draw2d_reset_effects();
 
     Scene2D::SetEffect(SpriteEffect::HalfTransparency, 1);
@@ -256,8 +263,8 @@ MU_TEST(draw2d_line_reaches_vdp1)
 /** @brief DrawPolygon puts a filled polygon or an outline (polyline) with its 4 points in VDP1 VRAM. */
 MU_TEST(draw2d_polygon_fill_and_outline)
 {
-    Vector2D filled[4] = { Vector2D(1, 2), Vector2D(30, 3), Vector2D(31, 33), Vector2D(4, 34) };
-    Vector2D outline[4] = { Vector2D(-50, -40), Vector2D(-20, -40), Vector2D(-20, -10), Vector2D(-50, -10) };
+    Vector2D filled[4] = {Vector2D(1, 2), Vector2D(30, 3), Vector2D(31, 33), Vector2D(4, 34)};
+    Vector2D outline[4] = {Vector2D(-50, -40), Vector2D(-20, -40), Vector2D(-20, -10), Vector2D(-50, -10)};
     mu_assert(Scene2D::DrawPolygon(filled, true, Types::HighColor(0x8456), draw2d_depth), "DrawPolygon (filled) failed");
     mu_assert(Scene2D::DrawPolygon(outline, false, Types::HighColor(0x8789), draw2d_depth), "DrawPolygon (outline) failed");
     const int count = draw2d_read_frame();
@@ -267,7 +274,8 @@ MU_TEST(draw2d_polygon_fill_and_outline)
     snprintf(buffer, buffer_size, "Polygon B (%d, %d) C (%d, %d) D (%d, %d) color 0x%04x, expected (30, 3) (31, 33) (4, 34) 0x8456",
         polygon->X[1], polygon->Y[1], polygon->X[2], polygon->Y[2], polygon->X[3], polygon->Y[3], polygon->Colr);
     mu_assert(polygon->X[1] == 30 && polygon->Y[1] == 3 && polygon->X[2] == 31 && polygon->Y[2] == 33 && polygon->X[3] == 4 &&
-        polygon->Y[3] == 34 && polygon->Colr == 0x8456, buffer);
+                  polygon->Y[3] == 34 && polygon->Colr == 0x8456,
+        buffer);
 
     const Draw2DCommand *polyline = draw2d_find(count, 5, -50, -40);
     mu_assert(polyline != nullptr, "No polyline command from (-50, -40) in VDP1 VRAM");
@@ -298,7 +306,8 @@ MU_TEST(draw2d_sprite_scaled)
     snprintf(buffer, buffer_size, "Type %d zoom 0x%x at (%d, %d) size (%d, %d) texture size 0x%04x, expected 1 0x5 (20, 10) (15, 7) 0x%04x",
         sprite->Type(), sprite->ZoomPoint(), sprite->X[0], sprite->Y[0], sprite->X[1], sprite->Y[1], sprite->Size, VDP1::Textures[draw2d_texture].Size);
     mu_assert(sprite->Type() == 1 && sprite->ZoomPoint() == 0x5 && sprite->X[0] == 20 && sprite->Y[0] == 10 && sprite->X[1] == 15 &&
-        sprite->Y[1] == 7 && sprite->Size == VDP1::Textures[draw2d_texture].Size, buffer);
+                  sprite->Y[1] == 7 && sprite->Size == VDP1::Textures[draw2d_texture].Size,
+        buffer);
 
     mu_assert(Scene2D::DrawSprite(draw2d_texture, Vector3D(-40, -30, draw2d_depth), Vector2D(2.0, 1.0)), "DrawSprite at scale 2 failed");
     count = draw2d_read_frame();
@@ -312,7 +321,8 @@ MU_TEST(draw2d_sprite_scaled)
 MU_TEST(draw2d_rotated_sprite_zoom_point)
 {
     mu_assert(Scene2D::DrawSprite(draw2d_texture, Vector3D(20, 10, draw2d_depth), Angle::FromDegrees(1), Vector2D(1.0, 1.0),
-        Scene2D::ZoomPoint::UpperLeft), "DrawSprite with an angle failed");
+                  Scene2D::ZoomPoint::UpperLeft),
+        "DrawSprite with an angle failed");
     const int count = draw2d_read_frame();
     const Draw2DCommand *sprite = draw2d_find_sprite(count);
 

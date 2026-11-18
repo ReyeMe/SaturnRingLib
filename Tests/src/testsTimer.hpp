@@ -223,7 +223,6 @@ MU_TEST(timer_update_and_delta_variables)
  */
 MU_TEST(timer_precision_monotonicity)
 {
-
     // Small value
     SRL::Tickstamp ts1 = MakeTickstamp(1);
     float sec1 = ts1.ToSeconds().As<float>();
@@ -250,7 +249,6 @@ MU_TEST(timer_precision_monotonicity)
  */
 MU_TEST(timer_clock_mode_override)
 {
-
     // Same tick count at both frequencies
     SRL::Tickstamp ts = MakeTickstamp(1000000);
 
@@ -284,7 +282,6 @@ MU_TEST(timer_clock_mode_override)
  */
 MU_TEST(timer_edge_case_precision)
 {
-
     // Test case 1: Very small values (1 tick)
     SRL::Tickstamp ts1 = MakeTickstamp(1);
     float sec1 = ts1.ToSeconds().As<float>();
@@ -309,7 +306,6 @@ MU_TEST(timer_edge_case_precision)
  */
 MU_TEST(timer_tickstamp_48bit_range)
 {
-
     // Test 48-bit subtraction using FromTicks
     // ts1: 0x123456780000 (High=0x12345678, Low=0x00000000)
     // ts2: 0x123456770000 (High=0x12345677, Low=0x00000000)
@@ -328,7 +324,6 @@ MU_TEST(timer_tickstamp_48bit_range)
  */
 MU_TEST(timer_tickstamp_composition)
 {
-
     // Create using FromTicks: 0x0000000500003039
     // High = ticks >> 16 = 0x000000050000
     // FRT = ticks & 0xFFFF = 0x3039
@@ -432,7 +427,6 @@ MU_TEST(timer_multiple_updates)
  */
 MU_TEST(timer_tickstamp_edge_subtraction)
 {
-
     // Test subtraction resulting in zero (most important case)
     auto c = SRL::Tickstamp::FromTicks(0x123456789ULL);
     auto d = SRL::Tickstamp::FromTicks(0x123456789ULL);
@@ -593,7 +587,6 @@ MU_TEST(timer_tickstamp_greater_than_or_equal)
  */
 MU_TEST(timer_conversion_consistency)
 {
-
     SRL::Tickstamp ts = MakeTickstamp(10000000);
 
     // Multiple ToSeconds calls should produce same result
@@ -638,7 +631,6 @@ MU_TEST(timer_hardware_integration)
  */
 MU_TEST(timer_initialization)
 {
-
     TimerTest::Init();
 
     // After Init, should be able to capture
@@ -661,7 +653,6 @@ MU_TEST(timer_initialization)
  */
 MU_TEST(timer_current_tickstamp_accessor)
 {
-
     TimerTest::Init();
     TimerTest::Update();
 
@@ -694,7 +685,6 @@ MU_TEST(timer_current_tickstamp_accessor)
  */
 MU_TEST(timer_from_seconds_builder)
 {
-
     // Test at 26MHz
     SRL::TimerTest::OverrideDivider(true);
     SRL::Tickstamp ts26 = SRL::Tickstamp::FromSeconds<1.0f>();
@@ -720,7 +710,6 @@ MU_TEST(timer_from_seconds_builder)
  */
 MU_TEST(timer_from_milliseconds_builder)
 {
-
     // Test at 26MHz
     SRL::TimerTest::OverrideDivider(true);
     SRL::Tickstamp ts1_26 = SRL::Tickstamp::FromMilliseconds<16.667f>();
@@ -748,7 +737,6 @@ MU_TEST(timer_from_milliseconds_builder)
  */
 MU_TEST(timer_from_minutes_builder)
 {
-
     // Test at 26MHz
     SRL::TimerTest::OverrideDivider(true);
     const auto& fiveMinutes26 = SRL::Tickstamp::FromMinutes<5.0f>();

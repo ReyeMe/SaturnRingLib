@@ -142,7 +142,7 @@ MU_TEST(transform_rotate_sin_cos_matches_angle)
     Scene3D::RotateZ(sin, cos);
     bySinCos[2] = Scene3D::TransformPoint(p);
 
-    const char *names[3] = { "RotateX(sin, cos)", "RotateY(sin, cos)", "RotateZ(sin, cos)" };
+    const char *names[3] = {"RotateX(sin, cos)", "RotateY(sin, cos)", "RotateZ(sin, cos)"};
     for (int i = 0; i < 3; i++)
     {
         mu_assert(transform_near(bySinCos[i], byAngle[i]), transform_message(names[i], bySinCos[i], byAngle[i]));
@@ -154,7 +154,7 @@ MU_TEST(transform_rotate_axis_matches_rotate_xyz)
 {
     const Angle angle = Angle::FromDegrees(40);
     const Vector3D p(3, -2, 1);
-    const Vector3D axes[3] = { Vector3D(1, 0, 0), Vector3D(0, 1, 0), Vector3D(0, 0, 1) };
+    const Vector3D axes[3] = {Vector3D(1, 0, 0), Vector3D(0, 1, 0), Vector3D(0, 0, 1)};
     Vector3D byAxis[3];
     Vector3D byName[3];
 
@@ -170,7 +170,7 @@ MU_TEST(transform_rotate_axis_matches_rotate_xyz)
         byName[i] = Scene3D::TransformPoint(p);
     }
 
-    const char *names[3] = { "Rotate around X", "Rotate around Y", "Rotate around Z" };
+    const char *names[3] = {"Rotate around X", "Rotate around Y", "Rotate around Z"};
     for (int i = 0; i < 3; i++)
     {
         mu_assert(transform_near(byAxis[i], byName[i]), transform_message(names[i], byAxis[i], byName[i]));
@@ -209,8 +209,8 @@ MU_TEST(transform_get_set_matrix_round_trip)
     Scene3D::SetMatrix(set);
     Scene3D::GetMatrix(&got);
 
-    const Vector3D *setRows[4] = { &set.Row0, &set.Row1, &set.Row2, &set.Row3 };
-    const Vector3D *gotRows[4] = { &got.Row0, &got.Row1, &got.Row2, &got.Row3 };
+    const Vector3D *setRows[4] = {&set.Row0, &set.Row1, &set.Row2, &set.Row3};
+    const Vector3D *gotRows[4] = {&got.Row0, &got.Row1, &got.Row2, &got.Row3};
     for (int row = 0; row < 4; row++)
     {
         snprintf(buffer, buffer_size, "Row %d", row);
@@ -280,8 +280,8 @@ MU_TEST(transform_transpose)
     const Vector3D expected[3] = {
         Vector3D(before.Row0.X, before.Row1.X, before.Row2.X),
         Vector3D(before.Row0.Y, before.Row1.Y, before.Row2.Y),
-        Vector3D(before.Row0.Z, before.Row1.Z, before.Row2.Z) };
-    const Vector3D *rows[3] = { &after.Row0, &after.Row1, &after.Row2 };
+        Vector3D(before.Row0.Z, before.Row1.Z, before.Row2.Z)};
+    const Vector3D *rows[3] = {&after.Row0, &after.Row1, &after.Row2};
     for (int row = 0; row < 3; row++)
     {
         snprintf(buffer, buffer_size, "Transposed row %d", row);
