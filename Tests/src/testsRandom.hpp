@@ -452,11 +452,18 @@ MU_TEST(random_dice_distribution)
         for (int i = 0; i < 6000; i++)
         {
             const int v = static_cast<int>(next());
-            if (v < 1 || v > 6) { outOfRange = true; continue; }
+            if (v < 1 || v > 6)
+            {
+                outOfRange = true;
+                continue;
+            }
             counts[v]++;
         }
         bool uneven = outOfRange;
-        for (int f = 1; f <= 6; f++) { uneven |= (counts[f] < 800 || counts[f] > 1200); }
+        for (int f = 1; f <= 6; f++)
+        {
+            uneven |= (counts[f] < 800 || counts[f] > 1200);
+        }
         if (uneven && pos < sizeof(failed) - 40)
         {
             pos += snprintf(failed + pos, sizeof(failed) - pos, " %s[%u %u %u %u %u %u]%s", name,

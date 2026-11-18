@@ -69,8 +69,6 @@ MU_TEST(euler_angles_test_normalization)
     mu_assert(euler_angle_near(euler.roll, 0), buffer);
 }
 
-
-
     /**
  * @brief Defines the test suite for all Euler angle functionality.
  */

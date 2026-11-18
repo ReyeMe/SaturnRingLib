@@ -148,7 +148,7 @@ MU_TEST(ibitmap_test_get_info)
  */
 MU_TEST(palette_test_wrapped_colors_not_freed)
 {
-    SRL::Types::HighColor *colors = new SRL::Types::HighColor[16];
+    SRL::Types::HighColor* colors = new SRL::Types::HighColor[16];
     const size_t before = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
 
     {

@@ -46,12 +46,16 @@ static size_t tilemap_used_blocks()
 /** @brief VDP2 color type for each texture color mode: RGB 32K colors, 16 colors, or 256 colors for 64 to 256. */
 MU_TEST(tilemap_info_sgl_color_mode)
 {
-    struct { CRAM::TextureColorMode mode; uint16_t expected; } cases[] = {
-        { CRAM::TextureColorMode::RGB555, COL_TYPE_32768 },
-        { CRAM::TextureColorMode::Paletted16, COL_TYPE_16 },
-        { CRAM::TextureColorMode::Paletted64, COL_TYPE_256 },
-        { CRAM::TextureColorMode::Paletted128, COL_TYPE_256 },
-        { CRAM::TextureColorMode::Paletted256, COL_TYPE_256 },
+    struct
+    {
+        CRAM::TextureColorMode mode;
+        uint16_t expected;
+    } cases[] = {
+        {CRAM::TextureColorMode::RGB555, COL_TYPE_32768},
+        {CRAM::TextureColorMode::Paletted16, COL_TYPE_16},
+        {CRAM::TextureColorMode::Paletted64, COL_TYPE_256},
+        {CRAM::TextureColorMode::Paletted128, COL_TYPE_256},
+        {CRAM::TextureColorMode::Paletted256, COL_TYPE_256},
     };
 
     for (const auto &c : cases)
@@ -76,7 +80,8 @@ MU_TEST(tilemap_sgltile_passes_data_through)
     mu_assert(tile.GetCellData() == cells && tile.GetMapData() == map && tile.GetPalData() == palette, "SGLTile changed a data pointer");
     const TilemapInfo got = tile.GetInfo();
     mu_assert(got.ColorMode == info.ColorMode && got.MapMode == info.MapMode && got.CharSize == info.CharSize &&
-        got.MapWidth == 64 && got.MapHeight == 64 && got.CellByteSize == 32, "SGLTile changed the tilemap info");
+                  got.MapWidth == 64 && got.MapHeight == 64 && got.CellByteSize == 32,
+        "SGLTile changed the tilemap info");
 }
 
 /** @brief 256-color pixel of the 32x32 test bitmap: the top-left and bottom-right 16x16 tiles are empty. */

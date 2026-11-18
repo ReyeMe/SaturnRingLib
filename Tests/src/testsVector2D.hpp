@@ -123,8 +123,6 @@ MU_TEST(vector2d_distance_and_distancesquared)
     mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo should be ~5 for (1,2)-(4,6)");
 }
 
-
-
     /**
  * @brief Tests shift operations for Vector2D with negative values.
  * @details Verifies left and right shift scaling for negative components.
@@ -231,11 +229,16 @@ MU_TEST(vector2d_arithmetic_operators)
     mu_assert(-a == Vector2D(-1, -2), "-a incorrect");
 
     Vector2D v = a;
-    v += b; mu_assert(v == Vector2D(Fxp(1.5), -1), "v += b incorrect");
-    v -= b; mu_assert(v == a, "v -= b should undo +=");
-    v *= Fxp(2); mu_assert(v == Vector2D(2, 4), "v *= Fxp incorrect");
-    v /= Fxp(2); mu_assert(v == Vector2D(1, 2), "v /= Fxp incorrect");
-    v /= 2; mu_assert(v == Vector2D(Fxp(0.5), 1), "v /= int incorrect");
+    v += b;
+    mu_assert(v == Vector2D(Fxp(1.5), -1), "v += b incorrect");
+    v -= b;
+    mu_assert(v == a, "v -= b should undo +=");
+    v *= Fxp(2);
+    mu_assert(v == Vector2D(2, 4), "v *= Fxp incorrect");
+    v /= Fxp(2);
+    mu_assert(v == Vector2D(1, 2), "v /= Fxp incorrect");
+    v /= 2;
+    mu_assert(v == Vector2D(Fxp(0.5), 1), "v /= int incorrect");
 
     Vector2D c = a;
     (c += b) += b;

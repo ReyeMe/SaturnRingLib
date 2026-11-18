@@ -25,14 +25,15 @@ static bool interp_near(const Fxp& a, const Fxp& b, int32_t tol)
 }
 
 /** @brief Checks f(start, end, t) against an expected value within tol raw units; prints raw values on failure. */
-#define INTERP_ASSERT(expr, expected, tol, what)                                                        \
-    do                                                                                                  \
-    {                                                                                                   \
-        const Fxp interpGot = (expr);                                                                   \
-        snprintf(buffer, buffer_size, "%s: raw %ld != %ld", what, (long)interpGot.RawValue(),           \
-            (long)Fxp(expected).RawValue());                                                            \
-        mu_assert(interp_near(interpGot, Fxp(expected), tol), buffer);                                  \
-    } while (0)
+#define INTERP_ASSERT(expr, expected, tol, what)                                              \
+    do                                                                                        \
+    {                                                                                         \
+        const Fxp interpGot = (expr);                                                         \
+        snprintf(buffer, buffer_size, "%s: raw %ld != %ld", what, (long)interpGot.RawValue(), \
+            (long)Fxp(expected).RawValue());                                                  \
+        mu_assert(interp_near(interpGot, Fxp(expected), tol), buffer);                        \
+    }                                                                                         \
+    while (0)
 
     /**
  * @brief Lerp: start at t=0, end at t=1, midpoint at t=0.5, also for decreasing and negative ranges.

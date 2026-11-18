@@ -387,7 +387,11 @@ static bool memory_common_realloc_same_and_zero(void)
     using Z = typename T::Z;
     const size_t free0 = Z::GetFreeSpace();
     void *p = Z::Malloc(48);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(48) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(48) failed", T::name);
+        return false;
+    }
     mem_fill_sequence(p, 48);
 
     void *same = Z::Realloc(p, 48);
@@ -485,7 +489,11 @@ static bool memory_common_wrong_zone(void)
     using Z = typename T::Z;
     using O = typename Other::Z;
     void *p = Z::Malloc(64);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name);
+        return false;
+    }
     mem_fill_sequence(p, 64);
     const size_t ownFree = Z::GetFreeSpace();
     const size_t otherFree = O::GetFreeSpace();
@@ -523,7 +531,11 @@ static bool memory_common_realloc_too_large(void)
 {
     using Z = typename T::Z;
     void *p = Z::Malloc(64);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name);
+        return false;
+    }
     mem_fill_sequence(p, 64);
     const size_t used0 = Z::GetUsedSpace();
 
@@ -551,7 +563,11 @@ static bool memory_common_double_free_heap_still_sane(void)
 {
     using Z = typename T::Z;
     void *p = Z::Malloc(64);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name);
+        return false;
+    }
     Z::Free(p);
     Z::Free(p);
 
@@ -888,7 +904,11 @@ static bool memory_common_free_cache_through(void)
     using Z = typename T::Z;
     const size_t free0 = Z::GetFreeSpace();
     void *p = Z::Malloc(64);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name);
+        return false;
+    }
     void *uncached = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(p) | 0x20000000u);
 
     Memory::Free(uncached);
@@ -958,8 +978,15 @@ static bool memory_common_largest_block(void)
     {
         const size_t mid = ((lo + hi) / 2 + 4) & ~static_cast<size_t>(3);
         void *probe = Z::Malloc(mid);
-        if (probe != nullptr) { Z::Free(probe); lo = mid; }
-        else { hi = mid - 4; }
+        if (probe != nullptr)
+        {
+            Z::Free(probe);
+            lo = mid;
+        }
+        else
+        {
+            hi = mid - 4;
+        }
     }
     const size_t n = lo;
     snprintf(buffer, buffer_size, "%s: no block fits (free space %lu)", T::name, (unsigned long)free0);
@@ -1011,7 +1038,11 @@ static bool memory_common_shrink_then_grow(void)
     using Z = typename T::Z;
     const size_t free0 = Z::GetFreeSpace();
     void *p = Z::Malloc(256);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(256) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(256) failed", T::name);
+        return false;
+    }
     mem_fill_sequence(p, 256);
     const size_t freeFull = Z::GetFreeSpace();
 
@@ -1055,7 +1086,9 @@ static bool memory_common_realloc_into_previous_free(void)
     if (before == nullptr || p == nullptr || guard == nullptr)
     {
         snprintf(buffer, buffer_size, "%s: initial Malloc failed", T::name);
-        Z::Free(before); Z::Free(p); Z::Free(guard);
+        Z::Free(before);
+        Z::Free(p);
+        Z::Free(guard);
         return false;
     }
     mem_fill_sequence(p, 160);
@@ -1095,7 +1128,8 @@ static bool memory_common_realloc_odd_size(void)
     if (p == nullptr || guard == nullptr)
     {
         snprintf(buffer, buffer_size, "%s: initial Malloc failed", T::name);
-        Z::Free(p); Z::Free(guard);
+        Z::Free(p);
+        Z::Free(guard);
         return false;
     }
     mem_fill_sequence(p, 32);
@@ -1151,8 +1185,7 @@ MU_TEST(memory_common_new_macros_and_placement_ptr)
     MemCommonAutoNew *inHw = hwnew MemCommonAutoNew();
     int *siblingLw = inLw != nullptr ? inLw->MakeSibling() : nullptr;
     int *siblingHw = inHw != nullptr ? inHw->MakeSibling() : nullptr;
-    const bool autoOk = siblingLw != nullptr && Memory::LowWorkRam::InRange(siblingLw) && *siblingLw == 4
-        && siblingHw != nullptr && Memory::HighWorkRam::InRange(siblingHw) && *siblingHw == 4;
+    const bool autoOk = siblingLw != nullptr && Memory::LowWorkRam::InRange(siblingLw) && *siblingLw == 4 && siblingHw != nullptr && Memory::HighWorkRam::InRange(siblingHw) && *siblingHw == 4;
     delete siblingLw;
     delete siblingHw;
     delete inLw;
@@ -1215,7 +1248,11 @@ static bool memory_common_free_interior_pointer(void)
     return false;
 #endif
     uint8_t *p = static_cast<uint8_t *>(Z::Malloc(64));
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name);
+        return false;
+    }
     Memory::MemSet(p, 0x00, 64);                // zeroed, so a fake header read from it has size 0 and cannot run off
     const size_t used0 = Z::GetUsedSpace();
     const size_t blocks0 = Z::GetReport().UsedBlocks;
@@ -1243,7 +1280,11 @@ static bool memory_common_realloc_freed(void)
 {
     using Z = typename T::Z;
     void *p = Z::Malloc(64);
-    if (p == nullptr) { snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name); return false; }
+    if (p == nullptr)
+    {
+        snprintf(buffer, buffer_size, "%s: Malloc(64) failed", T::name);
+        return false;
+    }
     Z::Free(p);
 
     void *q = Z::Realloc(p, 128);
@@ -1271,11 +1312,19 @@ static int memory_common_alloc_loop(uint8_t pattern, int rounds)
     {
         const size_t size = 16 + (i % 7) * 24;
         uint8_t *p = static_cast<uint8_t *>(Memory::HighWorkRam::Malloc(size));
-        if (p == nullptr) { errors++; continue; }
+        if (p == nullptr)
+        {
+            errors++;
+            continue;
+        }
         for (size_t j = 0; j < size; j++) p[j] = pattern;
         for (size_t j = 0; j < size; j++)
         {
-            if (p[j] != pattern) { errors++; break; }
+            if (p[j] != pattern)
+            {
+                errors++;
+                break;
+            }
         }
         Memory::HighWorkRam::Free(p);
     }
@@ -1397,7 +1446,6 @@ MU_TEST_SUITE(memory_common_risky_test_suite)
     MU_RUN_TEST(memory_common_realloc_odd_size_hwram);
     MU_RUN_TEST(memory_common_realloc_odd_size_lwram);
 }
-
 
     /**
  * @brief Both CPUs allocating at once. Run alone in the memory_cpus_* campaigns, on a fresh heap:

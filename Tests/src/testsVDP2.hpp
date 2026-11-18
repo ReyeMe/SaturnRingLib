@@ -70,7 +70,7 @@ MU_TEST(vdp2_vram_access_cycles)
 /** @brief ClearVRAM empties every bank. */
 MU_TEST(vdp2_clear_vram_empties_banks)
 {
-    const VramBank banks[4] = { VramBank::A0, VramBank::A1, VramBank::B0, VramBank::B1 };
+    const VramBank banks[4] = {VramBank::A0, VramBank::A1, VramBank::B0, VramBank::B1};
     for (int i = 0; i < 4; i++) VDP2::VRAM::Allocate(0x1000, 32, banks[i]);
 
     VDP2::ClearVRAM();
@@ -117,7 +117,8 @@ MU_TEST(vdp2_bmp2tile_16_colors)
         snprintf(buffer, buffer_size, "Color mode %d, char size %d, map %dx%d, cell bytes %d (expected Paletted16, 2x2, 32x32, 384)",
             static_cast<int>(info.ColorMode), info.CharSize, info.MapWidth, info.MapHeight, static_cast<int>(info.CellByteSize));
         mu_assert(info.ColorMode == CRAM::TextureColorMode::Paletted16 && info.CharSize == CHAR_SIZE_2x2 &&
-            info.MapWidth == 32 && info.MapHeight == 32 && info.CellByteSize == 384, buffer);
+                      info.MapWidth == 32 && info.MapHeight == 32 && info.CellByteSize == 384,
+            buffer);
 
         const uint8_t *cells = static_cast<const uint8_t *>(tiles.GetCellData());
         for (int i = 0; i < 128; i++)
@@ -264,8 +265,8 @@ extern uint16_t VDP2_COAR, VDP2_COAG, VDP2_COAB, VDP2_COBR, VDP2_COBG, VDP2_COBB
 /** @brief Register copy and SRL's screen masks, saved before each settings test and put back after it */
 static uint16_t vdp2_saved_regs[0x90];
 static uint16_t vdp2_saved_masks[5];
-static uint16_t *const vdp2_masks[5] = { &VDP2::ActiveScrolls, &VDP2::ColorCalcScrolls, &VDP2::OffsetAScrolls,
-    &VDP2::OffsetBScrolls, &VDP2::TransparentScrolls };
+static uint16_t *const vdp2_masks[5] = {&VDP2::ActiveScrolls, &VDP2::ColorCalcScrolls, &VDP2::OffsetAScrolls,
+    &VDP2::OffsetBScrolls, &VDP2::TransparentScrolls};
 
 /** @brief Back color: one color in VRAM at B1 + 0x1FEE0 (VDP2::SetBackColor) */
 static volatile uint16_t *const vdp2_back_color_ram = reinterpret_cast<volatile uint16_t *>(VDP2_VRAM_B1 + 0x1FEE0);

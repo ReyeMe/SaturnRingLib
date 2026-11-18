@@ -90,7 +90,8 @@ MU_TEST(fld_game_audio_tracks)
     snprintf(buffer, buffer_size, "First track %d, track 2 -> %d, track 4 -> %d (expected %d, %d, %d)", Fld::FirstAudioTrack(),
         Sound::Cdda::DiscTrack(2), Sound::Cdda::DiscTrack(4), FldGameFirstTrack, FldGameFirstTrack, FldGameFirstTrack + 2);
     mu_assert(Fld::FirstAudioTrack() == FldGameFirstTrack && Sound::Cdda::DiscTrack(2) == FldGameFirstTrack &&
-        Sound::Cdda::DiscTrack(4) == FldGameFirstTrack + 2, buffer);
+                  Sound::Cdda::DiscTrack(4) == FldGameFirstTrack + 2,
+        buffer);
 }
 
 MU_TEST_SUITE(fld_game_test_suite)

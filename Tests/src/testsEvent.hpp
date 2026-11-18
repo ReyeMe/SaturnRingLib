@@ -40,8 +40,16 @@ static void event_log_add(char id)
     }
 }
 
-static void event_static_a(int value) { event_log_add('a'); event_last_value = value; }
-static void event_static_b(int value) { event_log_add('b'); event_last_value = value; }
+static void event_static_a(int value)
+{
+    event_log_add('a');
+    event_last_value = value;
+}
+static void event_static_b(int value)
+{
+    event_log_add('b');
+    event_last_value = value;
+}
 
 /** @brief Class with a member callback. */
 struct EventListener
@@ -50,7 +58,9 @@ struct EventListener
     int received = 0;
     MemberProxy<int> Proxy = MemberProxy<int>(this, &EventListener::OnEvent);
 
-    explicit EventListener(char id) : id(id) {}
+    explicit EventListener(char id) :
+        id(id)
+    {}
 
     void OnEvent(int value)
     {
@@ -205,8 +215,16 @@ MU_TEST(event_reference_argument)
 /** @brief Event used by the callbacks that change it while it runs. */
 static Event<int> event_changing;
 
-static void event_remove_self(int) { event_log_add('r'); event_changing -= event_remove_self; }
-static void event_add_b(int) { event_log_add('+'); event_changing += event_static_b; }
+static void event_remove_self(int)
+{
+    event_log_add('r');
+    event_changing -= event_remove_self;
+}
+static void event_add_b(int)
+{
+    event_log_add('+');
+    event_changing += event_static_b;
+}
 
     /**
  * @brief A callback that removes itself during Invoke: each of the others still runs once.

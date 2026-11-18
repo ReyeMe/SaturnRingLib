@@ -29,9 +29,12 @@ static uint32_t vdp1_texture_bytes(uint16_t width, uint16_t height, CRAM::Textur
     const uint32_t pixels = width * height;
     switch (mode)
     {
-    case CRAM::TextureColorMode::RGB555: return pixels * 2;
-    case CRAM::TextureColorMode::Paletted16: return pixels / 2;
-    default: return pixels;
+    case CRAM::TextureColorMode::RGB555:
+        return pixels * 2;
+    case CRAM::TextureColorMode::Paletted16:
+        return pixels / 2;
+    default:
+        return pixels;
     }
 }
 
@@ -53,12 +56,16 @@ MU_TEST(vdp1_first_texture_at_start)
 /** @brief Textures of different color modes follow each other without overlapping, on 32-byte boundaries. */
 MU_TEST(vdp1_textures_do_not_overlap)
 {
-    struct { uint16_t w, h; CRAM::TextureColorMode mode; } textures[] = {
-        { 16, 8, CRAM::TextureColorMode::RGB555 },
-        { 8, 8, CRAM::TextureColorMode::Paletted256 },
-        { 16, 16, CRAM::TextureColorMode::Paletted16 },
-        { 24, 8, CRAM::TextureColorMode::Paletted64 },
-        { 8, 8, CRAM::TextureColorMode::RGB555 },
+    struct
+    {
+        uint16_t w, h;
+        CRAM::TextureColorMode mode;
+    } textures[] = {
+        {16, 8, CRAM::TextureColorMode::RGB555},
+        {8, 8, CRAM::TextureColorMode::Paletted256},
+        {16, 16, CRAM::TextureColorMode::Paletted16},
+        {24, 8, CRAM::TextureColorMode::Paletted64},
+        {8, 8, CRAM::TextureColorMode::RGB555},
     };
 
     for (int i = 0; i < 5; i++)

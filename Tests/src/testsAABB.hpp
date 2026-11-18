@@ -38,7 +38,6 @@ MU_TEST(aabb_construction_center_and_uniform_size)
     mu_assert(box.GetHalfExtents() == Vector3D(size, size, size), "AABB center+size ctor did not set half-extents");
 }
 
-
     /**
  * @brief Tests the AABB constructor that takes a center point and non-uniform half-extents.
  */
@@ -52,7 +51,6 @@ MU_TEST(aabb_construction_center_and_half_extents)
     mu_assert(box.GetMin() == Vector3D(0, 0, 0), "AABB min incorrect for center+halfExtents");
     mu_assert(box.GetMax() == Vector3D(2, 4, 6), "AABB max incorrect for center+halfExtents");
 }
-
 
     /**
  * @brief Tests creating an AABB from two points (min and max corners).
@@ -68,7 +66,6 @@ MU_TEST(aabb_from_min_max)
     mu_assert(box.GetMax() == max, "FromMinMax max incorrect");
 }
 
-
     /**
  * @brief Tests that `FromMinMax` with two equal points creates a degenerate (zero-sized) AABB at that point.
  */
@@ -81,7 +78,6 @@ MU_TEST(aabb_from_min_max_equal_points_degenerate)
     mu_assert(box.GetMin() == p, "FromMinMax(equal) min should equal point");
     mu_assert(box.GetMax() == p, "FromMinMax(equal) max should equal point");
 }
-
 
     /**
  * @brief Tests the calculation of the AABB's volume and surface area.
@@ -113,12 +109,6 @@ MU_TEST(aabb_expand)
     mu_assert(same.GetHalfExtents() == box.GetHalfExtents(), "Expand(0) should not change halfExtents");
 }
 
-
-
-
-
-
-
     /**
  * @brief Tests scaling an AABB by a uniform factor.
  */
@@ -132,7 +122,6 @@ MU_TEST(aabb_scale)
     constexpr AABB zeroed = box.Scale(0);
     mu_assert(zeroed.GetHalfExtents() == Vector3D::Zero(), "Scale(0) should produce zero half-extents");
 }
-
 
     /**
  * @brief Tests scaling an AABB by a fractional factor.
@@ -226,7 +215,6 @@ MU_TEST(aabb_merge)
     mu_assert(ai.GetMin() == a.GetMin(), "Merge(inner AABB) should keep min");
     mu_assert(ai.GetMax() == a.GetMax(), "Merge(inner AABB) should keep max");
 }
-
 
     /**
  * @brief Collision::Contains for a point (inclusive bounds) and for an AABB (inner, equal, partly outside).

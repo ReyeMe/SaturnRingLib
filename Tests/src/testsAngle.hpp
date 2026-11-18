@@ -516,7 +516,6 @@ MU_TEST(angle_test_from_degrees_zero)
     mu_assert(a1.ToDegrees() == 0, buffer);
 }
 
-
     /** @brief Verifies that a 360-degree angle converts to 0 turns due to wrapping. */
 MU_TEST(angle_test_to_turns_full_wraps_to_zero)
 {
@@ -990,7 +989,6 @@ MU_TEST(angle_test_operator_unary_minus_opposite)
     snprintf(buffer, buffer_size, "Unary minus raw failed: %u != %u", opposite2.RawValue(), expectedRaw);
     mu_assert(opposite2.RawValue() == expectedRaw, buffer);
 }
-
 
     // Define the test suite with all unit tests
 MU_TEST_SUITE(angle_test_suite)

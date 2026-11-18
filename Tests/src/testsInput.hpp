@@ -12,8 +12,8 @@
 #include "minunit.h"
 
 using namespace SRL;
-using SRL::Input::Digital;
 using SRL::Input::Analog;
+using SRL::Input::Digital;
 using SRL::Input::Management;
 using SRL::Input::PeripheralType;
 
@@ -113,10 +113,10 @@ MU_TEST(input_family_and_gun)
 {
     using SRL::Input::PeripheralFamily;
     input_disconnect_all();
-    const PeripheralType types[5] = { PeripheralType::Gamepad, PeripheralType::Analog3dPad, PeripheralType::Mouse,
-        PeripheralType::Keyboard, PeripheralType::MD3ButtonPad };
-    const PeripheralFamily families[6] = { PeripheralFamily::Digital, PeripheralFamily::Analog, PeripheralFamily::Pointing,
-        PeripheralFamily::KeyBoard, PeripheralFamily::Extended, PeripheralFamily::Unknown };
+    const PeripheralType types[5] = {PeripheralType::Gamepad, PeripheralType::Analog3dPad, PeripheralType::Mouse,
+        PeripheralType::Keyboard, PeripheralType::MD3ButtonPad};
+    const PeripheralFamily families[6] = {PeripheralFamily::Digital, PeripheralFamily::Analog, PeripheralFamily::Pointing,
+        PeripheralFamily::KeyBoard, PeripheralFamily::Extended, PeripheralFamily::Unknown};
     for (uint8_t port = 0; port < 5; port++) input_set_pad(port, types[port], input_held(0), input_held(0));
 
     for (uint8_t port = 0; port < 6; port++)
@@ -144,7 +144,8 @@ MU_TEST(input_find_nth_connected)
         Management::FindNthConnectedPeripheral(0), Management::FindNthConnectedPeripheral(1),
         Management::FindNthConnectedPeripheral(2), Management::FindNthConnectedPeripheral(3));
     mu_assert(Management::FindNthConnectedPeripheral(0) == 0 && Management::FindNthConnectedPeripheral(1) == 3 &&
-        Management::FindNthConnectedPeripheral(2) == 7 && Management::FindNthConnectedPeripheral(3) == 0xff, buffer);
+                  Management::FindNthConnectedPeripheral(2) == 7 && Management::FindNthConnectedPeripheral(3) == 0xff,
+        buffer);
 }
 
 /** @brief Analog axes come from the x, y, z (and left trigger) bytes, depending on the pad type. */
@@ -162,7 +163,8 @@ MU_TEST(input_analog_axes)
     snprintf(buffer, buffer_size, "3D pad axes %d %d %d %d, expected 10 200 30 40", pad.GetAxis(Analog::Axis1),
         pad.GetAxis(Analog::Axis2), pad.GetAxis(Analog::Axis3), pad.GetAxis(Analog::Axis4));
     mu_assert(pad.GetAxis(Analog::Axis1) == 10 && pad.GetAxis(Analog::Axis2) == 200 && pad.GetAxis(Analog::Axis3) == 30 &&
-        pad.GetAxis(Analog::Axis4) == 40, buffer);
+                  pad.GetAxis(Analog::Axis4) == 40,
+        buffer);
 
     Management::GetRawData(2)->id = static_cast<uint8_t>(PeripheralType::Racing);
     mu_assert(pad.GetAxis(Analog::Axis1) == 10 && pad.GetAxis(Analog::Axis2) == 0, "A racing wheel has only axis 1 (the wheel)");
@@ -180,7 +182,8 @@ MU_TEST(input_refresh_keeps_previous_frame)
         Management::GetPreviousRawData(5)->id, Management::GetPreviousRawData(5)->data,
         static_cast<uint8_t>(PeripheralType::Gamepad), input_held(start));
     mu_assert(Management::GetPreviousRawData(5)->id == static_cast<uint8_t>(PeripheralType::Gamepad) &&
-        Management::GetPreviousRawData(5)->data == input_held(start), buffer);
+                  Management::GetPreviousRawData(5)->data == input_held(start),
+        buffer);
 }
 
 MU_TEST_SUITE(input_test_suite)

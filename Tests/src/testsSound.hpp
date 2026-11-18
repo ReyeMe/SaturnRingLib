@@ -93,7 +93,7 @@ MU_TEST(sound_all_channels_busy)
 {
     Cd::File file("TONE.PCM");
     RawPcmProbe pcm(&file, Pcm::PcmChannels::Mono, Pcm::PcmBitDepth::Pcm8Bit, 11025);
-    bool used[SoundChannels] = { false, false, false, false };
+    bool used[SoundChannels] = {false, false, false, false};
 
     for (int i = 0; i < SoundChannels; i++)
     {
@@ -152,7 +152,7 @@ static CddaStatus cdda_status()
 {
     CdcStat stat;
     CDC_GetCurStat(&stat);
-    return { static_cast<uint8_t>(stat.status & 0x0f), stat.report.tno, stat.report.fad };
+    return {static_cast<uint8_t>(stat.status & 0x0f), stat.report.tno, stat.report.fad};
 }
 
 /** @brief Waits up to frames frames for the drive to play track; true when it does. */
@@ -177,8 +177,10 @@ static uint8_t cdda_wait_end(int frames)
     for (int frame = 0; frame < frames; frame++)
     {
         const CddaStatus status = cdda_status();
-        if (status.state == CDC_ST_PLAY) lastTrack = status.track;
-        else if (status.state == CDC_ST_PAUSE || status.state == CDC_ST_STANDBY) return lastTrack;
+        if (status.state == CDC_ST_PLAY)
+            lastTrack = status.track;
+        else if (status.state == CDC_ST_PAUSE || status.state == CDC_ST_STANDBY)
+            return lastTrack;
         Core::Synchronize();
     }
 

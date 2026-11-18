@@ -36,8 +36,14 @@ static volatile uint8_t *ascii_tile(uint16_t character)
 static volatile uint8_t *const ascii_font1 = reinterpret_cast<volatile uint8_t *>(VDP2_VRAM_B1 + 0x1D400 - 0x1000);
 static uint8_t ascii_font1_saved[0xC00];
 
-static void ascii_save_font1() { for (int i = 0; i < 0xC00; i++) ascii_font1_saved[i] = ascii_font1[i]; }
-static void ascii_restore_font1() { for (int i = 0; i < 0xC00; i++) ascii_font1[i] = ascii_font1_saved[i]; }
+static void ascii_save_font1()
+{
+    for (int i = 0; i < 0xC00; i++) ascii_font1_saved[i] = ascii_font1[i];
+}
+static void ascii_restore_font1()
+{
+    for (int i = 0; i < 0xC00; i++) ascii_font1[i] = ascii_font1_saved[i];
+}
 
 void ascii_test_setup(void)
 {
