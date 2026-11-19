@@ -8,8 +8,7 @@
   "campaigns": {
     "math": {
       "known_failures": {
-        "fxp_ceil": "Ceil(32767.999) wraps to -32768",
-        "fxp_round": "Round(32767.999) wraps to -32768",
+        "fxp_round": "Round(-32767.9999) returns 32767: subtracting 0x8000 from the raw value overflows int32, though -32768 fits",
         "fxp_sqrt": "Sqrt() is approximate (Sqrt(9) = 3.125) but documented as isqrt(value * 2^16)",
         "fxp_add_sub_runtime_matches_compile_time": "runtime MaxValue + 1 wraps, compile time saturates",
         "trigonometry_tan_matches_sin_over_cos": "Tan wrong for negative angles and near +-90",
