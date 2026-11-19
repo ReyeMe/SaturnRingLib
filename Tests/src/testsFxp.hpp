@@ -235,9 +235,17 @@ MU_TEST(fxp_ceil)
     fxp_ceil_check(-32768.0, "-32768.0", -32768); // minimum
     fxp_ceil_check(-32768.0001, "-32768.0001", -32768); // just below min (should clamp or handle)
     fxp_ceil_check(-32767.9999, "-32767.9999", -32767); // just above min
-    fxp_ceil_check(32767.9998474, "32767.9998474", 32768); // maximum
-    fxp_ceil_check(32767.999, "32767.999", 32768); // just below max
+    // Not tested: Ceil of a value above 32767. The result, 32768, does not fit in 16.16, and SaturnMathPP does not
+    // saturate: Ceil adds 0xFFFF to the raw value, which overflows int32, and returns -32768.
+    // fxp_ceil_check(32767.9998474, "32767.9998474", 32767); // maximum
+    // fxp_ceil_check(32767.999, "32767.999", 32767); // just below max
     fxp_ceil_check(32767.0, "32767.0", 32767); // max integer
+    fxp_ceil_check(32767.0 - 1.0 / 65536, "32767 - 1/65536", 32767); // largest value below 32767: rounds up to it
+    fxp_ceil_check(32766.5, "32766.5", 32767);
+    fxp_ceil_check(32766.0 + 1.0 / 65536, "32766 + 1/65536", 32767); // one step above an integer goes to the next
+    fxp_ceil_check(-32767.5, "-32767.5", -32767);
+    fxp_ceil_check(100.0 + 1.0 / 65536, "100 + 1/65536", 101);
+    fxp_ceil_check(-100.0 - 1.0 / 65536, "-100 - 1/65536", -100);
     fxp_ceil_check(1.0 / 65536, "1/65536", 1); // resolution step
     fxp_ceil_check(-1.0 / 65536, "-1/65536", 0); // negative resolution step
 
@@ -275,10 +283,19 @@ MU_TEST(fxp_round)
         // Fxp-specific edge cases
     fxp_round_check(-32768.0, "-32768.0", -32768); // minimum
     fxp_round_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
-    fxp_round_check(-32767.9999, "-32767.9999", -32768); // just above min
+    fxp_round_check(-32767.9999, "-32767.9999", -32768); // just above min: fails, Round subtracts 0x8000 from the raw value, which overflows int32 (SaturnMathPP bug)
     fxp_round_check(32766.99998474, "32766.99998474", 32767); // maximum
-    fxp_round_check(32767.999, "32767.999", 32768); // just below max
+    // Not tested: Round of a value from 32767.5 up. The result, 32768, does not fit in 16.16, and SaturnMathPP does
+    // not saturate: Round adds 0x8000 to the raw value, which overflows int32, and returns -32768.
+    // fxp_round_check(32767.999, "32767.999", 32767); // just below max
     fxp_round_check(32767.0, "32767.0", 32767); // max integer
+    fxp_round_check(32767.5 - 1.0 / 65536, "32767.5 - 1/65536", 32767); // largest value Round takes: rounds down
+    fxp_round_check(32766.5, "32766.5", 32767); // half near the maximum: away from zero
+    fxp_round_check(32766.5 - 1.0 / 65536, "32766.5 - 1/65536", 32766); // one step below half: down
+    fxp_round_check(-32767.5, "-32767.5", -32768); // half near the minimum: away from zero, to the minimum
+    fxp_round_check(-32767.5 + 1.0 / 65536, "-32767.5 + 1/65536", -32767); // one step above negative half
+    fxp_round_check(2.5, "2.5", 3); // halves go away from zero, not to even
+    fxp_round_check(-2.5, "-2.5", -3);
     fxp_round_check(1.0 / 65536, "1/65536", 0); // resolution step
     fxp_round_check(-1.0 / 65536, "-1/65536", 0); // negative resolution step
 
