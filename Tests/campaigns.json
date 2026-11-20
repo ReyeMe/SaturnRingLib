@@ -107,7 +107,7 @@
         "dsp_test_start_and_stop": "DSP end flag never set (not investigated yet)",
         "interrupt_test_acknowledge_roundtrip": "Get/SetAcknowledge use 0x25FE00BC, which is not an SCU register (AIACK is 0x25FE00A8): the value does not read back",
         "system_test_semaphore_take_and_clear": "TestAndSetSemaphore is documented as 0 = acquired, but the BIOS routine (tas.b; rts; movt r0) returns 1 when it takes a free semaphore and 0 when it is already taken",
-        "system_test_clock_mode_roundtrip": "not run: SetClockMode resets the VDPs and the next Synchronize never returns (the campaign hangs)",
+        "system_test_clock_mode_roundtrip": "not run: SetClockMode resets VDP1, VDP2 and SCSP as documented, and SRL has no function that re-initializes them, so the next Synchronize never returns (the campaign hangs)",
         "interrupt_test_illegal_instruction_handler": "Interrupt::Vector uses the 68000's exception numbers: Vector::Illegal is 0x63, but the SH-2 takes an illegal instruction on vector 4, which SetHandler refuses (it only takes 0x40-0x4F and 0x60-0x8F)"
       }
     },

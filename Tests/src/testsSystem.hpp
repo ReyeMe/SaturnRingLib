@@ -131,9 +131,10 @@ MU_TEST(system_test_change_interrupt_mask_identity)
  */
 MU_TEST(system_test_clock_mode_roundtrip)
 {
-    // Not run: changing the clock mode resets the VDPs, so the next frame sync never returns and the campaign hangs.
-    // Reported as a failure so the bug stays visible in campaigns.json; remove this line once it is fixed.
-    mu_fail("not run: SetClockMode resets the VDPs and the next Synchronize never returns");
+    // Not run: the clock switch resets VDP1, VDP2 and SCSP (documented on SetClockMode), and SRL has no function that
+    // re-initializes them, so the next frame sync never returns and the campaign hangs. Reported as a failure so the
+    // gap stays visible in campaigns.json; remove this line once SRL can re-initialize after a clock switch.
+    mu_fail("not run: nothing re-initializes VDP1/VDP2/SCSP after SetClockMode, so the next Synchronize never returns");
     const auto previousMode = System::GetClockMode();
 
         // Try to set 26MHz mode
