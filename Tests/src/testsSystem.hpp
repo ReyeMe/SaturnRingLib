@@ -300,9 +300,9 @@ MU_TEST(system_test_semaphore_take_and_clear)
     const uint32_t afterClear = System::TestAndSetSemaphore(semaphore);
     System::ClearSemaphore(semaphore);
 
-    snprintf(buffer, buffer_size, "TestAndSet returned %lu, %lu, then %lu after Clear (expected 0, non-zero, 0)",
+    snprintf(buffer, buffer_size, "TestAndSet returned %lu, %lu, then %lu after Clear (expected 1, 0, 1)",
         (unsigned long)first, (unsigned long)second, (unsigned long)afterClear);
-    mu_assert(first == 0 && second != 0 && afterClear == 0, buffer);
+    mu_assert(first == 1 && second == 0 && afterClear == 1, buffer);
 }
 
 MU_TEST_SUITE(system_test_suite)
