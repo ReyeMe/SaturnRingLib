@@ -902,44 +902,52 @@ MU_TEST(fxp_initialization_short)
     /**
  * @brief Defines the test suite for all fixed-point (Fxp) functionality.
  */
-/** @brief True if a is within tol raw units (1/65536) of b. */
-static bool fxp_raw_near(const Fxp& a, const Fxp& b, int32_t tol)
-{
-    const int32_t diff = a.RawValue() - b.RawValue();
-    return diff >= -tol && diff <= tol;
-}
-
     /**
- * @brief Tests Sqrt(): documented as isqrt(value * 2^16), so exact on perfect squares and fractions,
- *        within 1 raw unit otherwise, and 0 for zero or negative input.
+ * @brief Tests Sqrt() as SaturnMathPP implements it: the nearest power of 2 plus a straight-line correction, not the
+ *        exact isqrt(value * 2^16) its comment describes. So it is exact on 0 and powers of 4, within 6.1% of the
+ *        true root from 1/1024 up (below that, the shifts drop low bits and the error grows to 13%), never
+ *        decreases as the input grows, and returns 0 for zero or negative input.
  */
 MU_TEST(fxp_sqrt)
 {
-    const int16_t squares[] = {0, 1, 4, 9, 16, 100, 10000};
-    const int16_t roots[] = {0, 1, 2, 3, 4, 10, 100};
-    for (size_t i = 0; i < sizeof(squares) / sizeof(squares[0]); i++)
+        // Powers of 4, from 1/256 to 16384 (the largest whose root fits): exact
+    const Fxp powers[] = {Fxp(0.00390625), Fxp(0.0625), Fxp(0.25), Fxp(1), Fxp(4), Fxp(16), Fxp(256), Fxp(4096), Fxp(16384)};
+    const Fxp powerRoots[] = {Fxp(0.0625), Fxp(0.25), Fxp(0.5), Fxp(1), Fxp(2), Fxp(4), Fxp(16), Fxp(64), Fxp(128)};
+    for (size_t i = 0; i < sizeof(powers) / sizeof(powers[0]); i++)
     {
-        const Fxp r = Fxp(squares[i]).Sqrt();
-        snprintf(buffer, buffer_size, "Sqrt(%d) raw %ld != %d", squares[i], (long)r.RawValue(), roots[i]);
-        mu_assert(r == Fxp(roots[i]), buffer);
+        const Fxp r = powers[i].Sqrt();
+        snprintf(buffer, buffer_size, "Sqrt(raw %ld) raw %ld != raw %ld", (long)powers[i].RawValue(),
+            (long)r.RawValue(), (long)powerRoots[i].RawValue());
+        mu_assert(r == powerRoots[i], buffer);
     }
 
-    const Fxp quarter = Fxp(0.25).Sqrt();
-    snprintf(buffer, buffer_size, "Sqrt(0.25) raw %ld != 0.5", (long)quarter.RawValue());
-    mu_assert(quarter == Fxp(0.5), buffer);
+        // Between powers of 4: within 6.1% of the true root (largest error 6.07%, at 2 * 4^n: Sqrt(2) = 1.5)
+    const Fxp inputs[] = {Fxp(0.01), Fxp(0.5), Fxp(2), Fxp(3), Fxp(9), Fxp(100), Fxp(1000), Fxp(10000), Fxp(30000), Fxp(32767)};
+    const Fxp trueRoots[] = {Fxp(0.1), Fxp(0.70710678), Fxp(1.41421356), Fxp(1.73205081), Fxp(3), Fxp(10), Fxp(31.6227766),
+        Fxp(100), Fxp(173.2050808), Fxp(181.0165738)};
+    for (size_t i = 0; i < sizeof(inputs) / sizeof(inputs[0]); i++)
+    {
+        const Fxp r = inputs[i].Sqrt();
+        const int64_t diff = (int64_t)r.RawValue() - trueRoots[i].RawValue();
+        snprintf(buffer, buffer_size, "Sqrt(raw %ld) raw %ld more than 6.1%% from raw %ld", (long)inputs[i].RawValue(),
+            (long)r.RawValue(), (long)trueRoots[i].RawValue());
+        mu_assert((diff < 0 ? -diff : diff) * 1000 <= (int64_t)trueRoots[i].RawValue() * 61, buffer);
+    }
 
-        // sqrt(2) = 1.41421356 -> raw 92681.9
-    const Fxp two = Fxp(2).Sqrt();
-    snprintf(buffer, buffer_size, "Sqrt(2) raw %ld not near 92682", (long)two.RawValue());
-    mu_assert(fxp_raw_near(two, Fxp::BuildRaw(92682), 1), buffer);
-
-        // Largest representable perfect square
-    const Fxp big = Fxp(16384).Sqrt();
-    snprintf(buffer, buffer_size, "Sqrt(16384) raw %ld != 128", (long)big.RawValue());
-    mu_assert(big == Fxp(128), buffer);
+        // Never decreases: about 32768 inputs spread over the whole positive range
+    int32_t previous = 0;
+    for (int32_t raw = 64; raw < INT32_MAX - 65521; raw += 65521)
+    {
+        const int32_t r = Fxp::BuildRaw(raw).Sqrt().RawValue();
+        snprintf(buffer, buffer_size, "Sqrt(raw %ld) raw %ld < Sqrt of the previous input, raw %ld", (long)raw, (long)r,
+            (long)previous);
+        mu_assert(r >= previous, buffer);
+        previous = r;
+    }
 
     mu_assert(Fxp(0).Sqrt() == 0, "Sqrt(0) should be 0");
     mu_assert(Fxp(-4).Sqrt() == 0, "Sqrt(negative) should be 0");
+    mu_assert(Fxp::BuildRaw(-1).Sqrt() == 0, "Sqrt(-1/65536) should be 0");
 }
 
     /**
