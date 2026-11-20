@@ -106,7 +106,6 @@
       "known_failures": {
         "dsp_test_load_start_and_end": "DSP end flag never set (not investigated yet)",
         "dsp_test_start_and_stop": "DSP end flag never set (not investigated yet)",
-        "interrupt_test_getstatus_and_resetstatus": "ResetStatus writes 1 to the bits to clear, but the SCU IST register clears the bits written as 0: it keeps the given status and clears all the others",
         "interrupt_test_acknowledge_roundtrip": "Get/SetAcknowledge use 0x25FE00BC, which is not an SCU register (AIACK is 0x25FE00A8): the value does not read back",
         "system_test_semaphore_take_and_clear": "TestAndSetSemaphore is documented as 0 = acquired, but the BIOS routine (tas.b; rts; movt r0) returns 1 when it takes a free semaphore and 0 when it is already taken",
         "system_test_clock_mode_roundtrip": "not run: SetClockMode resets the VDPs and the next Synchronize never returns (the campaign hangs)",

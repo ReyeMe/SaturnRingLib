@@ -80,7 +80,7 @@ static bool interrupt_wait_vblank_in_status()
     return false;
 }
 
-    /** @brief A masked V-Blank In shows in GetStatus; ResetStatus(VBlankIn) clears it (documented: write 1 to clear).
+    /** @brief A masked V-Blank In shows in GetStatus; ResetStatus(VBlankIn) clears it and keeps the other status bits.
  */
 MU_TEST(interrupt_test_getstatus_and_resetstatus)
 {
@@ -93,8 +93,8 @@ MU_TEST(interrupt_test_getstatus_and_resetstatus)
     Interrupt::ResetStatus(Interrupt::Status::VBlankIn);
     const bool pendingAfterReset = static_cast<uint32_t>(Interrupt::GetStatus() & Interrupt::Status::VBlankIn) != 0;
 
-    // Drop the pending V-Blank In (the SCU clears status bits written as 0) before turning it back on
-    Interrupt::ResetStatus(static_cast<Interrupt::Status>(~static_cast<uint32_t>(Interrupt::Status::VBlankIn)));
+    // Drop the pending V-Blank In before turning it back on
+    Interrupt::ResetStatus(Interrupt::Status::VBlankIn);
     System::SetInterruptMask(previousMask);
 
     mu_assert(pending, "A masked V-Blank In does not show in GetStatus");
