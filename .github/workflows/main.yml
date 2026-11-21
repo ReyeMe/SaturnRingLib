@@ -34,7 +34,7 @@ jobs:
           apt-get upgrade -y
           apt-get install -y unzip libsdl2-2.0-0 libflac-dev
       - name: Checkout repository (with submodules)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Setup iso2raw tool
@@ -66,7 +66,7 @@ jobs:
       # Also when tests fail: the report job below reads every campaign's log.
       - name: Archive UT results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: uts_${{ matrix.campaign }}.log
           path: Tests/uts_${{ matrix.campaign }}.log
@@ -79,9 +79,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
       - name: Download every campaign's log
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: uts_*.log
           path: logs
@@ -98,7 +98,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Archive report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: uts.json
           path: uts.json
