@@ -428,10 +428,12 @@ MU_TEST(random_variety_per_type)
             pos += snprintf(failed + pos, sizeof(failed) - pos, " %s=%u", name, (unsigned)got);
         }
     };
-    check("u8", random_distinct_count(static_cast<uint8_t>(0x5A), 255), 200);
-    check("i8", random_distinct_count(static_cast<int8_t>(0x5A), 255), 200);
-    check("u16", random_distinct_count(static_cast<uint16_t>(0x1234), 1000), 990);
-    check("i16", random_distinct_count(static_cast<int16_t>(0x1234), 1000), 990);
+        // Random draws repeat values (birthday effect): 255 draws of 256 values give about 162 distinct, 1000 draws of
+        // 65536 about 992. The thresholds sit about 4 standard deviations below; a stuck 8-bit generator gives 1 or 2.
+    check("u8", random_distinct_count(static_cast<uint8_t>(0x5A), 255), 140);
+    check("i8", random_distinct_count(static_cast<int8_t>(0x5A), 255), 140);
+    check("u16", random_distinct_count(static_cast<uint16_t>(0x1234), 1000), 980);
+    check("i16", random_distinct_count(static_cast<int16_t>(0x1234), 1000), 980);
     check("u32", random_distinct_count(static_cast<uint32_t>(0x12345678u), 1000), 990);
     check("i32", random_distinct_count(static_cast<int32_t>(0x12345678), 1000), 990);
     snprintf(buffer, buffer_size, "Too few distinct values:%s", failed);
@@ -522,6 +524,44 @@ MU_TEST(random_signed_wide_range)
     mu_assert(lowest < -20000 && highest > 20000, buffer);
 }
 
+    /**
+ * @brief GetNumber(from, to) branches: swapped bounds give the same number, a raw number already inside the range is
+ *        returned unchanged, a seed of 0 is not stuck in an 8-bit generator, and 64-bit types (a 64-bit state) stay in
+ *        range and vary. No full range: on the pinned SaturnMathPP it divides by zero and hangs.
+ */
+MU_TEST(random_get_number_branches)
+{
+    SRL::Math::Random<int16_t> ordered(0x5151), swapped(0x5151);
+    const int16_t inOrder = ordered.GetNumber(10, 20);
+    const int16_t reversed = swapped.GetNumber(20, 10);
+    snprintf(buffer, buffer_size, "GetNumber(10,20) = %d but GetNumber(20,10) = %d with the same seed", inOrder, reversed);
+    mu_assert(inOrder == reversed && inOrder >= 10 && inOrder <= 20, buffer);
+
+    SRL::Math::Random<uint32_t> raw(0x7777u), ranged(0x7777u);
+    const uint32_t number = raw.GetNumber();
+    const uint32_t kept = ranged.GetNumber(number / 2, number);
+    snprintf(buffer, buffer_size, "GetNumber(%lu, %lu) = %lu, expected the raw number %lu (it is in range)", (unsigned long)(number / 2),
+        (unsigned long)number, (unsigned long)kept, (unsigned long)number);
+    mu_assert(kept == number, buffer);
+
+    SRL::Math::Random<int8_t> zeroSeed(0);
+    bool anyNonZero = false;
+    for (int draw = 0; draw < 8; draw++) anyNonZero |= zeroSeed.GetNumber() != 0;
+    mu_assert(anyNonZero, "int8_t seed 0 produces only zeros");
+
+    SRL::Math::Random<int64_t> wide(7);
+    bool varied = false;
+    int64_t first = wide.GetNumber();
+    for (int draw = 0; draw < 32; draw++)
+    {
+        const int64_t value = wide.GetNumber(-5, 5);
+        snprintf(buffer, buffer_size, "int64_t GetNumber(-5,5) = %ld", (long)value);
+        mu_assert(value >= -5 && value <= 5, buffer);
+        varied |= wide.GetNumber() != first;
+    }
+    mu_assert(varied, "int64_t GetNumber() never changes");
+}
+
 MU_TEST_SUITE(random_test_suite)
 {
     MU_RUN_TEST(random_same_seed_same_sequence_u32);
@@ -554,5 +594,6 @@ MU_TEST_SUITE(random_test_suite)
     MU_RUN_TEST(random_range_int16_minus1_matches_raw);
     MU_RUN_TEST(random_range_uint32_minus1_matches_raw);
     MU_RUN_TEST(random_range_int32_minus1_matches_raw);
+    MU_RUN_TEST(random_get_number_branches);
 }
 }
