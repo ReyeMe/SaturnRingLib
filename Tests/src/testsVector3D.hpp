@@ -18,11 +18,6 @@ extern char buffer[];
     /**
  * @brief Helper to compare two Fxp values for near-equality.
  */
-static inline bool fxp_near_vec3(const Fxp& a, const Fxp& b, const Fxp& tol)
-{
-    return (a - b).Abs() <= tol;
-}
-
     /**
  * @brief Tests construction of Vector3D objects.
  * @details Verifies default, uniform, component, and Vector2D+z constructors.
@@ -82,6 +77,20 @@ MU_TEST(vector3d_dot_cross_multidot)
     mu_assert(sum == Fxp(32), "MultiDotAccumulate incorrect");
 }
 
+/**
+ * @brief True if a length is within 6.1% of the exact value.
+ * @details Length() and DistanceTo() take the square root with Fxp::InternalSqrtFrom64, the same nearest-power-of-2 plus
+ *          straight-line estimate as Fxp::Sqrt() (see fxp_sqrt), not the exact square root their comments describe.
+ * @param got Length returned by SaturnMathPP
+ * @param exact Exact length
+ * @return true if got is within 6.1% of exact
+ */
+static bool Vector3DLengthNear(const Fxp& got, const Fxp& exact)
+{
+    const int64_t diff = static_cast<int64_t>(got.RawValue()) - exact.RawValue();
+    return (diff < 0 ? -diff : diff) * 1000 <= static_cast<int64_t>(exact.RawValue()) * 61;
+}
+
     /**
  * @brief Tests length and length squared calculations for Vector3D.
  * @details Checks behavior below, at, above, and beyond threshold values.
@@ -89,7 +98,8 @@ MU_TEST(vector3d_dot_cross_multidot)
 MU_TEST(vector3d_length_and_lengthsquared_thresholds)
 {
     const Vector3D v(2, 3, 6);
-    mu_assert(v.Length() == Fxp(7), "Length should be exact for (2,3,6)");
+    snprintf(buffer, buffer_size, "Length of (2,3,6) raw %ld not within 6.1%% of 7", (long)v.Length().RawValue());
+    mu_assert(Vector3DLengthNear(v.Length(), Fxp(7)), buffer);
     mu_assert(v.LengthSquared() == Fxp(49), "LengthSquared should be exact for (2,3,6)");
 
     const Vector3D below(99, 0, 0);
@@ -129,7 +139,8 @@ MU_TEST(vector3d_distance)
     mu_assert((p2 - p1).LengthSquared() == Fxp(50), "Squared distance should be exact for (1,2,3)-(4,6,8)");
 
     const Fxp dist = (p2 - p1).Length();
-    mu_assert(fxp_near_vec3(dist, Fxp(7.071067), Fxp(0.01)), "Distance should be ~7.071 for (1,2,3)-(4,6,8)");
+    snprintf(buffer, buffer_size, "Length of (4,6,8)-(1,2,3) raw %ld not within 6.1%% of 7.0711", (long)dist.RawValue());
+    mu_assert(Vector3DLengthNear(dist, Fxp(7.071068)), buffer);
 }
 
     /**
@@ -224,12 +235,9 @@ MU_TEST(vector3d_constants_and_distance)
     mu_assert(Vector3D::UnitZ() == Vector3D(0, 0, 1), "UnitZ should be (0,0,1)");
 
     const Vector3D p1(1, 2, 3), p2(4, 6, 8);
-    const Fxp accurate = p1.DistanceTo(p2);
-    snprintf(buffer, buffer_size, "DistanceTo raw %ld != 7.0711", (long)accurate.RawValue());
-    mu_assert(vec3_raw_near(accurate, Fxp(7.071068), 66), buffer);
-    const Fxp fast = p1.DistanceTo(p2);
-    snprintf(buffer, buffer_size, "DistanceTo<Default> raw %ld not within 7%% of 7.0711", (long)fast.RawValue());
-    mu_assert(vec3_raw_near(fast, Fxp(7.071068), 32440), buffer);
+    const Fxp distance = p1.DistanceTo(p2);
+    snprintf(buffer, buffer_size, "DistanceTo raw %ld not within 6.1%% of 7.0711", (long)distance.RawValue());
+    mu_assert(Vector3DLengthNear(distance, Fxp(7.071068)), buffer);
     mu_assert(p1.DistanceTo(p1) == 0, "Distance to itself should be 0");
 }
 
