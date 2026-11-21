@@ -50,6 +50,16 @@ MU_TEST(interpolation_lerp)
 }
 
     /**
+ * @brief Lerp does not clamp t (its note asks callers to pre-clamp): outside [0, 1] it extrapolates along the line.
+ */
+MU_TEST(interpolation_lerp_outside_range)
+{
+    INTERP_ASSERT(Interp::Lerp(10, 20, Fxp(1.5)), 25, 0, "Lerp(10,20,1.5) extrapolates");
+    INTERP_ASSERT(Interp::Lerp(10, 20, Fxp(-0.5)), 5, 0, "Lerp(10,20,-0.5) extrapolates");
+    INTERP_ASSERT(Interp::Lerp(20, 10, Fxp(2)), 0, 0, "Lerp(20,10,2) extrapolates downward");
+}
+
+    /**
  * @brief Smoothstep: exact endpoints, midpoint at t=0.5, symmetric, and t clamped to [0,1] (documented).
  */
 MU_TEST(interpolation_smoothstep)
@@ -181,6 +191,7 @@ MU_TEST(interpolation_elastic_ease_in)
 MU_TEST_SUITE(interpolation_test_suite)
 {
     MU_RUN_TEST(interpolation_lerp);
+    MU_RUN_TEST(interpolation_lerp_outside_range);
     MU_RUN_TEST(interpolation_smoothstep);
     MU_RUN_TEST(interpolation_clamp);
     MU_RUN_TEST(interpolation_ease_in_out_quadratic);

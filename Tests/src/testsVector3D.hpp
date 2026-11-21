@@ -92,6 +92,20 @@ static bool Vector3DLengthNear(const Fxp& got, const Fxp& exact)
 }
 
     /**
+ * @brief LengthSquared returns MaxValue when the sum overflows (documented): (110,110,110) gives 36300, which does not
+ *        fit, while (104,104,104) gives 32448, which does.
+ */
+MU_TEST(vector3d_lengthsquared_sum_overflow)
+{
+    const Vector3D over(110, 110, 110);
+    snprintf(buffer, buffer_size, "LengthSquared of (110,110,110) raw %ld, expected MaxValue (36300 does not fit)", (long)over.LengthSquared().RawValue());
+    mu_assert(over.LengthSquared() == Fxp::MaxValue(), buffer);
+    const Vector3D fits(104, 104, 104);
+    snprintf(buffer, buffer_size, "LengthSquared of (104,104,104) raw %ld, expected 32448", (long)fits.LengthSquared().RawValue());
+    mu_assert(fits.LengthSquared() == Fxp(32448), buffer);
+}
+
+    /**
  * @brief Tests length and length squared calculations for Vector3D.
  * @details Checks behavior below, at, above, and beyond threshold values.
  */
@@ -286,12 +300,60 @@ MU_TEST(vector3d_arithmetic_operators)
     mu_assert(d == a - b - b, "Chained (d -= b) -= b should subtract b twice");
 }
 
+    /**
+ * @brief Reflect across a unit normal (v - 2(v.n)n, the normal is documented as assumed normalized), also with fractions.
+ */
+MU_TEST(vector3d_reflect)
+{
+    mu_assert(Vector3D(1, -1, 0).Reflect(Vector3D(0, 1, 0)) == Vector3D(1, 1, 0), "Reflect((1,-1,0), (0,1,0)) should be (1,1,0) (documented example)");
+    mu_assert(Vector3D(1, 2, 3).Reflect(Vector3D(0, 0, -1)) == Vector3D(1, 2, -3), "Reflect across (0,0,-1) should flip Z");
+
+    const Vector3D fractional = Vector3D(Fxp(0.5), Fxp(-0.25), Fxp(0.75)).Reflect(Vector3D(0, 1, 0));
+    snprintf(buffer, buffer_size, "Reflect((0.5,-0.25,0.75), (0,1,0)) raw (%ld,%ld,%ld), expected (0.5,0.25,0.75)", (long)fractional.X.RawValue(),
+        (long)fractional.Y.RawValue(), (long)fractional.Z.RawValue());
+    mu_assert(fractional == Vector3D(Fxp(0.5), Fxp(0.25), Fxp(0.75)), buffer);
+}
+
+    /**
+ * @brief DistanceSquared is exact, symmetric, 0 to itself, and correct with negative fractional coordinates.
+ */
+MU_TEST(vector3d_distance_squared)
+{
+    const Vector3D a(1, 2, 3), b(4, 6, 8);
+    mu_assert(a.DistanceSquared(b) == Fxp(50) && b.DistanceSquared(a) == Fxp(50), "DistanceSquared((1,2,3), (4,6,8)) should be 50 both ways");
+    mu_assert(a.DistanceSquared(a) == 0, "DistanceSquared to itself should be 0");
+    mu_assert(Vector3D(Fxp(-0.5), -1, Fxp(-1.5)).DistanceSquared(Vector3D(Fxp(0.5), 1, Fxp(1.5))) == Fxp(14), "DistanceSquared((-0.5,-1,-1.5), (0.5,1,1.5)) should be 14");
+}
+
+    /**
+ * @brief TurboLength (alpha * max + beta * mid + gamma * min) is within 10.3% of the length in every direction, 0 for zero.
+ * @details Its comment says "typically ~1-2% error"; these coefficients give up to 10.26% (at (1,1,1)) and 4.97% at (2,3,6).
+ */
+MU_TEST(vector3d_turbo_length)
+{
+    const Vector3D vectors[] = {Vector3D(2, 3, 6), Vector3D(1, 1, 1), Vector3D(1, 0, 0), Vector3D(-2, -3, -6), Vector3D(0, 0, -9)};
+    const Fxp exact[] = {Fxp(7), Fxp(1.7320508), Fxp(1), Fxp(7), Fxp(9)};
+    for (size_t i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++)
+    {
+        const Fxp turbo = vectors[i].TurboLength();
+        const int64_t diff = static_cast<int64_t>(turbo.RawValue()) - exact[i].RawValue();
+        snprintf(buffer, buffer_size, "TurboLength of vector %d raw %ld not within 10.3%% of raw %ld", (int)i, (long)turbo.RawValue(), (long)exact[i].RawValue());
+        mu_assert((diff < 0 ? -diff : diff) * 1000 <= static_cast<int64_t>(exact[i].RawValue()) * 103, buffer);
+    }
+
+    mu_assert(Vector3D::Zero().TurboLength() == 0, "TurboLength of zero should be 0");
+}
+
 MU_TEST_SUITE(vector3d_test_suite)
 {
     MU_RUN_TEST(vector3d_construction);
     MU_RUN_TEST(vector3d_abs_sort_and_comparisons);
     MU_RUN_TEST(vector3d_dot_cross_multidot);
     MU_RUN_TEST(vector3d_length_and_lengthsquared_thresholds);
+    MU_RUN_TEST(vector3d_lengthsquared_sum_overflow);
+    MU_RUN_TEST(vector3d_reflect);
+    MU_RUN_TEST(vector3d_distance_squared);
+    MU_RUN_TEST(vector3d_turbo_length);
     MU_RUN_TEST(vector3d_normalize_zero_and_triangle_normal);
     MU_RUN_TEST(vector3d_distance);
     MU_RUN_TEST(vector3d_shift_ops_with_negative);
