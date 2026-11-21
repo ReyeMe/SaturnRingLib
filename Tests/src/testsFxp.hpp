@@ -1183,6 +1183,94 @@ MU_TEST(fxp_convert_from_more_fraction_bits)
     mu_assert(Fxp::ConvertUnchecked(tiny) == ctTiny && Fxp::ConvertUnchecked(odd) == ctOdd && ctExact == Fxp(-1.5), buffer);
 }
 
+extern "C++" {
+/**
+ * @brief Checks Hardware::ArithmeticShiftRight against C++ >> (which rounds down for int32_t) for one shift amount,
+ *        with the template overload and the runtime overload; appends each mismatch to fails.
+ * @tparam Shift Number of bits to shift right
+ * @param values Values to shift
+ * @param count Number of values
+ * @param fails Text listing the mismatches
+ * @param size Size of fails
+ * @param length Length of the text in fails (updated)
+ */
+template <int Shift>
+static void CheckArithmeticShiftRight(const int32_t *values, size_t count, char *fails, size_t size, size_t &length)
+{
+    for (size_t index = 0; index < count; index++)
+    {
+        volatile int32_t source = values[index];
+        int32_t templateResult = source;
+        SRL::Math::Hardware::ArithmeticShiftRight<Shift>(templateResult);
+        int32_t runtimeResult = source;
+        SRL::Math::Hardware::ArithmeticShiftRight(runtimeResult, static_cast<uint32_t>(Shift));
+        const int32_t expected = source >> Shift;
+        if ((templateResult != expected || runtimeResult != expected) && length < size - 40)
+        {
+            length += snprintf(fails + length, size - length, " %ld>>%d=%ld/%ld(not %ld)", (long)values[index], Shift,
+                (long)templateResult, (long)runtimeResult, (long)expected);
+        }
+    }
+}
+}
+
+    /**
+ * @brief Hardware::ArithmeticShiftRight rounds down like C++ >>, in every branch: template shifts 0 (no-op), 1 and 2
+ *        (shar), 3 and up (complement, logical shift, complement), and the runtime overload (shift 0 returns early),
+ *        for negative, zero, positive and extreme values (INT32_MIN made the old negate-based code overflow).
+ * @details Each mismatch is listed as value>>shift=template/runtime(not expected).
+ */
+MU_TEST(fxp_arithmetic_shift_right_all_branches)
+{
+    static const int32_t values[] = {INT32_MIN, -65537, -3, -1, 0, 1, 3, INT32_MAX};
+    const size_t count = sizeof(values) / sizeof(values[0]);
+    char fails[200] = "";
+    size_t length = 0;
+    CheckArithmeticShiftRight<0>(values, count, fails, sizeof(fails), length);
+    CheckArithmeticShiftRight<1>(values, count, fails, sizeof(fails), length);
+    CheckArithmeticShiftRight<2>(values, count, fails, sizeof(fails), length);
+    CheckArithmeticShiftRight<3>(values, count, fails, sizeof(fails), length);
+    CheckArithmeticShiftRight<8>(values, count, fails, sizeof(fails), length);
+    CheckArithmeticShiftRight<16>(values, count, fails, sizeof(fails), length);
+    CheckArithmeticShiftRight<31>(values, count, fails, sizeof(fails), length);
+
+    snprintf(buffer, buffer_size, "ArithmeticShiftRight:%s", fails);
+    mu_assert(length == 0, buffer);
+}
+
+    /**
+ * @brief ParallelDiv divides a negative non-whole dividend like compile-time division (it builds its 64-bit dividend
+ *        with ArithmeticShiftRight<16>, like operator/).
+ */
+MU_TEST(fxp_parallel_division_negative_non_integer)
+{
+    constexpr Fxp ctQuarter = Fxp(-1.5) / Fxp(2);
+    constexpr Fxp ctThird = Fxp(-100.75) / Fxp(3);
+    Fxp dividendA = Fxp(-1.5), dividendB = Fxp(-100.75);
+    const Fxp quarter = dividendA / SRL::Math::Types::ParallelDiv(Fxp(2), [] {});
+    const Fxp third = dividendB / SRL::Math::Types::ParallelDiv(Fxp(3), [] {});
+    snprintf(buffer, buffer_size, "ParallelDiv: -1.5/2 raw %ld (not %ld), -100.75/3 raw %ld (not %ld)", (long)quarter.RawValue(),
+        (long)ctQuarter.RawValue(), (long)third.RawValue(), (long)ctThird.RawValue());
+    mu_assert(quarter == ctQuarter && third == ctThird, buffer);
+}
+
+    /**
+ * @brief >>= gives the same result at run time as at compile time (rounding down) for negative values with odd raw
+ *        values, and shifting by 0 leaves the value unchanged.
+ */
+MU_TEST(fxp_shift_assign_negative)
+{
+    constexpr Fxp ctOdd = Fxp::BuildRaw(-3) >> 1;
+    constexpr Fxp ctSmall = Fxp::BuildRaw(-1) >> 4;
+    Fxp odd = Fxp::BuildRaw(-3), small = Fxp::BuildRaw(-1), same = Fxp(-1.5);
+    odd >>= 1;
+    small >>= 4;
+    same >>= 0;
+    snprintf(buffer, buffer_size, ">>=: raw -3 >>= 1 gives %ld (not %ld), raw -1 >>= 4 gives %ld (not %ld), -1.5 >>= 0 gives raw %ld",
+        (long)odd.RawValue(), (long)ctOdd.RawValue(), (long)small.RawValue(), (long)ctSmall.RawValue(), (long)same.RawValue());
+    mu_assert(odd == ctOdd && small == ctSmall && same == Fxp(-1.5), buffer);
+}
+
     /**
  * @brief Tests that dividing by zero saturates to MaxValue/MinValue, at compile time and at runtime.
  */
@@ -1354,6 +1442,9 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_shift_operators);
     MU_RUN_TEST(fxp_reciprocal);
     MU_RUN_TEST(fxp_convert_from_more_fraction_bits);
+    MU_RUN_TEST(fxp_arithmetic_shift_right_all_branches);
+    MU_RUN_TEST(fxp_parallel_division_negative_non_integer);
+    MU_RUN_TEST(fxp_shift_assign_negative);
     MU_RUN_TEST(fxp_division_by_zero_saturates);
     MU_RUN_TEST(fxp_parallel_division);
     MU_RUN_TEST(fxp_mac_clear_accumulate_extract);
