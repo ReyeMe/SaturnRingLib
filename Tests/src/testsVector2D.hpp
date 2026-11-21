@@ -16,11 +16,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-static inline bool fxp_near_vec2(const Fxp& a, const Fxp& b, const Fxp& tol)
-{
-    return (a - b).Abs() <= tol;
-}
-
     /**
  * @brief Tests construction of Vector2D objects.
  * @details Verifies default, uniform, component, and copy constructors.
@@ -73,6 +68,20 @@ MU_TEST(vector2d_dot_cross_multidot)
     mu_assert(sum == Fxp(11), "MultiDotAccumulate incorrect");
 }
 
+/**
+ * @brief True if a length is within 6.1% of the exact value.
+ * @details Length() and DistanceTo() take the square root with Fxp::InternalSqrtFrom64, the same nearest-power-of-2 plus
+ *          straight-line estimate as Fxp::Sqrt() (see fxp_sqrt), not the exact square root their comments describe.
+ * @param got Length returned by SaturnMathPP
+ * @param exact Exact length
+ * @return true if got is within 6.1% of exact
+ */
+static bool Vector2DLengthNear(const Fxp& got, const Fxp& exact)
+{
+    const int64_t diff = static_cast<int64_t>(got.RawValue()) - exact.RawValue();
+    return (diff < 0 ? -diff : diff) * 1000 <= static_cast<int64_t>(exact.RawValue()) * 61;
+}
+
     /**
  * @brief Tests length and length squared calculations for Vector2D.
  * @details Checks behavior for overflow guard and threshold values.
@@ -80,12 +89,16 @@ MU_TEST(vector2d_dot_cross_multidot)
 MU_TEST(vector2d_length_lengthsquared_overflow_guard)
 {
     const Vector2D v(3, 4);
-    mu_assert(v.Length() == Fxp(5), "Length for (3,4) should be 5");
+    snprintf(buffer, buffer_size, "Length of (3,4) raw %ld not within 6.1%% of 5", (long)v.Length().RawValue());
+    mu_assert(Vector2DLengthNear(v.Length(), Fxp(5)), buffer);
     mu_assert(v.LengthSquared() == Fxp(25), "LengthSquared for (3,4) should be 25");
 
-        // Threshold behavior: if either component abs >= 181.0, LengthSquared returns MaxValue
-    const Vector2D big(181, 0);
-    mu_assert(big.LengthSquared() == Fxp::MaxValue(), "LengthSquared should guard against overflow at threshold");
+        // Threshold: a component at or above MaxSafeSquareValue (sqrt(32768), about 181.02) makes LengthSquared return MaxValue
+    const Vector2D below(181, 0);
+    snprintf(buffer, buffer_size, "LengthSquared of (181,0) raw %ld != 32761 (181 is below the threshold)", (long)below.LengthSquared().RawValue());
+    mu_assert(below.LengthSquared() == Fxp(32761), buffer);
+    const Vector2D above(182, 0);
+    mu_assert(above.LengthSquared() == Fxp::MaxValue(), "LengthSquared of (182,0) should return MaxValue (182 is above the threshold)");
 
     const Vector2D minv(Fxp::MinValue(), 0);
     mu_assert(minv.LengthSquared() == Fxp::MaxValue(), "LengthSquared should return MaxValue for MinValue component");
@@ -103,9 +116,10 @@ MU_TEST(vector2d_normalize_zero_and_nonzero)
     const Vector2D v(3, 4);
     const Vector2D u = v.Normalize();
 
-        // Expect ~unit length; compare squared length to 1 with small tolerance
+        // Normalize divides by Length(), which is within 6.1%: the squared length is within 1 / (1 +- 0.061)^2, 0.888 to 1.13
     const Fxp lenSq = u.Dot(u);
-    mu_assert(fxp_near_vec2(lenSq, Fxp(1), Fxp(0.01)), "Normalize should produce approximately unit-length vector");
+    snprintf(buffer, buffer_size, "Normalize(3,4) squared length raw %ld not between 0.888 and 1.13", (long)lenSq.RawValue());
+    mu_assert(lenSq >= Fxp(0.888) && lenSq <= Fxp(1.13), buffer);
 }
 
     /**
@@ -120,7 +134,8 @@ MU_TEST(vector2d_distance_and_distancesquared)
     mu_assert((b - a).LengthSquared() == Fxp(25), "Squared distance should be exact for (1,2)-(4,6)");
 
     const Fxp dist = (b - a).Length();
-    mu_assert(fxp_near_vec2(dist, Fxp(5), Fxp(0.001)), "DistanceTo should be ~5 for (1,2)-(4,6)");
+    snprintf(buffer, buffer_size, "Length of (4,6)-(1,2) raw %ld not within 6.1%% of 5", (long)dist.RawValue());
+    mu_assert(Vector2DLengthNear(dist, Fxp(5)), buffer);
 }
 
     /**
@@ -205,12 +220,9 @@ MU_TEST(vector2d_constants_and_distance)
     mu_assert(Vector2D::Down() == Vector2D(0, -1) && Vector2D::Down() == -Vector2D::Up(), "Down should be (0,-1)");
 
     const Vector2D a(1, 2), b(4, 6);
-    const Fxp accurate = a.DistanceTo(b);
-    snprintf(buffer, buffer_size, "DistanceTo raw %ld != 5", (long)accurate.RawValue());
-    mu_assert(vec2_raw_near(accurate, Fxp(5), 66), buffer);
-    const Fxp fast = a.DistanceTo(b);
-    snprintf(buffer, buffer_size, "DistanceTo<Default> raw %ld not within 7%% of 5", (long)fast.RawValue());
-    mu_assert(vec2_raw_near(fast, Fxp(5), 22938), buffer);
+    const Fxp distance = a.DistanceTo(b);
+    snprintf(buffer, buffer_size, "DistanceTo raw %ld not within 6.1%% of 5", (long)distance.RawValue());
+    mu_assert(Vector2DLengthNear(distance, Fxp(5)), buffer);
     mu_assert(a.DistanceTo(a) == 0, "Distance to itself should be 0");
 }
 
