@@ -319,6 +319,8 @@ MU_TEST(fxp_round)
     fxp_round_check(-1.499999, "-1.499999", -1); // just above -1.5
     fxp_round_check(-1.5, "-1.5", -2); // exactly -1.5
     fxp_round_check(-1.500001, "-1.500001", -2); // just below -1.5
+    // Last on purpose: a failed check only ends fxp_round_check, so the log shows the last failing case
+    fxp_round_check(-2.7, "-2.7", -3); // negative, fraction above half (SaturnMathPP bug: Floor(value - half) gives -4)
 }
 
     // Helper function to test Modulo
