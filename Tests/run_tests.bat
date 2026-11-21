@@ -1,22 +1,63 @@
 @goto(){
   # Linux test runner script for Saturn unit tests
-  # Usage: ./run_tests.bat [kronos|mednafen|USBGamers]
+  # Usage: ./run_tests.bat <kronos|mednafen|USBGamers> [campaign|all] [device-ip]
+  # <campaign> is a folder of campaigns/ (math, memory_simple, memory_tlsf, memory_cpus_simple, memory_cpus_tlsf, video, system, timer, timer_pal, event, datetime, cd, media, slave, scene, string, endian, vdp1, vdp2, input, sound, transform, tilemap, draw2d, fld)
+  # No campaign, or "all": runs every campaign of CAMPAIGNS in the makefile, one after the other
 
   if [ -z "$1" ]; then
-    echo "Usage: $0 [kronos|mednafen|USBGamers]"
+    echo "Usage: $0 <kronos|mednafen|USBGamers> [campaign|all] [device-ip]"
     exit 1
+  fi
+
+  if [ -z "$2" ] || [ "$2" = "all" ]; then
+    # Ctrl-C stops the running campaign, then this loop
+    trap 'exit 1' TERM INT
+    failed=""
+    for c in $(sed -n 's/^CAMPAIGNS = //p' makefile); do
+      echo "===== $c ====="
+      bash "$0" "$1" "$c" "$3" || failed="$failed $c"
+    done
+    if [ -n "$failed" ]; then
+      echo "Failed campaigns:$failed"
+      exit 1
+    fi
+    echo "All campaigns passed"
+    exit 0
+  fi
+
+  MODE="$1"
+  CAMPAIGN="$2"
+  DIR="campaigns/$CAMPAIGN"
+  if [ ! -d "$DIR" ]; then
+    echo "Unknown campaign '$CAMPAIGN'. Available: $(ls campaigns | tr '\n' ' ')"
+    exit 1
+  fi
+
+  # Per-campaign settings (modes to skip, known failures) live in campaigns.json
+  if ! skip_reason=$(python3 -c 'import json, sys; print(json.load(open("campaigns.json"))["campaigns"].get(sys.argv[1], {}).get("skip_modes", {}).get(sys.argv[2], ""))' "$CAMPAIGN" "$MODE"); then
+    echo "Could not read campaigns.json"
+    exit 1
+  fi
+  if [ -n "$skip_reason" ]; then
+    echo "Skipping the $CAMPAIGN campaign in $MODE mode: $skip_reason"
+    exit 0
   fi
 
   # Set timeout in seconds
   TIMEOUT=600
 
-    cleanup() {
-      status=$?
-      # Kill watchdog if it's running
-      [[ -n $WATCHDOG_PID ]] && kill $WATCHDOG_PID 2>/dev/null
-      # Add your cleanup tasks here
-      exit $status
-    }
+  # Runs on every exit (done, failed, timed out): stop the watchdog and the emulator, power the Saturn off
+  cleanup() {
+    status=$?
+    # The watchdog and its sleep in one call: a leftover sleep would keep this script's output open
+    [[ -n $WATCHDOG_PID ]] && kill $WATCHDOG_PID $(pgrep -P $WATCHDOG_PID) 2>/dev/null
+    [[ -n $EMULATOR_PID ]] && kill $EMULATOR_PID 2>/dev/null
+    if [ "$MODE" = "USBGamers" ] && [ -n "$DEVICE_IP" ]; then
+      echo "Powering off target system at $DEVICE_IP via REST API..."
+      curl -s --max-time 5 -X POST "http://$DEVICE_IP/api/v1/off" > /dev/null
+    fi
+    exit $status
+  }
 
   reset_usb_device() {
     echo "Resetting USB device..."
@@ -28,12 +69,13 @@
 
   # Set up trap for cleanup
   trap cleanup EXIT
+  trap 'exit 1' TERM INT
 
-  # Start watchdog in background
+  # Start watchdog in background (TERM, not KILL, so cleanup still runs)
   (
       sleep $TIMEOUT
       echo "Script timed out after $TIMEOUT seconds"
-      kill -9 -$$ 2>/dev/null
+      kill -TERM $$ 2>/dev/null
   ) &
 
   WATCHDOG_PID=$!
@@ -45,20 +87,23 @@
     echo "Using mednafen emulator"
     # Disable video output and enable debug cart
     export SDL_VIDEODRIVER=dummy
-    command="mednafen -sound 0 -ss.cart debug -force_module ss BuildDrop/UTs.cue"
+    # Extra settings of the campaign (timer_pal: boot as a European, PAL console). mednafen saves command-line
+    # settings in its config, so the other campaigns turn region detection back on (their discs boot as USA)
+    mednafen_args=$(python3 -c 'import json, sys; print(json.load(open("campaigns.json"))["campaigns"].get(sys.argv[1], {}).get("mednafen_args", "-ss.region_autodetect 1"))' "$CAMPAIGN")
+    command="mednafen -sound 0 -ss.cart debug -force_module ss $mednafen_args $DIR/BuildDrop/$CAMPAIGN.cue"
   elif [ "$1" = "kronos" ]; then
     echo "Using kronos emulator"
     # Run kronos in automation mode with no sound
-    command="kronos -a -ns -i BuildDrop/UTs.cue"
+    command="kronos -a -ns -i $DIR/BuildDrop/$CAMPAIGN.cue"
   elif [ "$1" = "USBGamers" ]; then
         # Precondition: check if cd/data/0.bin exists
-        if [ ! -f cd/data/0.bin ]; then
-          echo "ERROR: cd/data/0.bin not found. Please build the test binary before running."
+        if [ ! -f "$DIR/cd/data/0.bin" ]; then
+          echo "ERROR: $DIR/cd/data/0.bin not found. Please build the test binary before running."
           exit 1
         fi
     echo "Using USBGamers cartridge"
-    # Optional: $2 is IPv4 for REST API control
-    DEVICE_IP="$2"
+    # Optional: $3 is IPv4 for REST API control
+    DEVICE_IP="$3"
     if [ -n "$DEVICE_IP" ]; then
       # Validate IPv4 address format
       if [[ ! $DEVICE_IP =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
@@ -120,42 +165,11 @@
     # Makes sure the USB device is reset before programming
     reset_usb_device
     sleep 2
-    upload_log=$(ftx -x cd/data/0.bin 0x06004000 2>&1)
+    upload_log=$(ftx -x "$DIR/cd/data/0.bin" 0x06004000 2>&1)
     upload_status=$?
     echo "$upload_log"
     if [[ $upload_status -ne 0 ]] || echo "$upload_log" | grep -qi "Upload failed\|Send data error"; then
       echo "Upload failed, aborting"
-      # Power OFF if REST API was used
-      if [ -n "$DEVICE_IP" ]; then
-        echo "Powering off target system at $DEVICE_IP via REST API..."
-        # Query current relay status
-        relay_status=$(curl -s "http://$DEVICE_IP/api/v1/status" | grep -o '"relay_status":"[A-Z]*"' | cut -d'"' -f4)
-        latch_period=$(curl -s "http://$DEVICE_IP/api/v1/latch" | grep -o '"latch":[0-9]*' | cut -d':' -f2)
-        [ -z "$latch_period" ] && latch_period=0
-        # If already OFF, toggle ON, wait for latch, then toggle OFF
-        if [ "$relay_status" = "OFF" ]; then
-          echo "Relay already OFF, toggling ON first..."
-          curl -s -X POST "http://$DEVICE_IP/api/v1/toggle" > /dev/null
-          if [ "$latch_period" -gt 0 ]; then
-            echo "Waiting for latch period ($latch_period s) to expire..."
-            latch_left=$latch_period
-            while [ $latch_left -gt 0 ]; do
-              sleep 1
-              latch_now=$(curl -s "http://$DEVICE_IP/api/v1/status" | grep -o '"latch":[0-9]*' | cut -d':' -f2)
-              [ -z "$latch_now" ] && latch_now=0
-              if [ "$latch_now" -eq 0 ]; then
-                break
-              fi
-              latch_left=$latch_now
-            done
-          fi
-          echo "Toggling OFF..."
-          curl -s -X POST "http://$DEVICE_IP/api/v1/toggle" > /dev/null
-        else
-          # Power OFF (POST /api/v1/off)
-          curl -s -X POST "http://$DEVICE_IP/api/v1/off" > /dev/null
-        fi
-      fi
       exit 1
     fi
   else
@@ -164,7 +178,7 @@
   fi
 
   # Setup log file and success marker
-  log="uts.log"
+  log="uts_$CAMPAIGN.log"
   match="***UT_END***"
   
   echo "Test command: $command"
@@ -193,6 +207,8 @@
           echo "Terminating emulator due to timeout..."
           if kill -0 $EMULATOR_PID 2>/dev/null; then
             kill -15 $EMULATOR_PID
+            # Wait for exit, so the next run is not blocked by the emulator's lock file
+            wait $EMULATOR_PID 2>/dev/null
           else
             echo "Emulator process is not running"
           fi
@@ -206,39 +222,27 @@
           echo "Terminating emulator..."
           if kill -0 $EMULATOR_PID 2>/dev/null; then
             kill -15 $EMULATOR_PID
+            # Wait for exit, so the next run is not blocked by the emulator's lock file
+            wait $EMULATOR_PID 2>/dev/null
           else
             echo "Emulator process is not running"
           fi
-          # Power OFF if REST API was used and USBGamers
-          if [ "$1" = "USBGamers" ] && [ -n "$DEVICE_IP" ]; then
-            echo "Powering off target system at $DEVICE_IP via REST API..."
-            # Query current relay status
-            relay_status=$(curl -s "http://$DEVICE_IP/api/v1/status" | grep -o '"relay_status":"[A-Z]*"' | cut -d'"' -f4)
-            latch_period=$(curl -s "http://$DEVICE_IP/api/v1/latch" | grep -o '"latch":[0-9]*' | cut -d':' -f2)
-            [ -z "$latch_period" ] && latch_period=0
-            # If already OFF, toggle ON, wait for latch, then toggle OFF
-            if [ "$relay_status" = "OFF" ]; then
-              echo "Relay already OFF, toggling ON first..."
-              curl -s -X POST "http://$DEVICE_IP/api/v1/toggle" > /dev/null
-              if [ "$latch_period" -gt 0 ]; then
-                echo "Waiting for latch period ($latch_period s) to expire..."
-                latch_left=$latch_period
-                while [ $latch_left -gt 0 ]; do
-                  sleep 1
-                  latch_now=$(curl -s "http://$DEVICE_IP/api/v1/status" | grep -o '"latch":[0-9]*' | cut -d':' -f2)
-                  [ -z "$latch_now" ] && latch_now=0
-                  if [ "$latch_now" -eq 0 ]; then
-                    break
-                  fi
-                  latch_left=$latch_now
-                done
-              fi
-              echo "Toggling OFF..."
-              curl -s -X POST "http://$DEVICE_IP/api/v1/toggle" > /dev/null
-            else
-              # Power OFF (POST /api/v1/off)
-              curl -s -X POST "http://$DEVICE_IP/api/v1/off" > /dev/null
-            fi
+          if ! grep -q 'tests, .* failures' "$log"; then
+            echo "No test summary in the log"
+            exit 1
+          fi
+          # Failures listed under known_failures in campaigns.json (known library bugs) do not fail the run
+          known=$(python3 -c 'import json, sys; print("\n".join(json.load(open("campaigns.json"))["campaigns"].get(sys.argv[1], {}).get("known_failures", {})))' "$CAMPAIGN" | sort -u)
+          failed=$(tr -d '\r' < "$log" | grep -o 'FATAL : [A-Za-z0-9_]* failed' | cut -d' ' -f3 | sort -u)
+          passed=$(tr -d '\r' < "$log" | grep -o 'Passed :[A-Za-z0-9_]*' | cut -d: -f2 | sort -u)
+          new_failures=$(comm -23 <(echo "$failed") <(echo "$known") | grep -v '^$')
+          now_passing=$(comm -12 <(echo "$passed") <(echo "$known") | grep -v '^$')
+          echo "Known failures: $(comm -12 <(echo "$failed") <(echo "$known") | grep -vc '^$')"
+          [ -n "$now_passing" ] && echo "Known failures that now pass (remove them from campaigns.json):" && echo "$now_passing"
+          if [ -n "$new_failures" ]; then
+            echo "New failures:"
+            echo "$new_failures"
+            exit 1
           fi
           echo "Tests completed successfully"
           exit 0
@@ -246,11 +250,6 @@
       # Check if emulator process is still running
       if ! kill -0 $EMULATOR_PID 2>/dev/null; then
           echo "Emulator process has terminated unexpectedly"
-          # Power OFF if REST API was used and USBGamers
-          if [ "$1" = "USBGamers" ] && [ -n "$DEVICE_IP" ]; then
-            echo "Powering off target system at $DEVICE_IP via REST API..."
-            curl -s -X POST "http://$DEVICE_IP/api/v1/off" > /dev/null
-          fi
           exit 1
       fi
   done
@@ -262,7 +261,7 @@ exit
 
 :(){
   @echo off
-  ..\tools\bin\win\ftx\ftx -x .\cd\data\0.bin 0x06004000 
+  ..\tools\bin\win\ftx\ftx -x .\campaigns\%2\cd\data\0.bin 0x06004000 
   ..\tools\bin\win\ftx\ftx -c
   )
   GOTO end

@@ -13,30 +13,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void utils_test_setup(void)
-{
-        // No initialization needed
-}
-
-void utils_test_teardown(void)
-{
-        // No cleanup required
-}
-
-void utils_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_UTILS****");
-        }
-        else
-        {
-            LogInfo("****UT_UTILS_ERROR(S)****");
-        }
-    }
-}
 
     /**
  * @brief Tests the basic math utility functions: Abs, Min, Max, and Clamp.
@@ -102,13 +78,27 @@ MU_TEST(utils_fast_sqrt_basic)
     }
 }
 
+    /**
+ * @brief FastSqrt: 0 gives 0, and perfect squares across the uint32 range are within the documented ~6% error.
+ */
+MU_TEST(utils_fast_sqrt_values)
+{
+    const uint32_t roots[] = {1, 2, 3, 10, 100, 1000, 10000, 65535};
+    for (const uint32_t n : roots)
+    {
+        const uint32_t got = SRL::Math::Integer::FastSqrt(n * n);
+        const uint32_t tol = n * 7 / 100 + 1;      // ~6% documented, plus rounding
+        snprintf(buffer, buffer_size, "FastSqrt(%lu^2) = %lu, outside %lu +/- %lu", (unsigned long)n, (unsigned long)got, (unsigned long)n, (unsigned long)tol);
+        mu_assert(got + tol >= n && got <= n + tol, buffer);
+    }
+    snprintf(buffer, buffer_size, "FastSqrt(0) = %lu, expected 0", (unsigned long)SRL::Math::Integer::FastSqrt(0));
+    mu_assert(SRL::Math::Integer::FastSqrt(0) == 0, buffer);
+}
+
 MU_TEST_SUITE(utils_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&utils_test_setup,
-        &utils_test_teardown,
-        &utils_test_output_header);
-
     MU_RUN_TEST(utils_abs_min_max_clamp);
     MU_RUN_TEST(utils_fast_sqrt_basic);
+    MU_RUN_TEST(utils_fast_sqrt_values);
 }
 }

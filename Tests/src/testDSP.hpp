@@ -15,35 +15,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /** @brief Setup routine for DSP unit tests
- */
-inline void dsp_test_setup(void)
-{
-}
-
-    /** @brief Tear down routine for DSP unit tests
- */
-inline void dsp_test_teardown(void)
-{
-}
-
-    /** @brief Output header for DSP test suite error reporting
- */
-inline void dsp_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_DSP****");
-        }
-        else
-        {
-            LogInfo("****UT_DSP_ERROR(S)****");
-        }
-    }
-}
-
     /** @brief Minimal DSP program used for unit tests
  * @details This program immediately ends (single ENDI instruction encoding).
  */
@@ -183,8 +154,6 @@ MU_TEST(dsp_test_check_end_not_ended)
  */
 MU_TEST_SUITE(dsp_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&dsp_test_setup, &dsp_test_teardown, &dsp_test_output_header);
-
     MU_RUN_TEST(dsp_test_load_start_and_end);
     MU_RUN_TEST(dsp_test_write_read_data_roundtrip);
     MU_RUN_TEST(dsp_test_start_and_stop);

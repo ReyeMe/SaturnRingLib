@@ -53,7 +53,7 @@
 /[Tt]ests/**/*.o
 /[Tt]ests/**/imgui.ini
 /[Tt]ests/**/*.log
-/[Tt]ests/uts.json
+/[Tt]ests/uts*.json
 /[Tt]ests/uts.xml
 
 /Projects/**
@@ -70,3 +70,11 @@ Compiler/
 
 # MAC Related garbage
 **/.DS_Store
+/[Tt]ests/**/*.d
+/[Tt]ests/campaigns/sound/cd/data/SDDRVS.*
+# Written by campaigns/fld/pre.makefile
+/[Tt]ests/campaigns/fld/cd/data/
+/[Tt]ests/campaigns/sound/cd/data/BOOTSND.MAP
+# Written by campaigns/sound/pre.makefile
+/[Tt]ests/campaigns/sound/cd/music/
+/[Tt]ests/campaigns/sound/cd/data/SKYBL.CPK

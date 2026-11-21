@@ -1,0 +1,229 @@
+{
+  "about": [
+    "Per-campaign settings read by run_tests.bat.",
+    "known_failures: test name -> library bug that makes it fail. These failures do not fail the run; remove an entry once its bug is fixed.",
+    "skip_modes: run_tests.bat mode -> why the campaign is not run in that mode (it exits 0).",
+    "mednafen_args: extra mednafen settings for the campaign (timer_pal starts mednafen as a European, PAL console). mednafen saves them in its config: campaigns without mednafen_args pass -ss.region_autodetect 1 instead."
+  ],
+  "campaigns": {
+    "math": {
+      "known_failures": {
+        "fxp_round": "for negative values with a fraction of 1/2 or more, Round returns Floor(value - 1/2): one too low when the fraction is above a half (Round(-2.7) = -4), and next to the minimum value - 1/2 overflows int32 (Round(-32767.9999) = 32767); Floor(value) gives the right result",
+        "fxp_division_negative_non_integer": "Hardware::ArithmeticShiftRight<N> (N > 2) negates, shifts logically and negates back, which rounds toward zero instead of down: the high word of the 64-bit dividend of a negative non-integer is one too high (-1.5 / 2 = -0.25, -0.985 / 0.174 = +0.0863)",
+        "fxp_as_int_runtime_matches_compile_time": "As<int32_t>() rounds down at compile time (value >> 16) but toward zero at run time (Hardware::ArithmeticShiftRight<16>, see fxp_division_negative_non_integer): -1.5 gives -1 instead of -2, -0.25 gives 0 instead of -1",
+        "fxp_shift_operators": ">> rounds down at compile time but toward zero at run time (Hardware::ArithmeticShiftRight, see fxp_division_negative_non_integer): raw -3 >> 1 gives -1 instead of -2; its comment also calls it a logical shift",
+        "vector2d_lengthsquared_sum_overflow": "LengthSquared only checks each component against MaxSafeSquareValue (about 181.02), not the sum: (130,130) gives 33800, which wraps to about -31736 instead of the documented MaxValue (Vector3D guards each component against sqrt(32768 / 3), which covers its sum)",
+        "fxp_convert_from_more_fraction_bits": "converting a negative 8.24 value to 16.16 rounds down at compile time but toward zero at run time (Hardware::ArithmeticShiftRight, see fxp_division_negative_non_integer): raw -1 gives 0 instead of -1, raw -0x1FF gives -1 instead of -2",
+        "vector2d_reflect": "Reflect divides -2(v.n) by |n|^2 with Fxp division, which is wrong at run time for a negative non-whole dividend (see fxp_division_negative_non_integer): Reflect((0,0.375), (0,2)) gives (0,0.125) instead of (0,-0.375)",
+        "vector2d_project_onto": "ProjectOnto divides v.t by |t|^2 with Fxp division, which is wrong at run time for a negative non-whole dividend (see fxp_division_negative_non_integer): ProjectOnto((-1.5,2), (1,0)) gives (-0.5,0) instead of (-1.5,0)",
+        "fxp_add_sub_runtime_matches_compile_time": "runtime MaxValue + 1 wraps (signed int32 overflow, undefined behavior), compile time saturates; += and -= never saturate, so a + b and a += b disagree even at compile time",
+        "trigonometry_tan_matches_sin_over_cos": "-80 to -10: Tan is right, the Sin/Cos reference is wrong because runtime Fxp division of a negative non-integer is wrong (see fxp_division_negative_non_integer); 60 to 80: the first Tan table interpolates linearly over 5.625 degree steps and overshoots near 90 (+0.8% at 60, +2.1% at 70, +8.7% at 80); Tan(x+180) differs from Tan(x) by up to 0.005 for negative x (not investigated)",
+        "trigonometry_slerp": "Angle::SLerp(10, 350, 0.5) goes the long way round (180 instead of 0): it scales other - this with Angle::operator*(Fxp), whose ToFxp() reads the raw angle as unsigned (340 degrees stays +0.944 turns instead of -20 degrees); reading the difference as int16_t (-180 to +180) before scaling takes the shortest path",
+        "vector3d_arithmetic_operators": "Vector3D operator+= and operator-= return Vector3 by value, though documented as returning a reference (Vector2D returns Vector2&): (c += b) += b adds b once, the second += changes a temporary copy; -= has the same bug, its check is not reached because the test stops at the first failure",
+        "mat33_scale_in_place_documented": "Scale does not match its documentation: the code scales each column (every .X by sx, .Y by sy, .Z by sz, so M * S), the comment shows each row scaled (S * M); they agree only on Identity, so SaturnMathPP has to pick its row/column convention (see transform_set_matrix_matches_matrix43)",
+        "random_seed_zero_not_stuck": "seed 0 only gives zeros: Random is an xorshift generator and the constructor keeps a 0 seed, which xorshift never leaves (replace a 0 seed with a non-zero constant)",
+        "random_variety_per_type": "8-bit GetNumber() gives a single value (u8 and i8: 1 distinct value): types of 16 bits or fewer use the 16-bit shifts 7, 9, 8, and in an 8-bit state >> 9 is always 0 and << 8 drops out, so the state cycles through one or two values (keep a uint32_t state and return it cast to T)",
+        "random_dice_distribution": "u8 GetNumber(1, 6) always returns 1: the 8-bit generator barely moves (see random_variety_per_type)",
+        "random_signed_wide_range": "int16 GetNumber(-30000, 30000) stays in [-29999, -24497]: GetNumber(from, to) computes range = to - from + 1 in T, and 60001 wraps to -5535 in int16_t, so from + (|number| % -5535) never leaves -30000 to -24466 (compute the range in the unsigned type)",
+        "random_range_int8_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value: GetNumber(from, to) computes range = to - from + 1 in T, and 2^n - 2 wraps to -2 in a signed type, so the result is stuck at min + 1 or min + 2 (compute the range in the unsigned type)",
+        "random_range_int16_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value: GetNumber(from, to) computes range = to - from + 1 in T, and 2^n - 2 wraps to -2 in a signed type, so the result is stuck at min + 1 or min + 2 (compute the range in the unsigned type)",
+        "random_range_int32_minus1_matches_raw": "GetNumber(min + 1, max - 1) returned min + 1, not the expected value: GetNumber(from, to) computes range = to - from + 1 in T, and 2^n - 2 wraps to -2 in a signed type, so the result is stuck at min + 1 or min + 2 (compute the range in the unsigned type)",
+        "utils_fast_sqrt_values": "FastSqrt(10000^2) = 11243: the loop stops when baseEstimation >= estimation, so the two can differ 4x and their sum is up to 25% above the root (+25% near 2^30); stopping one step earlier, while (baseEstimation < (estimation >> 1)), keeps them within 2x like Fxp::Sqrt, at most +6.1%",
+        "interpolation_elastic_ease_in": "Fxp::ElasticEaseIn(0, 1, 0.99) = 2.0: it is not elastic but one parabola, Lerp(start, end, 2t(2 - t)), rising to twice the range (1.5 at t = 0.5) and jumping back to end at t = 1; a real elastic ease-in (-2^(10(t-1)) * sin((t - 1.075) * 2pi / 0.3)) gives about 0.91 at t = 0.99 and ends smoothly at 1",
+        "random_full_range_uint16_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_int16_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_uint8_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_int8_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_uint32_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console",
+        "random_full_range_int32_matches_raw": "not run: GetNumber(min, max) over the full type range divides by zero (range = max - min + 1 wraps to 0) and hangs the console"
+      }
+    },
+    "memory_simple": {
+      "known_failures": {
+        "memory_common_inrange_lwram": "LowWorkRam::InRange accepts 0x00300000, uint32_t overload disagrees",
+        "memory_common_blocks_independent_hwram": "merging free blocks loses header bytes",
+        "memory_common_blocks_independent_lwram": "merging free blocks loses header bytes",
+        "memory_common_new_delete_forms": "merging free blocks loses header bytes",
+        "memory_common_free_order_hwram": "merging free blocks loses header bytes",
+        "memory_common_free_order_lwram": "merging free blocks loses header bytes",
+        "memory_common_odd_size_alignment_hwram": "merging free blocks loses header bytes",
+        "memory_common_odd_size_alignment_lwram": "merging free blocks loses header bytes",
+        "memory_common_report_blocks_hwram": "merging free blocks loses header bytes",
+        "memory_common_report_blocks_lwram": "merging free blocks loses header bytes",
+        "memory_common_shrink_then_grow_hwram": "merging free blocks loses header bytes",
+        "memory_common_shrink_then_grow_lwram": "merging free blocks loses header bytes",
+        "memory_common_new_macros_and_placement_ptr": "merging free blocks loses header bytes",
+        "memory_common_realloc_preserves_data_hwram": "Realloc(nullptr, n) returns null",
+        "memory_common_realloc_preserves_data_lwram": "Realloc(nullptr, n) returns null",
+        "memory_common_malloc_huge_sizes_hwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_malloc_huge_sizes_lwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_free_cache_through_hwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_free_cache_through_lwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_realloc_into_previous_free_hwram": "moved Realloc writes a free header into the data before copying it",
+        "memory_common_realloc_into_previous_free_lwram": "moved Realloc writes a free header into the data before copying it",
+        "memory_common_realloc_too_large_hwram": "failed Realloc frees the block",
+        "memory_common_realloc_too_large_lwram": "failed Realloc frees the block",
+        "memory_common_free_interior_pointer_hwram": "Free(block + 16) corrupts the heap",
+        "memory_common_free_interior_pointer_lwram": "Free(block + 16) corrupts the heap",
+        "memory_common_realloc_odd_size_hwram": "not run: Realloc to a size not a multiple of 4 crashes the console",
+        "memory_common_realloc_odd_size_lwram": "not run: Realloc to a size not a multiple of 4 crashes the console",
+        "memory_common_largest_block_lwram": "exact-fit Malloc marks the block used but returns null",
+        "memory_common_largest_block_hwram": "exact-fit Malloc marks the block used but returns null"
+      }
+    },
+    "memory_tlsf": {
+      "known_failures": {
+        "memory_common_inrange_lwram": "LowWorkRam::InRange accepts 0x00300000, uint32_t overload disagrees",
+        "memory_common_malloc_huge_sizes_hwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_malloc_huge_sizes_lwram": "Malloc(0xFFFFFFFF) returns a block",
+        "memory_common_free_cache_through_hwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_free_cache_through_lwram": "Free through the 0x2... cache-through address is ignored",
+        "memory_common_free_interior_pointer_hwram": "not run: Free(block + 16) hangs the console",
+        "memory_common_free_interior_pointer_lwram": "not run: Free(block + 16) hangs the console"
+      }
+    },
+    "memory_cpus_simple": {
+      "known_failures": {
+        "memory_common_both_cpus_hwram": "srl_memory.hpp has no lock between the two CPUs (may pass by luck)"
+      }
+    },
+    "memory_cpus_tlsf": {
+      "known_failures": {
+        "memory_common_both_cpus_hwram": "not run: no lock between the two CPUs, the slave gets stuck"
+      }
+    },
+    "video": {
+      "known_failures": {
+        "ascii_set_color_palette_1": "SetColor finds the palette with colorBank >> 6 (64 bytes per palette, not 32): with palette 1 it writes color 33 (palette 2), not 17",
+        "ascii_print_stops_at_map_end": "Print clamps the start cell but not the end: text past cell (63, 63) is written after the map, past the end of VDP2 VRAM (it lands on the start of VRAM A0 through the mirror)",
+        "palette_test_wrapped_colors_not_freed": "Bitmap::Palette's destructor deletes Colors also when Palette(colors, count) wrapped the caller's array"
+      }
+    },
+    "system": {
+      "known_failures": {
+        "dsp_test_load_start_and_end": "DSP end flag never set (not investigated yet)",
+        "dsp_test_start_and_stop": "DSP end flag never set (not investigated yet)",
+        "interrupt_test_acknowledge_roundtrip": "Get/SetAcknowledge use 0x25FE00BC, which is not an SCU register (AIACK is 0x25FE00A8): the value does not read back",
+        "system_test_clock_mode_roundtrip": "not run: SetClockMode resets VDP1, VDP2 and SCSP as documented, and SRL has no function that re-initializes them, so the next Synchronize never returns (the campaign hangs)",
+        "interrupt_test_illegal_instruction_handler": "Interrupt::Vector uses the 68000's exception numbers: Vector::Illegal is 0x63, but the SH-2 takes an illegal instruction on vector 4, which SetHandler refuses (it only takes 0x40-0x4F and 0x60-0x8F)"
+      }
+    },
+    "timer": {
+      "known_failures": {}
+    },
+    "timer_pal": {
+      "mednafen_args": "-ss.region_autodetect 0 -ss.region_default eu",
+      "known_failures": {}
+    },
+    "event": {
+      "known_failures": {}
+    },
+    "datetime": {
+      "known_failures": {
+        "datetime_month_boundaries": "April offset is 777600 instead of 7776000",
+        "datetime_months_in_order": "April offset is 777600 instead of 7776000",
+        "datetime_equality": "== compares the week, != does not",
+        "datetime_out_of_range_values": "constructor clamps its parameters, not the members"
+      }
+    },
+    "cd": {
+      "skip_modes": {
+        "USBGamers": "the DevCart upload sends only the program, not the disc"
+      },
+      "known_failures": {
+        "cd_test_tray_and_table_details": "TableOfContents is 812 bytes, the CD block writes 408",
+        "cd_test_seek_then_read": "Seek rounds the sector up: reads one sector late",
+        "cd_test_read_whole_file_in_chunks": "Seek rounds the sector up: reads one sector late",
+        "cd_test_mix_seek_read_sectors_read": "ReadSectors after Seek reads the wrong sector",
+        "cd_test_load_bytes_offset_and_state": "LoadBytes on an open file resets its position",
+        "cd_test_two_files": "a second File while one is open: GFS allows one open file",
+        "cd_test_other_files_content": "Read returns bytes past the end of the file",
+        "cd_test_file_not_copyable": "Cd::File copies close and free twice",
+        "cd_test_initialize_twice": "Initialize returns false (checks GFS_Init <= 2)"
+      }
+    },
+    "media": {
+      "skip_modes": {
+        "USBGamers": "the DevCart upload sends only the program, not the disc"
+      },
+      "known_failures": {
+        "wave_mono_16bit": "16-bit mono samples lose their high byte: samples[0] | samples[1] has no << 8 (srl_sound.hpp)",
+        "wave_stereo_16bit": "16-bit stereo stores the right channel first, 8-bit stereo the left channel first",
+        "wave_stereo_8bit": "not run: 8-bit stereo writes the right channel at data[dataSize + sample], past the end of its buffer",
+        "tga_rle_paletted_16": "16-color RLE decoding reads two source pixels per pixel count and the next packet byte as a color"
+      }
+    },
+    "slave": {
+      "known_failures": {
+        "slave_is_done_seen_by_master": "ITask::IsDone() reads the master's cache, which keeps the value from before the slave finished",
+        "slave_reset_task_while_running": "ResetTask() returns !done, which is true while the task runs (documented: false)"
+      }
+    },
+    "scene": {
+      "known_failures": {
+        "scene_attribute_paletted_texture": "the texture Attribute constructor sets UsePalette, then overwrites Sort without it"
+      }
+    },
+    "string": {
+      "known_failures": {
+        "string_snprintfEx_fixed_point": "%f rounds the decimals down: 1.5 prints as 1.49999",
+        "string_snprintfEx_percent_literal": "%% prints % but also skips the next character: \"50%% done\" gives \"50%done\"",
+        "string_snprintfEx_truncates_inside_buffer": "a text longer than the buffer is not terminated inside it; the '\\0' goes to buffer[length], past its end",
+        "string_copy_of_empty": "copy constructor, assignment and + call strlen(nullptr) on an empty string"
+      }
+    },
+    "endian": {
+      "known_failures": {}
+    },
+    "vdp1": {
+      "known_failures": {
+        "vdp1_available_memory": "GetAvailableMemory() with no texture shifts CGADDRESS by 3 again (already a byte offset) and wraps to about 4 GB"
+      }
+    },
+    "vdp2": {
+      "known_failures": {
+        "vdp2_vram_access_cycles": "bankCycles starts at -1 for A0-B0 but at 2 for B1, so B1 gives 5 cycles, not 6",
+        "vdp2_load_tilemap_then_clear": "ClearVRAM frees NBG0-NBG3 palettes with RBG0's color mode, so a 16-color bank stays used",
+        "vdp2_load_bitmap_16_colors_vram_size": "AutoAllocateBmp writes `sz >= 1` (a comparison) instead of `sz >>= 1`, so a 16-color bitmap takes twice its VRAM (128 KB for 512x256)",
+        "vdp2_default_sprite_priorities": "VDP2::Initialize calls SpriteLayer::SetPriority twice on Bank0 (Layer3 then Layer4): bank 0 ends on layer 4 and bank 1 keeps SGL's layer 5, not the documented 3 and 4",
+        "vdp2_sprite_opacity_full": "SpriteLayer::SetOpacity(1.0) computes ratio 31 - 32 = -1: CCRSA gets 0xFF, bank 0 ratio 31 (the most transparent) instead of 0"
+      }
+    },
+    "input": {
+      "known_failures": {}
+    },
+    "sound": {
+      "skip_modes": {
+        "USBGamers": "the sound driver files are loaded from the disc, which the DevCart upload does not send"
+      },
+      "known_failures": {
+        "cdda_resume_after_pause": "Resume does not stop at the end of the paused track and plays on into track 3: it looks the next track up as Tracks[TargetTrack + 1] (that is track TargetTrack + 2), in a table whose entries are 8 bytes instead of 4 (see cd_test_tray_and_table_details), so it plays to the end of the disc",
+        "cinepak_load_twice": "LoadMovie does not unload the movie already loaded: its file stays open, so with one GFS file at a time the second LoadMovie cannot open the movie"
+      }
+    },
+    "transform": {
+      "known_failures": {
+        "transform_set_matrix_matches_matrix43": "SGL reads a Matrix43 row as a column: Matrix43::TransformPoint uses Row0-Row2 as rows, SGL (and Matrix43::CreateRotation*) as columns, so they turn points opposite ways (SaturnMathPP)"
+      }
+    },
+    "tilemap": {
+      "known_failures": {
+        "tilemap_bmp2tile_refuses_partial_tiles": "the size check masks 16x16 characters with 0x7 instead of 0xf (byte width and height), so 24-pixel 256-color bitmaps are converted with drifting rows",
+        "tilemap_bmp2tile_refused_no_leak": "a refused bitmap sets cellData, mapData and palData to NULL without deleting them (3 blocks leak)",
+        "tilemap_load_into_nbg1_2word": "Map2VRAM puts the palette at bit 20 of 2-word map data: right for 256 colors, but 16-color palettes belong at bit 16"
+      }
+    },
+    "draw2d": {
+      "known_failures": {
+        "draw2d_rotated_sprite_zoom_point": "the rotated path offsets the corners by -halfSize for UpperLeft (and the other zoom points), so the sprite is drawn on the opposite side of its location",
+        "draw2d_rotated_sprite_size": "the rotated path uses corners at +-halfSize, one pixel more than the unrotated scaled sprite (VDP1 coordinates are inclusive)"
+      }
+    },
+    "fld": {
+      "skip_modes": {
+        "USBGamers": "the game the menu starts is on the disc, which the DevCart upload does not send"
+      },
+      "known_failures": {}
+    }
+  }
+}

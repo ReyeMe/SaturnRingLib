@@ -13,60 +13,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 
     /**
- * @brief Preparation routine for mathematical unit tests
- *
- * This function is called before each test in the Math test suite.
- * Currently serves as a placeholder for potential future test initialization
- * requirements, such as setting up test data or resetting test environment.
- * Provides a hook for any necessary pre-test setup operations.
- */
-void math_test_setup(void)
-{
-        // Placeholder for potential future test initialization needs
-        // Can be expanded to include specific setup operations
-        // for more complex mathematical testing scenarios
-}
-
-    /**
- * @brief Cleanup routine for mathematical unit tests
- *
- * This function is called after each test in the Math test suite.
- * Currently serves as a placeholder for potential resource release
- * or state reset operations that might be needed during testing.
- * Provides a mechanism for post-test cleanup and resource management.
- */
-void math_test_teardown(void)
-{
-        // Placeholder for potential future test cleanup requirements
-        // Can be used to free resources, reset global states,
-        // or perform any necessary post-test operations
-}
-
-    /**
- * @brief Error reporting header for Math test suite
- *
- * Prints a standardized error header when the first test failure occurs.
- * Utilizes a global error counter to ensure the header is printed only once
- * during a test suite execution, preventing redundant error messages.
- * Provides clear identification of mathematical unit test failures.
- */
-void math_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MATH****");
-        }
-        else
-        {
-            LogInfo("****UT_MATH_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Test trigonometric sine function for standard angles
  *
  * Verifies the sine function's correctness for key standard angles:
@@ -215,17 +161,12 @@ MU_TEST(math_test_small_angles)
     /**
  * @brief Configure and register mathematical test suite
  *
- * Sets up the test suite with initialization, cleanup, and error reporting
+ * Sets up the test suite with initialization and cleanup
  * functions. Registers all individual trigonometric test cases to be
  * executed during the mathematical unit testing process.
  */
 MU_TEST_SUITE(math_test_suite)
 {
-        // Configure test suite with setup, teardown, and error reporting functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&math_test_setup,
-        &math_test_teardown,
-        &math_test_output_header);
-
         // Register individual test cases for execution
     MU_RUN_TEST(math_test_sin_standard_angles);
     MU_RUN_TEST(math_test_cos_standard_angles);

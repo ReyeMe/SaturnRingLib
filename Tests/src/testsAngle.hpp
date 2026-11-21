@@ -12,37 +12,8 @@ extern "C" {
 
 extern const uint8_t buffer_size;
 extern char buffer[];
-extern uint32_t suite_error_counter;
 
 constexpr double PI = 3.14159;
-
-    // UT setup function, called before every tests
-void angle_test_setup(void)
-{
-        // Nothomg to do here
-}
-
-    // UT teardown function, called after every tests
-void angle_test_teardown(void)
-{
-        /* Nothing */
-}
-
-    // UT output header function, called on the first test failure
-void angle_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_ANGLE****");
-        }
-        else
-        {
-            LogInfo("****UT_ANGLE_ERROR(S)****");
-        }
-    }
-}
 
     /** @brief Tests that an angle initialized to zero degrees is also zero radians. */
 MU_TEST(angle_test_initialization_zero)
@@ -545,7 +516,6 @@ MU_TEST(angle_test_from_degrees_zero)
     mu_assert(a1.ToDegrees() == 0, buffer);
 }
 
-
     /** @brief Verifies that a 360-degree angle converts to 0 turns due to wrapping. */
 MU_TEST(angle_test_to_turns_full_wraps_to_zero)
 {
@@ -1020,32 +990,9 @@ MU_TEST(angle_test_operator_unary_minus_opposite)
     mu_assert(opposite2.RawValue() == expectedRaw, buffer);
 }
 
-    /** @brief Tests spherical linear interpolation (SLerp) between two angles. */
-    // MU_TEST(angle_test_slerp_endpoints_and_midpoint)
-    // {
-    //     Angle start = Angle::FromDegrees(0);
-    //     Angle end = Angle::FromDegrees(90);
-
-    //     Angle at0 = start.SLerp(end, Fxp(0));
-    //     snprintf(buffer, buffer_size, "SLerp t=0 failed: %d != 0", at0.ToDegrees().As<int32_t>());
-    //     mu_assert(at0.ToDegrees() == 0, buffer);
-
-    //     Angle at1 = start.SLerp(end, Fxp(1));
-    //     snprintf(buffer, buffer_size, "SLerp t=1 failed: %d != 90", at1.ToDegrees().As<int32_t>());
-    //     mu_assert(at1.ToDegrees() == 90, buffer);
-
-    //     Angle atHalf = start.SLerp(end, Fxp(0.5));
-    //     snprintf(buffer, buffer_size, "SLerp t=0.5 failed: %d != 45", atHalf.ToDegrees().As<int32_t>());
-    //     mu_assert(atHalf.ToDegrees() == 45, buffer);
-    // }
-
     // Define the test suite with all unit tests
 MU_TEST_SUITE(angle_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&angle_test_setup,
-        &angle_test_teardown,
-        &angle_test_output_header);
-
     MU_RUN_TEST(angle_test_initialization_zero);
     MU_RUN_TEST(angle_test_subtraction_half_circle_minus_quarter_circle);
     MU_RUN_TEST(angle_test_subtraction_zero_minus_quarter_circle);
@@ -1059,10 +1006,8 @@ MU_TEST_SUITE(angle_test_suite)
         // Additional tests
     MU_RUN_TEST(angle_test_normalization_positive);
     MU_RUN_TEST(angle_test_normalization_negative);
-        // MU_RUN_TEST(angle_test_arithmetic_addition);          // These tests are disabled because they are hanging
-        // MU_RUN_TEST(angle_test_arithmetic_subtraction);       // These tests are disabled because they are hanging
-        // MU_RUN_TEST(angle_test_arithmetic_multiplication);
-        // MU_RUN_TEST(angle_test_arithmetic_division);
+    MU_RUN_TEST(angle_test_arithmetic_addition);
+    MU_RUN_TEST(angle_test_arithmetic_subtraction);
     MU_RUN_TEST(angle_test_comparison_greater);
     MU_RUN_TEST(angle_test_comparison_less);
     MU_RUN_TEST(angle_test_conversion_to_radians);
@@ -1159,6 +1104,5 @@ MU_TEST_SUITE(angle_test_suite)
     MU_RUN_TEST(angle_test_operator_multiplication_negative_scalar);
     MU_RUN_TEST(angle_test_operator_division_negative_scalar);
     MU_RUN_TEST(angle_test_operator_unary_minus_opposite);
-        // MU_RUN_TEST(angle_test_slerp_endpoints_and_midpoint);
 }
 }

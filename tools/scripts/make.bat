@@ -55,6 +55,8 @@ FOR /F "delims=" %%A in ("!MAKE_ARGS!") do (
 echo Make args are: "%MAKE_ARGS%"
 
 :: 3. Environment Setup
+:: Absolute path, so builds that run "make -C <subfolder>" (Tests campaigns) still find the compiler
+FOR %%I IN ("%COMPILER_DIR%") DO SET "COMPILER_DIR=%%~fI"
 SET "UTIL_DIR=%COMPILER_DIR%\Other Utilities"
 SET "MSYS_DIR=%COMPILER_DIR%\msys2\usr\bin"
 SET "BIN_DIR=%COMPILER_DIR%\sh2eb-elf\bin"

@@ -40,3 +40,8 @@ void	*memset		__P((void *dst, int ptn, size_t len));
 void	*memchr		__P((const void *mem, int ptn, size_t len));
 
 #endif		/* _STRING_H */
+
+/* NO_SGL_STDLIB: this header shadows the toolchain one, so pass through to it */
+#if defined( NO_SGL_STDLIB )
+#include_next <string.h>
+#endif

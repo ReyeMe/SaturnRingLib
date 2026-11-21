@@ -194,6 +194,13 @@ SATURNMATHPPDIR = $(MODDIR)/SaturnMathPP
 
 SYSSOURCES += $(SGLLDIR)/../SRC/workarea.c
 
+# FLD file loader kernel, linked into the program as data (see srl_fld.hpp)
+ifeq ($(strip ${SRL_USE_FLD}),1)
+	SRL_FLD_KERNEL ?= $(MODDIR)/fld/fld_knl.bin
+	FLD_KERNEL_OBJECT = $(BUILD_DROP)/fld_kernel.o
+	OBJECTS += $(FLD_KERNEL_OBJECT)
+endif
+
 # Include TLSF sources if required
 ifdef SRL_MALLOC_METHOD
 	ifeq ($(strip ${SRL_MALLOC_METHOD}),TLSF)
@@ -233,6 +240,16 @@ ifneq ("$(wildcard ./post.makefile)","")
 else
 post_build:
 	$(info ****** No post build steps ******)
+endif
+
+ifeq ($(strip ${SRL_USE_FLD}),1)
+$(FLD_KERNEL_OBJECT) : $(MODDIR)/fld/fld_kernel.S $(SRL_FLD_KERNEL)
+	@mkdir -p $(BUILD_DROP)
+	$(CC) -m2 -c -x assembler-with-cpp -DFLD_KERNEL='"$(SRL_FLD_KERNEL)"' $< -o $@
+
+# The default kernel is not committed: build it from modules/fld/src/fld_knl.c
+$(MODDIR)/fld/fld_knl.bin : $(MODDIR)/fld/src/fld_knl.c $(MODDIR)/fld/fld_knl.ld $(MODDIR)/fld/makefile
+	$(MAKE) -C $(MODDIR)/fld fld_knl.bin CC="$(CC)" OBJCOPY="$(OBJCOPY)"
 endif
 
 # Compilation tasks

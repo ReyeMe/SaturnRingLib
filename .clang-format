@@ -1,0 +1,72 @@
+# Saturn Ring Library (.clang-format)
+# Generated from coding style rules in readme.md
+
+Language: Cpp
+BasedOnStyle: LLVM
+
+# --- Tab vs. Spaces ---
+# "Tab characters should not be used, 4 spaces should be used instead of a single TAB."
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+ContinuationIndentWidth: 4
+
+# --- Curly braces ---
+# "Curly braces should always be on a new line."
+
+# --- Empty lines ---
+# "Do not use multiple empty lines."
+MaxEmptyLinesToKeep: 1
+# Pre-19 key on purpose: clang-format 18 (toolchain container) rejects KeepEmptyLines
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+
+# --- Indentation and Alignment Rules ---
+AccessModifierOffset: -4
+NamespaceIndentation: All
+IndentPPDirectives: BeforeHash
+SortIncludes: false
+AlignAfterOpenBracket: DontAlign
+AlignConsecutiveDeclarations:
+  Enabled: false
+  AcrossEmptyLines: false
+  AcrossComments: false
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterObjCDeclaration: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+  AfterExternBlock: false
+
+# --- Whitespace Formatting ---
+DerivePointerAlignment: true
+PointerAlignment: Left
+ReferenceAlignment: Pointer
+SpaceBeforeParens: ControlStatements
+SpaceAfterCStyleCast: false
+SpaceInEmptyBlock: false
+Standard: Latest
+ColumnLimit: 0
+
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: Never
+
+AlignTrailingComments:
+  Kind: Leave

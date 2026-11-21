@@ -234,19 +234,35 @@ namespace SRL::Types
          */
         void Invoke(Args... args)
         {
-            for (const auto& callback : this->staticCallbacks)
-            {
-                if (callback)
-                {
-                    callback(args...);
-                }
-            }
+            Event::InvokeList(this->staticCallbacks, [&](CallbackStatic callback) { callback(args...); });
+            Event::InvokeList(this->memberCallbacks, [&](CallbackMember callback) { callback->Invoke(args...); });
+        }
 
-            for (const auto& callback : this->memberCallbacks)
+    private:
+        /** @brief Calls the callbacks of a list, which they may change while they run (by index, not by iterator)
+         * @details Callbacks added during the call run from the next Invoke; a callback removed before its turn does not run.
+         * @param list Callbacks to call
+         * @param call Calls one callback
+         */
+        template <typename List, typename Call>
+        static void InvokeList(List& list, Call call)
+        {
+            size_t count = list.size();
+
+            for (size_t index = 0; index < count && index < list.size(); index++)
             {
+                const auto callback = list[index];
+
                 if (callback)
                 {
-                    callback->Invoke(args...);
+                    call(callback);
+                }
+
+                // The callback removed itself or an earlier one: the next callback moved into this slot
+                if (index < list.size() && list[index] != callback)
+                {
+                    index--;
+                    count--;
                 }
             }
         }

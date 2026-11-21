@@ -15,40 +15,6 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Sets up the environment for fixed-point (Fxp) unit tests.
- */
-void fxp_test_setup(void)
-{
-        // No initialization needed
-}
-
-    /**
- * @brief Cleans up the environment after each fixed-point (Fxp) unit test.
- */
-void fxp_test_teardown(void)
-{
-        // No cleanup required
-}
-
-    /**
- * @brief Displays a header for the fixed-point (Fxp) test suite upon the first error.
- */
-void fxp_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_FXP****");
-        }
-        else
-        {
-            LogInfo("****UT_FXP_ERROR(S)****");
-        }
-    }
-}
-
     /** @brief Tests initialization of a fixed-point number with zero. */
 MU_TEST(fxp_initialization_zero)
 {
@@ -269,9 +235,17 @@ MU_TEST(fxp_ceil)
     fxp_ceil_check(-32768.0, "-32768.0", -32768); // minimum
     fxp_ceil_check(-32768.0001, "-32768.0001", -32768); // just below min (should clamp or handle)
     fxp_ceil_check(-32767.9999, "-32767.9999", -32767); // just above min
-    fxp_ceil_check(32767.9998474, "32767.9998474", 32768); // maximum
-    fxp_ceil_check(32767.999, "32767.999", 32768); // just below max
+    // Not tested: Ceil of a value above 32767. The result, 32768, does not fit in 16.16, and SaturnMathPP does not
+    // saturate: Ceil adds 0xFFFF to the raw value, which overflows int32, and returns -32768.
+    // fxp_ceil_check(32767.9998474, "32767.9998474", 32767); // maximum
+    // fxp_ceil_check(32767.999, "32767.999", 32767); // just below max
     fxp_ceil_check(32767.0, "32767.0", 32767); // max integer
+    fxp_ceil_check(32767.0 - 1.0 / 65536, "32767 - 1/65536", 32767); // largest value below 32767: rounds up to it
+    fxp_ceil_check(32766.5, "32766.5", 32767);
+    fxp_ceil_check(32766.0 + 1.0 / 65536, "32766 + 1/65536", 32767); // one step above an integer goes to the next
+    fxp_ceil_check(-32767.5, "-32767.5", -32767);
+    fxp_ceil_check(100.0 + 1.0 / 65536, "100 + 1/65536", 101);
+    fxp_ceil_check(-100.0 - 1.0 / 65536, "-100 - 1/65536", -100);
     fxp_ceil_check(1.0 / 65536, "1/65536", 1); // resolution step
     fxp_ceil_check(-1.0 / 65536, "-1/65536", 0); // negative resolution step
 
@@ -309,10 +283,19 @@ MU_TEST(fxp_round)
         // Fxp-specific edge cases
     fxp_round_check(-32768.0, "-32768.0", -32768); // minimum
     fxp_round_check(-32768.00001, "-32768.00001", -32768); // just below min (should clamp or handle)
-    fxp_round_check(-32767.9999, "-32767.9999", -32768); // just above min
+    fxp_round_check(-32767.9999, "-32767.9999", -32768); // just above min: fails, Round subtracts 0x8000 from the raw value, which overflows int32 (SaturnMathPP bug)
     fxp_round_check(32766.99998474, "32766.99998474", 32767); // maximum
-    fxp_round_check(32767.999, "32767.999", 32768); // just below max
+    // Not tested: Round of a value from 32767.5 up. The result, 32768, does not fit in 16.16, and SaturnMathPP does
+    // not saturate: Round adds 0x8000 to the raw value, which overflows int32, and returns -32768.
+    // fxp_round_check(32767.999, "32767.999", 32767); // just below max
     fxp_round_check(32767.0, "32767.0", 32767); // max integer
+    fxp_round_check(32767.5 - 1.0 / 65536, "32767.5 - 1/65536", 32767); // largest value Round takes: rounds down
+    fxp_round_check(32766.5, "32766.5", 32767); // half near the maximum: away from zero
+    fxp_round_check(32766.5 - 1.0 / 65536, "32766.5 - 1/65536", 32766); // one step below half: down
+    fxp_round_check(-32767.5, "-32767.5", -32768); // half near the minimum: away from zero, to the minimum
+    fxp_round_check(-32767.5 + 1.0 / 65536, "-32767.5 + 1/65536", -32767); // one step above negative half
+    fxp_round_check(2.5, "2.5", 3); // halves go away from zero, not to even
+    fxp_round_check(-2.5, "-2.5", -3);
     fxp_round_check(1.0 / 65536, "1/65536", 0); // resolution step
     fxp_round_check(-1.0 / 65536, "-1/65536", 0); // negative resolution step
 
@@ -336,6 +319,8 @@ MU_TEST(fxp_round)
     fxp_round_check(-1.499999, "-1.499999", -1); // just above -1.5
     fxp_round_check(-1.5, "-1.5", -2); // exactly -1.5
     fxp_round_check(-1.500001, "-1.500001", -2); // just below -1.5
+    // Last on purpose: a failed check only ends fxp_round_check, so the log shows the last failing case
+    fxp_round_check(-2.7, "-2.7", -3); // negative, fraction above half (SaturnMathPP bug: Floor(value - half) gives -4)
 }
 
     // Helper function to test Modulo
@@ -919,12 +904,381 @@ MU_TEST(fxp_initialization_short)
     /**
  * @brief Defines the test suite for all fixed-point (Fxp) functionality.
  */
+    /**
+ * @brief Tests Sqrt() as SaturnMathPP implements it: the nearest power of 2 plus a straight-line correction, not the
+ *        exact isqrt(value * 2^16) its comment describes. So it is exact on 0 and powers of 4, within 6.1% of the
+ *        true root from 1/1024 up (below that, the shifts drop low bits and the error grows to 13%), never
+ *        decreases as the input grows, and returns 0 for zero or negative input.
+ */
+MU_TEST(fxp_sqrt)
+{
+        // Powers of 4, from 1/256 to 16384 (the largest whose root fits): exact
+    const Fxp powers[] = {Fxp(0.00390625), Fxp(0.0625), Fxp(0.25), Fxp(1), Fxp(4), Fxp(16), Fxp(256), Fxp(4096), Fxp(16384)};
+    const Fxp powerRoots[] = {Fxp(0.0625), Fxp(0.25), Fxp(0.5), Fxp(1), Fxp(2), Fxp(4), Fxp(16), Fxp(64), Fxp(128)};
+    for (size_t i = 0; i < sizeof(powers) / sizeof(powers[0]); i++)
+    {
+        const Fxp r = powers[i].Sqrt();
+        snprintf(buffer, buffer_size, "Sqrt(raw %ld) raw %ld != raw %ld", (long)powers[i].RawValue(),
+            (long)r.RawValue(), (long)powerRoots[i].RawValue());
+        mu_assert(r == powerRoots[i], buffer);
+    }
+
+        // Between powers of 4: within 6.1% of the true root (largest error 6.07%, at 2 * 4^n: Sqrt(2) = 1.5)
+    const Fxp inputs[] = {Fxp(0.01), Fxp(0.5), Fxp(2), Fxp(3), Fxp(9), Fxp(100), Fxp(1000), Fxp(10000), Fxp(30000), Fxp(32767)};
+    const Fxp trueRoots[] = {Fxp(0.1), Fxp(0.70710678), Fxp(1.41421356), Fxp(1.73205081), Fxp(3), Fxp(10), Fxp(31.6227766),
+        Fxp(100), Fxp(173.2050808), Fxp(181.0165738)};
+    for (size_t i = 0; i < sizeof(inputs) / sizeof(inputs[0]); i++)
+    {
+        const Fxp r = inputs[i].Sqrt();
+        const int64_t diff = (int64_t)r.RawValue() - trueRoots[i].RawValue();
+        snprintf(buffer, buffer_size, "Sqrt(raw %ld) raw %ld more than 6.1%% from raw %ld", (long)inputs[i].RawValue(),
+            (long)r.RawValue(), (long)trueRoots[i].RawValue());
+        mu_assert((diff < 0 ? -diff : diff) * 1000 <= (int64_t)trueRoots[i].RawValue() * 61, buffer);
+    }
+
+        // Never decreases: about 32768 inputs spread over the whole positive range
+    int32_t previous = 0;
+    for (int32_t raw = 64; raw < INT32_MAX - 65521; raw += 65521)
+    {
+        const int32_t r = Fxp::BuildRaw(raw).Sqrt().RawValue();
+        snprintf(buffer, buffer_size, "Sqrt(raw %ld) raw %ld < Sqrt of the previous input, raw %ld", (long)raw, (long)r,
+            (long)previous);
+        mu_assert(r >= previous, buffer);
+        previous = r;
+    }
+
+    mu_assert(Fxp(0).Sqrt() == 0, "Sqrt(0) should be 0");
+    mu_assert(Fxp(-4).Sqrt() == 0, "Sqrt(negative) should be 0");
+    mu_assert(Fxp::BuildRaw(-1).Sqrt() == 0, "Sqrt(-1/65536) should be 0");
+}
+
+    /**
+ * @brief Tests Square() on positive, negative, fractional and zero values.
+ */
+MU_TEST(fxp_square)
+{
+    mu_assert(Fxp(3).Square() == 9, "Square(3) should be 9");
+    mu_assert(Fxp(-3).Square() == 9, "Square(-3) should be 9");
+    mu_assert(Fxp(0.5).Square() == Fxp(0.25), "Square(0.5) should be 0.25");
+    mu_assert(Fxp(0).Square() == 0, "Square(0) should be 0");
+    mu_assert(Fxp(181).Square() == 32761, "Square(181) should be 32761 (near the top of the range)");
+}
+
+    /**
+ * @brief Tests Pow() with non-negative integer exponents (the documented supported range).
+ */
+MU_TEST(fxp_pow_integer_exponents)
+{
+    mu_assert(Fxp(2).Pow(0) == 1, "2^0 should be 1");
+    mu_assert(Fxp(0).Pow(0) == 1, "0^0 should be 1");
+    mu_assert(Fxp(2).Pow(1) == 2, "2^1 should be 2");
+    mu_assert(Fxp(2).Pow(10) == 1024, "2^10 should be 1024");
+    mu_assert(Fxp(0.5).Pow(2) == Fxp(0.25), "0.5^2 should be 0.25");
+    mu_assert(Fxp(-2).Pow(3) == -8, "(-2)^3 should be -8");
+    mu_assert(Fxp(-2).Pow(2) == 4, "(-2)^2 should be 4");
+    mu_assert(Fxp(1).Pow(100) == 1, "1^100 should be 1");
+    mu_assert(Fxp(0).Pow(5) == 0, "0^5 should be 0");
+}
+
+    /**
+ * @brief Tests runtime (hardware divider) division with negative operands, against compile-time results.
+ */
+MU_TEST(fxp_division_negative_operands)
+{
+    Fxp minus7 = Fxp(-7), seven = Fxp(7), two = Fxp(2), minus2 = Fxp(-2);
+
+    snprintf(buffer, buffer_size, "-7 / 2 raw %ld != -3.5", (long)(minus7 / two).RawValue());
+    mu_assert(minus7 / two == Fxp(-3.5), buffer);
+    snprintf(buffer, buffer_size, "7 / -2 raw %ld != -3.5", (long)(seven / minus2).RawValue());
+    mu_assert(seven / minus2 == Fxp(-3.5), buffer);
+    snprintf(buffer, buffer_size, "-7 / -2 raw %ld != 3.5", (long)(minus7 / minus2).RawValue());
+    mu_assert(minus7 / minus2 == Fxp(3.5), buffer);
+
+        // Inexact quotients must match the compile-time path (truncation toward zero)
+    constexpr Fxp ctPos = Fxp(1) / Fxp(3);
+    constexpr Fxp ctNeg = Fxp(-1) / Fxp(3);
+    Fxp one = Fxp(1), minus1 = Fxp(-1), three = Fxp(3);
+    snprintf(buffer, buffer_size, "1 / 3 runtime raw %ld != compile-time %ld", (long)(one / three).RawValue(), (long)ctPos.RawValue());
+    mu_assert(one / three == ctPos, buffer);
+    snprintf(buffer, buffer_size, "-1 / 3 runtime raw %ld != compile-time %ld", (long)(minus1 / three).RawValue(), (long)ctNeg.RawValue());
+    mu_assert(minus1 / three == ctNeg, buffer);
+
+        // Integer divisor path
+    mu_assert(minus7 / 2 == Fxp(-3.5), "-7 / int 2 should be -3.5");
+    mu_assert(seven / -2 == Fxp(-3.5), "7 / int -2 should be -3.5");
+}
+
+    /**
+ * @brief Runtime division of a negative dividend that is not a whole number matches the compile-time result.
+ * @details The runtime path builds a 64-bit dividend with Hardware::ArithmeticShiftRight<16>, which rounds toward zero
+ *          instead of down, so the high word of a negative non-integer dividend is one too high (SaturnMathPP bug).
+ */
+MU_TEST(fxp_division_negative_non_integer)
+{
+    struct Case
+    {
+        Fxp Dividend;
+        Fxp Divisor;
+        Fxp Expected;
+        const char *Text;
+    };
+
+    static constexpr Case cases[] = {
+        {Fxp(-1.5), Fxp(2), Fxp(-1.5) / Fxp(2), "-1.5/2"},
+        {Fxp(-0.5), Fxp(4), Fxp(-0.5) / Fxp(4), "-0.5/4"},
+        {Fxp(-2.25), Fxp(-1.5), Fxp(-2.25) / Fxp(-1.5), "-2.25/-1.5"},
+        {Fxp(-0.985), Fxp(0.174), Fxp(-0.985) / Fxp(0.174), "-0.985/0.174"},
+        {Fxp(-100.75), Fxp(3), Fxp(-100.75) / Fxp(3), "-100.75/3"}};
+
+    char fails[160] = "";
+    size_t length = 0;
+    for (const Case &entry : cases)
+    {
+        Fxp dividend = entry.Dividend;
+        const Fxp result = dividend / entry.Divisor;
+        if (result != entry.Expected && length < sizeof(fails) - 40)
+        {
+            length += snprintf(fails + length, sizeof(fails) - length, " %s=%ld(not %ld)", entry.Text,
+                (long)result.RawValue(), (long)entry.Expected.RawValue());
+        }
+    }
+
+    snprintf(buffer, buffer_size, "Runtime raw results:%s", fails);
+    mu_assert(length == 0, buffer);
+}
+
+    /**
+ * @brief As<int32_t>() gives the same result at run time as at compile time, also for negative non-whole numbers.
+ * @details The compile-time path is value >> 16 (rounds down); the runtime path uses Hardware::ArithmeticShiftRight<16>,
+ *          which rounds toward zero (the SaturnMathPP bug behind fxp_division_negative_non_integer).
+ */
+MU_TEST(fxp_as_int_runtime_matches_compile_time)
+{
+    struct Case
+    {
+        Fxp Value;
+        int32_t Expected;
+        const char *Text;
+    };
+
+    static constexpr Case cases[] = {
+        {Fxp(1.5), Fxp(1.5).As<int32_t>(), "1.5"},
+        {Fxp(-1.5), Fxp(-1.5).As<int32_t>(), "-1.5"},
+        {Fxp(-0.25), Fxp(-0.25).As<int32_t>(), "-0.25"},
+        {Fxp(-2), Fxp(-2).As<int32_t>(), "-2"},
+        {Fxp(-32767.5), Fxp(-32767.5).As<int32_t>(), "-32767.5"}};
+
+    char fails[160] = "";
+    size_t length = 0;
+    for (const Case &entry : cases)
+    {
+        Fxp value = entry.Value;
+        const int32_t result = value.As<int32_t>();
+        if (result != entry.Expected && length < sizeof(fails) - 30)
+        {
+            length += snprintf(fails + length, sizeof(fails) - length, " %s=%ld(not %ld)", entry.Text, (long)result, (long)entry.Expected);
+        }
+    }
+
+    snprintf(buffer, buffer_size, "Runtime As<int32_t>:%s", fails);
+    mu_assert(length == 0, buffer);
+}
+
+    /**
+ * @brief Multiplication: exact products, negative operands rounded down (like the compile-time >> 16), and the runtime
+ *        result equal to the compile-time one, also when the product does not fit (it wraps, undocumented).
+ */
+MU_TEST(fxp_multiplication_signs_rounding_and_overflow)
+{
+    Fxp minus1_5 = Fxp(-1.5), plus2_5 = Fxp(2.5), minusHalf = Fxp(-0.5), half = Fxp(0.5);
+    snprintf(buffer, buffer_size, "-1.5 * 2.5 raw %ld != -3.75", (long)(minus1_5 * plus2_5).RawValue());
+    mu_assert(minus1_5 * plus2_5 == Fxp(-3.75), buffer);
+    snprintf(buffer, buffer_size, "-0.5 * -0.5 raw %ld != 0.25", (long)(minusHalf * minusHalf).RawValue());
+    mu_assert(minusHalf * minusHalf == Fxp(0.25), buffer);
+
+        // The smallest negative step times 0.5 is -0.5 raw units: rounded down to -1, as at compile time
+    constexpr Fxp ctTiny = Fxp::BuildRaw(-1) * Fxp(0.5);
+    Fxp tiny = Fxp::BuildRaw(-1);
+    snprintf(buffer, buffer_size, "raw -1 * 0.5 gives raw %ld at run time, %ld at compile time", (long)(tiny * half).RawValue(), (long)ctTiny.RawValue());
+    mu_assert(tiny * half == ctTiny, buffer);
+
+        // Largest square that fits, then products that do not fit
+    Fxp f181 = Fxp(181), f256 = Fxp(256), fMinus300 = Fxp(-300), f200 = Fxp(200);
+    mu_assert(f181 * f181 == Fxp(32761), "181 * 181 should be 32761 (it fits)");
+    constexpr Fxp ct256 = Fxp(256) * Fxp(256);
+    constexpr Fxp ctNeg = Fxp(-300) * Fxp(200);
+    snprintf(buffer, buffer_size, "256 * 256 raw %ld at run time, %ld at compile time", (long)(f256 * f256).RawValue(), (long)ct256.RawValue());
+    mu_assert(f256 * f256 == ct256, buffer);
+    snprintf(buffer, buffer_size, "-300 * 200 raw %ld at run time, %ld at compile time", (long)(fMinus300 * f200).RawValue(), (long)ctNeg.RawValue());
+    mu_assert(fMinus300 * f200 == ctNeg, buffer);
+}
+
+    /**
+ * @brief Modulo keeps the sign of the dividend, like C++ % on the raw values: -5.5 % 2 = -1.5, 5.5 % -2 = 1.5.
+ */
+MU_TEST(fxp_modulo_negative_operands)
+{
+    Fxp p55 = Fxp(5.5), m55 = Fxp(-5.5), p2 = Fxp(2), m2 = Fxp(-2);
+    snprintf(buffer, buffer_size, "%% results raw %ld %ld %ld %ld, expected 1.5 -1.5 1.5 -1.5", (long)(p55 % p2).RawValue(),
+        (long)(m55 % p2).RawValue(), (long)(p55 % m2).RawValue(), (long)(m55 % m2).RawValue());
+    mu_assert(p55 % p2 == Fxp(1.5) && m55 % p2 == Fxp(-1.5) && p55 % m2 == Fxp(1.5) && m55 % m2 == Fxp(-1.5), buffer);
+
+    Fxp quarter = Fxp(0.25), m1 = Fxp(-1);
+    mu_assert(m1 % quarter == Fxp(0) && Fxp(-0.75) % Fxp(0.5) == Fxp(-0.25), "Exact and fractional negative modulo");
+}
+
+    /**
+ * @brief << multiplies and >> divides by powers of 2, and >> gives the same result at run time as at compile time
+ *        (rounding down) for negative values with odd raw values.
+ */
+MU_TEST(fxp_shift_operators)
+{
+    Fxp p3 = Fxp(3), m15 = Fxp(-1.5);
+    mu_assert((p3 << 2) == Fxp(12) && (m15 << 1) == Fxp(-3), "<< should multiply by a power of 2");
+    mu_assert((Fxp(12) >> 2) == p3 && (Fxp(-3) >> 1) == m15, ">> should divide by a power of 2");
+
+    constexpr Fxp ctOdd = Fxp::BuildRaw(-3) >> 1;
+    constexpr Fxp ctSmall = Fxp::BuildRaw(-1) >> 4;
+    Fxp odd = Fxp::BuildRaw(-3), small = Fxp::BuildRaw(-1);
+    snprintf(buffer, buffer_size, "raw -3 >> 1 gives %ld at run time, %ld at compile time; raw -1 >> 4 gives %ld, %ld",
+        (long)(odd >> 1).RawValue(), (long)ctOdd.RawValue(), (long)(small >> 4).RawValue(), (long)ctSmall.RawValue());
+    mu_assert((odd >> 1) == ctOdd && (small >> 4) == ctSmall, buffer);
+}
+
+    /**
+ * @brief Reciprocal: exact powers of 2 of both signs, MaxValue for 0 (documented sentinel), and the runtime result
+ *        equal to the compile-time one for 1/3 and -1/3.
+ */
+MU_TEST(fxp_reciprocal)
+{
+    Fxp two = Fxp(2), minus4 = Fxp(-4), half = Fxp(0.5), minusHalf = Fxp(-0.5), zero = Fxp(0), three = Fxp(3), minus3 = Fxp(-3);
+    snprintf(buffer, buffer_size, "Reciprocal raw %ld %ld %ld %ld, expected 0.5 -0.25 2 -2", (long)two.Reciprocal().RawValue(),
+        (long)minus4.Reciprocal().RawValue(), (long)half.Reciprocal().RawValue(), (long)minusHalf.Reciprocal().RawValue());
+    mu_assert(two.Reciprocal() == Fxp(0.5) && minus4.Reciprocal() == Fxp(-0.25) && half.Reciprocal() == Fxp(2) && minusHalf.Reciprocal() == Fxp(-2), buffer);
+    mu_assert(zero.Reciprocal() == Fxp::MaxValue(), "Reciprocal(0) should be MaxValue (documented sentinel)");
+
+    constexpr Fxp ctThird = Fxp(3).Reciprocal();
+    constexpr Fxp ctMinusThird = Fxp(-3).Reciprocal();
+    snprintf(buffer, buffer_size, "1/3 raw %ld at run time, %ld at compile time; -1/3 raw %ld, %ld", (long)three.Reciprocal().RawValue(),
+        (long)ctThird.RawValue(), (long)minus3.Reciprocal().RawValue(), (long)ctMinusThird.RawValue());
+    mu_assert(three.Reciprocal() == ctThird && minus3.Reciprocal() == ctMinusThird, buffer);
+}
+
+    /**
+ * @brief Converting from a format with more fractional bits (8.24 to 16.16) gives the same result at run time as at
+ *        compile time (rounding down), also for negative values that lose low bits.
+ * @details The runtime path uses Hardware::ArithmeticShiftRight, which rounds toward zero (see fxp_division_negative_non_integer).
+ */
+MU_TEST(fxp_convert_from_more_fraction_bits)
+{
+    using Fxp824 = SRL::Math::Types::FixedPoint<8, 24>;
+    constexpr Fxp ctExact = Fxp::ConvertUnchecked(Fxp824(-1.5));
+    constexpr Fxp ctTiny = Fxp::ConvertUnchecked(Fxp824::BuildRaw(-1));
+    constexpr Fxp ctOdd = Fxp::ConvertUnchecked(Fxp824::BuildRaw(-0x1FF));
+    Fxp824 exact = Fxp824(-1.5), tiny = Fxp824::BuildRaw(-1), odd = Fxp824::BuildRaw(-0x1FF);
+
+    mu_assert(Fxp::ConvertUnchecked(exact) == Fxp(-1.5), "-1.5 in 8.24 should convert to -1.5");
+    snprintf(buffer, buffer_size, "8.24 raw -1 converts to raw %ld at run time, %ld at compile time; raw -0x1FF to %ld, %ld",
+        (long)Fxp::ConvertUnchecked(tiny).RawValue(), (long)ctTiny.RawValue(), (long)Fxp::ConvertUnchecked(odd).RawValue(), (long)ctOdd.RawValue());
+    mu_assert(Fxp::ConvertUnchecked(tiny) == ctTiny && Fxp::ConvertUnchecked(odd) == ctOdd && ctExact == Fxp(-1.5), buffer);
+}
+
+    /**
+ * @brief Tests that dividing by zero saturates to MaxValue/MinValue, at compile time and at runtime.
+ */
+MU_TEST(fxp_division_by_zero_saturates)
+{
+    constexpr Fxp ctPos = Fxp(5) / Fxp(0);
+    constexpr Fxp ctNeg = Fxp(-5) / Fxp(0);
+    mu_assert(ctPos == Fxp::MaxValue(), "Compile-time 5 / 0 should be MaxValue");
+    mu_assert(ctNeg == Fxp::MinValue(), "Compile-time -5 / 0 should be MinValue");
+
+    Fxp five = Fxp(5), minus5 = Fxp(-5), zero = Fxp(0);
+    snprintf(buffer, buffer_size, "Runtime 5 / 0 raw %ld != MaxValue", (long)(five / zero).RawValue());
+    mu_assert(five / zero == Fxp::MaxValue(), buffer);
+    snprintf(buffer, buffer_size, "Runtime -5 / 0 raw %ld != MinValue", (long)(minus5 / zero).RawValue());
+    mu_assert(minus5 / zero == Fxp::MinValue(), buffer);
+}
+
+    /**
+ * @brief Tests ParallelDiv: a / ParallelDiv(b, fn) gives the same quotient as a / b and runs fn while the divider works.
+ */
+MU_TEST(fxp_parallel_division)
+{
+    const Fxp cases[][2] = {{Fxp(7), Fxp(2)}, {Fxp(1), Fxp(3)}, {Fxp(-7), Fxp(2)}, {Fxp(100), Fxp(0.75)}};
+    for (const auto& c : cases)
+    {
+        int calls = 0;
+        const Fxp q = c[0] / SRL::Math::Types::ParallelDiv(c[1], [&calls] { calls++; });
+        snprintf(buffer, buffer_size, "ParallelDiv(raw %ld, %ld) quotient raw %ld != operator/ %ld, fn called %d times",
+            (long)c[0].RawValue(), (long)c[1].RawValue(), (long)q.RawValue(), (long)(c[0] / c[1]).RawValue(), calls);
+        mu_assert(q == c[0] / c[1] && calls == 1, buffer);
+    }
+}
+
+    /**
+ * @brief Tests the MAC unit: ClearMac() zeroes it, DotAccumulate() adds up across calls, ExtractMac() reads it.
+ */
+MU_TEST(fxp_mac_clear_accumulate_extract)
+{
+        // MAC registers are shared CPU state (snprintf and integer multiplies clobber them): read each result once, right away
+    Fxp::ClearMac();
+    const Fxp cleared = Fxp::ExtractMac();
+    mu_assert(cleared == 0, "ExtractMac after ClearMac should be 0");
+
+        // (1,2,3).(4,5,6) = 32, then + (0.5,-1,2).(2,3,-0.25) = 32 + 1 - 3 - 0.5 = 29.5
+    const Vector3D a(1, 2, 3), b(4, 5, 6), c(Fxp(0.5), -1, 2), d(2, 3, Fxp(-0.25));
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    const Fxp single = Fxp::ExtractMac();
+
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    Vector3D::DotAccumulate(c, d);
+    const Fxp accumulated = Fxp::ExtractMac();
+
+    Fxp::ClearMac();
+    Vector3D::DotAccumulate(a, b);
+    Fxp::ClearMac();
+    const Fxp reset = Fxp::ExtractMac();
+
+    snprintf(buffer, buffer_size, "Single DotAccumulate raw %ld != 32", (long)single.RawValue());
+    mu_assert(single == 32, buffer);
+    snprintf(buffer, buffer_size, "Accumulated dot raw %ld != 29.5", (long)accumulated.RawValue());
+    mu_assert(accumulated == Fxp(29.5), buffer);
+    mu_assert(reset == 0, "ClearMac should reset an accumulated value");
+}
+
+    /**
+ * @brief Tests that compile-time addition and subtraction saturate at MaxValue/MinValue.
+ * @note Runtime +/- wrap around instead (no saturation, for speed).
+ */
+MU_TEST(fxp_add_sub_saturate_at_compile_time)
+{
+    constexpr Fxp over = Fxp::MaxValue() + Fxp(1);
+    constexpr Fxp under = Fxp::MinValue() - Fxp(1);
+    mu_assert(over == Fxp::MaxValue(), "Compile-time MaxValue + 1 should saturate to MaxValue");
+    mu_assert(under == Fxp::MinValue(), "Compile-time MinValue - 1 should saturate to MinValue");
+}
+
+    /**
+ * @brief Runtime + and - give the same result as at compile time, including past MaxValue/MinValue (which saturate).
+ */
+MU_TEST(fxp_add_sub_runtime_matches_compile_time)
+{
+    constexpr Fxp ctOver = Fxp::MaxValue() + Fxp(1);
+    constexpr Fxp ctUnder = Fxp::MinValue() - Fxp(1);
+    Fxp max = Fxp::MaxValue(), min = Fxp::MinValue(), one = Fxp(1);
+    const Fxp rtOver = max + one;
+    const Fxp rtUnder = min - one;
+    snprintf(buffer, buffer_size, "Runtime MaxValue + 1 raw %ld != compile-time %ld", (long)rtOver.RawValue(), (long)ctOver.RawValue());
+    mu_assert(rtOver == ctOver, buffer);
+    snprintf(buffer, buffer_size, "Runtime MinValue - 1 raw %ld != compile-time %ld", (long)rtUnder.RawValue(), (long)ctUnder.RawValue());
+    mu_assert(rtUnder == ctUnder, buffer);
+}
+
 MU_TEST_SUITE(fxp_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&fxp_test_setup,
-        &fxp_test_teardown,
-        &fxp_test_output_header);
-
     MU_RUN_TEST(fxp_initialization_zero);
     MU_RUN_TEST(fxp_initialization_one);
     MU_RUN_TEST(fxp_initialization_unsigned_int);
@@ -934,8 +1288,6 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_initialization_char);
     MU_RUN_TEST(fxp_initialization_bool);
     MU_RUN_TEST(fxp_initialization_short);
-        // MU_RUN_TEST(fxp_initialization_long);
-        // MU_RUN_TEST(fxp_initialization_long_long);
     MU_RUN_TEST(fxp_assignment_operator);
     MU_RUN_TEST(fxp_copy_constructor);
     MU_RUN_TEST(fxp_equality_check);
@@ -991,5 +1343,21 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_comparison_less_than_float);
     MU_RUN_TEST(fxp_comparison_greater_than_or_equal_float);
     MU_RUN_TEST(fxp_comparison_less_than_or_equal_float);
+    MU_RUN_TEST(fxp_sqrt);
+    MU_RUN_TEST(fxp_square);
+    MU_RUN_TEST(fxp_pow_integer_exponents);
+    MU_RUN_TEST(fxp_division_negative_operands);
+    MU_RUN_TEST(fxp_division_negative_non_integer);
+    MU_RUN_TEST(fxp_as_int_runtime_matches_compile_time);
+    MU_RUN_TEST(fxp_multiplication_signs_rounding_and_overflow);
+    MU_RUN_TEST(fxp_modulo_negative_operands);
+    MU_RUN_TEST(fxp_shift_operators);
+    MU_RUN_TEST(fxp_reciprocal);
+    MU_RUN_TEST(fxp_convert_from_more_fraction_bits);
+    MU_RUN_TEST(fxp_division_by_zero_saturates);
+    MU_RUN_TEST(fxp_parallel_division);
+    MU_RUN_TEST(fxp_mac_clear_accumulate_extract);
+    MU_RUN_TEST(fxp_add_sub_saturate_at_compile_time);
+    MU_RUN_TEST(fxp_add_sub_runtime_matches_compile_time);
 }
 }

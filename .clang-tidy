@@ -1,0 +1,60 @@
+# Saturn Ring Library (.clang-tidy)
+# Matches style guidelines from readme.md
+
+# Enable readability-identifier-naming and readability-identifier-length checks
+Checks: >
+  -*,
+  readability-identifier-naming,
+  readability-identifier-length
+
+HeaderFilterRegex: 'saturnringlib/.*'
+
+CheckOptions:
+  # --- Function/Method Naming (PascalCase) ---
+  - key:             readability-identifier-naming.FunctionCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ClassMethodCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.PublicMethodCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.PrivateMethodCase
+    value:           CamelCase
+
+  # --- Variables & Constants (PascalCase for Public, camelCase for Private) ---
+  - key:             readability-identifier-naming.PublicMemberCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.PrivateMemberCase
+    value:           camelBack
+
+  # --- Types & Structs (PascalCase) ---
+  - key:             readability-identifier-naming.ClassCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.StructCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.EnumConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.NamespaceCase
+    value:           CamelCase
+
+  # --- Constants & Constexpr (PascalCase) ---
+  # ClassConstantCase, not ConstantCase: that one also hits const params/locals, which stay camelBack
+  - key:             readability-identifier-naming.ClassConstantCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstexprVariableCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.ConstantMemberCase
+    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           CamelCase
+
+  # --- Length Constraints (Forbidding single-letter names in variables/params) ---
+  - key:             readability-identifier-length.MinimumVariableNameLength
+    value:           '2'
+  - key:             readability-identifier-length.MinimumParameterNameLength
+    value:           '2'
+  - key:             readability-identifier-length.MinimumLoopCounterNameLength
+    value:           '2'
+  - key:             readability-identifier-length.MinimumExceptionNameLength
+    value:           '2'

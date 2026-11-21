@@ -5,6 +5,7 @@
 #include "srl_tv.hpp"
 #include "srl_color.hpp"
 #include "srl_cd.hpp"
+#include "srl_fld.hpp"
 #include "srl_vdp1.hpp"
 #include "srl_vdp2.hpp"
 #include "srl_input.hpp"
@@ -113,6 +114,12 @@ namespace SRL
 
             // Initialize timer system
             SRL::Timer::Init();
+
+            // Started by an FLD menu: Reset goes back to the menu
+            if (SRL::Fld::IsRunningFromMenu())
+            {
+                SRL::Fld::ReturnToMenuOnReset();
+            }
         }
 
         /** @brief Wait until graphic processing time is reached
