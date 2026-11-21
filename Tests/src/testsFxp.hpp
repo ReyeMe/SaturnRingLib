@@ -1009,6 +1009,45 @@ MU_TEST(fxp_division_negative_operands)
 }
 
     /**
+ * @brief Runtime division of a negative dividend that is not a whole number matches the compile-time result.
+ * @details The runtime path builds a 64-bit dividend with Hardware::ArithmeticShiftRight<16>, which rounds toward zero
+ *          instead of down, so the high word of a negative non-integer dividend is one too high (SaturnMathPP bug).
+ */
+MU_TEST(fxp_division_negative_non_integer)
+{
+    struct Case
+    {
+        Fxp Dividend;
+        Fxp Divisor;
+        Fxp Expected;
+        const char *Text;
+    };
+
+    static constexpr Case cases[] = {
+        {Fxp(-1.5), Fxp(2), Fxp(-1.5) / Fxp(2), "-1.5/2"},
+        {Fxp(-0.5), Fxp(4), Fxp(-0.5) / Fxp(4), "-0.5/4"},
+        {Fxp(-2.25), Fxp(-1.5), Fxp(-2.25) / Fxp(-1.5), "-2.25/-1.5"},
+        {Fxp(-0.985), Fxp(0.174), Fxp(-0.985) / Fxp(0.174), "-0.985/0.174"},
+        {Fxp(-100.75), Fxp(3), Fxp(-100.75) / Fxp(3), "-100.75/3"}};
+
+    char fails[160] = "";
+    size_t length = 0;
+    for (const Case &entry : cases)
+    {
+        Fxp dividend = entry.Dividend;
+        const Fxp result = dividend / entry.Divisor;
+        if (result != entry.Expected && length < sizeof(fails) - 40)
+        {
+            length += snprintf(fails + length, sizeof(fails) - length, " %s=%ld(not %ld)", entry.Text,
+                (long)result.RawValue(), (long)entry.Expected.RawValue());
+        }
+    }
+
+    snprintf(buffer, buffer_size, "Runtime raw results:%s", fails);
+    mu_assert(length == 0, buffer);
+}
+
+    /**
  * @brief Tests that dividing by zero saturates to MaxValue/MinValue, at compile time and at runtime.
  */
 MU_TEST(fxp_division_by_zero_saturates)
@@ -1172,6 +1211,7 @@ MU_TEST_SUITE(fxp_test_suite)
     MU_RUN_TEST(fxp_square);
     MU_RUN_TEST(fxp_pow_integer_exponents);
     MU_RUN_TEST(fxp_division_negative_operands);
+    MU_RUN_TEST(fxp_division_negative_non_integer);
     MU_RUN_TEST(fxp_division_by_zero_saturates);
     MU_RUN_TEST(fxp_parallel_division);
     MU_RUN_TEST(fxp_mac_clear_accumulate_extract);
