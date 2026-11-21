@@ -147,6 +147,22 @@ MU_TEST(frustum_containing_aabb)
     mu_assert(!f.Intersects(far_aabb), "AABB far from frustum should be outside");
 }
 
+/**
+ * @brief View matrix (world to camera) of a camera at eye looking at target, as Frustum::Update expects it.
+ * @details Rows 0 to 2 are the camera's right, up and backward vectors (Matrix43(up, direction, ...)); row 3 is
+ *          (-right.eye, -up.eye, -backward.eye), from which Update recovers the eye position.
+ *          Matrix43::CreateLookAt does not compile in this SaturnMathPP version.
+ * @param eye Camera position
+ * @param target Point the camera looks at
+ * @return View matrix
+ */
+static Matrix43 FrustumViewMatrix(const Vector3D& eye, const Vector3D& target)
+{
+    const Matrix43 basis(Vector3D::UnitY(), eye - target, Vector3D());
+    return Matrix43(basis.Row0, basis.Row1, basis.Row2,
+        Vector3D(-basis.Row0.Dot(eye), -basis.Row1.Dot(eye), -basis.Row2.Dot(eye)));
+}
+
     /**
  * @brief Tests a frustum moved by a view matrix (translation only).
  */
@@ -154,8 +170,7 @@ MU_TEST(frustum_translated_view)
 {
     const Vector3D eye(10, 20, 30);
     const Vector3D target = eye + Vector3D(0, 0, -1);
-    // Matrix43::CreateLookAt does not compile in this SaturnMathPP version; the camera looks down -Row2
-    const Matrix43 view(Vector3D::UnitY(), eye - target, eye);
+    const Matrix43 view = FrustumViewMatrix(eye, target);
 
     Frustum f = make_test_frustum();
     f.Update(view);
@@ -171,8 +186,7 @@ MU_TEST(frustum_translated_rotated_view)
 {
     const Vector3D eye(10, 20, 30);
     const Vector3D target(5, 15, 25);
-    // Matrix43::CreateLookAt does not compile in this SaturnMathPP version; the camera looks down -Row2
-    const Matrix43 view(Vector3D::UnitY(), eye - target, eye);
+    const Matrix43 view = FrustumViewMatrix(eye, target);
 
     Frustum f = make_test_frustum();
     f.Update(view);
