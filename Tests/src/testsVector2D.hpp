@@ -83,6 +83,18 @@ static bool Vector2DLengthNear(const Fxp& got, const Fxp& exact)
 }
 
     /**
+ * @brief LengthSquared returns MaxValue when the sum overflows (documented), also when each component is below the
+ *        per-component limit (about 181.02): 130^2 + 130^2 = 33800 does not fit.
+ */
+MU_TEST(vector2d_lengthsquared_sum_overflow)
+{
+    const Vector2D v(130, 130);
+    snprintf(buffer, buffer_size, "LengthSquared of (130,130) raw %ld, expected MaxValue (33800 does not fit)", (long)v.LengthSquared().RawValue());
+    mu_assert(v.LengthSquared() == Fxp::MaxValue(), buffer);
+    mu_assert(Vector2D(127, 127).LengthSquared() == Fxp(32258), "LengthSquared of (127,127) should be 32258 (it fits)");
+}
+
+    /**
  * @brief Tests length and length squared calculations for Vector2D.
  * @details Checks behavior for overflow guard and threshold values.
  */
@@ -262,12 +274,78 @@ MU_TEST(vector2d_arithmetic_operators)
     mu_assert(Vector2D(2, 0) > Vector2D(1, 5) && !(a < a) && !(a > a), "> should compare X then Y; a vector is not < or > itself");
 }
 
+    /**
+ * @brief Reflect across a normal of any length (v - 2(v.n)/|n|^2 n); a zero normal returns the vector unchanged.
+ * @details The fractional case divides a negative non-whole dot product, which runs into SaturnMathPP's runtime
+ *          division bug (see fxp_division_negative_non_integer).
+ */
+MU_TEST(vector2d_reflect)
+{
+    mu_assert(Vector2D(1, -1).Reflect(Vector2D(0, 1)) == Vector2D(1, 1), "Reflect((1,-1), (0,1)) should be (1,1) (documented example)");
+    mu_assert(Vector2D(1, -1).Reflect(Vector2D(0, 2)) == Vector2D(1, 1), "Reflect((1,-1), (0,2)) should be (1,1): the normal need not be unit length");
+    mu_assert(Vector2D(3, 4).Reflect(Vector2D::Zero()) == Vector2D(3, 4), "Reflect across a zero normal should return the vector unchanged");
+
+    const Vector2D fractional = Vector2D(0, Fxp(0.375)).Reflect(Vector2D(0, 2));
+    snprintf(buffer, buffer_size, "Reflect((0,0.375), (0,2)) raw (%ld,%ld), expected (0,-0.375)", (long)fractional.X.RawValue(), (long)fractional.Y.RawValue());
+    mu_assert(fractional == Vector2D(0, Fxp(-0.375)), buffer);
+}
+
+    /**
+ * @brief ProjectOnto: onto an axis of any length, onto a zero target (gives zero), and with a negative fractional component.
+ * @details The fractional case divides -1.5 by |target|^2, which runs into SaturnMathPP's runtime division bug.
+ */
+MU_TEST(vector2d_project_onto)
+{
+    mu_assert(Vector2D(3, 4).ProjectOnto(Vector2D(1, 0)) == Vector2D(3, 0), "ProjectOnto((3,4), (1,0)) should be (3,0) (documented example)");
+    mu_assert(Vector2D(3, 4).ProjectOnto(Vector2D(2, 0)) == Vector2D(3, 0), "ProjectOnto((3,4), (2,0)) should be (3,0): the target need not be unit length");
+    mu_assert(Vector2D(3, 4).ProjectOnto(Vector2D::Zero()) == Vector2D::Zero(), "ProjectOnto a zero target should return zero");
+
+    const Vector2D fractional = Vector2D(Fxp(-1.5), 2).ProjectOnto(Vector2D(1, 0));
+    snprintf(buffer, buffer_size, "ProjectOnto((-1.5,2), (1,0)) raw (%ld,%ld), expected (-1.5,0)", (long)fractional.X.RawValue(), (long)fractional.Y.RawValue());
+    mu_assert(fractional == Vector2D(Fxp(-1.5), 0), buffer);
+}
+
+    /**
+ * @brief DistanceSquared is exact, symmetric, 0 to itself, and correct with negative fractional coordinates.
+ */
+MU_TEST(vector2d_distance_squared)
+{
+    const Vector2D a(1, 2), b(4, 6);
+    mu_assert(a.DistanceSquared(b) == Fxp(25) && b.DistanceSquared(a) == Fxp(25), "DistanceSquared((1,2), (4,6)) should be 25 both ways");
+    mu_assert(a.DistanceSquared(a) == 0, "DistanceSquared to itself should be 0");
+    mu_assert(Vector2D(Fxp(-1.5), -2).DistanceSquared(Vector2D(Fxp(1.5), 2)) == Fxp(25), "DistanceSquared((-1.5,-2), (1.5,2)) should be 25");
+}
+
+    /**
+ * @brief TurboLength (alpha * max + beta * min) is within 4% of the length in every direction, and 0 for zero.
+ * @details Its comment says "typically ~1-2% error"; these coefficients give up to 3.96% (on the axes and diagonals).
+ */
+MU_TEST(vector2d_turbo_length)
+{
+    const Vector2D vectors[] = {Vector2D(3, 4), Vector2D(1, 0), Vector2D(1, 1), Vector2D(5, 12), Vector2D(-3, -4), Vector2D(0, -7)};
+    const Fxp exact[] = {Fxp(5), Fxp(1), Fxp(1.41421356), Fxp(13), Fxp(5), Fxp(7)};
+    for (size_t i = 0; i < sizeof(vectors) / sizeof(vectors[0]); i++)
+    {
+        const Fxp turbo = vectors[i].TurboLength();
+        const int64_t diff = static_cast<int64_t>(turbo.RawValue()) - exact[i].RawValue();
+        snprintf(buffer, buffer_size, "TurboLength of vector %d raw %ld not within 4%% of raw %ld", (int)i, (long)turbo.RawValue(), (long)exact[i].RawValue());
+        mu_assert((diff < 0 ? -diff : diff) * 100 <= static_cast<int64_t>(exact[i].RawValue()) * 4, buffer);
+    }
+
+    mu_assert(Vector2D::Zero().TurboLength() == 0, "TurboLength of zero should be 0");
+}
+
 MU_TEST_SUITE(vector2d_test_suite)
 {
     MU_RUN_TEST(vector2d_construction);
     MU_RUN_TEST(vector2d_abs_and_sort);
     MU_RUN_TEST(vector2d_dot_cross_multidot);
     MU_RUN_TEST(vector2d_length_lengthsquared_overflow_guard);
+    MU_RUN_TEST(vector2d_lengthsquared_sum_overflow);
+    MU_RUN_TEST(vector2d_reflect);
+    MU_RUN_TEST(vector2d_project_onto);
+    MU_RUN_TEST(vector2d_distance_squared);
+    MU_RUN_TEST(vector2d_turbo_length);
     MU_RUN_TEST(vector2d_normalize_zero_and_nonzero);
     MU_RUN_TEST(vector2d_distance_and_distancesquared);
     MU_RUN_TEST(vector2d_shift_ops_with_negative);
