@@ -9,7 +9,7 @@
     "math": {
       "known_failures": {
         "fxp_round": "for negative values with a fraction of 1/2 or more, Round returns Floor(value - 1/2): one too low when the fraction is above a half (Round(-2.7) = -4), and next to the minimum value - 1/2 overflows int32 (Round(-32767.9999) = 32767); Floor(value) gives the right result",
-        "fxp_add_sub_runtime_matches_compile_time": "runtime MaxValue + 1 wraps, compile time saturates",
+        "fxp_add_sub_runtime_matches_compile_time": "runtime MaxValue + 1 wraps (signed int32 overflow, undefined behavior), compile time saturates; += and -= never saturate, so a + b and a += b disagree even at compile time",
         "trigonometry_tan_matches_sin_over_cos": "Tan wrong for negative angles and near +-90",
         "trigonometry_slerp": "Angle::SLerp(10, 350, 0.5) goes the long way round",
         "vector2d_length_lengthsquared_overflow_guard": "Length() of (3,4) is 5.125, documented as exact",
