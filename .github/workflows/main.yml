@@ -63,31 +63,42 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/Tests
           bash $GITHUB_WORKSPACE/Tests/run_tests.bat mednafen ${{ matrix.campaign }}
-      # The steps below must also run when tests fail, so the failures get reported.
-      - name: Convert test results
-        if: always()
-        run: |
-          python3 $GITHUB_WORKSPACE/tools/scripts/ctrf_converter.py \
-            $GITHUB_WORKSPACE/Tests/uts_${{ matrix.campaign }}.log \
-            $GITHUB_WORKSPACE/Tests/uts_${{ matrix.campaign }}.json
-      - name: Report Test Results
-        uses: ctrf-io/github-test-reporter@v1
-        with:
-          report-path: './Tests/uts_${{ matrix.campaign }}.json'
-          summary-report: true
-          failed-folded-report: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: always()
+      # Also when tests fail: the report job below reads every campaign's log.
       - name: Archive UT results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: uts_${{ matrix.campaign }}.log
           path: Tests/uts_${{ matrix.campaign }}.log
+
+  # One test report for all campaigns, after every campaign job (also when some failed)
+  report:
+    name: Test report
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Download every campaign's log
+        uses: actions/download-artifact@v4
+        with:
+          pattern: uts_*.log
+          path: logs
+          merge-multiple: true
+      - name: Convert test results
+        run: |
+          python3 tools/scripts/ctrf_converter.py logs/uts_*.log uts.json
+      - name: Report Test Results
+        uses: ctrf-io/github-test-reporter@v1
+        with:
+          report-path: './uts.json'
+          summary-report: true
+          failed-folded-report: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Archive report
-        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: uts_${{ matrix.campaign }}.json
-          path: Tests/uts_${{ matrix.campaign }}.json
+          name: uts.json
+          path: uts.json
