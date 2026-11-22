@@ -275,6 +275,42 @@ MU_TEST(vector2d_arithmetic_operators)
 }
 
     /**
+ * @brief Runtime LengthSquared (summed by the MAC unit) equals the compile-time one, also at the 32768 boundary:
+ *        (128,128) does not fit and gives MaxValue, sums just below it are exact.
+ */
+MU_TEST(vector2d_lengthsquared_runtime_boundary)
+{
+    struct Case
+    {
+        Vector2D Value;
+        Fxp Expected;
+        const char *Text;
+    };
+
+    static constexpr Case cases[] = {
+        {Vector2D(128, 128), Vector2D(128, 128).LengthSquared(), "(128,128)"},
+        {Vector2D(Fxp(128), Fxp(127.99)), Vector2D(Fxp(128), Fxp(127.99)).LengthSquared(), "(128,127.99)"},
+        {Vector2D(Fxp(-100.25), Fxp(120.5)), Vector2D(Fxp(-100.25), Fxp(120.5)).LengthSquared(), "(-100.25,120.5)"},
+        {Vector2D(181, 0), Vector2D(181, 0).LengthSquared(), "(181,0)"}};
+
+    char fails[160] = "";
+    size_t length = 0;
+    for (const Case &entry : cases)
+    {
+        Vector2D value = entry.Value;
+        const Fxp result = value.LengthSquared();
+        if (result != entry.Expected && length < sizeof(fails) - 40)
+        {
+            length += snprintf(fails + length, sizeof(fails) - length, " %s=%ld(not %ld)", entry.Text, (long)result.RawValue(), (long)entry.Expected.RawValue());
+        }
+    }
+
+    snprintf(buffer, buffer_size, "Runtime LengthSquared raw:%s", fails);
+    mu_assert(length == 0, buffer);
+    mu_assert(cases[0].Expected == Fxp::MaxValue(), "LengthSquared of (128,128) should be MaxValue at compile time (32768 does not fit)");
+}
+
+    /**
  * @brief Reflect across a normal of any length (v - 2(v.n)/|n|^2 n); a zero normal returns the vector unchanged.
  * @details The fractional case divides a negative non-whole dot product, which runs into SaturnMathPP's runtime
  *          division bug (see fxp_division_negative_non_integer).
@@ -342,6 +378,7 @@ MU_TEST_SUITE(vector2d_test_suite)
     MU_RUN_TEST(vector2d_dot_cross_multidot);
     MU_RUN_TEST(vector2d_length_lengthsquared_overflow_guard);
     MU_RUN_TEST(vector2d_lengthsquared_sum_overflow);
+    MU_RUN_TEST(vector2d_lengthsquared_runtime_boundary);
     MU_RUN_TEST(vector2d_reflect);
     MU_RUN_TEST(vector2d_project_onto);
     MU_RUN_TEST(vector2d_distance_squared);
