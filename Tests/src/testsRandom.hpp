@@ -366,17 +366,24 @@ MU_TEST(random_extreme_ranges_do_not_overflow)
 }
 
     /**
- * @brief Seed 0 should still produce a usable sequence (Xorshift stays at 0 forever from a 0 state).
+ * @brief Seed 0 should still produce a usable sequence (Xorshift stays at 0 forever from a 0 state),
+ *        for the 32-bit and the 64-bit states.
  */
 MU_TEST(random_seed_zero_not_stuck)
 {
     SRL::Math::Random<uint32_t> r(0u);
-    bool anyNonZero = false;
+    SRL::Math::Random<uint64_t> wideUnsigned(0u);
+    SRL::Math::Random<int64_t> wideSigned(0);
+    bool anyNonZero = false, wideUnsignedNonZero = false, wideSignedNonZero = false;
     for (int i = 0; i < 8; i++)
     {
         anyNonZero |= (r.GetNumber() != 0u);
+        wideUnsignedNonZero |= (wideUnsigned.GetNumber() != 0u);
+        wideSignedNonZero |= (wideSigned.GetNumber() != 0);
     }
     mu_assert(anyNonZero, "Seed 0 produces only zeros");
+    mu_assert(wideUnsignedNonZero, "uint64_t seed 0 produces only zeros");
+    mu_assert(wideSignedNonZero, "int64_t seed 0 produces only zeros");
 }
 
     /**

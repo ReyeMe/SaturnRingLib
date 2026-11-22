@@ -277,6 +277,106 @@ MU_TEST(event_add_during_invoke)
     mu_assert(strcmp(firstCalls, "+a") == 0 && strcmp(event_log, "ab") == 0, buffer);
 }
 
+static void event_remove_b(int)
+{
+    event_log_add('x');
+    event_changing -= event_static_b;
+}
+static void event_remove_a(int)
+{
+    event_log_add('y');
+    event_changing -= event_static_a;
+}
+static void event_remove_all(int)
+{
+    event_log_add('z');
+    event_changing -= event_static_a;
+    event_changing -= event_static_b;
+    event_changing -= event_remove_all;
+}
+
+/** @brief Empties event_changing of the static callbacks the tests add (each is added at most once). */
+static void event_changing_clear()
+{
+    for (const auto callback : {event_static_a, event_static_b, event_remove_self, event_add_b, event_remove_b, event_remove_a, event_remove_all})
+    {
+        event_changing -= callback;
+    }
+}
+
+/** @brief Adds three callbacks to event_changing, Invokes it twice and checks the calls of both Invokes.
+ * @param first First callback
+ * @param second Second callback
+ * @param third Third callback
+ * @param expectedFirst Calls expected from the first Invoke
+ * @param expectedNext Calls expected from the second Invoke
+ * @return true when both match (buffer holds the message to show when they do not)
+ */
+static bool event_check_changing(Event<int>::CallbackStatic first, Event<int>::CallbackStatic second, Event<int>::CallbackStatic third,
+    const char* expectedFirst, const char* expectedNext)
+{
+    event_changing_clear();
+    event_changing += first;
+    event_changing += second;
+    event_changing += third;
+
+    event_log_reset();
+    event_changing.Invoke(1);
+    char firstCalls[32];
+    snprintf(firstCalls, sizeof(firstCalls), "%s", event_log);
+
+    event_log_reset();
+    event_changing.Invoke(1);
+    event_changing_clear();
+
+    snprintf(buffer, buffer_size, "First Invoke '%s' (expected '%s'), next Invoke '%s' (expected '%s')", firstCalls, expectedFirst, event_log, expectedNext);
+    return strcmp(firstCalls, expectedFirst) == 0 && strcmp(event_log, expectedNext) == 0;
+}
+
+    /**
+ * @brief A callback that removes another one during Invoke: a later one does not run, an earlier one has already run
+ *        and the rest still run once; removing every callback stops the call.
+ */
+MU_TEST(event_remove_other_during_invoke)
+{
+    // x removes the later b
+    mu_assert(event_check_changing(event_remove_b, event_static_a, event_static_b, "xa", "xa"), buffer);
+    // y removes the earlier a
+    mu_assert(event_check_changing(event_static_a, event_remove_a, event_static_b, "ayb", "yb"), buffer);
+    // z removes a, b and itself
+    mu_assert(event_check_changing(event_remove_all, event_static_a, event_static_b, "z", ""), buffer);
+}
+
+    /**
+ * @brief A member callback that removes itself during Invoke: each of the other member callbacks still runs once.
+ */
+MU_TEST(event_member_remove_self_during_invoke)
+{
+    event_changing_clear();
+    EventListener a('a'), b('b');
+    MemberProxy<int> removeSelf([&removeSelf](int) {
+        event_log_add('m');
+        event_changing -= &removeSelf;
+    });
+    event_changing += &removeSelf;
+    event_changing += &a.Proxy;
+    event_changing += &b.Proxy;
+
+    event_log_reset();
+    event_changing.Invoke(1);
+    char firstCalls[32];
+    snprintf(firstCalls, sizeof(firstCalls), "%s", event_log);
+
+    event_log_reset();
+    event_changing.Invoke(1);
+    event_changing -= &removeSelf;
+    event_changing -= &a.Proxy;
+    event_changing -= &b.Proxy;
+
+    snprintf(buffer, buffer_size, "Member callback removing itself during Invoke: calls '%s' (expected 'mab'), next Invoke '%s' (expected 'ab')", firstCalls, event_log);
+    mu_assert(strcmp(firstCalls, "mab") == 0 && strcmp(event_log, "ab") == 0, buffer);
+}
+
 static int event_before_sync_count = 0;
 static int event_after_sync_count = 0;
 static int event_vblank_count = 0;
@@ -324,4 +424,6 @@ MU_TEST_SUITE(event_test_suite)
     MU_RUN_TEST(event_remove_during_invoke);
     // Last: a broken Event reads freed memory here
     MU_RUN_TEST(event_add_during_invoke);
+    MU_RUN_TEST(event_remove_other_during_invoke);
+    MU_RUN_TEST(event_member_remove_self_during_invoke);
 }

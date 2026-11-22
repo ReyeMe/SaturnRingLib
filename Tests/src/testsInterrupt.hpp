@@ -67,20 +67,21 @@ MU_TEST(interrupt_test_changemask_identity_smoke)
     mu_assert(afterIdentity == static_cast<uint32_t>(Interrupt::Mask::All), buffer);
 }
 
-/** @brief Waits (a few frames at most) for V-Blank In to show in GetStatus.
- * @return true when it does
+/** @brief Waits (a few frames at most) for all the given interrupts to show in GetStatus.
+ * @param status Interrupts to wait for
+ * @return true when they do
  */
-static bool interrupt_wait_vblank_in_status()
+static bool interrupt_wait_status(Interrupt::Status status)
 {
     for (int32_t i = 0; i < 2000000; i++)
     {
-        if (static_cast<uint32_t>(Interrupt::GetStatus() & Interrupt::Status::VBlankIn) != 0) return true;
+        if ((static_cast<uint32_t>(Interrupt::GetStatus()) & static_cast<uint32_t>(status)) == static_cast<uint32_t>(status)) return true;
     }
 
     return false;
 }
 
-    /** @brief A masked V-Blank In shows in GetStatus; ResetStatus(VBlankIn) clears it and keeps the other status bits.
+    /** @brief A masked V-Blank In shows in GetStatus, and ResetStatus(VBlankIn) clears it.
  */
 MU_TEST(interrupt_test_getstatus_and_resetstatus)
 {
@@ -88,7 +89,7 @@ MU_TEST(interrupt_test_getstatus_and_resetstatus)
 
     // A set mask bit turns the interrupt off: V-Blank In stays pending instead of being handled
     System::SetInterruptMask(previousMask | static_cast<uint32_t>(Interrupt::Mask::VBlankIn));
-    const bool pending = interrupt_wait_vblank_in_status();
+    const bool pending = interrupt_wait_status(Interrupt::Status::VBlankIn);
 
     Interrupt::ResetStatus(Interrupt::Status::VBlankIn);
     const bool pendingAfterReset = static_cast<uint32_t>(Interrupt::GetStatus() & Interrupt::Status::VBlankIn) != 0;
@@ -99,6 +100,33 @@ MU_TEST(interrupt_test_getstatus_and_resetstatus)
 
     mu_assert(pending, "A masked V-Blank In does not show in GetStatus");
     mu_assert(!pendingAfterReset, "ResetStatus(VBlankIn) did not clear the V-Blank In status");
+}
+
+    /** @brief ResetStatus(VBlankOut) keeps a pending V-Blank In.
+ * @note IST clears the bits written as 0, so writing the bits to clear (instead of their complement) cleared every
+ *       other pending interrupt. V-Blank In and Out come once per frame, so neither comes back between the write and
+ *       the read (H-Blank In, every line, could hide the bug).
+ */
+MU_TEST(interrupt_test_resetstatus_keeps_other_bits)
+{
+    const uint32_t previousMask = System::GetInterruptMask();
+    const auto vblank = Interrupt::Status::VBlankIn | Interrupt::Status::VBlankOut;
+
+    System::SetInterruptMask(previousMask | static_cast<uint32_t>(Interrupt::Mask::VBlankIn | Interrupt::Mask::VBlankOut));
+    Interrupt::ResetStatus(vblank);
+    const bool pending = interrupt_wait_status(vblank);
+
+    Interrupt::ResetStatus(Interrupt::Status::VBlankOut);
+    const uint32_t statusAfterReset = static_cast<uint32_t>(Interrupt::GetStatus());
+
+    // Drop the pending V-Blank interrupts before turning them back on
+    Interrupt::ResetStatus(vblank);
+    System::SetInterruptMask(previousMask);
+
+    mu_assert(pending, "Masked V-Blank In and Out do not show in GetStatus");
+    snprintf(buffer, buffer_size, "ResetStatus(VBlankOut): status 0x%08lx, expected V-Blank In kept and V-Blank Out cleared",
+        (unsigned long)statusAfterReset);
+    mu_assert((statusAfterReset & static_cast<uint32_t>(vblank)) == static_cast<uint32_t>(Interrupt::Status::VBlankIn), buffer);
 }
 
     /** @brief The acknowledge value written with SetAcknowledge reads back with GetAcknowledge. */
@@ -220,6 +248,7 @@ MU_TEST_SUITE(interrupt_test_suite)
     MU_RUN_TEST(interrupt_test_setmask_roundtrip);
     MU_RUN_TEST(interrupt_test_changemask_identity_smoke);
     MU_RUN_TEST(interrupt_test_getstatus_and_resetstatus);
+    MU_RUN_TEST(interrupt_test_resetstatus_keeps_other_bits);
     MU_RUN_TEST(interrupt_test_acknowledge_roundtrip);
     MU_RUN_TEST(interrupt_test_sethandler_invalid_vector);
     MU_RUN_TEST(interrupt_test_sethandler_cpu_vector_roundtrip);
