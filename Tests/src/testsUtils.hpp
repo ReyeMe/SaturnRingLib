@@ -37,7 +37,7 @@ MU_TEST(utils_abs_min_max_clamp)
     mu_assert(SRL::Math::Max(2, 2) == 2, "Max equal values should return that value");
 
     mu_assert(SRL::Math::Min(1, 2) == 1, "Min(1,2) should be 1");
-    mu_assert(SRL::Math::Min(3, SRL::Math::Min(2, 1)) == 1, "Min(3,2,1) should be 1");
+    mu_assert(SRL::Math::Min(3, 2, 1) == 1, "Min(3,2,1) should be 1");
     mu_assert(SRL::Math::Min(2, 2) == 2, "Min equal values should return that value");
 
     mu_assert(SRL::Math::Clamp(5, 0, 10) == 5, "Clamp within range should return value");
