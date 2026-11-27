@@ -163,7 +163,7 @@ namespace SRL
                                 }
                             }
                         break;
-                        case '0' : // only %0d is supported for now
+                        case '0' : // %0d padding
                             {
                                 char tmp[100] = {0};
                                 int arg = va_arg(args, int);
@@ -317,7 +317,41 @@ namespace SRL
         
                         }
                         break;
-                        default : //nothing
+                        default :  // space padding
+                        {
+                            char tmp[100] = {0};
+                            int arg = va_arg(args, int);
+                            //print integer into to get its lenght
+                            int int_lenght = snprintf(tmp, 100, "%d", arg);
+                            //get the padding requested
+                            if(format[idx+1] != '\0')
+                            {
+                                int padding_req = format[idx+1] - '0';
+                                int padding = padding_req - int_lenght;
+
+                                if(padding > 0)
+                                {
+                                    for(int i = 0 ; i < padding ; i++, writtenChars++)
+                                    {
+                                        if(writtenChars < size)
+                                        {
+                                            buffer[writtenChars] = ' ';
+                                        }
+                                    }
+                                }
+
+                                for(int jdx = 0; tmp[jdx] != 0 ; jdx++ , writtenChars++)
+                                {
+                                    if(writtenChars < size)
+                                    {
+                                        buffer[writtenChars] = tmp[jdx];
+                                    }
+                                }
+
+                            }
+                                
+                            idx = idx + 1;
+                        }
                         break;
         
                     }
