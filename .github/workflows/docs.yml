@@ -19,7 +19,7 @@ jobs:
         with:
           submodules: recursive
       - name: Run Doxygen
-        uses: mattnotmitt/doxygen-action@v1.2.1
+        uses: mattnotmitt/doxygen-action@v1.12
         with:
           doxyfile-path: ./Doxyfile
           working-directory: .
