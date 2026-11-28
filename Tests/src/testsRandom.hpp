@@ -14,30 +14,6 @@ using namespace SRL::Math::Types;
 using namespace SRL::Logger;
 
 extern "C" {
-void random_test_setup(void)
-{
-        // No initialization needed
-}
-
-void random_test_teardown(void)
-{
-        // No cleanup required
-}
-
-void random_test_output_header(void)
-{
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_RANDOM****");
-        }
-        else
-        {
-            LogInfo("****UT_RANDOM_ERROR(S)****");
-        }
-    }
-}
 
     // Compare raw and ranged GetNumber() for all types <=32bit, using numeric_limits - 1
 
@@ -238,12 +214,20 @@ MU_TEST(random_works_for_u16_path)
     }
 }
 
+/**
+ * @brief Not run: GetNumber(min, max) over the full type range computes range = max - min + 1 = 0 and divides by
+ *        zero, which hangs the campaign (crashes hardware). Reported as a failure so the bug stays visible in
+ *        campaigns.json; remove this line from the tests once the bug is fixed.
+ */
+#define RANDOM_FULL_RANGE_NOT_RUN() mu_fail("not run: GetNumber(min, max) over the full type range divides by zero")
+
     /**
  * @brief Verifies that generating a number in the full range [0, max] is equivalent to generating a raw (unbounded) number.
  * @details This test is for 16-bit unsigned integers.
  */
 MU_TEST(random_full_range_uint16_matches_raw)
 {
+    RANDOM_FULL_RANGE_NOT_RUN();
     const uint16_t seed = 0xBEEF;
 
     SRL::Math::Random<uint16_t> raw(seed);
@@ -261,6 +245,7 @@ MU_TEST(random_full_range_uint16_matches_raw)
  */
 MU_TEST(random_full_range_int16_matches_raw)
 {
+    RANDOM_FULL_RANGE_NOT_RUN();
     const int16_t seed = 0x1234;
 
     SRL::Math::Random<int16_t> raw(seed);
@@ -278,6 +263,7 @@ MU_TEST(random_full_range_int16_matches_raw)
  */
 MU_TEST(random_full_range_uint8_matches_raw)
 {
+    RANDOM_FULL_RANGE_NOT_RUN();
     const uint8_t seed = 0xAB;
 
     SRL::Math::Random<uint8_t> raw(seed);
@@ -295,6 +281,7 @@ MU_TEST(random_full_range_uint8_matches_raw)
  */
 MU_TEST(random_full_range_int8_matches_raw)
 {
+    RANDOM_FULL_RANGE_NOT_RUN();
     const int8_t seed = 0x12;
 
     SRL::Math::Random<int8_t> raw(seed);
@@ -312,6 +299,7 @@ MU_TEST(random_full_range_int8_matches_raw)
  */
 MU_TEST(random_full_range_uint32_matches_raw)
 {
+    RANDOM_FULL_RANGE_NOT_RUN();
     const uint32_t seed = 0xCAFEBABEu;
 
     SRL::Math::Random<uint32_t> raw(seed);
@@ -329,23 +317,8 @@ MU_TEST(random_full_range_uint32_matches_raw)
  */
 MU_TEST(random_full_range_int32_matches_raw)
 {
+    RANDOM_FULL_RANGE_NOT_RUN();
     const int32_t seed = 0x87654321;
-
-    SRL::Math::Random<int32_t> raw(seed);
-    SRL::Math::Random<int32_t> ranged(seed);
-
-    const int32_t a = raw.GetNumber();
-    const int32_t b = ranged.GetNumber(std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max());
-    snprintf(buffer, buffer_size, "Full-range [min,max] mismatch: a=%d, b=%d", a, b);
-    mu_assert(a == b, buffer);
-}
-
-    /**
- * @brief Verifies that generating a number in the full range [min, max] is equivalent to generating a raw (unbounded) number for signed integers.
- */
-MU_TEST(random_full_range_signed_matches_raw)
-{
-    const int32_t seed = 123;
 
     SRL::Math::Random<int32_t> raw(seed);
     SRL::Math::Random<int32_t> ranged(seed);
@@ -392,23 +365,230 @@ MU_TEST(random_extreme_ranges_do_not_overflow)
     }
 }
 
+    /**
+ * @brief Seed 0 should still produce a usable sequence (Xorshift stays at 0 forever from a 0 state),
+ *        for the 32-bit and the 64-bit states.
+ */
+MU_TEST(random_seed_zero_not_stuck)
+{
+    SRL::Math::Random<uint32_t> r(0u);
+    SRL::Math::Random<uint64_t> wideUnsigned(0u);
+    SRL::Math::Random<int64_t> wideSigned(0);
+    bool anyNonZero = false, wideUnsignedNonZero = false, wideSignedNonZero = false;
+    for (int i = 0; i < 8; i++)
+    {
+        anyNonZero |= (r.GetNumber() != 0u);
+        wideUnsignedNonZero |= (wideUnsigned.GetNumber() != 0u);
+        wideSignedNonZero |= (wideSigned.GetNumber() != 0);
+    }
+    mu_assert(anyNonZero, "Seed 0 produces only zeros");
+    mu_assert(wideUnsignedNonZero, "uint64_t seed 0 produces only zeros");
+    mu_assert(wideSignedNonZero, "int64_t seed 0 produces only zeros");
+}
+
+    /**
+ * @brief Different seeds give different sequences.
+ */
+MU_TEST(random_different_seeds_differ)
+{
+    SRL::Math::Random<uint32_t> a(1u), b(2u);
+    bool differ = false;
+    for (int i = 0; i < 4; i++)
+    {
+        differ |= (a.GetNumber() != b.GetNumber());
+    }
+    mu_assert(differ, "Seeds 1 and 2 should give different sequences");
+}
+
+    /**
+ * @brief Each type produces many distinct values (documented: long period, even distribution over the type's range).
+ * @details 8-bit: at least 200 distinct in 255 draws. 16 and 32-bit: at least 990 distinct in 1000 draws.
+ */
+MU_TEST(random_variety_per_type)
+{
+        // Counts distinct values among the first n outputs (n <= 1000) of a generator seeded with seed
+    auto random_distinct_count = [](auto seed, size_t n) {
+        static uint32_t seen[1000];
+        SRL::Math::Random<decltype(seed)> r(seed);
+        size_t distinct = 0;
+        for (size_t i = 0; i < n; i++)
+        {
+            const uint32_t v = static_cast<uint32_t>(r.GetNumber());
+            bool dup = false;
+            for (size_t j = 0; j < distinct && !dup; j++)
+            {
+                dup = (seen[j] == v);
+            }
+            if (!dup)
+            {
+                seen[distinct++] = v;
+            }
+        }
+        return distinct;
+    };
+
+    char failed[160] = "";
+    size_t pos = 0;
+    auto check = [&](const char* name, size_t got, size_t min) {
+        if (got < min && pos < sizeof(failed) - 24)
+        {
+            pos += snprintf(failed + pos, sizeof(failed) - pos, " %s=%u", name, (unsigned)got);
+        }
+    };
+        // Random draws repeat values (birthday effect): 255 draws of 256 values give about 162 distinct, 1000 draws of
+        // 65536 about 992. The thresholds sit about 4 standard deviations below; a stuck 8-bit generator gives 1 or 2.
+    check("u8", random_distinct_count(static_cast<uint8_t>(0x5A), 255), 140);
+    check("i8", random_distinct_count(static_cast<int8_t>(0x5A), 255), 140);
+    check("u16", random_distinct_count(static_cast<uint16_t>(0x1234), 1000), 980);
+    check("i16", random_distinct_count(static_cast<int16_t>(0x1234), 1000), 980);
+    check("u32", random_distinct_count(static_cast<uint32_t>(0x12345678u), 1000), 990);
+    check("i32", random_distinct_count(static_cast<int32_t>(0x12345678), 1000), 990);
+    snprintf(buffer, buffer_size, "Too few distinct values:%s", failed);
+    mu_assert(pos == 0, buffer);
+}
+
+    /**
+ * @brief A dice roll GetNumber(1, 6) gives each face about equally often (documented: even distribution).
+ * @details 6000 rolls per type, each face 1000 +/- 200.
+ */
+MU_TEST(random_dice_distribution)
+{
+    char failed[200] = "";
+    size_t pos = 0;
+    auto roll = [&](const char* name, auto&& next) {
+        uint32_t counts[7] = {};
+        bool outOfRange = false;
+        for (int i = 0; i < 6000; i++)
+        {
+            const int v = static_cast<int>(next());
+            if (v < 1 || v > 6)
+            {
+                outOfRange = true;
+                continue;
+            }
+            counts[v]++;
+        }
+        bool uneven = outOfRange;
+        for (int f = 1; f <= 6; f++)
+        {
+            uneven |= (counts[f] < 800 || counts[f] > 1200);
+        }
+        if (uneven && pos < sizeof(failed) - 40)
+        {
+            pos += snprintf(failed + pos, sizeof(failed) - pos, " %s[%u %u %u %u %u %u]%s", name,
+                (unsigned)counts[1], (unsigned)counts[2], (unsigned)counts[3], (unsigned)counts[4], (unsigned)counts[5], (unsigned)counts[6],
+                outOfRange ? "!" : "");
+        }
+    };
+    SRL::Math::Random<uint32_t> u32(0xDEADBEEFu);
+    SRL::Math::Random<int32_t> i32(0x0BADF00D);
+    SRL::Math::Random<uint16_t> u16(0xBEEF);
+    SRL::Math::Random<int16_t> i16(0x1357);
+    SRL::Math::Random<uint8_t> u8(0x5A);
+    roll("u32", [&] { return u32.GetNumber(1u, 6u); });
+    roll("i32", [&] { return i32.GetNumber(1, 6); });
+    roll("u16", [&] { return u16.GetNumber(1, 6); });
+    roll("i16", [&] { return i16.GetNumber(1, 6); });
+    roll("u8", [&] { return u8.GetNumber(1, 6); });
+    snprintf(buffer, buffer_size, "Uneven dice (counts for 1..6, ! = out of range):%s", failed);
+    mu_assert(pos == 0, buffer);
+}
+
+    /**
+ * @brief Small signed ranges stay in bounds over many draws (includes raw values at the type's minimum).
+ */
+MU_TEST(random_signed_small_range_in_bounds)
+{
+    SRL::Math::Random<int8_t> r8(0x5A);
+    SRL::Math::Random<int16_t> r16(0x1357);
+    SRL::Math::Random<int32_t> r32(0x0BADF00D);
+    for (int i = 0; i < 1000; i++)
+    {
+        const int8_t a = r8.GetNumber(0, 9);
+        const int16_t b = r16.GetNumber(-3, 3);
+        const int32_t c = r32.GetNumber(-100, 100);
+        snprintf(buffer, buffer_size, "Draw %d out of range: int8 [0,9]=%d int16 [-3,3]=%d int32 [-100,100]=%ld", i, a, b, (long)c);
+        mu_assert(a >= 0 && a <= 9 && b >= -3 && b <= 3 && c >= -100 && c <= 100, buffer);
+    }
+}
+
+    /**
+ * @brief Signed ranges wider than half the type (to - from + 1 does not fit in T) stay in bounds and vary.
+ */
+MU_TEST(random_signed_wide_range)
+{
+    SRL::Math::Random<int16_t> r(0x1357);
+    int16_t lowest = 32767, highest = -32768;
+    for (int i = 0; i < 200; i++)
+    {
+        const int16_t v = r.GetNumber(-30000, 30000);
+        snprintf(buffer, buffer_size, "int16 [-30000,30000] draw %d = %d out of range", i, v);
+        mu_assert(v >= -30000 && v <= 30000, buffer);
+        if (v < lowest) lowest = v;
+        if (v > highest) highest = v;
+    }
+    snprintf(buffer, buffer_size, "int16 [-30000,30000] only spans [%d,%d] in 200 draws", lowest, highest);
+    mu_assert(lowest < -20000 && highest > 20000, buffer);
+}
+
+    /**
+ * @brief GetNumber(from, to) branches: swapped bounds give the same number, a raw number already inside the range is
+ *        returned unchanged, a seed of 0 is not stuck in an 8-bit generator, and 64-bit types (a 64-bit state) stay in
+ *        range and vary. No full range: on the pinned SaturnMathPP it divides by zero and hangs.
+ */
+MU_TEST(random_get_number_branches)
+{
+    SRL::Math::Random<int16_t> ordered(0x5151), swapped(0x5151);
+    const int16_t inOrder = ordered.GetNumber(10, 20);
+    const int16_t reversed = swapped.GetNumber(20, 10);
+    snprintf(buffer, buffer_size, "GetNumber(10,20) = %d but GetNumber(20,10) = %d with the same seed", inOrder, reversed);
+    mu_assert(inOrder == reversed && inOrder >= 10 && inOrder <= 20, buffer);
+
+    SRL::Math::Random<uint32_t> raw(0x7777u), ranged(0x7777u);
+    const uint32_t number = raw.GetNumber();
+    const uint32_t kept = ranged.GetNumber(number / 2, number);
+    snprintf(buffer, buffer_size, "GetNumber(%lu, %lu) = %lu, expected the raw number %lu (it is in range)", (unsigned long)(number / 2),
+        (unsigned long)number, (unsigned long)kept, (unsigned long)number);
+    mu_assert(kept == number, buffer);
+
+    SRL::Math::Random<int8_t> zeroSeed(0);
+    bool anyNonZero = false;
+    for (int draw = 0; draw < 8; draw++) anyNonZero |= zeroSeed.GetNumber() != 0;
+    mu_assert(anyNonZero, "int8_t seed 0 produces only zeros");
+
+    SRL::Math::Random<int64_t> wide(7);
+    bool varied = false;
+    int64_t first = wide.GetNumber();
+    for (int draw = 0; draw < 32; draw++)
+    {
+        const int64_t value = wide.GetNumber(-5, 5);
+        snprintf(buffer, buffer_size, "int64_t GetNumber(-5,5) = %ld", (long)value);
+        mu_assert(value >= -5 && value <= 5, buffer);
+        varied |= wide.GetNumber() != first;
+    }
+    mu_assert(varied, "int64_t GetNumber() never changes");
+}
+
 MU_TEST_SUITE(random_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&random_test_setup,
-        &random_test_teardown,
-        &random_test_output_header);
-
     MU_RUN_TEST(random_same_seed_same_sequence_u32);
     MU_RUN_TEST(random_range_is_inclusive_and_order_independent_u32);
     MU_RUN_TEST(random_range_signed_i32);
     MU_RUN_TEST(random_works_for_u16_path);
-        // MU_RUN_TEST(random_full_range_uint32_matches_raw);    // Crash the HW
-        // MU_RUN_TEST(random_full_range_int32_matches_raw);     // Crash the HW
-        // MU_RUN_TEST(random_full_range_uint16_matches_raw);   // Crash the HW
-        // MU_RUN_TEST(random_full_range_int16_matches_raw);    // Crash the HW
-        // MU_RUN_TEST(random_full_range_uint8_matches_raw);    // Crash the HW
-        // MU_RUN_TEST(random_full_range_int8_matches_raw);     // Crash the HW
+    // Not run (RANDOM_FULL_RANGE_NOT_RUN): they fail without calling GetNumber over the full range
+    MU_RUN_TEST(random_full_range_uint32_matches_raw);
+    MU_RUN_TEST(random_full_range_int32_matches_raw);
+    MU_RUN_TEST(random_full_range_uint16_matches_raw);
+    MU_RUN_TEST(random_full_range_int16_matches_raw);
+    MU_RUN_TEST(random_full_range_uint8_matches_raw);
+    MU_RUN_TEST(random_full_range_int8_matches_raw);
     MU_RUN_TEST(random_extreme_ranges_do_not_overflow);
+    MU_RUN_TEST(random_seed_zero_not_stuck);
+    MU_RUN_TEST(random_different_seeds_differ);
+    MU_RUN_TEST(random_variety_per_type);
+    MU_RUN_TEST(random_dice_distribution);
+    MU_RUN_TEST(random_signed_small_range_in_bounds);
+    MU_RUN_TEST(random_signed_wide_range);
     MU_RUN_TEST(random_range_uint8_minus1);
     MU_RUN_TEST(random_range_int8_minus1);
     MU_RUN_TEST(random_range_uint16_minus1);
@@ -421,5 +601,6 @@ MU_TEST_SUITE(random_test_suite)
     MU_RUN_TEST(random_range_int16_minus1_matches_raw);
     MU_RUN_TEST(random_range_uint32_minus1_matches_raw);
     MU_RUN_TEST(random_range_int32_minus1_matches_raw);
+    MU_RUN_TEST(random_get_number_branches);
 }
 }

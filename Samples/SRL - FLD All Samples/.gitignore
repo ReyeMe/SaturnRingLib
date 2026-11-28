@@ -1,0 +1,10 @@
+# Build binaries and object files
+**.o
+0.bin
+[Bb]uild[Dd]rop/**
+
+# Written by pre.makefile
+src/samples.gen.hpp
+cd/data/S[0-9]*
+cd/data/SAMPLES.BIN
+cd/music/*

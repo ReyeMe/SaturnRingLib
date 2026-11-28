@@ -23,6 +23,9 @@ struct ResultLine
 /** @brief Global buffer used for building result strings. */
 inline char resultsBuffer[BufferSize] = {};
 
+/** @brief First result line shown on screen (scroll position). */
+inline size_t startIndex = 0;
+
 /** @brief Global list of test result lines. Initialized with a reserved capacity of 20 to minimize heap allocation overhead. */
 inline std::vector<ResultLine> gResults = []() {
     std::vector<ResultLine> v;

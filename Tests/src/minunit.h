@@ -33,10 +33,6 @@ extern "C"
 {
 #endif
 
-#if __GNUC__ >= 5 && !defined(__STDC_VERSION__)
-#define __func__ __extension__ __FUNCTION__
-#endif
-
 #include <string.h>
 #include <math.h>
 
@@ -59,10 +55,15 @@ extern "C"
 	/*  Last message */
 	static char minunit_last_message[MINUNIT_MESSAGE_LEN];
 
+	/*  Name of the running test: failures report it, even from a helper function */
+	static const char *minunit_current_test = NULL;
+
 	/*  Test setup and teardown function pointers */
 	static void (*minunit_setup)(void) = NULL;
 	static void (*minunit_teardown)(void) = NULL;
-	static void (*minunit_output_header)(void) = NULL;
+
+	/*  Name of the running suite: its first failure prints a header with it */
+	static const char *minunit_suite_name = NULL;
 
 /*  Definitions */
 #define MU_TEST(method_name) static void method_name(void)
@@ -76,24 +77,16 @@ extern "C"
 
 /*  Run test suite and unset setup and teardown functions */
 #define MU_RUN_SUITE(suite_name) MU__SAFE_BLOCK( \
+	suite_error_counter = 0;                     \
+	minunit_suite_name = #suite_name;            \
 	suite_name();                                \
 	minunit_setup = NULL;                        \
-	minunit_teardown = NULL;                     \
-	minunit_output_header = NULL;)
+	minunit_teardown = NULL;)
 
 /*  Configure setup and teardown functions */
 #define MU_SUITE_CONFIGURE(setup_fun, teardown_fun) MU__SAFE_BLOCK( \
-	suite_error_counter = 0;                                        \
 	minunit_setup = setup_fun;                                      \
-	minunit_teardown = teardown_fun;                                \
-	minunit_output_header = NULL;)
-
-/*  Configure setup and teardown functions */
-#define MU_SUITE_CONFIGURE_WITH_HEADER(setup_fun, teardown_fun, output_header) MU__SAFE_BLOCK( \
-	suite_error_counter = 0;                                                                   \
-	minunit_setup = setup_fun;                                                                 \
-	minunit_teardown = teardown_fun;                                                           \
-	minunit_output_header = output_header;)
+	minunit_teardown = teardown_fun;)
 
 /*  Test runner */
 #define MU_RUN_TEST(test) MU__SAFE_BLOCK(                            \
@@ -102,16 +95,19 @@ extern "C"
 		minunit_proc_timer = mu_timer_cpu();                         \
 	} if (minunit_setup) (*minunit_setup)();                         \
 	minunit_status = 0;                                              \
+	minunit_current_test = #test;                                    \
 	test();                                                          \
+	/* Teardown before reporting, so it can fail the test (leak checks) */ \
+	if (minunit_teardown)(*minunit_teardown)();                      \
 	++minunit_run;                                                   \
-	if (minunit_status && minunit_output_header)                 \
-			(*minunit_output_header)();  							 \
 	if (minunit_status) {                                            \
+		if (!suite_error_counter++)                                  \
+			Log::LogPrint<LogLevels::INFO>("****UT_%s_ERROR(S)****", minunit_suite_name); \
 		++minunit_fail;												 \
 		Log::LogPrint<LogLevels::FATAL>("%s", minunit_last_message); \
 	} else { 														 \
 		Log::LogPrint<LogLevels::TESTING>("Passed :%s", #test);		 \
-	} if (minunit_teardown)(*minunit_teardown)();)					
+	})
 
 /*  Report */
 #define MU_REPORT() MU__SAFE_BLOCK(                                                                                    \
@@ -129,21 +125,21 @@ extern "C"
 #define mu_check(test) MU__SAFE_BLOCK(                                                                                             \
 	minunit_assert++;                                                                                                              \
 	if (!(test)) {                                                                                                                 \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", __func__, __FILE__, __LINE__, #test); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", minunit_current_test, __FILE__, __LINE__, #test); \
 		minunit_status = 1;                                                                                                        \
 		return;                                                                                                                    \
 	})
 
 #define mu_fail(message) MU__SAFE_BLOCK(                                                                                         \
 	minunit_assert++;                                                                                                            \
-	(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", __func__, __FILE__, __LINE__, message); \
+	(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", minunit_current_test, __FILE__, __LINE__, message); \
 	minunit_status = 1;                                                                                                          \
 	return;)
 
 #define mu_assert(test, message) MU__SAFE_BLOCK(                                                                                     \
 	minunit_assert++;                                                                                                                \
 	if (!(test)) {                                                                                                                   \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", __func__, __FILE__, __LINE__, message); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %s", minunit_current_test, __FILE__, __LINE__, message); \
 		minunit_status = 1;                                                                                                          \
 		return;                                                                                                                      \
 	})
@@ -155,7 +151,7 @@ extern "C"
 	minunit_tmp_e = (expected);                                                                                                                                               \
 	minunit_tmp_r = (result);                                                                                                                                                 \
 	if (minunit_tmp_e != minunit_tmp_r) {                                                                                                                                     \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %d expected but was %d", __func__, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %d expected but was %d", minunit_current_test, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
 		minunit_status = 1;                                                                                                                                                   \
 		return;                                                                                                                                                               \
 	})
@@ -168,7 +164,7 @@ extern "C"
 	minunit_tmp_r = (result);                                                                                                                                                                                                               \
 	if (fabs(minunit_tmp_e - minunit_tmp_r) > MINUNIT_EPSILON) {                                                                                                                                                                            \
 		int minunit_significant_figures = 1 - log10(MINUNIT_EPSILON);                                                                                                                                                                       \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %.*g expected but was %.*g", __func__, __FILE__, __LINE__, minunit_significant_figures, minunit_tmp_e, minunit_significant_figures, minunit_tmp_r); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: %.*g expected but was %.*g", minunit_current_test, __FILE__, __LINE__, minunit_significant_figures, minunit_tmp_e, minunit_significant_figures, minunit_tmp_r); \
 		minunit_status = 1;                                                                                                                                                                                                                 \
 		return;                                                                                                                                                                                                                             \
 	})
@@ -182,7 +178,7 @@ extern "C"
 	} if (!minunit_tmp_r) {                                                                                                                                                       \
 		minunit_tmp_r = "<null pointer>";                                                                                                                                         \
 	} if (strcmp(minunit_tmp_e, minunit_tmp_r) != 0) {                                                                                                                            \
-		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: '%s' expected but was '%s'", __func__, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
+		(void)snprintf(minunit_last_message, MINUNIT_MESSAGE_LEN, "%s failed:\n\t%s:%d: '%s' expected but was '%s'", minunit_current_test, __FILE__, __LINE__, minunit_tmp_e, minunit_tmp_r); \
 		minunit_status = 1;                                                                                                                                                       \
 		return;                                                                                                                                                                   \
 	})

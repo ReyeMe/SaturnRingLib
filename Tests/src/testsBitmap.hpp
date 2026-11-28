@@ -14,58 +14,6 @@ extern const uint8_t buffer_size;
 extern char buffer[];
 
     /**
- * @brief Set up routine for bitmap unit tests
- *
- * This function is called before each test in the bitmap test suite.
- * Currently, it does not perform any specific setup operations,
- * but provides a hook for future initialization requirements.
- */
-void bitmap_test_setup(void)
-{
-        // Placeholder for any necessary test initialization
-        // Future implementations might include resetting bitmap state,
-        // clearing buffers, or preparing test environments
-}
-
-    /**
- * @brief Tear down routine for bitmap unit tests
- *
- * This function is called after each test in the bitmap test suite.
- * Currently, it does not perform any specific cleanup operations,
- * but provides a hook for future resource release or state reset.
- */
-void bitmap_test_teardown(void)
-{
-        // Placeholder for any necessary test cleanup
-        // Future implementations might include freeing resources,
-        // resetting global state, or clearing temporary data
-}
-
-    /**
- * @brief Output header for test suite error reporting
- *
- * This function is called on the first test failure to print
- * a header indicating that bitmap unit test errors have occurred.
- * It increments a global error counter to ensure the header
- * is printed only once per test suite run.
- */
-void bitmap_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_BITMAP****");
-        }
-        else
-        {
-            LogInfo("****UT_BITMAP_ERROR(S)****");
-        }
-    }
-}
-
-    /**
  * @brief Test the initialization of the Palette struct
  *
  * Verifies that the Palette struct is properly initialized with the correct
@@ -86,18 +34,17 @@ MU_TEST(palette_test_initialization)
     /**
  * @brief Test the destruction of the Palette struct
  *
- * Verifies that the Palette struct is properly destroyed and that the Colors
- * array is deallocated correctly.
+ * Deleting a palette frees its colors and itself: the heap has as many used blocks as before.
  */
 MU_TEST(palette_test_destruction)
 {
-    size_t colorCount = 10;
-    SRL::Bitmap::Palette* palette = new SRL::Bitmap::Palette(colorCount);
+    const size_t before = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
+    SRL::Bitmap::Palette* palette = new SRL::Bitmap::Palette(10);
     delete palette;
+    const size_t after = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
 
-        // Since we cannot directly test the deallocation, we assume that if no
-        // memory errors occur, the test passes.
-    mu_assert(true, "Palette destruction test passed");
+    snprintf(buffer, buffer_size, "Used blocks %d -> %d after deleting a palette", before, after);
+    mu_assert(after == before, buffer);
 }
 
     /**
@@ -150,33 +97,6 @@ MU_TEST(bitmap_info_test_initialization_with_palette)
 }
 
     /**
- * @brief Mock implementation of the IBitmap interface for testing
- */
-class MockBitmap : public SRL::Bitmap::IBitmap
-{
-public:
-    uint8_t* data;
-    SRL::Bitmap::BitmapInfo info;
-
-    MockBitmap(uint8_t* data, SRL::Bitmap::BitmapInfo info) :
-        data(data),
-        info(info)
-    {}
-
-    ~MockBitmap() {}
-
-    uint8_t* GetData() override
-    {
-        return data;
-    }
-
-    SRL::Bitmap::BitmapInfo GetInfo() const override
-    {
-        return info;
-    }
-};
-
-    /**
  * @brief Test the GetData method of the IBitmap interface
  *
  * Verifies that the GetData method returns the correct data pointer.
@@ -217,20 +137,40 @@ MU_TEST(ibitmap_test_get_info)
     /**
  * @brief bitmap test suite configuration and test case registration
  *
- * Configures the test suite with setup, teardown, and error reporting functions.
+ * Configures the test suite with setup and teardown functions.
  * Registers individual test cases to be executed during the test run.
  * Currently runs the base address initialization test and palette tests.
  */
+/**
+ * @brief A palette built around the caller's colors (Palette(colors, count)) does not free them: the caller owns them.
+ * @details The colors are a heap block here, so a wrong free shows up in the used block count instead of corrupting
+ *          the heap (with a stack or static array, the destructor would hand the allocator a pointer it never gave).
+ */
+MU_TEST(palette_test_wrapped_colors_not_freed)
+{
+    SRL::Types::HighColor* colors = new SRL::Types::HighColor[16];
+    const size_t before = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
+
+    {
+        SRL::Bitmap::Palette palette(colors, 16);
+    }
+
+    const size_t after = Memory::HighWorkRam::GetReport().UsedBlocks + Memory::LowWorkRam::GetReport().UsedBlocks;
+    if (after == before)
+    {
+        delete[] colors;
+    }
+
+    snprintf(buffer, buffer_size, "Used blocks %d -> %d: the palette freed the caller's colors", (int)before, (int)after);
+    mu_assert(after == before, buffer);
+}
+
 MU_TEST_SUITE(bitmap_test_suite)
 {
-        // Configure test suite with setup, teardown, and error reporting functions
-    MU_SUITE_CONFIGURE_WITH_HEADER(&bitmap_test_setup,
-        &bitmap_test_teardown,
-        &bitmap_test_output_header);
-
         // Register test cases to be executed
     MU_RUN_TEST(palette_test_initialization);
     MU_RUN_TEST(palette_test_destruction);
+    MU_RUN_TEST(palette_test_wrapped_colors_not_freed);
     MU_RUN_TEST(bitmap_info_test_initialization_no_palette);
     MU_RUN_TEST(bitmap_info_test_initialization_with_palette);
     MU_RUN_TEST(ibitmap_test_get_data);

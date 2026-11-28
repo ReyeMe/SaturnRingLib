@@ -15,16 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Run Doxygen
-        uses: mattnotmitt/doxygen-action@v1.2.1
+        uses: mattnotmitt/doxygen-action@v1.12
         with:
           doxyfile-path: ./Doxyfile
           working-directory: .
       - name: Pages Deployment
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./Documentation/html/

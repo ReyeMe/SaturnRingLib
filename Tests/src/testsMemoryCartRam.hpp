@@ -4,6 +4,7 @@
 
 // https://github.com/siu/minunit
 #include "minunit.h"
+#include "testsMemoryCommon.hpp"
 
 using namespace SRL;
 
@@ -12,53 +13,9 @@ extern "C" {
 extern const uint8_t buffer_size;
 extern char buffer[];
 
-    /**
- * @brief Set up routine for CartRam memory unit tests
- *
- * This function is called before each test in the CartRam memory test suite.
- * Currently, it does not perform any specific setup operations,
- * but provides a hook for future initialization requirements.
- */
-void memory_CartRam_test_setup(void)
-{
-        // Placeholder for any necessary test initialization
-}
-
-    /**
- * @brief Tear down routine for CartRam memory unit tests
- *
- * This function is called after each test in the CartRam memory test suite.
- * Currently, it does not perform any specific cleanup operations,
- * but provides a hook for future resource release or state reset.
- */
-void memory_CartRam_test_teardown(void)
-{
-        // Placeholder for any necessary test cleanup
-}
-
-    /**
- * @brief Output header for CartRam test suite error reporting
- *
- * This function is called on the first test failure to print
- * a header indicating that CartRam memory unit test errors have occurred.
- * It increments a global error counter to ensure the header
- * is printed only once per test suite run.
- */
-void memory_CartRam_test_output_header(void)
-{
-        // Print error header only on the first test failure
-    if (!suite_error_counter++)
-    {
-        if (Log::GetLogLevel() == Logger::LogLevels::TESTING)
-        {
-            LogDebug("****UT_MEMORY_CartRam****");
-        }
-        else
-        {
-            LogInfo("****UT_MEMORY_CartRam_ERROR(S)****");
-        }
-    }
-}
+    /** @brief Setup and teardown: the shared leak check (see testsMemoryCommon.hpp). */
+void memory_CartRam_test_setup(void) { memory_leak_check_setup(); }
+void memory_CartRam_test_teardown(void) { memory_leak_check_teardown(); }
 
     /**
  * @brief Test memory allocation and deallocation in CartRam
@@ -623,9 +580,15 @@ MU_TEST(memory_CartRam_test_multiple_array_sizes)
 
 MU_TEST_SUITE(memory_CartRam_test_suite)
 {
-    MU_SUITE_CONFIGURE_WITH_HEADER(&memory_CartRam_test_setup,
-        &memory_CartRam_test_teardown,
-        &memory_CartRam_test_output_header);
+    // No cartridge RAM (no cartridge, or CartRam not implemented yet): nothing to test here.
+    // memory_common_cartram_present_or_absent checks that CartRam calls fail cleanly in that case.
+    if (Memory::CartRam::GetSize() == 0)
+    {
+        LogInfo("memory_CartRam_test_suite skipped: no cartridge RAM");
+        return;
+    }
+
+    MU_SUITE_CONFIGURE(&memory_CartRam_test_setup, &memory_CartRam_test_teardown);
 
     MU_RUN_TEST(memory_CartRam_test_malloc_free);
     MU_RUN_TEST(memory_CartRam_test_multiple_sizes_malloc_free);

@@ -466,17 +466,14 @@ namespace SRL
             return static_cast<Status>(StatusRegister());
         }
 
-        /** @brief Clear interrupt status bits (write-1-to-clear).
+        /** @brief Clear interrupt status bits
          *  @param status Status bits to clear
-         *  @details Writes to the SCU IST register at 0x25FE00A4. Set bits in the
-         *           parameter clear the corresponding interrupt status flags.
-         *
-         *  @warning Writing incorrect values may clear status bits you intended to preserve.
-         *           Always use specific Status flags rather than raw values.
+         *  @details Writes to the SCU IST register at 0x25FE00A4, which clears the bits written as 0 and keeps the
+         *           bits written as 1: the bits set in the parameter are cleared, the other status flags are kept.
          */
         static void ResetStatus(Status status)
         {
-            StatusRegister() = static_cast<uint32_t>(status);
+            StatusRegister() = ~static_cast<uint32_t>(status);
         }
 
         /** @brief Set the A-Bus interrupt acknowledge register.

@@ -1,0 +1,54 @@
+// Tests/campaigns/math/main.cxx
+// Pure logic: fixed point, angles, math types. No hardware state.
+#include "campaign.hpp"
+
+#include "testsAngle.hpp"
+#include "testsFxp.hpp"
+#include "testsMath.hpp"
+#include "testsHighColor.hpp"
+#include "testsTrigonometry.hpp"
+#include "testsVector2D.hpp"
+#include "testsVector3D.hpp"
+#include "testsMatrixStack.hpp"
+#include "testsPrecision.hpp"
+#include "testsRandom.hpp"
+#include "testsSortOrder.hpp"
+#include "testsUtils.hpp"
+#include "testsEulerAngles.hpp"
+#include "testsMat33.hpp"
+#include "testsMat43.hpp"
+#include "testsPlane.hpp"
+#include "testsSphere.hpp"
+#include "testsAABB.hpp"
+#include "testsCollision.hpp"
+#include "testsFrustum.hpp"
+#include "testsInterpolation.hpp"
+
+int main()
+{
+    BeginCampaign();
+
+    RUN_AND_DISPLAY_SUITE(angle_test_suite);
+    RUN_AND_DISPLAY_SUITE(fxp_test_suite);
+    RUN_AND_DISPLAY_SUITE(math_test_suite);
+    RUN_AND_DISPLAY_SUITE(highcolor_test_suite);
+    RUN_AND_DISPLAY_SUITE(trigonometry_test_suite);
+    RUN_AND_DISPLAY_SUITE(vector2d_test_suite);
+    RUN_AND_DISPLAY_SUITE(vector3d_test_suite);
+    RUN_AND_DISPLAY_SUITE(matrix_stack_test_suite);
+    RUN_AND_DISPLAY_SUITE(precision_test_suite);
+    RUN_AND_DISPLAY_SUITE(random_test_suite);
+    RUN_AND_DISPLAY_SUITE(sort_order_test_suite);
+    RUN_AND_DISPLAY_SUITE(utils_test_suite);
+    RUN_AND_DISPLAY_SUITE(euler_angles_test_suite);
+    RUN_AND_DISPLAY_SUITE(mat33_test_suite);
+    RUN_AND_DISPLAY_SUITE(mat43_test_suite);
+    RUN_AND_DISPLAY_SUITE(plane_test_suite);
+    RUN_AND_DISPLAY_SUITE(sphere_test_suite);
+    RUN_AND_DISPLAY_SUITE(aabb_test_suite);
+    RUN_AND_DISPLAY_SUITE(collision_test_suite);
+    RUN_AND_DISPLAY_SUITE(frustum_test_suite);
+    RUN_AND_DISPLAY_SUITE(interpolation_test_suite);
+
+    EndCampaign();
+}

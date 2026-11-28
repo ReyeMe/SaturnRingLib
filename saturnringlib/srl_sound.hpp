@@ -120,13 +120,26 @@ namespace SRL::Sound
             SND_SetCdDaPan(left, right);
         }
 
+		/** @brief Disc track of a track number
+		 *  @details A program started by an FLD menu (SRL::Fld::ExecGame) has its first CD-DA track on the
+		 *  track the menu gave instead of track 2, so track numbers are moved by the same amount.
+		 *  @param track Track number as if the program were alone on its disc
+		 *  @return Track number on the disc
+		 */
+		static uint16_t DiscTrack(const uint16_t track)
+		{
+            return GFS_IS_DDS() ? static_cast<uint16_t>(track + GFS_DDS_TNO() - 2) : track;
+		}
+
 		/** @brief Play range of tracks
-		 *  @param fromTrack Starting track
-		 *  @param toTrack Ending track
+		 *  @param firstTrack Starting track (track 2 is the first CD-DA track)
+		 *  @param lastTrack Ending track
 		 *  @param loop Whether to play the range of track again after it ends
 		 */
-		static void Play(const uint16_t fromTrack, const uint16_t toTrack, const bool loop)
+		static void Play(const uint16_t firstTrack, const uint16_t lastTrack, const bool loop)
         {
+            const uint16_t fromTrack = Cdda::DiscTrack(firstTrack);
+            const uint16_t toTrack = Cdda::DiscTrack(lastTrack);
             Cdda::TargetTrack = toTrack;
             Cdda::LoopPlayback = loop;
 

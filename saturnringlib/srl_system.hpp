@@ -206,18 +206,14 @@ namespace SRL
 
         /** @brief Atomically test and set a system semaphore.
          *  @param semaphore Semaphore number to test and set
-         *  @return Previous value: 0 if the semaphore was free (now acquired),
-         *          non-zero if it was already held
-         *  @details Calls the BIOS entry at 0x6000330. Internally uses the SH-2 TAS.B
-         *           (Test And Set) instruction for atomic read-modify-write.
-         *
-         *  @warning Many emulators (including Mednafen) do not correctly emulate the
-         *           TAS.B instruction's bus cycle. This function may return incorrect
-         *           results in emulated environments.
+         *  @return 1 if the semaphore was free and is now taken, 0 if it was already taken
+         *  @details Calls the BIOS entry at 0x6000330 (tas.b, then movt r0). The SH-2 TAS.B
+         *           (Test And Set) instruction reads and marks the semaphore byte in one bus
+         *           cycle, and sets T when the byte was 0 (free); the BIOS returns T.
          *
          *  @par Example:
          *  @code
-         *  if (System::TestAndSetSemaphore(5) == 0) {
+         *  if (System::TestAndSetSemaphore(5) != 0) {
          *      // Semaphore acquired - critical section
          *      System::ClearSemaphore(5);
          *  }
